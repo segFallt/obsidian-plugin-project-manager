@@ -1,0 +1,10 @@
+{
+  "id": "project-manager",
+  "name": "Project Manager",
+  "version": "0.1.0",
+  "minAppVersion": "1.4.0",
+  "description": "Client-Engagement-Project hierarchy manager for consulting and contracting workflows.",
+  "author": "Project Manager Plugin",
+  "authorUrl": "",
+  "isDesktopOnly": false
+}
