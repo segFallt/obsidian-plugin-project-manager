@@ -1,5 +1,6 @@
 import { MarkdownRenderChild, parseYaml } from "obsidian";
-import type ProjectManagerPlugin from "../main";
+import type { MarkdownPostProcessorContext } from "obsidian";
+import type { PluginServices, RegisterProcessorFn } from "../plugin-context";
 import type { PmTableConfig, DataviewPage } from "../types";
 import { normalizeToName } from "../utils/link-utils";
 import { formatDate } from "../utils/date-utils";
@@ -19,9 +20,12 @@ import { formatDate } from "../utils/date-utils";
  * type: client-engagements
  * ```
  */
-export function registerPmTableProcessor(plugin: ProjectManagerPlugin): void {
-  plugin.registerMarkdownCodeBlockProcessor("pm-table", (source, el, ctx) => {
-    const child = new PmTableRenderChild(el, source, ctx.sourcePath, plugin);
+export function registerPmTableProcessor(
+  services: PluginServices,
+  registerProcessor: RegisterProcessorFn
+): void {
+  registerProcessor("pm-table", (source, el, ctx: MarkdownPostProcessorContext) => {
+    const child = new PmTableRenderChild(el, source, ctx.sourcePath, services);
     ctx.addChild(child);
     child.render();
   });
@@ -32,7 +36,7 @@ class PmTableRenderChild extends MarkdownRenderChild {
     containerEl: HTMLElement,
     private readonly source: string,
     private readonly sourcePath: string,
-    private readonly plugin: ProjectManagerPlugin
+    private readonly services: PluginServices
   ) {
     super(containerEl);
   }
@@ -61,8 +65,8 @@ class PmTableRenderChild extends MarkdownRenderChild {
   }
 
   private renderTable(config: PmTableConfig): void {
-    const qs = this.plugin.queryService;
-    const currentFile = this.plugin.app.vault.getAbstractFileByPath(this.sourcePath);
+    const qs = this.services.queryService;
+    const currentFile = this.services.app.vault.getAbstractFileByPath(this.sourcePath);
     if (!currentFile || !("basename" in currentFile)) {
       this.renderError("Could not determine current file.");
       return;

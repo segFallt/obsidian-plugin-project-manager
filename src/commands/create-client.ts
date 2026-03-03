@@ -1,17 +1,17 @@
 import { Notice } from "obsidian";
-import type ProjectManagerPlugin from "../main";
+import type { PluginServices, AddCommandFn } from "../plugin-context";
 import { InputModal } from "../ui/modals/input-modal";
 
 /**
  * PM: Create Client
  * Prompts for a name and creates a new client note.
  */
-export function registerCreateClientCommand(plugin: ProjectManagerPlugin): void {
-  plugin.addCommand({
+export function registerCreateClientCommand(services: PluginServices, addCommand: AddCommandFn): void {
+  addCommand({
     id: "create-client",
     name: "PM: Create Client",
     callback: async () => {
-      const modal = new InputModal(plugin.app, "New client name:", "e.g. Acme Corp");
+      const modal = new InputModal(services.app, "New client name:", "e.g. Acme Corp");
       const name = await modal.prompt();
 
       if (!name) {
@@ -20,7 +20,7 @@ export function registerCreateClientCommand(plugin: ProjectManagerPlugin): void 
       }
 
       try {
-        await plugin.entityService.createClient(name);
+        await services.entityService.createClient(name);
       } catch (err) {
         new Notice(`Error creating client: ${String(err)}`);
       }

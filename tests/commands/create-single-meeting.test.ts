@@ -10,8 +10,8 @@ vi.mock("../../src/ui/modals/entity-creation-modal", () => ({
 
 describe("registerCreateSingleMeetingCommand", () => {
   it("calls entityService.createSingleMeeting with name and engagement", async () => {
-    const { plugin, commands, entityService } = createMockPlugin();
-    registerCreateSingleMeetingCommand(plugin);
+    const { services, addCommand, commands, entityService } = createMockPlugin();
+    registerCreateSingleMeetingCommand(services, addCommand);
     await runCommand(commands, "create-single-meeting");
     expect(entityService.createSingleMeeting).toHaveBeenCalledWith("Kickoff Meeting", "My Engagement");
   });
@@ -20,8 +20,8 @@ describe("registerCreateSingleMeetingCommand", () => {
     const { EntityCreationModal } = await import("../../src/ui/modals/entity-creation-modal");
     vi.mocked(EntityCreationModal).mockImplementation(() => ({ prompt: vi.fn().mockResolvedValue(null) }) as unknown as InstanceType<typeof EntityCreationModal>);
 
-    const { plugin, commands, entityService } = createMockPlugin();
-    registerCreateSingleMeetingCommand(plugin);
+    const { services, addCommand, commands, entityService } = createMockPlugin();
+    registerCreateSingleMeetingCommand(services, addCommand);
     await runCommand(commands, "create-single-meeting");
     expect(entityService.createSingleMeeting).not.toHaveBeenCalled();
   });
@@ -30,9 +30,9 @@ describe("registerCreateSingleMeetingCommand", () => {
     const { EntityCreationModal } = await import("../../src/ui/modals/entity-creation-modal");
     vi.mocked(EntityCreationModal).mockImplementation(() => ({ prompt: vi.fn().mockResolvedValue({ name: "Mtg", parentName: null }) }) as unknown as InstanceType<typeof EntityCreationModal>);
 
-    const { plugin, commands, entityService } = createMockPlugin();
+    const { services, addCommand, commands, entityService } = createMockPlugin();
     entityService.createSingleMeeting.mockRejectedValue(new Error("fail"));
-    registerCreateSingleMeetingCommand(plugin);
+    registerCreateSingleMeetingCommand(services, addCommand);
     await expect(runCommand(commands, "create-single-meeting")).resolves.toBeUndefined();
   });
 });

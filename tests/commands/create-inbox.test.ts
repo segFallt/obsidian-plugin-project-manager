@@ -10,8 +10,8 @@ vi.mock("../../src/ui/modals/entity-creation-modal", () => ({
 
 describe("registerCreateInboxCommand", () => {
   it("calls entityService.createInboxNote with name and engagement", async () => {
-    const { plugin, commands, entityService } = createMockPlugin();
-    registerCreateInboxCommand(plugin);
+    const { services, addCommand, commands, entityService } = createMockPlugin();
+    registerCreateInboxCommand(services, addCommand);
     await runCommand(commands, "create-inbox");
     expect(entityService.createInboxNote).toHaveBeenCalledWith("Fix bug", "Q1 Engagement");
   });
@@ -20,8 +20,8 @@ describe("registerCreateInboxCommand", () => {
     const { EntityCreationModal } = await import("../../src/ui/modals/entity-creation-modal");
     vi.mocked(EntityCreationModal).mockImplementation(() => ({ prompt: vi.fn().mockResolvedValue(null) }) as unknown as InstanceType<typeof EntityCreationModal>);
 
-    const { plugin, commands, entityService } = createMockPlugin();
-    registerCreateInboxCommand(plugin);
+    const { services, addCommand, commands, entityService } = createMockPlugin();
+    registerCreateInboxCommand(services, addCommand);
     await runCommand(commands, "create-inbox");
     expect(entityService.createInboxNote).not.toHaveBeenCalled();
   });
@@ -30,9 +30,9 @@ describe("registerCreateInboxCommand", () => {
     const { EntityCreationModal } = await import("../../src/ui/modals/entity-creation-modal");
     vi.mocked(EntityCreationModal).mockImplementation(() => ({ prompt: vi.fn().mockResolvedValue({ name: "Task", parentName: null }) }) as unknown as InstanceType<typeof EntityCreationModal>);
 
-    const { plugin, commands, entityService } = createMockPlugin();
+    const { services, addCommand, commands, entityService } = createMockPlugin();
     entityService.createInboxNote.mockRejectedValue(new Error("fail"));
-    registerCreateInboxCommand(plugin);
+    registerCreateInboxCommand(services, addCommand);
     await expect(runCommand(commands, "create-inbox")).resolves.toBeUndefined();
   });
 });

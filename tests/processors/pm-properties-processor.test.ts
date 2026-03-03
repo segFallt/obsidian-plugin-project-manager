@@ -1,10 +1,11 @@
 import { describe, it, expect, vi } from "vitest";
 import { registerPmPropertiesProcessor } from "../../src/processors/pm-properties-processor";
 import { TFile } from "../mocks/obsidian-mock";
+import type { PluginServices, RegisterProcessorFn } from "../../src/plugin-context";
 
-// ─── Mock plugin factory ────────────────────────────────────────────────────
+// ─── Mock services factory ───────────────────────────────────────────────────
 
-function createPlugin(
+function createMockServices(
   sourcePathFile: InstanceType<typeof TFile> | null = null,
   frontmatter: Record<string, unknown> = {}
 ) {
@@ -18,10 +19,11 @@ function createPlugin(
 
   const mockFile = sourcePathFile;
 
-  const plugin = {
-    registerMarkdownCodeBlockProcessor: vi.fn((_lang, handler) => {
-      registeredHandler = handler;
-    }),
+  const registerProcessor: RegisterProcessorFn = vi.fn((_lang, handler) => {
+    registeredHandler = handler;
+  });
+
+  const services = {
     app: {
       vault: {
         getAbstractFileByPath: vi.fn((_path: string) => mockFile),
@@ -36,10 +38,11 @@ function createPlugin(
     queryService: {
       getActiveEntitiesByTag: vi.fn(() => []),
     },
-  };
+  } as unknown as PluginServices;
 
   return {
-    plugin: plugin as unknown as import("../../src/main").default,
+    services,
+    registerProcessor,
     getHandler: () => registeredHandler!,
   };
 }
@@ -51,8 +54,8 @@ function render(
   sourcePathFile: InstanceType<typeof TFile> | null = null,
   frontmatter: Record<string, unknown> = {}
 ) {
-  const { plugin, getHandler } = createPlugin(sourcePathFile, frontmatter);
-  registerPmPropertiesProcessor(plugin);
+  const { services, registerProcessor, getHandler } = createMockServices(sourcePathFile, frontmatter);
+  registerPmPropertiesProcessor(services, registerProcessor);
 
   const el = document.createElement("div");
   const children: Array<{ render(): void }> = [];
@@ -71,9 +74,9 @@ function render(
 
 describe("pm-properties processor", () => {
   it("registers a 'pm-properties' code block processor", () => {
-    const { plugin } = createPlugin();
-    registerPmPropertiesProcessor(plugin);
-    expect(plugin.registerMarkdownCodeBlockProcessor).toHaveBeenCalledWith(
+    const { services, registerProcessor } = createMockServices();
+    registerPmPropertiesProcessor(services, registerProcessor);
+    expect(registerProcessor).toHaveBeenCalledWith(
       "pm-properties",
       expect.any(Function)
     );

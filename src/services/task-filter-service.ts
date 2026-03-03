@@ -10,7 +10,7 @@ import type {
 import { normalizeToName } from "../utils/link-utils";
 import { todayISO } from "../utils/date-utils";
 import { getTaskContext, getTaskPriority, addDays } from "../utils/task-utils";
-import type { QueryService } from "./query-service";
+import type { IQueryService, ITaskFilterService } from "./interfaces";
 
 /**
  * Pure filtering logic for the task dashboard and by-project views.
@@ -18,7 +18,7 @@ import type { QueryService } from "./query-service";
  * All methods are free of DOM side-effects — they accept data and return
  * filtered arrays. This makes them straightforward to unit-test.
  */
-export class TaskFilterService {
+export class TaskFilterService implements ITaskFilterService {
   /**
    * Applies all dashboard filters to a task list.
    * Context-specific filters (project status, inbox status, meeting date) are
@@ -28,7 +28,7 @@ export class TaskFilterService {
     tasks: DataviewTask[],
     f: DashboardFilters,
     dv: DataviewApi,
-    queryService: QueryService
+    queryService: IQueryService
   ): DataviewTask[] {
     let filtered = tasks;
 
@@ -159,7 +159,7 @@ export class TaskFilterService {
     clientFilter: string[],
     includeUnassigned: boolean,
     dv: DataviewApi,
-    queryService: QueryService
+    queryService: IQueryService
   ): boolean {
     if (clientFilter.length === 0 && !includeUnassigned) return true;
 

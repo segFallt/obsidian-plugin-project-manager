@@ -1,5 +1,6 @@
 import type { EntityType } from "../types";
 import { todayISO, nowDatetime } from "../utils/date-utils";
+import type { ITemplateService } from "./interfaces";
 
 /**
  * Provides embedded note templates for all entity types.
@@ -10,7 +11,7 @@ import { todayISO, nowDatetime } from "../utils/date-utils";
  * Available variables: {{date}}, {{datetime}}, {{name}}, {{notesDir}},
  *                      {{engagement}}, {{relatedProject}}
  */
-export class TemplateService {
+export class TemplateService implements ITemplateService {
   /**
    * Returns the raw template string for the given entity type.
    */

@@ -1,7 +1,8 @@
 import { App, Notice, TFile } from "obsidian";
 import type { EntityType, CreateFileResult } from "../types";
 import type { ProjectManagerSettings } from "../settings";
-import type { TemplateService } from "./template-service";
+import type { IEntityService } from "./interfaces";
+import type { ITemplateService } from "./interfaces";
 import {
   ensureFolderExists,
   resolveConflictPath,
@@ -20,11 +21,11 @@ import { getFrontmatter } from "../utils/frontmatter-utils";
  * - Set frontmatter values via processFrontMatter
  * - Open newly created files in a new tab
  */
-export class EntityService {
+export class EntityService implements IEntityService {
   constructor(
     private readonly app: App,
     private readonly settings: ProjectManagerSettings,
-    private readonly templates: TemplateService
+    private readonly templates: ITemplateService
   ) {}
 
   // ─── Entity creation ─────────────────────────────────────────────────────

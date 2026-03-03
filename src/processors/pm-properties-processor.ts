@@ -1,5 +1,6 @@
 import { MarkdownRenderChild, TFile, parseYaml } from "obsidian";
-import type ProjectManagerPlugin from "../main";
+import type { MarkdownPostProcessorContext } from "obsidian";
+import type { PluginServices, RegisterProcessorFn } from "../plugin-context";
 import type { PmPropertiesConfig, EntityType } from "../types";
 import { ENTITY_TAGS } from "../constants";
 import { normalizeToName } from "../utils/link-utils";
@@ -15,9 +16,12 @@ import { normalizeToName } from "../utils/link-utils";
  * entity: project
  * ```
  */
-export function registerPmPropertiesProcessor(plugin: ProjectManagerPlugin): void {
-  plugin.registerMarkdownCodeBlockProcessor("pm-properties", (source, el, ctx) => {
-    const child = new PmPropertiesRenderChild(el, source, ctx.sourcePath, plugin);
+export function registerPmPropertiesProcessor(
+  services: PluginServices,
+  registerProcessor: RegisterProcessorFn
+): void {
+  registerProcessor("pm-properties", (source, el, ctx: MarkdownPostProcessorContext) => {
+    const child = new PmPropertiesRenderChild(el, source, ctx.sourcePath, services);
     ctx.addChild(child);
     child.render();
   });
@@ -105,7 +109,7 @@ class PmPropertiesRenderChild extends MarkdownRenderChild {
     containerEl: HTMLElement,
     private readonly source: string,
     private readonly sourcePath: string,
-    private readonly plugin: ProjectManagerPlugin
+    private readonly services: PluginServices
   ) {
     super(containerEl);
   }
@@ -132,13 +136,13 @@ class PmPropertiesRenderChild extends MarkdownRenderChild {
       return;
     }
 
-    const file = this.plugin.app.vault.getAbstractFileByPath(this.sourcePath);
+    const file = this.services.app.vault.getAbstractFileByPath(this.sourcePath);
     if (!(file instanceof TFile)) {
       this.renderError("Could not resolve current file.");
       return;
     }
 
-    const fm = this.plugin.app.metadataCache.getFileCache(file)?.frontmatter ?? {};
+    const fm = this.services.app.metadataCache.getFileCache(file)?.frontmatter ?? {};
 
     const form = this.containerEl.createDiv({ cls: "pm-properties" });
 
@@ -268,7 +272,7 @@ class PmPropertiesRenderChild extends MarkdownRenderChild {
   ): void {
     if (!field.entityTag) return;
 
-    const pages = this.plugin.queryService.getActiveEntitiesByTag(field.entityTag);
+    const pages = this.services.queryService.getActiveEntitiesByTag(field.entityTag);
     const currentName = normalizeToName(rawValue);
 
     const select = row.createEl("select", { cls: "pm-properties__select dropdown" });
@@ -300,7 +304,7 @@ class PmPropertiesRenderChild extends MarkdownRenderChild {
   ): void {
     if (!field.entityTag) return;
 
-    const pages = this.plugin.queryService.getActiveEntitiesByTag(field.entityTag);
+    const pages = this.services.queryService.getActiveEntitiesByTag(field.entityTag);
     const currentItems = this.parseListValue(rawValue);
 
     const wrapper = row.createDiv({ cls: "pm-properties__list-suggester" });
@@ -342,7 +346,7 @@ class PmPropertiesRenderChild extends MarkdownRenderChild {
       const name = addSelect.value;
       if (!name) return;
       const existing = this.parseListValue(
-        this.plugin.app.metadataCache.getFileCache(file)?.frontmatter?.[field.key]
+        this.services.app.metadataCache.getFileCache(file)?.frontmatter?.[field.key]
       );
       if (!existing.includes(name)) {
         const newItems = [...existing, name];
@@ -371,7 +375,7 @@ class PmPropertiesRenderChild extends MarkdownRenderChild {
     key: string,
     value: unknown
   ): Promise<void> {
-    await this.plugin.app.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => {
+    await this.services.app.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => {
       if (value === null) {
         delete fm[key];
       } else {

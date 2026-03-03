@@ -1,13 +1,14 @@
 import { App, Notice } from "obsidian";
 import type { ProjectManagerSettings } from "../settings";
 import { ensureFolderExists } from "../utils/path-utils";
+import type { IScaffoldService } from "./interfaces";
 
 /**
  * Creates the full vault folder structure and default view files.
  *
  * Safe to run on an existing vault — existing files are not overwritten.
  */
-export class VaultScaffoldService {
+export class VaultScaffoldService implements IScaffoldService {
   constructor(
     private readonly app: App,
     private readonly settings: ProjectManagerSettings

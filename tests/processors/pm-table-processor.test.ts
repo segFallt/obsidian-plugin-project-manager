@@ -2,8 +2,9 @@ import { describe, it, expect, vi } from "vitest";
 import { registerPmTableProcessor } from "../../src/processors/pm-table-processor";
 import { createMockDataviewApi, createMockPage } from "../mocks/dataview-mock";
 import { TFile } from "../mocks/obsidian-mock";
+import type { PluginServices, RegisterProcessorFn } from "../../src/plugin-context";
 
-function createMockPlugin(pages: Parameters<typeof createMockDataviewApi>[0] = []) {
+function createMockServices(pages: Parameters<typeof createMockDataviewApi>[0] = []) {
   const dv = createMockDataviewApi(pages);
 
   const sourceFile = new TFile("clients/Acme.md");
@@ -26,25 +27,27 @@ function createMockPlugin(pages: Parameters<typeof createMockDataviewApi>[0] = [
 
   let registeredHandler: ((source: string, el: HTMLElement, ctx: unknown) => void) | null = null;
 
-  const plugin = {
+  const registerProcessor: RegisterProcessorFn = vi.fn((lang, handler) => {
+    registeredHandler = handler;
+  });
+
+  const services = {
     app,
     queryService,
-    registerMarkdownCodeBlockProcessor: vi.fn((lang, handler) => {
-      registeredHandler = handler;
-    }),
-  };
+  } as unknown as PluginServices;
 
   return {
-    plugin: plugin as unknown as import("../../src/main").default,
+    services,
+    registerProcessor,
     queryService,
     dv,
     getHandler: () => registeredHandler!,
   };
 }
 
-function render(source: string, pluginOpts?: Parameters<typeof createMockPlugin>[0]) {
-  const { plugin, queryService, getHandler } = createMockPlugin(pluginOpts);
-  registerPmTableProcessor(plugin);
+function render(source: string, serviceOpts?: Parameters<typeof createMockServices>[0]) {
+  const { services, registerProcessor, queryService, getHandler } = createMockServices(serviceOpts);
+  registerPmTableProcessor(services, registerProcessor);
 
   const el = document.createElement("div");
   const ctx = {
@@ -58,12 +61,9 @@ function render(source: string, pluginOpts?: Parameters<typeof createMockPlugin>
 
 describe("pm-table processor", () => {
   it("registers a 'pm-table' code block processor", () => {
-    const { plugin } = createMockPlugin();
-    registerPmTableProcessor(plugin);
-    expect(plugin.registerMarkdownCodeBlockProcessor).toHaveBeenCalledWith(
-      "pm-table",
-      expect.any(Function)
-    );
+    const { services, registerProcessor } = createMockServices();
+    registerPmTableProcessor(services, registerProcessor);
+    expect(registerProcessor).toHaveBeenCalledWith("pm-table", expect.any(Function));
   });
 
   it("shows error when type is missing", () => {
@@ -80,8 +80,8 @@ describe("pm-table processor", () => {
     });
 
     it("renders a table with engagements when data exists", () => {
-      const { plugin, queryService, getHandler } = createMockPlugin();
-      registerPmTableProcessor(plugin);
+      const { services, registerProcessor, queryService, getHandler } = createMockServices();
+      registerPmTableProcessor(services, registerProcessor);
 
       const pages = [
         createMockPage({

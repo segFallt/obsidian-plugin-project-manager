@@ -4,8 +4,8 @@ import { createMockPlugin, runCommand } from "./helpers";
 
 describe("registerScaffoldVaultCommand", () => {
   it("calls scaffoldService.scaffoldVault", async () => {
-    const { plugin, commands, scaffoldService } = createMockPlugin();
-    registerScaffoldVaultCommand(plugin);
+    const { services, addCommand, commands, scaffoldService } = createMockPlugin();
+    registerScaffoldVaultCommand(services, addCommand);
     await runCommand(commands, "scaffold-vault");
     expect(scaffoldService.scaffoldVault).toHaveBeenCalledOnce();
   });

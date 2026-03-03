@@ -1,5 +1,5 @@
 import { Notice } from "obsidian";
-import type ProjectManagerPlugin from "../main";
+import type { PluginServices, AddCommandFn } from "../plugin-context";
 import { InputModal } from "../ui/modals/input-modal";
 
 /**
@@ -10,19 +10,19 @@ import { InputModal } from "../ui/modals/input-modal";
  * - Links the inbox note back to the project (bidirectional)
  * - Sets inbox status to Inactive
  */
-export function registerConvertInboxCommand(plugin: ProjectManagerPlugin): void {
-  plugin.addCommand({
+export function registerConvertInboxCommand(services: PluginServices, addCommand: AddCommandFn): void {
+  addCommand({
     id: "convert-inbox",
     name: "PM: Convert Inbox to Project",
     callback: async () => {
-      const activeFile = plugin.app.workspace.getActiveFile();
+      const activeFile = services.app.workspace.getActiveFile();
 
       if (!activeFile) {
         new Notice("No active file. Open an inbox item to convert it.");
         return;
       }
 
-      if (!activeFile.path.startsWith(plugin.settings.folders.inbox + "/")) {
+      if (!activeFile.path.startsWith(services.settings.folders.inbox + "/")) {
         new Notice(
           "The active file is not in the inbox folder. " +
             "Open an inbox item to use this command."
@@ -31,7 +31,7 @@ export function registerConvertInboxCommand(plugin: ProjectManagerPlugin): void 
       }
 
       const modal = new InputModal(
-        plugin.app,
+        services.app,
         "Project name:",
         "Project name",
         activeFile.basename
@@ -44,7 +44,7 @@ export function registerConvertInboxCommand(plugin: ProjectManagerPlugin): void 
       }
 
       try {
-        await plugin.entityService.convertInboxToProject(activeFile, projectName);
+        await services.entityService.convertInboxToProject(activeFile, projectName);
       } catch (err) {
         new Notice(`Error converting inbox to project: ${String(err)}`);
       }

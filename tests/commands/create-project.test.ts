@@ -10,8 +10,8 @@ vi.mock("../../src/ui/modals/entity-creation-modal", () => ({
 
 describe("registerCreateProjectCommand", () => {
   it("calls entityService.createProject with name and engagement", async () => {
-    const { plugin, commands, entityService } = createMockPlugin();
-    registerCreateProjectCommand(plugin);
+    const { services, addCommand, commands, entityService } = createMockPlugin();
+    registerCreateProjectCommand(services, addCommand);
     await runCommand(commands, "create-project");
     expect(entityService.createProject).toHaveBeenCalledWith("My Project", "Q1 Engagement");
   });
@@ -20,8 +20,8 @@ describe("registerCreateProjectCommand", () => {
     const { EntityCreationModal } = await import("../../src/ui/modals/entity-creation-modal");
     vi.mocked(EntityCreationModal).mockImplementation(() => ({ prompt: vi.fn().mockResolvedValue(null) }) as unknown as InstanceType<typeof EntityCreationModal>);
 
-    const { plugin, commands, entityService } = createMockPlugin();
-    registerCreateProjectCommand(plugin);
+    const { services, addCommand, commands, entityService } = createMockPlugin();
+    registerCreateProjectCommand(services, addCommand);
     await runCommand(commands, "create-project");
     expect(entityService.createProject).not.toHaveBeenCalled();
   });
@@ -30,9 +30,9 @@ describe("registerCreateProjectCommand", () => {
     const { EntityCreationModal } = await import("../../src/ui/modals/entity-creation-modal");
     vi.mocked(EntityCreationModal).mockImplementation(() => ({ prompt: vi.fn().mockResolvedValue({ name: "Proj", parentName: null }) }) as unknown as InstanceType<typeof EntityCreationModal>);
 
-    const { plugin, commands, entityService } = createMockPlugin();
+    const { services, addCommand, commands, entityService } = createMockPlugin();
     entityService.createProject.mockRejectedValue(new Error("fail"));
-    registerCreateProjectCommand(plugin);
+    registerCreateProjectCommand(services, addCommand);
     await expect(runCommand(commands, "create-project")).resolves.toBeUndefined();
   });
 });

@@ -1,5 +1,6 @@
 import { MarkdownRenderChild, parseYaml } from "obsidian";
-import type ProjectManagerPlugin from "../main";
+import type { MarkdownPostProcessorContext } from "obsidian";
+import type { PluginServices, RegisterProcessorFn } from "../plugin-context";
 import type { PmActionsConfig, PmActionConfig } from "../types";
 
 /**
@@ -21,9 +22,12 @@ import type { PmActionsConfig, PmActionConfig } from "../types";
  * Built-in action types map to plugin command IDs.
  * Custom commandId can override the default mapping.
  */
-export function registerPmActionsProcessor(plugin: ProjectManagerPlugin): void {
-  plugin.registerMarkdownCodeBlockProcessor("pm-actions", (source, el, ctx) => {
-    const child = new PmActionsRenderChild(el, source, plugin);
+export function registerPmActionsProcessor(
+  services: PluginServices,
+  registerProcessor: RegisterProcessorFn
+): void {
+  registerProcessor("pm-actions", (source, el, ctx: MarkdownPostProcessorContext) => {
+    const child = new PmActionsRenderChild(el, source, services);
     ctx.addChild(child);
     child.render();
   });
@@ -47,7 +51,7 @@ class PmActionsRenderChild extends MarkdownRenderChild {
   constructor(
     containerEl: HTMLElement,
     private readonly source: string,
-    private readonly plugin: ProjectManagerPlugin
+    private readonly services: PluginServices
   ) {
     super(containerEl);
   }
@@ -96,7 +100,7 @@ class PmActionsRenderChild extends MarkdownRenderChild {
     }
 
     btn.addEventListener("click", () => {
-      (this.plugin.app as unknown as { commands: { executeCommandById: (id: string) => void } })
+      (this.services.app as unknown as { commands: { executeCommandById: (id: string) => void } })
         .commands.executeCommandById(commandId);
     });
   }

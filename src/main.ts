@@ -5,6 +5,13 @@ import { EntityService } from "./services/entity-service";
 import { TemplateService } from "./services/template-service";
 import { TaskParser } from "./services/task-parser";
 import { VaultScaffoldService } from "./services/vault-scaffold-service";
+import type {
+  IQueryService,
+  IEntityService,
+  ITemplateService,
+  ITaskParser,
+  IScaffoldService,
+} from "./services/interfaces";
 import { registerAllCommands } from "./commands";
 import { registerAllProcessors } from "./processors";
 import type { DataviewApi } from "./types";
@@ -19,12 +26,15 @@ import { DATAVIEW_PLUGIN_ID } from "./constants";
 export default class ProjectManagerPlugin extends Plugin {
   settings!: ProjectManagerSettings;
 
-  // Services (initialised in onload after settings are loaded)
-  queryService!: QueryService;
-  entityService!: EntityService;
-  templateService!: TemplateService;
-  taskParser!: TaskParser;
-  scaffoldService!: VaultScaffoldService;
+  // Services declared as interface types (DIP boundary).
+  // Concrete classes are only referenced inside initServices().
+  queryService!: IQueryService;
+  entityService!: IEntityService;
+  taskParser!: ITaskParser;
+  scaffoldService!: IScaffoldService;
+
+  // templateService is internal — used only by EntityService, not exposed to commands/processors.
+  private templateService!: ITemplateService;
 
   async onload() {
     await this.loadSettings();

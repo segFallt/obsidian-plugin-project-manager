@@ -1,5 +1,5 @@
 import { Notice } from "obsidian";
-import type ProjectManagerPlugin from "../main";
+import type { PluginServices, AddCommandFn } from "../plugin-context";
 import { InputModal } from "../ui/modals/input-modal";
 
 /**
@@ -7,19 +7,19 @@ import { InputModal } from "../ui/modals/input-modal";
  * Context: the active file must be a project with a `notesDirectory` frontmatter property.
  * Prompts for a note name, then creates the note in the project's notes directory.
  */
-export function registerCreateProjectNoteCommand(plugin: ProjectManagerPlugin): void {
-  plugin.addCommand({
+export function registerCreateProjectNoteCommand(services: PluginServices, addCommand: AddCommandFn): void {
+  addCommand({
     id: "create-project-note",
     name: "PM: Create Project Note",
     callback: async () => {
-      const activeFile = plugin.app.workspace.getActiveFile();
+      const activeFile = services.app.workspace.getActiveFile();
 
       if (!activeFile) {
         new Notice("No active file. Open a project note to use this command.");
         return;
       }
 
-      const cache = plugin.app.metadataCache.getFileCache(activeFile);
+      const cache = services.app.metadataCache.getFileCache(activeFile);
       const notesDir = cache?.frontmatter?.notesDirectory as string | undefined;
 
       if (!notesDir) {
@@ -30,7 +30,7 @@ export function registerCreateProjectNoteCommand(plugin: ProjectManagerPlugin): 
         return;
       }
 
-      const modal = new InputModal(plugin.app, "New project note name:", "Note name");
+      const modal = new InputModal(services.app, "New project note name:", "Note name");
       const noteName = await modal.prompt();
 
       if (!noteName) {
@@ -39,7 +39,7 @@ export function registerCreateProjectNoteCommand(plugin: ProjectManagerPlugin): 
       }
 
       try {
-        await plugin.entityService.createProjectNote(activeFile, noteName);
+        await services.entityService.createProjectNote(activeFile, noteName);
       } catch (err) {
         new Notice(`Error creating project note: ${String(err)}`);
       }

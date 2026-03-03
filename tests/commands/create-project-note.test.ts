@@ -12,11 +12,11 @@ vi.mock("../../src/ui/modals/input-modal", () => ({
 describe("registerCreateProjectNoteCommand", () => {
   it("calls entityService.createProjectNote when active file has notesDirectory", async () => {
     const activeFile = new TFile("projects/Foo.md");
-    const { plugin, commands, entityService } = createMockPlugin({
+    const { services, addCommand, commands, entityService } = createMockPlugin({
       activeFile,
       notesDirectory: "projects/notes/foo",
     });
-    registerCreateProjectNoteCommand(plugin);
+    registerCreateProjectNoteCommand(services, addCommand);
     await runCommand(commands, "create-project-note");
     expect(entityService.createProjectNote).toHaveBeenCalledWith(
       activeFile,
@@ -25,18 +25,18 @@ describe("registerCreateProjectNoteCommand", () => {
   });
 
   it("shows Notice and does NOT call createProjectNote when no active file", async () => {
-    const { plugin, commands, entityService } = createMockPlugin({ activeFile: null });
-    registerCreateProjectNoteCommand(plugin);
+    const { services, addCommand, commands, entityService } = createMockPlugin({ activeFile: null });
+    registerCreateProjectNoteCommand(services, addCommand);
     await runCommand(commands, "create-project-note");
     expect(entityService.createProjectNote).not.toHaveBeenCalled();
   });
 
   it("shows Notice when active file has no notesDirectory", async () => {
     const activeFile = new TFile("projects/Foo.md");
-    const { plugin, commands, entityService, app } = createMockPlugin({ activeFile });
+    const { services, addCommand, commands, entityService, app } = createMockPlugin({ activeFile });
     // No notesDirectory in cache
     app.metadataCache.getFileCache = () => ({ frontmatter: {} });
-    registerCreateProjectNoteCommand(plugin);
+    registerCreateProjectNoteCommand(services, addCommand);
     await runCommand(commands, "create-project-note");
     expect(entityService.createProjectNote).not.toHaveBeenCalled();
   });
@@ -46,11 +46,11 @@ describe("registerCreateProjectNoteCommand", () => {
     vi.mocked(InputModal).mockImplementation(() => ({ prompt: vi.fn().mockResolvedValue(null) }) as unknown as InstanceType<typeof InputModal>);
 
     const activeFile = new TFile("projects/Foo.md");
-    const { plugin, commands, entityService } = createMockPlugin({
+    const { services, addCommand, commands, entityService } = createMockPlugin({
       activeFile,
       notesDirectory: "projects/notes/foo",
     });
-    registerCreateProjectNoteCommand(plugin);
+    registerCreateProjectNoteCommand(services, addCommand);
     await runCommand(commands, "create-project-note");
     expect(entityService.createProjectNote).not.toHaveBeenCalled();
   });
@@ -60,12 +60,12 @@ describe("registerCreateProjectNoteCommand", () => {
     vi.mocked(InputModal).mockImplementation(() => ({ prompt: vi.fn().mockResolvedValue("Note") }) as unknown as InstanceType<typeof InputModal>);
 
     const activeFile = new TFile("projects/Foo.md");
-    const { plugin, commands, entityService } = createMockPlugin({
+    const { services, addCommand, commands, entityService } = createMockPlugin({
       activeFile,
       notesDirectory: "projects/notes/foo",
     });
     entityService.createProjectNote.mockRejectedValue(new Error("fail"));
-    registerCreateProjectNoteCommand(plugin);
+    registerCreateProjectNoteCommand(services, addCommand);
     await expect(runCommand(commands, "create-project-note")).resolves.toBeUndefined();
   });
 });

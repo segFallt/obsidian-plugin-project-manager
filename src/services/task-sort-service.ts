@@ -1,5 +1,6 @@
 import type { DataviewTask, SortBy } from "../types";
 import { getTaskPriority } from "../utils/task-utils";
+import type { ITaskSortService } from "./interfaces";
 
 /**
  * Pure sorting logic for task lists.
@@ -7,7 +8,7 @@ import { getTaskPriority } from "../utils/task-utils";
  * All methods are free of DOM side-effects — they accept arrays and return
  * new sorted arrays without mutating the originals.
  */
-export class TaskSortService {
+export class TaskSortService implements ITaskSortService {
   /**
    * Sorts an array of tasks by the given sort key.
    * Returns the original array reference if sortBy is "none".

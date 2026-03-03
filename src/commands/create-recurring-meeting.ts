@@ -1,5 +1,5 @@
 import { Notice } from "obsidian";
-import type ProjectManagerPlugin from "../main";
+import type { PluginServices, AddCommandFn } from "../plugin-context";
 import { EntityCreationModal } from "../ui/modals/entity-creation-modal";
 import { ENTITY_TAGS } from "../constants";
 
@@ -7,17 +7,17 @@ import { ENTITY_TAGS } from "../constants";
  * PM: Create Recurring Meeting
  * Prompts for a name and optional engagement, then creates a recurring meeting note.
  */
-export function registerCreateRecurringMeetingCommand(plugin: ProjectManagerPlugin): void {
-  plugin.addCommand({
+export function registerCreateRecurringMeetingCommand(services: PluginServices, addCommand: AddCommandFn): void {
+  addCommand({
     id: "create-recurring-meeting",
     name: "PM: Create Recurring Meeting",
     callback: async () => {
-      const activeEngagements = plugin.queryService.getActiveEntitiesByTag(
+      const activeEngagements = services.queryService.getActiveEntitiesByTag(
         ENTITY_TAGS.engagement
       );
 
       const modal = new EntityCreationModal(
-        plugin.app,
+        services.app,
         "New Recurring Meeting",
         "Meeting name",
         activeEngagements.length > 0 ? "Engagement (optional)" : null,
@@ -31,7 +31,7 @@ export function registerCreateRecurringMeetingCommand(plugin: ProjectManagerPlug
       }
 
       try {
-        await plugin.entityService.createRecurringMeeting(
+        await services.entityService.createRecurringMeeting(
           result.name,
           result.parentName ?? undefined
         );

@@ -10,8 +10,8 @@ vi.mock("../../src/ui/modals/entity-creation-modal", () => ({
 
 describe("registerCreateEngagementCommand", () => {
   it("calls entityService.createEngagement with name and client", async () => {
-    const { plugin, commands, entityService } = createMockPlugin();
-    registerCreateEngagementCommand(plugin);
+    const { services, addCommand, commands, entityService } = createMockPlugin();
+    registerCreateEngagementCommand(services, addCommand);
     await runCommand(commands, "create-engagement");
     expect(entityService.createEngagement).toHaveBeenCalledWith("Q1 Engagement", "Acme Corp");
   });
@@ -20,8 +20,8 @@ describe("registerCreateEngagementCommand", () => {
     const { EntityCreationModal } = await import("../../src/ui/modals/entity-creation-modal");
     vi.mocked(EntityCreationModal).mockImplementation(() => ({ prompt: vi.fn().mockResolvedValue(null) }) as unknown as InstanceType<typeof EntityCreationModal>);
 
-    const { plugin, commands, entityService } = createMockPlugin();
-    registerCreateEngagementCommand(plugin);
+    const { services, addCommand, commands, entityService } = createMockPlugin();
+    registerCreateEngagementCommand(services, addCommand);
     await runCommand(commands, "create-engagement");
     expect(entityService.createEngagement).not.toHaveBeenCalled();
   });
@@ -30,8 +30,8 @@ describe("registerCreateEngagementCommand", () => {
     const { EntityCreationModal } = await import("../../src/ui/modals/entity-creation-modal");
     vi.mocked(EntityCreationModal).mockImplementation(() => ({ prompt: vi.fn().mockResolvedValue({ name: "", parentName: null }) }) as unknown as InstanceType<typeof EntityCreationModal>);
 
-    const { plugin, commands, entityService } = createMockPlugin();
-    registerCreateEngagementCommand(plugin);
+    const { services, addCommand, commands, entityService } = createMockPlugin();
+    registerCreateEngagementCommand(services, addCommand);
     await runCommand(commands, "create-engagement");
     expect(entityService.createEngagement).not.toHaveBeenCalled();
   });
@@ -40,9 +40,9 @@ describe("registerCreateEngagementCommand", () => {
     const { EntityCreationModal } = await import("../../src/ui/modals/entity-creation-modal");
     vi.mocked(EntityCreationModal).mockImplementation(() => ({ prompt: vi.fn().mockResolvedValue({ name: "Eng", parentName: null }) }) as unknown as InstanceType<typeof EntityCreationModal>);
 
-    const { plugin, commands, entityService } = createMockPlugin();
+    const { services, addCommand, commands, entityService } = createMockPlugin();
     entityService.createEngagement.mockRejectedValue(new Error("fail"));
-    registerCreateEngagementCommand(plugin);
+    registerCreateEngagementCommand(services, addCommand);
     await expect(runCommand(commands, "create-engagement")).resolves.toBeUndefined();
   });
 });
