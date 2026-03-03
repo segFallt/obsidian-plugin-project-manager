@@ -2,8 +2,9 @@ name: Release
 
 on:
   push:
-    tags:
-      - "*.*.*"
+    branches:
+      - main
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -15,6 +16,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -25,12 +28,67 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # Quality gate — fail before any release work if code is broken
+      - name: Lint
+        run: npm run lint
+
+      - name: Test (with coverage)
+        run: npm run test:coverage
+
+      # Extract version from manifest.json (source of truth)
+      - name: Extract version
+        id: version
+        run: |
+          VERSION=$(node -p "require('./manifest.json').version")
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=$VERSION" >> "$GITHUB_OUTPUT"
+
+      # Three-state check: no tag/release, tag only, or both already exist
+      - name: Check release state
+        id: release_state
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          if git rev-parse "refs/tags/$TAG" > /dev/null 2>&1; then
+            echo "tag_exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag_exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+          if gh release view "$TAG" > /dev/null 2>&1; then
+            echo "release_exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "release_exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Skip notice (tag + release already exist)
+        if: steps.release_state.outputs.tag_exists == 'true' && steps.release_state.outputs.release_exists == 'true'
+        run: |
+          echo "Tag ${{ steps.version.outputs.tag }} and its GitHub Release already exist."
+          echo "No release action needed for this merge. Bump the version in manifest.json to trigger a new release."
+
+      # Build only when a release will actually be published
       - name: Build
+        if: steps.release_state.outputs.release_exists == 'false'
         run: npm run build
 
+      - name: Create annotated tag
+        if: steps.release_state.outputs.tag_exists == 'false' && steps.release_state.outputs.release_exists == 'false'
+        env:
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "$TAG" -m "Release $TAG"
+          git push origin "$TAG"
+
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v1
+        if: steps.release_state.outputs.release_exists == 'false'
+        uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: ${{ steps.version.outputs.version }}
           files: |
             main.js
             manifest.json
