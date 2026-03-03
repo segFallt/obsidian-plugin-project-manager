@@ -198,3 +198,116 @@ export class MarkdownRenderChild {
   register(_cb: () => void) {}
   registerEvent(_eventRef: EventRef) {}
 }
+
+// ─── parseYaml stub ───────────────────────────────────────────────────────────
+// Simple YAML parser that handles the patterns used by this plugin's processors.
+
+function parseScalar(value: string): unknown {
+  const v = value.trim();
+  if (v === "true") return true;
+  if (v === "false") return false;
+  if (v === "null" || v === "~") return null;
+  const num = Number(v);
+  if (v !== "" && !isNaN(num)) return num;
+  // Strip surrounding quotes
+  if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) {
+    return v.slice(1, -1);
+  }
+  return v;
+}
+
+function getIndent(line: string): number {
+  return line.length - line.trimStart().length;
+}
+
+function parseArrayItem(
+  lines: string[],
+  start: number
+): { result: unknown; end: number } {
+  const itemIndent = getIndent(lines[start]);
+  const content = lines[start].trimStart().substring(2); // strip "- "
+  const obj: Record<string, unknown> = {};
+
+  const colonIdx = content.indexOf(":");
+  if (colonIdx !== -1) {
+    const k = content.substring(0, colonIdx).trim();
+    const v = content.substring(colonIdx + 1).trim();
+    if (v) obj[k] = parseScalar(v);
+  }
+
+  let i = start + 1;
+  while (i < lines.length) {
+    const propLine = lines[i];
+    const propTrimmed = propLine.trimStart();
+    if (!propTrimmed || propTrimmed.startsWith("#")) { i++; continue; }
+    const propIndent = getIndent(propLine);
+    if (propIndent <= itemIndent) break;
+    const propColon = propTrimmed.indexOf(":");
+    if (propColon !== -1) {
+      const k = propTrimmed.substring(0, propColon).trim();
+      const v = propTrimmed.substring(propColon + 1).trim();
+      if (v) obj[k] = parseScalar(v);
+    }
+    i++;
+  }
+  return { result: obj, end: i };
+}
+
+function parseBlock(
+  lines: string[],
+  start: number,
+  minIndent: number
+): { result: Record<string, unknown>; end: number } {
+  const result: Record<string, unknown> = {};
+  let i = start;
+
+  while (i < lines.length) {
+    const rawLine = lines[i];
+    const trimmed = rawLine.trimStart();
+    if (!trimmed || trimmed.startsWith("#")) { i++; continue; }
+
+    const indent = getIndent(rawLine);
+    if (indent < minIndent) break;
+
+    const colonIdx = trimmed.indexOf(":");
+    if (colonIdx === -1) { i++; continue; }
+
+    const key = trimmed.substring(0, colonIdx).trim();
+    const rest = trimmed.substring(colonIdx + 1).trimStart();
+
+    if (rest === "" || rest === "\r") {
+      i++;
+      if (i >= lines.length) { result[key] = null; continue; }
+      const nextLine = lines[i];
+      const nextTrimmed = nextLine.trimStart();
+      const nextIndent = getIndent(nextLine);
+
+      if (nextTrimmed.startsWith("- ")) {
+        const arr: unknown[] = [];
+        while (i < lines.length && lines[i].trimStart().startsWith("- ")) {
+          const item = parseArrayItem(lines, i);
+          arr.push(item.result);
+          i = item.end;
+        }
+        result[key] = arr;
+      } else if (nextIndent > indent) {
+        const nested = parseBlock(lines, i, nextIndent);
+        result[key] = nested.result;
+        i = nested.end;
+      } else {
+        result[key] = null;
+      }
+    } else {
+      result[key] = parseScalar(rest);
+      i++;
+    }
+  }
+
+  return { result, end: i };
+}
+
+export function parseYaml(text: string): unknown {
+  if (!text || !text.trim()) return {};
+  const lines = text.split("\n");
+  return parseBlock(lines, 0, 0).result;
+}

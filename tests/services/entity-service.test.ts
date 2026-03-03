@@ -46,6 +46,145 @@ describe("EntityService", () => {
     });
   });
 
+  describe("createEngagement", () => {
+    it("creates an engagement file in the engagements folder", async () => {
+      const { svc, app } = createEntityService();
+      const createdFiles: string[] = [];
+      app.vault.create = async (path) => {
+        createdFiles.push(path);
+        return new TFile(path);
+      };
+      await svc.createEngagement("My Engagement");
+      expect(createdFiles[0]).toBe("engagements/My Engagement.md");
+    });
+
+    it("sets client frontmatter when clientName is provided", async () => {
+      const { svc, app } = createEntityService();
+      const mutations: Record<string, unknown> = {};
+      app.fileManager.processFrontMatter = async (file, fn) => {
+        const fm: Record<string, unknown> = {};
+        fn(fm);
+        Object.assign(mutations, fm);
+      };
+      await svc.createEngagement("My Engagement", "Acme Corp");
+      expect(String(mutations.client ?? "")).toContain("Acme Corp");
+    });
+
+    it("creates engagement without client when clientName is omitted", async () => {
+      const { svc, app } = createEntityService();
+      const spy = vi.spyOn(app.fileManager, "processFrontMatter");
+      await svc.createEngagement("My Engagement");
+      expect(spy).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("createPerson", () => {
+    it("creates a person file in the people folder", async () => {
+      const { svc, app } = createEntityService();
+      const createdFiles: string[] = [];
+      app.vault.create = async (path) => {
+        createdFiles.push(path);
+        return new TFile(path);
+      };
+      await svc.createPerson("Alice Smith");
+      expect(createdFiles[0]).toBe("people/Alice Smith.md");
+    });
+
+    it("sets client frontmatter when clientName is provided", async () => {
+      const { svc, app } = createEntityService();
+      const mutations: Record<string, unknown> = {};
+      app.fileManager.processFrontMatter = async (file, fn) => {
+        const fm: Record<string, unknown> = {};
+        fn(fm);
+        Object.assign(mutations, fm);
+      };
+      await svc.createPerson("Alice Smith", "Acme Corp");
+      expect(String(mutations.client ?? "")).toContain("Acme Corp");
+    });
+
+    it("creates person without client when clientName is omitted", async () => {
+      const { svc, app } = createEntityService();
+      const spy = vi.spyOn(app.fileManager, "processFrontMatter");
+      await svc.createPerson("Alice Smith");
+      expect(spy).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("createInboxNote", () => {
+    it("creates an inbox note in the inbox folder", async () => {
+      const { svc, app } = createEntityService();
+      const createdFiles: string[] = [];
+      app.vault.create = async (path) => {
+        createdFiles.push(path);
+        return new TFile(path);
+      };
+      await svc.createInboxNote("TODO item");
+      expect(createdFiles[0]).toBe("inbox/TODO item.md");
+    });
+
+    it("sets engagement frontmatter when engagementName is provided", async () => {
+      const { svc, app } = createEntityService();
+      const mutations: Record<string, unknown> = {};
+      app.fileManager.processFrontMatter = async (file, fn) => {
+        const fm: Record<string, unknown> = {};
+        fn(fm);
+        Object.assign(mutations, fm);
+      };
+      await svc.createInboxNote("TODO", "My Engagement");
+      expect(String(mutations.engagement ?? "")).toContain("My Engagement");
+    });
+  });
+
+  describe("createSingleMeeting", () => {
+    it("creates a meeting file in the meetings folder", async () => {
+      const { svc, app } = createEntityService();
+      const createdFiles: string[] = [];
+      app.vault.create = async (path) => {
+        createdFiles.push(path);
+        return new TFile(path);
+      };
+      await svc.createSingleMeeting("Kickoff");
+      expect(createdFiles[0]).toBe("meetings/Kickoff.md");
+    });
+
+    it("sets engagement frontmatter when engagementName is provided", async () => {
+      const { svc, app } = createEntityService();
+      const mutations: Record<string, unknown> = {};
+      app.fileManager.processFrontMatter = async (file, fn) => {
+        const fm: Record<string, unknown> = {};
+        fn(fm);
+        Object.assign(mutations, fm);
+      };
+      await svc.createSingleMeeting("Kickoff", "Eng Alpha");
+      expect(String(mutations.engagement ?? "")).toContain("Eng Alpha");
+    });
+  });
+
+  describe("createRecurringMeeting", () => {
+    it("creates a recurring meeting file in the meetings folder", async () => {
+      const { svc, app } = createEntityService();
+      const createdFiles: string[] = [];
+      app.vault.create = async (path) => {
+        createdFiles.push(path);
+        return new TFile(path);
+      };
+      await svc.createRecurringMeeting("Weekly Standup");
+      expect(createdFiles[0]).toBe("meetings/Weekly Standup.md");
+    });
+
+    it("sets engagement frontmatter when engagementName is provided", async () => {
+      const { svc, app } = createEntityService();
+      const mutations: Record<string, unknown> = {};
+      app.fileManager.processFrontMatter = async (file, fn) => {
+        const fm: Record<string, unknown> = {};
+        fn(fm);
+        Object.assign(mutations, fm);
+      };
+      await svc.createRecurringMeeting("Weekly Standup", "Eng Beta");
+      expect(String(mutations.engagement ?? "")).toContain("Eng Beta");
+    });
+  });
+
   describe("createProject", () => {
     it("creates a project with notesDirectory set", async () => {
       const { svc, app } = createEntityService();

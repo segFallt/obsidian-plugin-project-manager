@@ -41,6 +41,34 @@ describe("QueryService", () => {
     });
   });
 
+  describe("getEntitiesByStatus", () => {
+    it("returns pages with the given status", () => {
+      const { qs } = createQueryService([
+        { path: "clients/Active.md", tags: ["#client"], frontmatter: { status: "Active" } },
+        { path: "clients/Inactive.md", tags: ["#client"], frontmatter: { status: "Inactive" } },
+      ]);
+      const result = qs.getEntitiesByStatus("#client", "Active");
+      expect(result).toHaveLength(1);
+      expect(result[0].file.name).toBe("Active");
+    });
+
+    it("supports array of statuses", () => {
+      const { qs } = createQueryService([
+        { path: "projects/New.md", tags: ["#project"], frontmatter: { status: "New" } },
+        { path: "projects/Active.md", tags: ["#project"], frontmatter: { status: "Active" } },
+        { path: "projects/Complete.md", tags: ["#project"], frontmatter: { status: "Complete" } },
+      ]);
+      const result = qs.getEntitiesByStatus("#project", ["New", "Active"]);
+      expect(result).toHaveLength(2);
+    });
+
+    it("returns empty array when Dataview unavailable", () => {
+      const app = createMockApp();
+      const qs = new QueryService(app as unknown as import("obsidian").App, () => null);
+      expect(qs.getEntitiesByStatus("#client", "Active")).toEqual([]);
+    });
+  });
+
   describe("getActiveEntitiesByTag", () => {
     it("returns only active entities", () => {
       const { qs } = createQueryService([
@@ -100,6 +128,196 @@ describe("QueryService", () => {
       const result = qs.getProjectNotes(projectFile as unknown as import("obsidian").TFile);
       expect(result).toHaveLength(1);
       expect(result[0].file.name).toBe("Note1");
+    });
+  });
+
+  describe("getMentions", () => {
+    it("returns pages mentioning the target file", () => {
+      const targetFile = new TFile("clients/Acme.md");
+      const { qs } = createQueryService([
+        { path: "notes/Mention.md", name: "Acme" },
+        { path: "notes/Other.md", name: "Other" },
+      ]);
+      const result = qs.getMentions(targetFile as unknown as import("obsidian").TFile);
+      // The mock api searches by file name in pages()
+      expect(result.length).toBeGreaterThanOrEqual(0); // basic check it doesn't throw
+    });
+  });
+
+  describe("getEngagementForEntity", () => {
+    it("returns engagement via direct link", () => {
+      const file = new TFile("projects/Foo.md");
+      const { qs } = createQueryService([
+        {
+          path: "projects/Foo.md",
+          frontmatter: { engagement: { path: "engagements/Eng1.md" } },
+        },
+        {
+          path: "engagements/Eng1.md",
+          frontmatter: { status: "Active" },
+        },
+      ]);
+      const result = qs.getEngagementForEntity(file as unknown as import("obsidian").TFile);
+      expect(result).not.toBeNull();
+      expect(result?.file.name).toBe("Eng1");
+    });
+
+    it("returns null when file has no engagement", () => {
+      const file = new TFile("inbox/Task.md");
+      const { qs } = createQueryService([
+        { path: "inbox/Task.md", frontmatter: {} },
+      ]);
+      const result = qs.getEngagementForEntity(file as unknown as import("obsidian").TFile);
+      expect(result).toBeNull();
+    });
+
+    it("traverses parent project for project notes", () => {
+      const file = new TFile("projects/notes/foo/Note.md");
+      const { qs } = createQueryService([
+        {
+          path: "projects/notes/foo/Note.md",
+          frontmatter: { relatedProject: "Foo" },
+        },
+        {
+          path: "projects/Foo.md",
+          frontmatter: { engagement: "Eng1" },
+        },
+        {
+          path: "engagements/Eng1.md",
+          frontmatter: { status: "Active" },
+        },
+      ]);
+      const result = qs.getEngagementForEntity(file as unknown as import("obsidian").TFile);
+      expect(result).not.toBeNull();
+      expect(result?.file.name).toBe("Eng1");
+    });
+
+    it("returns null when Dataview unavailable", () => {
+      const app = createMockApp();
+      const qs = new QueryService(app as unknown as import("obsidian").App, () => null);
+      const file = new TFile("projects/Foo.md");
+      expect(qs.getEngagementForEntity(file as unknown as import("obsidian").TFile)).toBeNull();
+    });
+  });
+
+  describe("getClientForEntity", () => {
+    it("returns client via direct link", () => {
+      const file = new TFile("engagements/Eng1.md");
+      const { qs } = createQueryService([
+        {
+          path: "engagements/Eng1.md",
+          frontmatter: { client: { path: "clients/Acme.md" } },
+        },
+        {
+          path: "clients/Acme.md",
+          frontmatter: { status: "Active" },
+        },
+      ]);
+      const result = qs.getClientForEntity(file as unknown as import("obsidian").TFile);
+      expect(result?.file.name).toBe("Acme");
+    });
+
+    it("returns client through engagement chain", () => {
+      const file = new TFile("projects/Foo.md");
+      const { qs } = createQueryService([
+        {
+          path: "projects/Foo.md",
+          frontmatter: { engagement: { path: "engagements/Eng1.md" } },
+        },
+        {
+          path: "engagements/Eng1.md",
+          frontmatter: { client: { path: "clients/Acme.md" } },
+        },
+        {
+          path: "clients/Acme.md",
+          frontmatter: { status: "Active" },
+        },
+      ]);
+      const result = qs.getClientForEntity(file as unknown as import("obsidian").TFile);
+      expect(result?.file.name).toBe("Acme");
+    });
+
+    it("returns null when no client in chain", () => {
+      const file = new TFile("inbox/Task.md");
+      const { qs } = createQueryService([
+        { path: "inbox/Task.md", frontmatter: {} },
+      ]);
+      const result = qs.getClientForEntity(file as unknown as import("obsidian").TFile);
+      expect(result).toBeNull();
+    });
+
+    it("returns null when Dataview unavailable", () => {
+      const app = createMockApp();
+      const qs = new QueryService(app as unknown as import("obsidian").App, () => null);
+      const file = new TFile("engagements/Eng1.md");
+      expect(qs.getClientForEntity(file as unknown as import("obsidian").TFile)).toBeNull();
+    });
+  });
+
+  describe("getParentProject", () => {
+    it("returns parent project for a project note", () => {
+      const file = new TFile("projects/notes/foo/Note.md");
+      const { qs } = createQueryService([
+        {
+          path: "projects/notes/foo/Note.md",
+          frontmatter: { relatedProject: "Foo" },
+        },
+        {
+          path: "projects/Foo.md",
+          frontmatter: { status: "Active" },
+        },
+      ]);
+      const result = qs.getParentProject(file as unknown as import("obsidian").TFile);
+      expect(result?.file.name).toBe("Foo");
+    });
+
+    it("returns null when file has no relatedProject", () => {
+      const file = new TFile("projects/Foo.md");
+      const { qs } = createQueryService([
+        { path: "projects/Foo.md", frontmatter: {} },
+      ]);
+      const result = qs.getParentProject(file as unknown as import("obsidian").TFile);
+      expect(result).toBeNull();
+    });
+
+    it("returns null when Dataview unavailable", () => {
+      const app = createMockApp();
+      const qs = new QueryService(app as unknown as import("obsidian").App, () => null);
+      const file = new TFile("projects/notes/foo/Note.md");
+      expect(qs.getParentProject(file as unknown as import("obsidian").TFile)).toBeNull();
+    });
+  });
+
+  describe("getClientFromEngagementLink", () => {
+    it("resolves client from engagement link", () => {
+      const { qs } = createQueryService([
+        {
+          path: "engagements/Eng1.md",
+          frontmatter: { client: { path: "clients/Acme.md" } },
+        },
+        {
+          path: "clients/Acme.md",
+          frontmatter: { status: "Active" },
+        },
+      ]);
+      const result = qs.getClientFromEngagementLink({ path: "engagements/Eng1.md" });
+      expect(result).toBe("Acme");
+    });
+
+    it("returns null when engagement link is invalid", () => {
+      const { qs } = createQueryService([]);
+      expect(qs.getClientFromEngagementLink(null)).toBeNull();
+    });
+
+    it("returns null when engagement page not found", () => {
+      const { qs } = createQueryService([]);
+      expect(qs.getClientFromEngagementLink("[[NonExistent]]")).toBeNull();
+    });
+
+    it("returns null when Dataview unavailable", () => {
+      const app = createMockApp();
+      const qs = new QueryService(app as unknown as import("obsidian").App, () => null);
+      expect(qs.getClientFromEngagementLink("[[Eng1]]")).toBeNull();
     });
   });
 

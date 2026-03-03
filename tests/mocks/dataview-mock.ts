@@ -100,9 +100,9 @@ export function createMockDataviewApi(pages: MockPageData[]): DataviewApi {
     pages(source?: string) {
       if (!source) return createDataviewArray(mockPages);
 
-      // Handle tag sources like "#client"
+      // Handle tag sources like "#client" or complex "#tag AND !\"folder\""
       if (source.startsWith("#")) {
-        const tag = source;
+        const tag = source.split(/\s+AND\s+/i)[0].trim();
         return createDataviewArray(
           mockPages.filter((p) => p.file.tags.includes(tag))
         );
@@ -130,7 +130,8 @@ export function createMockDataviewApi(pages: MockPageData[]): DataviewApi {
     },
 
     page(path: string) {
-      return pageMap.get(path) ?? null;
+      // Try exact path first, then with .md extension (mirrors Dataview behaviour)
+      return pageMap.get(path) ?? pageMap.get(path + ".md") ?? null;
     },
 
     date(value: unknown) {

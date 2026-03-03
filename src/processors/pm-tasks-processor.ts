@@ -4,13 +4,15 @@ import type {
   PmTasksConfig,
   DataviewPage,
   DataviewTask,
-  TaskContext,
-  TaskPriority,
+  DashboardFilters,
+  ByProjectFilters,
   DueDateFilter,
   MeetingDateFilter,
   InboxStatusFilter,
   SortBy,
   ProjectStatus,
+  TaskContext,
+  TaskPriority,
 } from "../types";
 import {
   PRIORITY_DISPLAY,
@@ -19,7 +21,16 @@ import {
   DUE_DATE_EMOJI,
 } from "../constants";
 import { todayISO } from "../utils/date-utils";
+import {
+  getTaskContext,
+  getTaskPriority,
+  cleanTaskText,
+  extractEmojiDate,
+  addDays,
+} from "../utils/task-utils";
 import { normalizeToName } from "../utils/link-utils";
+import { TaskFilterService } from "../services/task-filter-service";
+import { TaskSortService } from "../services/task-sort-service";
 
 /**
  * Renders the task dashboard and tasks-by-project views.
@@ -45,35 +56,6 @@ export function registerPmTasksProcessor(plugin: ProjectManagerPlugin): void {
   });
 }
 
-// ─── Types local to this processor ────────────────────────────────────────
-
-interface DashboardFilters {
-  viewMode: "context" | "date" | "priority" | "tag";
-  sortBy: SortBy;
-  showCompleted: boolean;
-  contextFilter: TaskContext[];
-  dueDateFilter: DueDateFilter;
-  priorityFilter: TaskPriority[];
-  projectStatusFilter: ProjectStatus[];
-  inboxStatusFilter: InboxStatusFilter;
-  meetingDateFilter: MeetingDateFilter;
-  clientFilter: string[];
-  engagementFilter: string[];
-  includeUnassignedClients: boolean;
-  includeUnassignedEngagements: boolean;
-  searchText: string;
-}
-
-interface ByProjectFilters {
-  selectedStatuses: ProjectStatus[];
-  projectFilter: string;
-  clientFilter: string[];
-  engagementFilter: string[];
-  includeUnassignedClients: boolean;
-  includeUnassignedEngagements: boolean;
-  showCompleted: boolean;
-}
-
 // ─── Render child ──────────────────────────────────────────────────────────
 
 class PmTasksRenderChild extends MarkdownRenderChild {
@@ -83,6 +65,9 @@ class PmTasksRenderChild extends MarkdownRenderChild {
   private debounceTimer: ReturnType<typeof setTimeout> | null = null;
   // Reference to the output element — allows auto-refresh without re-rendering controls
   private outputEl: HTMLElement | null = null;
+
+  private readonly filterService = new TaskFilterService();
+  private readonly sortService = new TaskSortService();
 
   constructor(
     containerEl: HTMLElement,
@@ -428,7 +413,12 @@ class PmTasksRenderChild extends MarkdownRenderChild {
       const f = this.dashFilters;
       let allTasks = this.getAllTasks(dv);
 
-      allTasks = this.applyDashboardFilters(allTasks, f, dv);
+      allTasks = this.filterService.applyDashboardFilters(
+        allTasks,
+        f,
+        dv,
+        this.plugin.queryService
+      );
 
       if (allTasks.length === 0) {
         outputEl.createEl("em", { text: "No tasks match the current filters." });
@@ -660,98 +650,11 @@ class PmTasksRenderChild extends MarkdownRenderChild {
     }, 1000);
   }
 
-  // ─── Task querying and filtering ─────────────────────────────────────────
+  // ─── Task querying ────────────────────────────────────────────────────────
 
   private getAllTasks(dv: import("../types").DataviewApi): DataviewTask[] {
     const pages = [...dv.pages().where((p) => !p.file.path.startsWith("utility/"))];
     return pages.flatMap((p) => [...p.file.tasks]);
-  }
-
-  private applyDashboardFilters(
-    tasks: DataviewTask[],
-    f: DashboardFilters,
-    dv: import("../types").DataviewApi
-  ): DataviewTask[] {
-    let filtered = tasks;
-
-    if (!f.showCompleted) {
-      filtered = filtered.filter((t) => !t.completed);
-    }
-
-    if (f.contextFilter.length > 0) {
-      filtered = filtered.filter((t) => f.contextFilter.includes(this.getTaskContext(t)));
-    }
-
-    if (f.searchText) {
-      filtered = filtered.filter((t) =>
-        t.text.toLowerCase().includes(f.searchText)
-      );
-    }
-
-    if (f.dueDateFilter && f.dueDateFilter !== "All") {
-      filtered = filtered.filter((t) => this.matchesDueDateFilter(t, f.dueDateFilter));
-    }
-
-    if (f.priorityFilter.length > 0) {
-      filtered = filtered.filter((t) =>
-        f.priorityFilter.includes(this.getTaskPriority(t))
-      );
-    }
-
-    if (f.clientFilter.length > 0 || f.includeUnassignedClients) {
-      filtered = filtered.filter((t) =>
-        this.matchesClientFilter(t, f.clientFilter, f.includeUnassignedClients, dv)
-      );
-    }
-
-    if (f.engagementFilter.length > 0 || f.includeUnassignedEngagements) {
-      filtered = filtered.filter((t) =>
-        this.matchesEngagementFilter(t, f.engagementFilter, f.includeUnassignedEngagements, dv)
-      );
-    }
-
-    if (f.viewMode === "context") {
-      filtered = this.applyContextSpecificFilters(filtered, f, dv);
-    }
-
-    return filtered;
-  }
-
-  private applyContextSpecificFilters(
-    tasks: DataviewTask[],
-    f: DashboardFilters,
-    dv: import("../types").DataviewApi
-  ): DataviewTask[] {
-    let filtered = tasks;
-
-    if (f.projectStatusFilter.length > 0) {
-      filtered = filtered.filter((t) => {
-        if (this.getTaskContext(t) !== "Project") return true;
-        const page = dv.page(t.path);
-        return page !== null && f.projectStatusFilter.includes(String(page.status) as ProjectStatus);
-      });
-    }
-
-    if (f.inboxStatusFilter !== "All") {
-      filtered = filtered.filter((t) => {
-        if (this.getTaskContext(t) !== "Inbox") return true;
-        const page = dv.page(t.path);
-        if (!page) return true;
-        const isActive = page.status !== "Complete";
-        return f.inboxStatusFilter === "Active" ? isActive : !isActive;
-      });
-    }
-
-    if (f.meetingDateFilter !== "All") {
-      filtered = filtered.filter((t) => {
-        if (this.getTaskContext(t) !== "Meeting") return true;
-        const page = dv.page(t.path);
-        if (!page?.date) return f.meetingDateFilter === "All";
-        return this.matchesMeetingDateFilter(String(page.date), f.meetingDateFilter);
-      });
-    }
-
-    return filtered;
   }
 
   // ─── Context rendering ────────────────────────────────────────────────────
@@ -772,7 +675,7 @@ class PmTasksRenderChild extends MarkdownRenderChild {
     ];
 
     for (const context of allContexts) {
-      const ctxTasks = tasks.filter((t) => this.getTaskContext(t) === context);
+      const ctxTasks = tasks.filter((t) => getTaskContext(t) === context);
       if (ctxTasks.length === 0) continue;
 
       container.createEl("h2", { text: context });
@@ -806,9 +709,7 @@ class PmTasksRenderChild extends MarkdownRenderChild {
 
       const fileGroups = Object.entries(byFile)
         .map(([fp, ts]) => ({ filePath: fp, tasks: ts }))
-        .sort((a, b) => {
-          return this.compareGroups(a.tasks, b.tasks, f.sortBy);
-        });
+        .sort((a, b) => this.sortService.compareGroups(a.tasks, b.tasks, f.sortBy));
 
       for (const { filePath, tasks: fileTasks } of fileGroups) {
         const page = dv.page(filePath);
@@ -819,17 +720,17 @@ class PmTasksRenderChild extends MarkdownRenderChild {
           // Direct project tasks first
           const directTasks = fileTasks.filter((t) => t.link.path === filePath);
           if (directTasks.length > 0) {
-            this.renderTaskList(container, this.sortTasks(directTasks, f.sortBy));
+            this.renderTaskList(container, this.sortService.sortTasks(directTasks, f.sortBy));
           }
           // Then note sub-sections
           for (const [notePath, noteTasks] of Object.entries(projectNoteMapping[filePath])) {
             const notePage = dv.page(notePath);
             const noteName = notePage?.file.name ?? notePath;
             container.createEl("h4").innerHTML = `<a class="internal-link" data-href="${notePath}" href="${notePath}">${noteName}</a>`;
-            this.renderTaskList(container, this.sortTasks(noteTasks, f.sortBy));
+            this.renderTaskList(container, this.sortService.sortTasks(noteTasks, f.sortBy));
           }
         } else {
-          this.renderTaskList(container, this.sortTasks(fileTasks, f.sortBy));
+          this.renderTaskList(container, this.sortService.sortTasks(fileTasks, f.sortBy));
         }
       }
     }
@@ -839,8 +740,8 @@ class PmTasksRenderChild extends MarkdownRenderChild {
 
   private renderByDate(container: HTMLElement, tasks: DataviewTask[], f: DashboardFilters): void {
     const today = todayISO();
-    const tomorrow = this.addDays(today, 1);
-    const weekEnd = this.addDays(today, 7);
+    const tomorrow = addDays(today, 1);
+    const weekEnd = addDays(today, 7);
 
     const overdue = tasks.filter((t) => t.due && String(t.due).substring(0, 10) < today);
     const todayTasks = tasks.filter((t) => t.due && String(t.due).substring(0, 10) === today);
@@ -855,27 +756,27 @@ class PmTasksRenderChild extends MarkdownRenderChild {
 
     if (overdue.length > 0) {
       container.createEl("h2", { text: "⚠️ Overdue" });
-      this.renderTaskList(container, this.sortTasks(overdue, f.sortBy || "dueDate-asc"));
+      this.renderTaskList(container, this.sortService.sortTasks(overdue, f.sortBy || "dueDate-asc"));
     }
     if (todayTasks.length > 0) {
       container.createEl("h2", { text: "📅 Today" });
-      this.renderTaskList(container, this.sortTasks(todayTasks, f.sortBy || "priority-asc"));
+      this.renderTaskList(container, this.sortService.sortTasks(todayTasks, f.sortBy || "priority-asc"));
     }
     if (tomorrowTasks.length > 0) {
       container.createEl("h2", { text: "📆 Tomorrow" });
-      this.renderTaskList(container, this.sortTasks(tomorrowTasks, f.sortBy || "priority-asc"));
+      this.renderTaskList(container, this.sortService.sortTasks(tomorrowTasks, f.sortBy || "priority-asc"));
     }
     if (thisWeek.length > 0) {
       container.createEl("h2", { text: "📋 This Week" });
-      this.renderTaskList(container, this.sortTasks(thisWeek, f.sortBy || "dueDate-asc"));
+      this.renderTaskList(container, this.sortService.sortTasks(thisWeek, f.sortBy || "dueDate-asc"));
     }
     if (upcoming.length > 0) {
       container.createEl("h2", { text: "🔮 Upcoming" });
-      this.renderTaskList(container, this.sortTasks(upcoming, f.sortBy || "dueDate-asc"));
+      this.renderTaskList(container, this.sortService.sortTasks(upcoming, f.sortBy || "dueDate-asc"));
     }
     if (noDue.length > 0) {
       container.createEl("h2", { text: "📝 No Due Date" });
-      this.renderTaskList(container, this.sortTasks(noDue, f.sortBy || "priority-asc"));
+      this.renderTaskList(container, this.sortService.sortTasks(noDue, f.sortBy || "priority-asc"));
     }
   }
 
@@ -883,10 +784,10 @@ class PmTasksRenderChild extends MarkdownRenderChild {
 
   private renderByPriority(container: HTMLElement, tasks: DataviewTask[], f: DashboardFilters): void {
     for (let priority = 1; priority <= 5; priority++) {
-      const priTasks = tasks.filter((t) => this.getTaskPriority(t) === priority);
+      const priTasks = tasks.filter((t) => getTaskPriority(t) === priority);
       if (priTasks.length === 0) continue;
       container.createEl("h2", { text: PRIORITY_DISPLAY[priority] });
-      this.renderTaskList(container, this.sortTasks(priTasks, f.sortBy));
+      this.renderTaskList(container, this.sortService.sortTasks(priTasks, f.sortBy));
     }
   }
 
@@ -910,12 +811,12 @@ class PmTasksRenderChild extends MarkdownRenderChild {
 
     for (const tag of Object.keys(tagMap).sort()) {
       container.createEl("h2", { text: tag });
-      this.renderTaskList(container, this.sortTasks(tagMap[tag], f.sortBy));
+      this.renderTaskList(container, this.sortService.sortTasks(tagMap[tag], f.sortBy));
     }
 
     if (untagged.length > 0) {
       container.createEl("h2", { text: "📌 Untagged" });
-      this.renderTaskList(container, this.sortTasks(untagged, f.sortBy));
+      this.renderTaskList(container, this.sortService.sortTasks(untagged, f.sortBy));
     }
   }
 
@@ -933,17 +834,17 @@ class PmTasksRenderChild extends MarkdownRenderChild {
       });
       checkbox.checked = task.completed;
       const ariaPrefix = task.completed ? "Mark incomplete: " : "Mark complete: ";
-      checkbox.setAttribute("aria-label", ariaPrefix + this.cleanTaskText(task.text).substring(0, 60));
+      checkbox.setAttribute("aria-label", ariaPrefix + cleanTaskText(task.text).substring(0, 60));
 
       checkbox.addEventListener("change", () => {
         void this.toggleTask(task, checkbox.checked);
       });
 
       const textSpan = li.createSpan({ cls: "pm-task-text" });
-      textSpan.setText(this.cleanTaskText(task.text));
+      textSpan.setText(cleanTaskText(task.text));
 
       // Due date badge
-      const dueDate = this.extractEmojiDate(task.text, DUE_DATE_EMOJI);
+      const dueDate = extractEmojiDate(task.text, DUE_DATE_EMOJI);
       if (dueDate) {
         const badge = li.createSpan({ cls: "pm-task-due" });
         badge.textContent = `📅 ${dueDate}`;
@@ -951,7 +852,7 @@ class PmTasksRenderChild extends MarkdownRenderChild {
       }
 
       // Priority badge
-      const priority = this.getTaskPriority(task);
+      const priority = getTaskPriority(task);
       if (priority !== 3) {
         const priorityEmoji = Object.entries(PRIORITY_EMOJI).find(([, p]) => p === priority)?.[0];
         if (priorityEmoji) {
@@ -985,128 +886,7 @@ class PmTasksRenderChild extends MarkdownRenderChild {
     await this.plugin.app.vault.modify(file, lines.join("\n"));
   }
 
-  // ─── Filter helpers ───────────────────────────────────────────────────────
-
-  private matchesDueDateFilter(task: DataviewTask, filter: DueDateFilter): boolean {
-    const today = todayISO();
-    const weekEnd = this.addDays(today, 7);
-    const due = task.due ? String(task.due).substring(0, 10) : null;
-
-    switch (filter) {
-      case "Today":
-        return due === today;
-      case "This Week":
-        return due !== null && due >= today && due <= weekEnd;
-      case "Overdue":
-        return due !== null && due < today;
-      case "No Date":
-        return due === null;
-      default:
-        return true;
-    }
-  }
-
-  private matchesMeetingDateFilter(dateStr: string, filter: MeetingDateFilter): boolean {
-    const today = todayISO();
-    const weekEnd = this.addDays(today, 7);
-    const d = dateStr.substring(0, 10);
-
-    switch (filter) {
-      case "Today":
-        return d === today;
-      case "This Week":
-        return d >= today && d <= weekEnd;
-      case "Past":
-        return d < today;
-      default:
-        return true;
-    }
-  }
-
-  private matchesClientFilter(
-    task: DataviewTask,
-    clientFilter: string[],
-    includeUnassigned: boolean,
-    dv: import("../types").DataviewApi
-  ): boolean {
-    if (clientFilter.length === 0 && !includeUnassigned) return true;
-
-    const page = dv.page(task.path);
-    if (!page) return false;
-
-    let taskClient = normalizeToName(page.client);
-
-    if (!taskClient && page.engagement) {
-      taskClient = this.plugin.queryService.getClientFromEngagementLink(page.engagement);
-    }
-
-    if (!taskClient && page.relatedProject) {
-      const parentProjectName = normalizeToName(page.relatedProject);
-      if (parentProjectName) {
-        const parentProject = dv.page(`projects/${parentProjectName}`);
-        if (parentProject) {
-          taskClient = normalizeToName(parentProject.client);
-          if (!taskClient && parentProject.engagement) {
-            taskClient = this.plugin.queryService.getClientFromEngagementLink(
-              parentProject.engagement
-            );
-          }
-        }
-      }
-    }
-
-    if (includeUnassigned && !taskClient) return true;
-    if (clientFilter.length === 0) return includeUnassigned ? !taskClient : false;
-    return taskClient !== null && clientFilter.includes(taskClient);
-  }
-
-  private matchesEngagementFilter(
-    task: DataviewTask,
-    engagementFilter: string[],
-    includeUnassigned: boolean,
-    dv: import("../types").DataviewApi
-  ): boolean {
-    if (engagementFilter.length === 0 && !includeUnassigned) return true;
-
-    const page = dv.page(task.path);
-    if (!page) return false;
-
-    let taskEngagement = normalizeToName(page.engagement);
-
-    if (!taskEngagement && page.relatedProject) {
-      const parentProjectName = normalizeToName(page.relatedProject);
-      if (parentProjectName) {
-        const parentProject = dv.page(`projects/${parentProjectName}`);
-        if (parentProject) {
-          taskEngagement = normalizeToName(parentProject.engagement);
-        }
-      }
-    }
-
-    if (includeUnassigned && !taskEngagement) return true;
-    if (engagementFilter.length === 0) return includeUnassigned ? !taskEngagement : false;
-    return taskEngagement !== null && engagementFilter.includes(taskEngagement);
-  }
-
   // ─── Utilities ────────────────────────────────────────────────────────────
-
-  private getTaskContext(task: DataviewTask): TaskContext {
-    const path = task.path;
-    if (path.startsWith("projects/")) return "Project";
-    if (path.startsWith("people/")) return "Person";
-    if (path.startsWith("meetings/")) return "Meeting";
-    if (path.startsWith("inbox/")) return "Inbox";
-    if (path.startsWith("daily notes/")) return "Daily Notes";
-    return "Other";
-  }
-
-  private getTaskPriority(task: DataviewTask): TaskPriority {
-    const text = task.text ?? "";
-    for (const [emoji, priority] of Object.entries(PRIORITY_EMOJI)) {
-      if (text.includes(emoji)) return priority as TaskPriority;
-    }
-    return 3;
-  }
 
   private getParentProjectPath(
     filePath: string,
@@ -1117,80 +897,6 @@ class PmTasksRenderChild extends MarkdownRenderChild {
     const projectName = normalizeToName(page.relatedProject);
     if (!projectName) return null;
     return `projects/${projectName}.md`;
-  }
-
-  private sortTasks(tasks: DataviewTask[], sortBy: SortBy): DataviewTask[] {
-    if (sortBy === "none") return tasks;
-    const isDesc = sortBy.endsWith("-desc");
-
-    if (sortBy.startsWith("dueDate")) {
-      return [...tasks].sort((a, b) => {
-        const aDate = a.due ? String(a.due).substring(0, 10) : (isDesc ? "0000-00-00" : "9999-99-99");
-        const bDate = b.due ? String(b.due).substring(0, 10) : (isDesc ? "0000-00-00" : "9999-99-99");
-        return isDesc ? bDate.localeCompare(aDate) : aDate.localeCompare(bDate);
-      });
-    }
-
-    if (sortBy.startsWith("priority")) {
-      return [...tasks].sort((a, b) => {
-        const ap = this.getTaskPriority(a);
-        const bp = this.getTaskPriority(b);
-        return isDesc ? bp - ap : ap - bp;
-      });
-    }
-
-    return tasks;
-  }
-
-  private compareGroups(aTasks: DataviewTask[], bTasks: DataviewTask[], sortBy: SortBy): number {
-    if (sortBy === "none") return 0;
-    const isDesc = sortBy.endsWith("-desc");
-
-    if (sortBy.startsWith("dueDate")) {
-      const aBest = aTasks
-        .filter((t) => t.due)
-        .map((t) => String(t.due).substring(0, 10))
-        .sort()[isDesc ? "pop" : "shift"]?.();
-      const bBest = bTasks
-        .filter((t) => t.due)
-        .map((t) => String(t.due).substring(0, 10))
-        .sort()[isDesc ? "pop" : "shift"]?.();
-      const aKey = aBest ?? (isDesc ? "0000-00-00" : "9999-99-99");
-      const bKey = bBest ?? (isDesc ? "0000-00-00" : "9999-99-99");
-      return isDesc ? bKey.localeCompare(aKey) : aKey.localeCompare(bKey);
-    }
-
-    if (sortBy.startsWith("priority")) {
-      const aMin = Math.min(...aTasks.map((t) => this.getTaskPriority(t)));
-      const bMin = Math.min(...bTasks.map((t) => this.getTaskPriority(t)));
-      return isDesc ? bMin - aMin : aMin - bMin;
-    }
-
-    return 0;
-  }
-
-  private extractEmojiDate(text: string, emoji: string): string | null {
-    const idx = text.indexOf(emoji);
-    if (idx === -1) return null;
-    const rest = text.substring(idx + emoji.length).trim();
-    const match = rest.match(/(\d{4}-\d{2}-\d{2})/);
-    return match ? match[1] : null;
-  }
-
-  /** Strips emoji metadata from task text for clean display. */
-  private cleanTaskText(text: string): string {
-    return text
-      .replace(/[⏫🔼🔽⏬]/gu, "")
-      .replace(/📅\s*\d{4}-\d{2}-\d{2}/gu, "")
-      .replace(/✅\s*\d{4}-\d{2}-\d{2}/gu, "")
-      .replace(/🔁[^📅✅⏫🔼🔽⏬]*/gu, "")
-      .trim();
-  }
-
-  private addDays(isoDate: string, days: number): string {
-    const d = new Date(isoDate);
-    d.setDate(d.getDate() + days);
-    return d.toISOString().split("T")[0];
   }
 
   private createSelect(
