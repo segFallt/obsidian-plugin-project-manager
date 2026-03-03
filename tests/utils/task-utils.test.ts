@@ -1,0 +1,175 @@
+import { describe, it, expect } from "vitest";
+import {
+  getTaskContext,
+  getTaskPriority,
+  cleanTaskText,
+  extractEmojiDate,
+  addDays,
+} from "../../src/utils/task-utils";
+import { createMockTask } from "../mocks/dataview-mock";
+
+// ─── getTaskContext ────────────────────────────────────────────────────────
+
+describe("getTaskContext", () => {
+  it("returns Project for paths starting with projects/", () => {
+    const task = createMockTask({ path: "projects/Foo.md" });
+    expect(getTaskContext(task)).toBe("Project");
+  });
+
+  it("returns Project for project sub-notes", () => {
+    const task = createMockTask({ path: "projects/notes/foo/Note.md" });
+    expect(getTaskContext(task)).toBe("Project");
+  });
+
+  it("returns Person for paths starting with people/", () => {
+    const task = createMockTask({ path: "people/Alice.md" });
+    expect(getTaskContext(task)).toBe("Person");
+  });
+
+  it("returns Meeting for paths starting with meetings/", () => {
+    const task = createMockTask({ path: "meetings/Standup.md" });
+    expect(getTaskContext(task)).toBe("Meeting");
+  });
+
+  it("returns Inbox for paths starting with inbox/", () => {
+    const task = createMockTask({ path: "inbox/Task.md" });
+    expect(getTaskContext(task)).toBe("Inbox");
+  });
+
+  it("returns Daily Notes for paths starting with daily notes/", () => {
+    const task = createMockTask({ path: "daily notes/2024-01-01.md" });
+    expect(getTaskContext(task)).toBe("Daily Notes");
+  });
+
+  it("returns Other for paths that don't match any known prefix", () => {
+    const task = createMockTask({ path: "misc/random.md" });
+    expect(getTaskContext(task)).toBe("Other");
+  });
+
+  it("returns Other for root-level files", () => {
+    const task = createMockTask({ path: "some-file.md" });
+    expect(getTaskContext(task)).toBe("Other");
+  });
+});
+
+// ─── getTaskPriority ──────────────────────────────────────────────────────
+
+describe("getTaskPriority", () => {
+  it("returns 1 (Urgent) for ⏫ emoji", () => {
+    const task = createMockTask({ path: "inbox/t.md", text: "Urgent task ⏫" });
+    expect(getTaskPriority(task)).toBe(1);
+  });
+
+  it("returns 2 (High) for 🔼 emoji", () => {
+    const task = createMockTask({ path: "inbox/t.md", text: "High task 🔼" });
+    expect(getTaskPriority(task)).toBe(2);
+  });
+
+  it("returns 4 (Low) for 🔽 emoji", () => {
+    const task = createMockTask({ path: "inbox/t.md", text: "Low task 🔽" });
+    expect(getTaskPriority(task)).toBe(4);
+  });
+
+  it("returns 5 (Someday) for ⏬ emoji", () => {
+    const task = createMockTask({ path: "inbox/t.md", text: "Someday task ⏬" });
+    expect(getTaskPriority(task)).toBe(5);
+  });
+
+  it("defaults to 3 (Medium) when no priority emoji present", () => {
+    const task = createMockTask({ path: "inbox/t.md", text: "Regular task" });
+    expect(getTaskPriority(task)).toBe(3);
+  });
+
+  it("defaults to 3 for empty text", () => {
+    const task = createMockTask({ path: "inbox/t.md", text: "" });
+    expect(getTaskPriority(task)).toBe(3);
+  });
+});
+
+// ─── cleanTaskText ────────────────────────────────────────────────────────
+
+describe("cleanTaskText", () => {
+  it("strips priority emojis", () => {
+    expect(cleanTaskText("Do the thing ⏫")).toBe("Do the thing");
+    expect(cleanTaskText("Do the thing 🔼")).toBe("Do the thing");
+    expect(cleanTaskText("Do the thing 🔽")).toBe("Do the thing");
+    expect(cleanTaskText("Do the thing ⏬")).toBe("Do the thing");
+  });
+
+  it("strips due date with emoji and date", () => {
+    expect(cleanTaskText("Task 📅 2024-01-15")).toBe("Task");
+  });
+
+  it("strips completion date with emoji", () => {
+    expect(cleanTaskText("Task ✅ 2024-01-15")).toBe("Task");
+  });
+
+  it("strips recurrence emoji and text", () => {
+    expect(cleanTaskText("Task 🔁 every day")).toBe("Task");
+  });
+
+  it("trims whitespace after stripping", () => {
+    expect(cleanTaskText("  My Task  ")).toBe("My Task");
+  });
+
+  it("returns plain text unchanged", () => {
+    expect(cleanTaskText("Normal task text")).toBe("Normal task text");
+  });
+
+  it("handles combined metadata", () => {
+    const text = "Important task ⏫ 📅 2024-03-15";
+    expect(cleanTaskText(text)).toBe("Important task");
+  });
+});
+
+// ─── extractEmojiDate ─────────────────────────────────────────────────────
+
+describe("extractEmojiDate", () => {
+  it("extracts date after the given emoji", () => {
+    expect(extractEmojiDate("Task 📅 2024-01-15", "📅")).toBe("2024-01-15");
+  });
+
+  it("returns null when emoji is not in text", () => {
+    expect(extractEmojiDate("Task without date", "📅")).toBeNull();
+  });
+
+  it("returns null when no date follows the emoji", () => {
+    expect(extractEmojiDate("Task 📅", "📅")).toBeNull();
+  });
+
+  it("extracts date after completion emoji", () => {
+    expect(extractEmojiDate("Task ✅ 2024-02-20", "✅")).toBe("2024-02-20");
+  });
+
+  it("ignores text after date", () => {
+    expect(extractEmojiDate("Task 📅 2024-01-15 more text", "📅")).toBe("2024-01-15");
+  });
+
+  it("returns null for empty string", () => {
+    expect(extractEmojiDate("", "📅")).toBeNull();
+  });
+});
+
+// ─── addDays ──────────────────────────────────────────────────────────────
+
+describe("addDays", () => {
+  it("adds positive days correctly", () => {
+    expect(addDays("2024-01-01", 7)).toBe("2024-01-08");
+  });
+
+  it("adds 1 day correctly", () => {
+    expect(addDays("2024-01-31", 1)).toBe("2024-02-01");
+  });
+
+  it("returns the same date when days is 0", () => {
+    expect(addDays("2024-06-15", 0)).toBe("2024-06-15");
+  });
+
+  it("handles month boundary correctly", () => {
+    expect(addDays("2024-02-28", 1)).toBe("2024-02-29"); // 2024 is leap year
+  });
+
+  it("handles year boundary correctly", () => {
+    expect(addDays("2023-12-31", 1)).toBe("2024-01-01");
+  });
+});

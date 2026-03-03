@@ -184,6 +184,37 @@ export interface DataviewDate {
   valueOf(): number;
 }
 
+// ─── Task Filter State ────────────────────────────────────────────────────
+
+/** Filter/display state for the dashboard task view. */
+export interface DashboardFilters {
+  viewMode: "context" | "date" | "priority" | "tag";
+  sortBy: SortBy;
+  showCompleted: boolean;
+  contextFilter: TaskContext[];
+  dueDateFilter: DueDateFilter;
+  priorityFilter: TaskPriority[];
+  projectStatusFilter: ProjectStatus[];
+  inboxStatusFilter: InboxStatusFilter;
+  meetingDateFilter: MeetingDateFilter;
+  clientFilter: string[];
+  engagementFilter: string[];
+  includeUnassignedClients: boolean;
+  includeUnassignedEngagements: boolean;
+  searchText: string;
+}
+
+/** Filter/display state for the by-project task view. */
+export interface ByProjectFilters {
+  selectedStatuses: ProjectStatus[];
+  projectFilter: string;
+  clientFilter: string[];
+  engagementFilter: string[];
+  includeUnassignedClients: boolean;
+  includeUnassignedEngagements: boolean;
+  showCompleted: boolean;
+}
+
 // ─── Plugin Internal Types ─────────────────────────────────────────────────
 
 /** Represents a created or existing entity for display in suggesters. */
