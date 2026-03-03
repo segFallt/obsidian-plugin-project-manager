@@ -1,6 +1,7 @@
 import { App, TFile } from "obsidian";
 import type { DataviewApi, DataviewPage } from "../types";
 import { normalizeToName } from "../utils/link-utils";
+import type { IQueryService } from "./interfaces";
 
 /**
  * Wraps the Dataview plugin API to provide typed entity queries.
@@ -11,7 +12,7 @@ import { normalizeToName } from "../utils/link-utils";
  * The Dataview API reference is obtained lazily (via `getApi()`) so the
  * service can be constructed before Dataview has fully initialised.
  */
-export class QueryService {
+export class QueryService implements IQueryService {
   constructor(
     private readonly app: App,
     private readonly getApi: () => DataviewApi | null
@@ -19,7 +20,7 @@ export class QueryService {
 
   // ─── Internal helpers ───────────────────────────────────────────────────
 
-  private dv(): DataviewApi | null {
+  dv(): DataviewApi | null {
     return this.getApi();
   }
 

@@ -1,0 +1,102 @@
+import type { TFile } from "obsidian";
+import type {
+  DataviewApi,
+  DataviewPage,
+  DataviewTask,
+  DashboardFilters,
+  DueDateFilter,
+  MeetingDateFilter,
+  InboxStatusFilter,
+  ParsedTask,
+  EntityType,
+  CreateFileResult,
+  SortBy,
+} from "../types";
+
+/**
+ * Service interfaces for Dependency Inversion.
+ *
+ * All consumers (commands, processors) depend on these interfaces rather
+ * than on the concrete service classes. This decouples the layers and
+ * makes mocking in tests trivial.
+ */
+
+export interface IQueryService {
+  /** Returns the live Dataview API, or null if Dataview is not available. */
+  dv(): DataviewApi | null;
+  getEntitiesByTag(tag: string, folder?: string): DataviewPage[];
+  getEntitiesByStatus(tag: string, status: string | string[]): DataviewPage[];
+  getActiveEntitiesByTag(tag: string): DataviewPage[];
+  getLinkedEntities(folder: string, tag: string, property: string, targetFile: TFile): DataviewPage[];
+  getMentions(targetFile: TFile): DataviewPage[];
+  getProjectNotes(projectFile: TFile): DataviewPage[];
+  getEngagementForEntity(file: TFile): DataviewPage | null;
+  getClientForEntity(file: TFile): DataviewPage | null;
+  getParentProject(file: TFile): DataviewPage | null;
+  getClientFromEngagementLink(engagementLink: unknown): string | null;
+  getPage(path: string): DataviewPage | null;
+}
+
+export interface IEntityService {
+  createClient(name: string): Promise<TFile>;
+  createEngagement(name: string, clientName?: string): Promise<TFile>;
+  createProject(name: string, engagementName?: string): Promise<TFile>;
+  createPerson(name: string, clientName?: string): Promise<TFile>;
+  createInboxNote(name: string, engagementName?: string): Promise<TFile>;
+  createSingleMeeting(name: string, engagementName?: string): Promise<TFile>;
+  createRecurringMeeting(name: string, engagementName?: string): Promise<TFile>;
+  createProjectNote(projectFile: TFile, noteName: string): Promise<TFile>;
+  convertInboxToProject(inboxFile: TFile, projectName?: string): Promise<TFile>;
+  validateResult(result: CreateFileResult): void;
+}
+
+export interface ITemplateService {
+  getTemplate(type: EntityType): string;
+  processTemplate(template: string, vars: Record<string, string>): string;
+  defaultVars(): Record<string, string>;
+}
+
+export interface ITaskParser {
+  parseTaskLine(line: string, filePath: string, lineNumber: number): ParsedTask | null;
+  parseTasksFromContent(content: string, filePath: string): ParsedTask[];
+  toggleTaskLine(originalLine: string, nowCompleted: boolean): string;
+}
+
+export interface IScaffoldService {
+  scaffoldVault(): Promise<void>;
+}
+
+export interface ITaskFilterService {
+  applyDashboardFilters(
+    tasks: DataviewTask[],
+    f: DashboardFilters,
+    dv: DataviewApi,
+    queryService: IQueryService
+  ): DataviewTask[];
+  applyContextSpecificFilters(
+    tasks: DataviewTask[],
+    f: Pick<DashboardFilters, "projectStatusFilter" | "inboxStatusFilter" | "meetingDateFilter">,
+    dv: DataviewApi
+  ): DataviewTask[];
+  matchesDueDateFilter(task: DataviewTask, filter: DueDateFilter): boolean;
+  matchesMeetingDateFilter(dateStr: string, filter: MeetingDateFilter): boolean;
+  matchesClientFilter(
+    task: DataviewTask,
+    clientFilter: string[],
+    includeUnassigned: boolean,
+    dv: DataviewApi,
+    queryService: IQueryService
+  ): boolean;
+  matchesEngagementFilter(
+    task: DataviewTask,
+    engagementFilter: string[],
+    includeUnassigned: boolean,
+    dv: DataviewApi
+  ): boolean;
+  matchesInboxStatusFilter(pageStatus: unknown, filter: InboxStatusFilter): boolean;
+}
+
+export interface ITaskSortService {
+  sortTasks(tasks: DataviewTask[], sortBy: SortBy): DataviewTask[];
+  compareGroups(aTasks: DataviewTask[], bTasks: DataviewTask[], sortBy: SortBy): number;
+}

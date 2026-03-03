@@ -1,5 +1,5 @@
 import { Notice } from "obsidian";
-import type ProjectManagerPlugin from "../main";
+import type { PluginServices, AddCommandFn } from "../plugin-context";
 import { EntityCreationModal } from "../ui/modals/entity-creation-modal";
 import { ENTITY_TAGS } from "../constants";
 
@@ -7,15 +7,15 @@ import { ENTITY_TAGS } from "../constants";
  * PM: Create Person
  * Prompts for a name and optional active client, then creates a person note.
  */
-export function registerCreatePersonCommand(plugin: ProjectManagerPlugin): void {
-  plugin.addCommand({
+export function registerCreatePersonCommand(services: PluginServices, addCommand: AddCommandFn): void {
+  addCommand({
     id: "create-person",
     name: "PM: Create Person",
     callback: async () => {
-      const activeClients = plugin.queryService.getActiveEntitiesByTag(ENTITY_TAGS.client);
+      const activeClients = services.queryService.getActiveEntitiesByTag(ENTITY_TAGS.client);
 
       const modal = new EntityCreationModal(
-        plugin.app,
+        services.app,
         "New Person",
         "Person name",
         activeClients.length > 0 ? "Client (optional)" : null,
@@ -29,7 +29,7 @@ export function registerCreatePersonCommand(plugin: ProjectManagerPlugin): void 
       }
 
       try {
-        await plugin.entityService.createPerson(result.name, result.parentName ?? undefined);
+        await services.entityService.createPerson(result.name, result.parentName ?? undefined);
       } catch (err) {
         new Notice(`Error creating person: ${String(err)}`);
       }

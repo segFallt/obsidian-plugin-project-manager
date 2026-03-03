@@ -10,8 +10,8 @@ vi.mock("../../src/ui/modals/entity-creation-modal", () => ({
 
 describe("registerCreatePersonCommand", () => {
   it("calls entityService.createPerson with name and client", async () => {
-    const { plugin, commands, entityService } = createMockPlugin();
-    registerCreatePersonCommand(plugin);
+    const { services, addCommand, commands, entityService } = createMockPlugin();
+    registerCreatePersonCommand(services, addCommand);
     await runCommand(commands, "create-person");
     expect(entityService.createPerson).toHaveBeenCalledWith("Alice Smith", "Acme Corp");
   });
@@ -20,8 +20,8 @@ describe("registerCreatePersonCommand", () => {
     const { EntityCreationModal } = await import("../../src/ui/modals/entity-creation-modal");
     vi.mocked(EntityCreationModal).mockImplementation(() => ({ prompt: vi.fn().mockResolvedValue(null) }) as unknown as InstanceType<typeof EntityCreationModal>);
 
-    const { plugin, commands, entityService } = createMockPlugin();
-    registerCreatePersonCommand(plugin);
+    const { services, addCommand, commands, entityService } = createMockPlugin();
+    registerCreatePersonCommand(services, addCommand);
     await runCommand(commands, "create-person");
     expect(entityService.createPerson).not.toHaveBeenCalled();
   });
@@ -30,9 +30,9 @@ describe("registerCreatePersonCommand", () => {
     const { EntityCreationModal } = await import("../../src/ui/modals/entity-creation-modal");
     vi.mocked(EntityCreationModal).mockImplementation(() => ({ prompt: vi.fn().mockResolvedValue({ name: "Bob", parentName: null }) }) as unknown as InstanceType<typeof EntityCreationModal>);
 
-    const { plugin, commands, entityService } = createMockPlugin();
+    const { services, addCommand, commands, entityService } = createMockPlugin();
     entityService.createPerson.mockRejectedValue(new Error("fail"));
-    registerCreatePersonCommand(plugin);
+    registerCreatePersonCommand(services, addCommand);
     await expect(runCommand(commands, "create-person")).resolves.toBeUndefined();
   });
 });

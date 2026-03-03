@@ -1,3 +1,4 @@
+export * from "./interfaces";
 export * from "./entity-service";
 export * from "./query-service";
 export * from "./task-filter-service";

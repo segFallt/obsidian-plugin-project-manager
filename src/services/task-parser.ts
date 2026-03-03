@@ -1,4 +1,5 @@
 import type { ParsedTask, TaskPriority } from "../types";
+import type { ITaskParser } from "./interfaces";
 import {
   PRIORITY_EMOJI,
   DUE_DATE_EMOJI,
@@ -25,7 +26,7 @@ const TAG_PATTERN = /#[a-zA-Z][a-zA-Z0-9_/-]*/g;
  * - Priority: ⏫ (1), 🔼 (2), [none] (3), 🔽 (4), ⏬ (5)
  * - Tags: #tag
  */
-export class TaskParser {
+export class TaskParser implements ITaskParser {
   /**
    * Parses a single markdown line into a ParsedTask.
    * Returns null if the line is not a task.

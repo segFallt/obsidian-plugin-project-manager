@@ -2,29 +2,31 @@ import { describe, it, expect, vi } from "vitest";
 import { registerPmTasksProcessor } from "../../src/processors/pm-tasks-processor";
 import { createMockDataviewApi } from "../mocks/dataview-mock";
 import type { DataviewApi } from "../../src/types";
+import type { PluginServices, RegisterProcessorFn } from "../../src/plugin-context";
 
-// ─── Mock plugin factory ────────────────────────────────────────────────────
+// ─── Mock services factory ───────────────────────────────────────────────────
 
-function createPlugin(dvApi: DataviewApi | null = null) {
+function createMockServices(dvApi: DataviewApi | null = null) {
   let registeredHandler:
     | ((source: string, el: HTMLElement, ctx: Record<string, unknown>) => void)
     | null = null;
 
   const vaultOn = vi.fn(() => ({ id: "mock-event" }));
 
-  const plugin = {
-    registerMarkdownCodeBlockProcessor: vi.fn(
-      (
-        _lang: string,
-        handler: (
-          source: string,
-          el: HTMLElement,
-          ctx: Record<string, unknown>
-        ) => void
-      ) => {
-        registeredHandler = handler;
-      }
-    ),
+  const registerProcessor: RegisterProcessorFn = vi.fn(
+    (
+      _lang: string,
+      handler: (
+        source: string,
+        el: HTMLElement,
+        ctx: Record<string, unknown>
+      ) => void
+    ) => {
+      registeredHandler = handler;
+    }
+  );
+
+  const services = {
     app: {
       vault: {
         on: vaultOn,
@@ -47,10 +49,11 @@ function createPlugin(dvApi: DataviewApi | null = null) {
     taskParser: {
       toggleTaskLine: vi.fn((line: string) => line),
     },
-  };
+  } as unknown as PluginServices;
 
   return {
-    plugin: plugin as unknown as import("../../src/main").default,
+    services,
+    registerProcessor,
     vaultOn,
     getHandler: () => registeredHandler!,
   };
@@ -59,8 +62,8 @@ function createPlugin(dvApi: DataviewApi | null = null) {
 // ─── Render helper ──────────────────────────────────────────────────────────
 
 function render(source: string, dvApi: DataviewApi | null = null) {
-  const { plugin, vaultOn, getHandler } = createPlugin(dvApi);
-  registerPmTasksProcessor(plugin);
+  const { services, registerProcessor, vaultOn, getHandler } = createMockServices(dvApi);
+  registerPmTasksProcessor(services, registerProcessor);
 
   const el = document.createElement("div");
   const children: unknown[] = [];
@@ -72,7 +75,7 @@ function render(source: string, dvApi: DataviewApi | null = null) {
   getHandler()(source, el, ctx as unknown as Record<string, unknown>);
   return {
     el,
-    plugin,
+    services,
     vaultOn,
     child: children[0] as { onload?: () => void; onunload?: () => void },
   };
@@ -82,9 +85,9 @@ function render(source: string, dvApi: DataviewApi | null = null) {
 
 describe("pm-tasks processor", () => {
   it("registers a 'pm-tasks' code block processor", () => {
-    const { plugin } = createPlugin();
-    registerPmTasksProcessor(plugin);
-    expect(plugin.registerMarkdownCodeBlockProcessor).toHaveBeenCalledWith(
+    const { services, registerProcessor } = createMockServices();
+    registerPmTasksProcessor(services, registerProcessor);
+    expect(registerProcessor).toHaveBeenCalledWith(
       "pm-tasks",
       expect.any(Function)
     );

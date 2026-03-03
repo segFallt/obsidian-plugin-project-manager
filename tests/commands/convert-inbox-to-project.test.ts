@@ -12,8 +12,8 @@ vi.mock("../../src/ui/modals/input-modal", () => ({
 describe("registerConvertInboxCommand", () => {
   it("calls entityService.convertInboxToProject when active file is in inbox folder", async () => {
     const activeFile = new TFile("inbox/Some Task.md");
-    const { plugin, commands, entityService } = createMockPlugin({ activeFile });
-    registerConvertInboxCommand(plugin);
+    const { services, addCommand, commands, entityService } = createMockPlugin({ activeFile });
+    registerConvertInboxCommand(services, addCommand);
     await runCommand(commands, "convert-inbox");
     expect(entityService.convertInboxToProject).toHaveBeenCalledWith(
       activeFile,
@@ -22,16 +22,16 @@ describe("registerConvertInboxCommand", () => {
   });
 
   it("shows Notice and does NOT call convertInboxToProject when no active file", async () => {
-    const { plugin, commands, entityService } = createMockPlugin({ activeFile: null });
-    registerConvertInboxCommand(plugin);
+    const { services, addCommand, commands, entityService } = createMockPlugin({ activeFile: null });
+    registerConvertInboxCommand(services, addCommand);
     await runCommand(commands, "convert-inbox");
     expect(entityService.convertInboxToProject).not.toHaveBeenCalled();
   });
 
   it("shows Notice when active file is NOT in the inbox folder", async () => {
     const activeFile = new TFile("projects/Foo.md");
-    const { plugin, commands, entityService } = createMockPlugin({ activeFile });
-    registerConvertInboxCommand(plugin);
+    const { services, addCommand, commands, entityService } = createMockPlugin({ activeFile });
+    registerConvertInboxCommand(services, addCommand);
     await runCommand(commands, "convert-inbox");
     expect(entityService.convertInboxToProject).not.toHaveBeenCalled();
   });
@@ -41,8 +41,8 @@ describe("registerConvertInboxCommand", () => {
     vi.mocked(InputModal).mockImplementation(() => ({ prompt: vi.fn().mockResolvedValue(null) }) as unknown as InstanceType<typeof InputModal>);
 
     const activeFile = new TFile("inbox/Some Task.md");
-    const { plugin, commands, entityService } = createMockPlugin({ activeFile });
-    registerConvertInboxCommand(plugin);
+    const { services, addCommand, commands, entityService } = createMockPlugin({ activeFile });
+    registerConvertInboxCommand(services, addCommand);
     await runCommand(commands, "convert-inbox");
     expect(entityService.convertInboxToProject).not.toHaveBeenCalled();
   });
@@ -52,9 +52,9 @@ describe("registerConvertInboxCommand", () => {
     vi.mocked(InputModal).mockImplementation(() => ({ prompt: vi.fn().mockResolvedValue("Proj") }) as unknown as InstanceType<typeof InputModal>);
 
     const activeFile = new TFile("inbox/Some Task.md");
-    const { plugin, commands, entityService } = createMockPlugin({ activeFile });
+    const { services, addCommand, commands, entityService } = createMockPlugin({ activeFile });
     entityService.convertInboxToProject.mockRejectedValue(new Error("fail"));
-    registerConvertInboxCommand(plugin);
+    registerConvertInboxCommand(services, addCommand);
     await expect(runCommand(commands, "convert-inbox")).resolves.toBeUndefined();
   });
 });

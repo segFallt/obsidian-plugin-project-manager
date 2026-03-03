@@ -11,8 +11,8 @@ vi.mock("../../src/ui/modals/input-modal", () => ({
 
 describe("registerCreateClientCommand", () => {
   it("calls entityService.createClient with the provided name", async () => {
-    const { plugin, commands, entityService } = createMockPlugin();
-    registerCreateClientCommand(plugin);
+    const { services, addCommand, commands, entityService } = createMockPlugin();
+    registerCreateClientCommand(services, addCommand);
     await runCommand(commands, "create-client");
     expect(entityService.createClient).toHaveBeenCalledWith("Acme Corp");
   });
@@ -21,8 +21,8 @@ describe("registerCreateClientCommand", () => {
     const { InputModal } = await import("../../src/ui/modals/input-modal");
     vi.mocked(InputModal).mockImplementation(() => ({ prompt: vi.fn().mockResolvedValue(null) }) as unknown as InstanceType<typeof InputModal>);
 
-    const { plugin, commands, entityService } = createMockPlugin();
-    registerCreateClientCommand(plugin);
+    const { services, addCommand, commands, entityService } = createMockPlugin();
+    registerCreateClientCommand(services, addCommand);
     await runCommand(commands, "create-client");
     expect(entityService.createClient).not.toHaveBeenCalled();
   });
@@ -31,9 +31,9 @@ describe("registerCreateClientCommand", () => {
     const { InputModal } = await import("../../src/ui/modals/input-modal");
     vi.mocked(InputModal).mockImplementation(() => ({ prompt: vi.fn().mockResolvedValue("Bad") }) as unknown as InstanceType<typeof InputModal>);
 
-    const { plugin, commands, entityService } = createMockPlugin();
+    const { services, addCommand, commands, entityService } = createMockPlugin();
     entityService.createClient.mockRejectedValue(new Error("disk full"));
-    registerCreateClientCommand(plugin);
+    registerCreateClientCommand(services, addCommand);
     // Should not throw — error is caught and shown via Notice
     await expect(runCommand(commands, "create-client")).resolves.toBeUndefined();
   });

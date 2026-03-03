@@ -1,16 +1,16 @@
-import type ProjectManagerPlugin from "../main";
+import type { PluginServices, AddCommandFn } from "../plugin-context";
 
 /**
  * PM: Set Up Vault Structure
  * Creates all required folders and default view files.
  * Safe to run on an existing vault.
  */
-export function registerScaffoldVaultCommand(plugin: ProjectManagerPlugin): void {
-  plugin.addCommand({
+export function registerScaffoldVaultCommand(services: PluginServices, addCommand: AddCommandFn): void {
+  addCommand({
     id: "scaffold-vault",
     name: "PM: Set Up Vault Structure",
     callback: async () => {
-      await plugin.scaffoldService.scaffoldVault();
+      await services.scaffoldService.scaffoldVault();
     },
   });
 }

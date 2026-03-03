@@ -1,7 +1,8 @@
 import { describe, it, expect, vi } from "vitest";
 import { registerPmActionsProcessor } from "../../src/processors/pm-actions-processor";
+import type { PluginServices, RegisterProcessorFn } from "../../src/plugin-context";
 
-function createMockPlugin() {
+function createMockServices() {
   const app = {
     commands: {
       executeCommandById: vi.fn(),
@@ -10,23 +11,25 @@ function createMockPlugin() {
 
   let registeredHandler: ((source: string, el: HTMLElement, ctx: { addChild: (child: { render: () => void }) => void }) => void) | null = null;
 
-  const plugin = {
+  const registerProcessor: RegisterProcessorFn = vi.fn((lang, handler) => {
+    registeredHandler = handler;
+  });
+
+  const services = {
     app,
-    registerMarkdownCodeBlockProcessor: vi.fn((lang, handler) => {
-      registeredHandler = handler;
-    }),
-  };
+  } as unknown as PluginServices;
 
   return {
-    plugin: plugin as unknown as import("../../src/main").default,
+    services,
+    registerProcessor,
     app,
     getHandler: () => registeredHandler!,
   };
 }
 
 function render(source: string) {
-  const { plugin, app, getHandler } = createMockPlugin();
-  registerPmActionsProcessor(plugin);
+  const { services, registerProcessor, app, getHandler } = createMockServices();
+  registerPmActionsProcessor(services, registerProcessor);
 
   const el = document.createElement("div");
   const children: Array<{ render: () => void }> = [];
@@ -38,21 +41,15 @@ function render(source: string) {
   };
 
   getHandler()(source, el, ctx);
-  // render is called by ctx.addChild downstream, but the processor calls child.render() explicitly
-  // Actually looking at the code, registerPmActionsProcessor calls child.render() directly
-  // Let's verify by examining: child is created and addChild is called, then render() called
 
   return { el, app, children };
 }
 
 describe("pm-actions processor", () => {
   it("registers a 'pm-actions' code block processor", () => {
-    const { plugin } = createMockPlugin();
-    registerPmActionsProcessor(plugin);
-    expect(plugin.registerMarkdownCodeBlockProcessor).toHaveBeenCalledWith(
-      "pm-actions",
-      expect.any(Function)
-    );
+    const { services, registerProcessor } = createMockServices();
+    registerPmActionsProcessor(services, registerProcessor);
+    expect(registerProcessor).toHaveBeenCalledWith("pm-actions", expect.any(Function));
   });
 
   it("renders buttons for valid YAML actions", () => {

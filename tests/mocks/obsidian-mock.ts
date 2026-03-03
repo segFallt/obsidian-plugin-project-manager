@@ -120,7 +120,7 @@ export class Setting {
 
 export class Plugin {
   app: App;
-  manifest = { id: "project-manager", name: "Project Manager", version: "0.1.0" };
+  manifest = { id: "project-manager", name: "Project Manager", version: "0.1.1" };
 
   constructor(app: App, manifest: unknown) {
     this.app = app;

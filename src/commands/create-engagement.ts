@@ -1,5 +1,5 @@
 import { Notice } from "obsidian";
-import type ProjectManagerPlugin from "../main";
+import type { PluginServices, AddCommandFn } from "../plugin-context";
 import { EntityCreationModal } from "../ui/modals/entity-creation-modal";
 import { ENTITY_TAGS } from "../constants";
 
@@ -7,15 +7,15 @@ import { ENTITY_TAGS } from "../constants";
  * PM: Create Engagement
  * Prompts for a name and optional active client, then creates an engagement note.
  */
-export function registerCreateEngagementCommand(plugin: ProjectManagerPlugin): void {
-  plugin.addCommand({
+export function registerCreateEngagementCommand(services: PluginServices, addCommand: AddCommandFn): void {
+  addCommand({
     id: "create-engagement",
     name: "PM: Create Engagement",
     callback: async () => {
-      const activeClients = plugin.queryService.getActiveEntitiesByTag(ENTITY_TAGS.client);
+      const activeClients = services.queryService.getActiveEntitiesByTag(ENTITY_TAGS.client);
 
       const modal = new EntityCreationModal(
-        plugin.app,
+        services.app,
         "New Engagement",
         "Engagement name",
         activeClients.length > 0 ? "Client (optional)" : null,
@@ -29,7 +29,7 @@ export function registerCreateEngagementCommand(plugin: ProjectManagerPlugin): v
       }
 
       try {
-        await plugin.entityService.createEngagement(result.name, result.parentName ?? undefined);
+        await services.entityService.createEngagement(result.name, result.parentName ?? undefined);
       } catch (err) {
         new Notice(`Error creating engagement: ${String(err)}`);
       }

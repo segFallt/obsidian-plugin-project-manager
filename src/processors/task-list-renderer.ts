@@ -1,0 +1,78 @@
+import { TFile } from "obsidian";
+import type { PluginServices } from "../plugin-context";
+import type { DataviewTask } from "../types";
+import { DUE_DATE_EMOJI, PRIORITY_EMOJI } from "../constants";
+import { todayISO } from "../utils/date-utils";
+import { cleanTaskText, extractEmojiDate, getTaskPriority } from "../utils/task-utils";
+
+/**
+ * Renders a list of tasks as interactive `<ul>` items with checkboxes, badges, and source links.
+ * Also handles toggling task completion state in the vault.
+ */
+export class TaskListRenderer {
+  constructor(private readonly services: PluginServices) {}
+
+  renderTaskList(container: HTMLElement, tasks: DataviewTask[]): void {
+    const ul = container.createEl("ul", { cls: "pm-task-list contains-task-list" });
+
+    for (const task of tasks) {
+      const li = ul.createEl("li", { cls: "task-list-item" });
+
+      const checkbox = li.createEl("input", {
+        type: "checkbox",
+        cls: "task-list-item-checkbox",
+      });
+      checkbox.checked = task.completed;
+      const ariaPrefix = task.completed ? "Mark incomplete: " : "Mark complete: ";
+      checkbox.setAttribute("aria-label", ariaPrefix + cleanTaskText(task.text).substring(0, 60));
+
+      checkbox.addEventListener("change", () => {
+        void this.toggleTask(task, checkbox.checked);
+      });
+
+      const textSpan = li.createSpan({ cls: "pm-task-text" });
+      textSpan.setText(cleanTaskText(task.text));
+
+      // Due date badge
+      const dueDate = extractEmojiDate(task.text, DUE_DATE_EMOJI);
+      if (dueDate) {
+        const badge = li.createSpan({ cls: "pm-task-due" });
+        badge.textContent = `📅 ${dueDate}`;
+        if (dueDate < todayISO()) badge.classList.add("pm-task-due--overdue");
+      }
+
+      // Priority badge
+      const priority = getTaskPriority(task);
+      if (priority !== 3) {
+        const priorityEmoji = Object.entries(PRIORITY_EMOJI).find(([, p]) => p === priority)?.[0];
+        if (priorityEmoji) {
+          li.createSpan({ cls: "pm-task-priority", text: priorityEmoji });
+        }
+      }
+
+      // Source file link
+      const sourceLink = li.createEl("a", {
+        cls: "pm-task-source internal-link",
+        href: task.link.path,
+      });
+      sourceLink.dataset.href = task.link.path;
+      const page = this.services.queryService.getPage(task.link.path);
+      sourceLink.textContent = page?.file.name ?? task.link.path;
+    }
+  }
+
+  async toggleTask(task: DataviewTask, nowCompleted: boolean): Promise<void> {
+    const file = this.services.app.vault.getAbstractFileByPath(task.path);
+    if (!(file instanceof TFile)) return;
+
+    const content = await this.services.app.vault.read(file);
+    const lines = content.split("\n");
+    const lineIndex = task.line;
+
+    if (lineIndex >= lines.length) return;
+
+    const originalLine = lines[lineIndex];
+    lines[lineIndex] = this.services.taskParser.toggleTaskLine(originalLine, nowCompleted);
+    await this.services.app.vault.modify(file, lines.join("\n"));
+  }
+}

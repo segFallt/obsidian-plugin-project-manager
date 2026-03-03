@@ -12,16 +12,21 @@ import { registerScaffoldVaultCommand } from "./scaffold-vault";
 
 /**
  * Registers all plugin commands with the Obsidian command palette.
+ *
+ * This is the only command-layer file that depends on the concrete
+ * ProjectManagerPlugin class. All individual command files depend only
+ * on the narrow PluginServices interface.
  */
 export function registerAllCommands(plugin: ProjectManagerPlugin): void {
-  registerCreateClientCommand(plugin);
-  registerCreateEngagementCommand(plugin);
-  registerCreateProjectCommand(plugin);
-  registerCreatePersonCommand(plugin);
-  registerCreateInboxCommand(plugin);
-  registerCreateSingleMeetingCommand(plugin);
-  registerCreateRecurringMeetingCommand(plugin);
-  registerCreateProjectNoteCommand(plugin);
-  registerConvertInboxCommand(plugin);
-  registerScaffoldVaultCommand(plugin);
+  const addCommand = plugin.addCommand.bind(plugin);
+  registerCreateClientCommand(plugin, addCommand);
+  registerCreateEngagementCommand(plugin, addCommand);
+  registerCreateProjectCommand(plugin, addCommand);
+  registerCreatePersonCommand(plugin, addCommand);
+  registerCreateInboxCommand(plugin, addCommand);
+  registerCreateSingleMeetingCommand(plugin, addCommand);
+  registerCreateRecurringMeetingCommand(plugin, addCommand);
+  registerCreateProjectNoteCommand(plugin, addCommand);
+  registerConvertInboxCommand(plugin, addCommand);
+  registerScaffoldVaultCommand(plugin, addCommand);
 }
