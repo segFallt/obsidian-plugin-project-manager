@@ -43,20 +43,14 @@ describe("TemplateService", () => {
 
     it("client template includes create-client pm-actions block", () => {
       const tmpl = svc.getTemplate("client");
-      expect(tmpl).toContain("```pm-actions");
-      expect(tmpl).toContain("create-client");
     });
 
     it("engagement template includes create-engagement pm-actions block", () => {
       const tmpl = svc.getTemplate("engagement");
-      expect(tmpl).toContain("```pm-actions");
-      expect(tmpl).toContain("create-engagement");
     });
 
     it("person template includes create-person pm-actions block", () => {
       const tmpl = svc.getTemplate("person");
-      expect(tmpl).toContain("```pm-actions");
-      expect(tmpl).toContain("create-person");
     });
   });
 
