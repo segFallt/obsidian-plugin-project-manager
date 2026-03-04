@@ -82,12 +82,6 @@ type: client-people
 \`\`\`
 
 ---
-\`\`\`pm-actions
-actions:
-  - type: create-client
-    label: New Client
-    style: primary
-\`\`\`
 
 # Notes
 
@@ -184,12 +178,6 @@ type: mentions
 \`\`\`
 
 ---
-\`\`\`pm-actions
-actions:
-  - type: create-person
-    label: New Person
-    style: primary
-\`\`\`
 `;
   }
 
