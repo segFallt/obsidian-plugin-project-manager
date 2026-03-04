@@ -61,6 +61,7 @@ export function createMockPage(data: MockPageData): DataviewPage {
   );
 
   const fileLink: DataviewLink = { path, type: "file" };
+  const mtimeDate = new Date();
 
   return {
     file: {
@@ -69,7 +70,7 @@ export function createMockPage(data: MockPageData): DataviewPage {
       folder,
       link: fileLink,
       tags: data.tags ?? [],
-      mtime: new Date(),
+      mtime: { valueOf: () => mtimeDate.valueOf(), toISO: () => mtimeDate.toISOString() },
       tasks: createDataviewArray(taskItems),
     },
     ...fm,

@@ -189,7 +189,7 @@ class PmTableRenderChild extends MarkdownRenderChild {
         ["Note", "Modified"],
         [...notes]
           .sort((a, b) => b.file.mtime.valueOf() - a.file.mtime.valueOf())
-          .map((p) => [this.fileLink(p), formatDate(p.file.mtime.toISOString())])
+          .map((p) => [this.fileLink(p), formatDate(p.file.mtime.toISO())])
       );
     }
 

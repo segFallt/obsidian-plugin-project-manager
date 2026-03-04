@@ -129,6 +129,26 @@ describe("pm-table processor", () => {
       const { el } = render("type: related-project-notes");
       expect(el.innerHTML).toContain("No related notes");
     });
+
+    it("renders notes table with mtime when notes exist (exercises .toISO() path)", () => {
+      const { services, registerProcessor, queryService, getHandler } = createMockServices();
+      registerPmTableProcessor(services, registerProcessor);
+
+      const notes = [createMockPage({ path: "projects/notes/foo/Note1.md" })];
+      queryService.getProjectNotes.mockReturnValue(notes);
+      queryService.getMentions.mockReturnValue([]);
+
+      const el = document.createElement("div");
+      const ctx = {
+        addChild: (child: { render: () => void }) => child.render(),
+        sourcePath: "projects/Foo.md",
+      };
+      getHandler()("type: related-project-notes", el, ctx);
+
+      const table = el.querySelector("table");
+      expect(table).not.toBeNull();
+      expect(el.innerHTML).toContain("Note1");
+    });
   });
 
   describe("unknown type", () => {

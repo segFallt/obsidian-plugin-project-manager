@@ -112,7 +112,7 @@ export interface DataviewPage {
     folder: string;
     link: DataviewLink;
     tags: string[];
-    mtime: Date;
+    mtime: { valueOf(): number; toISO(): string };
     tasks: DataviewArray<DataviewTask>;
   };
   // Frontmatter fields (dynamic)

@@ -50,7 +50,7 @@ priority: 1-5
 convertedFrom: "[[inbox/Inbox Note Name]]"
 ```
 
-The `notesDirectory` is auto-generated at creation time as `projects/notes/<snake_case_project_name>`.
+The `notesDirectory` is auto-generated at creation time as `projects/notes/<snake_case_project_name>`. The `engagement` wikilink is set via `processFrontMatter` after file creation (not baked into the template).
 
 ## Project Note
 
@@ -61,7 +61,7 @@ relatedProject: "[[Project Name]]"
 engagement: "[[Engagement Name]]"
 ```
 
-Project notes inherit the `engagement` from their parent project at creation time.
+Project notes inherit the `engagement` from their parent project at creation time. Both `relatedProject` and `engagement` are set via `processFrontMatter` after file creation; the template itself does not embed wikilink values.
 
 ## Person
 

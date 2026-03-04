@@ -69,7 +69,9 @@ export class Modal {
   close() {}
   onOpen() {}
   onClose() {}
-  setTitle(_title: string) { return this; }
+  setTitle(_title: string) {
+    return this;
+  }
 }
 
 export class SuggestModal<T> extends Modal {
@@ -77,11 +79,17 @@ export class SuggestModal<T> extends Modal {
     super(app);
   }
 
-  getItems(): T[] { return []; }
-  getItemText(_item: T): string { return ""; }
+  getItems(): T[] {
+    return [];
+  }
+  getItemText(_item: T): string {
+    return "";
+  }
   onChooseItem(_item: T, _evt: MouseEvent | KeyboardEvent): void {}
   renderSuggestion(_item: T, _el: HTMLElement): void {}
-  setPlaceholder(_placeholder: string) { return this; }
+  setPlaceholder(_placeholder: string) {
+    return this;
+  }
 }
 
 export class FuzzySuggestModal<T> extends SuggestModal<T> {
@@ -107,20 +115,34 @@ export class PluginSettingTab {
 
 export class Setting {
   constructor(_containerEl: HTMLElement) {}
-  setName(_name: string) { return this; }
-  setDesc(_desc: string) { return this; }
-  addText(_cb: (text: unknown) => void) { return this; }
-  addTextArea(_cb: (text: unknown) => void) { return this; }
-  addToggle(_cb: (toggle: unknown) => void) { return this; }
-  addButton(_cb: (button: unknown) => void) { return this; }
-  addDropdown(_cb: (dd: unknown) => void) { return this; }
+  setName(_name: string) {
+    return this;
+  }
+  setDesc(_desc: string) {
+    return this;
+  }
+  addText(_cb: (text: unknown) => void) {
+    return this;
+  }
+  addTextArea(_cb: (text: unknown) => void) {
+    return this;
+  }
+  addToggle(_cb: (toggle: unknown) => void) {
+    return this;
+  }
+  addButton(_cb: (button: unknown) => void) {
+    return this;
+  }
+  addDropdown(_cb: (dd: unknown) => void) {
+    return this;
+  }
 }
 
 // ─── Plugin stub ─────────────────────────────────────────────────────────────
 
 export class Plugin {
   app: App;
-  manifest = { id: "project-manager", name: "Project Manager", version: "0.1.1" };
+  manifest = { id: "project-manager", name: "Project Manager", version: "0.1.2" };
 
   constructor(app: App, manifest: unknown) {
     this.app = app;
@@ -133,8 +155,12 @@ export class Plugin {
     _language: string,
     _handler: (source: string, el: HTMLElement, ctx: unknown) => void
   ) {}
-  loadData(): Promise<unknown> { return Promise.resolve(null); }
-  saveData(_data: unknown): Promise<void> { return Promise.resolve(); }
+  loadData(): Promise<unknown> {
+    return Promise.resolve(null);
+  }
+  saveData(_data: unknown): Promise<void> {
+    return Promise.resolve();
+  }
 }
 
 // ─── App stub ─────────────────────────────────────────────────────────────────
@@ -151,12 +177,16 @@ export class App {
     createFolder: (_path: string) => Promise.resolve(),
     getAbstractFileByPath: (_path: string): TFile | TFolder | null => null,
     getMarkdownFiles: () => [] as TFile[],
-    on: (_event: string, _handler: (...args: unknown[]) => void): EventRef => ({ id: "mock-event" }),
+    on: (_event: string, _handler: (...args: unknown[]) => void): EventRef => ({
+      id: "mock-event",
+    }),
     off: (_event: string, _handler: (...args: unknown[]) => void) => {},
   };
 
   metadataCache = {
-    getFileCache: (_file: TFile): { frontmatter?: Record<string, unknown>; tags?: Array<{ tag: string }> } | null => null,
+    getFileCache: (
+      _file: TFile
+    ): { frontmatter?: Record<string, unknown>; tags?: Array<{ tag: string }> } | null => null,
   };
 
   fileManager = {
@@ -220,10 +250,7 @@ function getIndent(line: string): number {
   return line.length - line.trimStart().length;
 }
 
-function parseArrayItem(
-  lines: string[],
-  start: number
-): { result: unknown; end: number } {
+function parseArrayItem(lines: string[], start: number): { result: unknown; end: number } {
   const itemIndent = getIndent(lines[start]);
   const content = lines[start].trimStart().substring(2); // strip "- "
   const obj: Record<string, unknown> = {};
@@ -239,7 +266,10 @@ function parseArrayItem(
   while (i < lines.length) {
     const propLine = lines[i];
     const propTrimmed = propLine.trimStart();
-    if (!propTrimmed || propTrimmed.startsWith("#")) { i++; continue; }
+    if (!propTrimmed || propTrimmed.startsWith("#")) {
+      i++;
+      continue;
+    }
     const propIndent = getIndent(propLine);
     if (propIndent <= itemIndent) break;
     const propColon = propTrimmed.indexOf(":");
@@ -264,20 +294,29 @@ function parseBlock(
   while (i < lines.length) {
     const rawLine = lines[i];
     const trimmed = rawLine.trimStart();
-    if (!trimmed || trimmed.startsWith("#")) { i++; continue; }
+    if (!trimmed || trimmed.startsWith("#")) {
+      i++;
+      continue;
+    }
 
     const indent = getIndent(rawLine);
     if (indent < minIndent) break;
 
     const colonIdx = trimmed.indexOf(":");
-    if (colonIdx === -1) { i++; continue; }
+    if (colonIdx === -1) {
+      i++;
+      continue;
+    }
 
     const key = trimmed.substring(0, colonIdx).trim();
     const rest = trimmed.substring(colonIdx + 1).trimStart();
 
     if (rest === "" || rest === "\r") {
       i++;
-      if (i >= lines.length) { result[key] = null; continue; }
+      if (i >= lines.length) {
+        result[key] = null;
+        continue;
+      }
       const nextLine = lines[i];
       const nextTrimmed = nextLine.trimStart();
       const nextIndent = getIndent(nextLine);

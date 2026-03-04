@@ -82,6 +82,13 @@ type: client-people
 \`\`\`
 
 ---
+\`\`\`pm-actions
+actions:
+  - type: create-client
+    label: New Client
+    style: primary
+\`\`\`
+
 # Notes
 
 `;
@@ -110,6 +117,13 @@ type: engagement-projects
 \`\`\`
 
 ---
+\`\`\`pm-actions
+actions:
+  - type: create-engagement
+    label: New Engagement
+    style: primary
+\`\`\`
+
 # Notes
 
 `;
@@ -118,7 +132,7 @@ type: engagement-projects
   private projectTemplate(): string {
     return `---
 notesDirectory: {{notesDir}}
-engagement: {{engagement}}
+engagement:
 start-date: {{date}}
 end-date:
 status: New
@@ -144,6 +158,8 @@ actions:
   - type: create-project-note
     label: New Project Note
     style: primary
+  - type: create-project
+    label: New Project
 \`\`\`
 \`\`\`pm-table
 type: related-project-notes
@@ -173,6 +189,14 @@ entity: person
 # Mentions
 \`\`\`pm-table
 type: mentions
+\`\`\`
+
+---
+\`\`\`pm-actions
+actions:
+  - type: create-person
+    label: New Person
+    style: primary
 \`\`\`
 `;
   }
@@ -241,7 +265,7 @@ entity: recurring-meeting
 
   private projectNoteTemplate(): string {
     return `---
-engagement: {{engagement}}
+engagement:
 relatedProject: "[[{{relatedProject}}]]"
 ---
 `;

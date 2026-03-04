@@ -186,23 +186,15 @@ describe("EntityService", () => {
   });
 
   describe("createProject", () => {
-    it("creates a project with notesDirectory set", async () => {
+    it("creates a project file in the projects folder", async () => {
       const { svc, app } = createEntityService();
-
-      const frontmatters: Record<string, Record<string, unknown>> = {};
-      app.fileManager.processFrontMatter = async (file, fn) => {
-        const fm: Record<string, unknown> = {};
-        fn(fm);
-        frontmatters[file.path] = fm;
+      const createdFiles: string[] = [];
+      app.vault.create = async (path, content) => {
+        createdFiles.push(path);
+        return new TFile(path);
       };
-
       await svc.createProject("My Project");
-
-      // The project file should have been created
-      // and processFrontMatter is called with notesDirectory via the template
-      // (notesDirectory is embedded in the template content, not set via processFrontMatter)
-      // This test verifies createProject runs without error
-      expect(true).toBe(true);
+      expect(createdFiles[0]).toBe("projects/My Project.md");
     });
 
     it("generates snake_case notesDirectory", async () => {
@@ -217,6 +209,25 @@ describe("EntityService", () => {
       await svc.createProject("My New Project");
       // notesDirectory should appear in the template with snake_case
       expect(capturedContent).toContain("my_new_project");
+    });
+
+    it("sets engagement via processFrontMatter when engagementName is provided", async () => {
+      const { svc, app } = createEntityService();
+      const mutations: Record<string, unknown> = {};
+      app.fileManager.processFrontMatter = async (file, fn) => {
+        const fm: Record<string, unknown> = {};
+        fn(fm);
+        Object.assign(mutations, fm);
+      };
+      await svc.createProject("My Project", "Acme Engagement");
+      expect(String(mutations.engagement ?? "")).toContain("Acme Engagement");
+    });
+
+    it("does not call processFrontMatter when engagementName is omitted", async () => {
+      const { svc, app } = createEntityService();
+      const spy = vi.spyOn(app.fileManager, "processFrontMatter");
+      await svc.createProject("My Project");
+      expect(spy).not.toHaveBeenCalled();
     });
   });
 
@@ -245,6 +256,60 @@ describe("EntityService", () => {
       );
 
       expect(createdFiles[0]).toBe("projects/notes/foo/Meeting Notes.md");
+    });
+
+    it("sets engagement via processFrontMatter when engagement is a wikilink string", async () => {
+      const projectFile = new TFile("projects/Foo.md");
+      const { svc, app } = createEntityService([
+        {
+          path: "projects/Foo.md",
+          frontmatter: {
+            notesDirectory: "projects/notes/foo",
+            engagement: "[[My Engagement]]",
+          },
+        },
+      ]);
+
+      const mutations: Record<string, unknown> = {};
+      app.fileManager.processFrontMatter = async (file, fn) => {
+        const fm: Record<string, unknown> = {};
+        fn(fm);
+        Object.assign(mutations, fm);
+      };
+
+      await svc.createProjectNote(
+        projectFile as unknown as import("obsidian").TFile,
+        "Note"
+      );
+
+      expect(String(mutations.engagement ?? "")).toContain("My Engagement");
+    });
+
+    it("sets engagement via processFrontMatter when engagement is a Link object", async () => {
+      const projectFile = new TFile("projects/Foo.md");
+      const { svc, app } = createEntityService([
+        {
+          path: "projects/Foo.md",
+          frontmatter: {
+            notesDirectory: "projects/notes/foo",
+            engagement: { path: "engagements/My Engagement.md", type: "file" },
+          },
+        },
+      ]);
+
+      const mutations: Record<string, unknown> = {};
+      app.fileManager.processFrontMatter = async (file, fn) => {
+        const fm: Record<string, unknown> = {};
+        fn(fm);
+        Object.assign(mutations, fm);
+      };
+
+      await svc.createProjectNote(
+        projectFile as unknown as import("obsidian").TFile,
+        "Note"
+      );
+
+      expect(String(mutations.engagement ?? "")).toContain("My Engagement");
     });
 
     it("throws if project has no notesDirectory", async () => {
@@ -288,6 +353,35 @@ describe("EntityService", () => {
       const inboxMutations = mutations["inbox/Some Task.md"];
       expect(inboxMutations?.status).toBe("Inactive");
       expect(String(inboxMutations?.convertedTo ?? "")).toContain("My Project");
+    });
+
+    it("handles Link object engagement from inbox note", async () => {
+      const inboxFile = new TFile("inbox/Some Task.md");
+      const { svc, app } = createEntityService([
+        {
+          path: "inbox/Some Task.md",
+          frontmatter: {
+            engagement: { path: "engagements/My Engagement.md", type: "file" },
+            status: "Active",
+          },
+        },
+      ]);
+
+      const mutations: Record<string, Record<string, unknown>> = {};
+      app.fileManager.processFrontMatter = async (file, fn) => {
+        const fm: Record<string, unknown> = {};
+        fn(fm);
+        mutations[file.path] = { ...(mutations[file.path] ?? {}), ...fm };
+      };
+
+      await svc.convertInboxToProject(
+        inboxFile as unknown as import("obsidian").TFile,
+        "My Project"
+      );
+
+      // Engagement should be extracted from Link object and set as wikilink
+      const projectMutations = mutations["projects/My Project.md"];
+      expect(String(projectMutations?.engagement ?? "")).toContain("My Engagement");
     });
   });
 });

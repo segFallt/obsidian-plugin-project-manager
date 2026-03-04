@@ -54,6 +54,8 @@ Key methods:
 ### `EntityService` (`src/services/entity-service.ts`)
 Handles all vault file creation. Reads templates from `TemplateService`, resolves path conflicts, creates folders, sets frontmatter via `processFrontMatter`.
 
+**Wikilink frontmatter convention**: Fields that hold wikilinks (e.g. `engagement`, `client`, `convertedFrom`) are never baked into template content via string substitution. Instead they are always set via `processFrontMatter` after file creation. This avoids YAML parsing issues caused by unquoted `[[...]]` sequences in raw template text.
+
 ### `TemplateService` (`src/services/template-service.ts`)
 Returns embedded template strings for all 8 entity types. Templates use `{{variable}}` placeholders processed by `processTemplate()`. Templates include `pm-*` code blocks instead of Meta Bind syntax.
 

@@ -8,7 +8,7 @@ import {
   resolveConflictPath,
   generateProjectNotesPath,
 } from "../utils/path-utils";
-import { toWikilink } from "../utils/link-utils";
+import { toWikilink, normalizeToName } from "../utils/link-utils";
 import { getFrontmatter } from "../utils/frontmatter-utils";
 
 /**
@@ -56,8 +56,12 @@ export class EntityService implements IEntityService {
     const notesDir = generateProjectNotesPath(name, this.settings.folders.projectNotes);
     const file = await this.createEntity("project", name, this.settings.folders.projects, {
       notesDir,
-      engagement: engagementName ? toWikilink(engagementName) : "",
     });
+    if (engagementName) {
+      await this.app.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => {
+        fm["engagement"] = toWikilink(engagementName);
+      });
+    }
     return file;
   }
 
@@ -127,7 +131,7 @@ export class EntityService implements IEntityService {
       );
     }
 
-    const engagement = fm.engagement as string | undefined;
+    const engagementName = normalizeToName(fm.engagement);
 
     await ensureFolderExists(this.app, notesDir);
 
@@ -136,7 +140,6 @@ export class EntityService implements IEntityService {
 
     const vars = {
       ...this.templates.defaultVars(),
-      engagement: engagement ?? "",
       relatedProject: projectFile.basename,
     };
 
@@ -146,6 +149,11 @@ export class EntityService implements IEntityService {
     );
 
     const newFile = await this.app.vault.create(path, content);
+    if (engagementName) {
+      await this.app.fileManager.processFrontMatter(newFile, (pfm: Record<string, unknown>) => {
+        pfm["engagement"] = toWikilink(engagementName);
+      });
+    }
     await this.openFile(newFile);
     return newFile;
   }
@@ -164,9 +172,9 @@ export class EntityService implements IEntityService {
   async convertInboxToProject(inboxFile: TFile, projectName?: string): Promise<TFile> {
     const name = projectName ?? inboxFile.basename;
     const fm = getFrontmatter(this.app, inboxFile);
-    const inboxEngagement = fm.engagement as string | undefined;
+    const inboxEngagement = normalizeToName(fm.engagement) ?? undefined;
 
-    const projectFile = await this.createProject(name, this.normalizeLink(inboxEngagement));
+    const projectFile = await this.createProject(name, inboxEngagement);
 
     // Set bidirectional links
     await this.app.fileManager.processFrontMatter(projectFile, (pfm: Record<string, unknown>) => {
@@ -225,12 +233,6 @@ export class EntityService implements IEntityService {
 
   private today(): string {
     return new Date().toISOString().split("T")[0];
-  }
-
-  /** Strips wikilink brackets to extract the plain name. */
-  private normalizeLink(raw: string | undefined): string | undefined {
-    if (!raw) return undefined;
-    return raw.replace(/^\[\[/, "").replace(/\]\]$/, "").split("/").pop()?.replace(/\.md$/, "");
   }
 
   /** Validates that a create operation result is safe to use. */
