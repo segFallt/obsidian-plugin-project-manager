@@ -32,7 +32,9 @@ export class EntityService implements IEntityService {
 
   /** Creates a new client note in the clients folder. */
   async createClient(name: string): Promise<TFile> {
-    return this.createEntity("client", name, this.settings.folders.clients);
+    const file = await this.createEntity("client", name, this.settings.folders.clients);
+    await this.openFile(file);
+    return file;
   }
 
   /** Creates a new engagement note, optionally linked to a client. */
@@ -45,6 +47,7 @@ export class EntityService implements IEntityService {
         fm["client"] = toWikilink(clientName);
       });
     }
+    await this.openFile(file);
     return file;
   }
 
@@ -62,6 +65,7 @@ export class EntityService implements IEntityService {
         fm["engagement"] = toWikilink(engagementName);
       });
     }
+    await this.openFile(file);
     return file;
   }
 
@@ -73,6 +77,7 @@ export class EntityService implements IEntityService {
         fm["client"] = toWikilink(clientName);
       });
     }
+    await this.openFile(file);
     return file;
   }
 
@@ -84,6 +89,7 @@ export class EntityService implements IEntityService {
         fm["engagement"] = toWikilink(engagementName);
       });
     }
+    await this.openFile(file);
     return file;
   }
 
@@ -92,13 +98,14 @@ export class EntityService implements IEntityService {
     const file = await this.createEntity(
       "single-meeting",
       name,
-      this.settings.folders.meetings
+      this.settings.folders.meetingsSingle
     );
     if (engagementName) {
       await this.app.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => {
         fm["engagement"] = toWikilink(engagementName);
       });
     }
+    await this.openFile(file);
     return file;
   }
 
@@ -107,13 +114,14 @@ export class EntityService implements IEntityService {
     const file = await this.createEntity(
       "recurring-meeting",
       name,
-      this.settings.folders.meetings
+      this.settings.folders.meetingsRecurring
     );
     if (engagementName) {
       await this.app.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => {
         fm["engagement"] = toWikilink(engagementName);
       });
     }
+    await this.openFile(file);
     return file;
   }
 
@@ -220,7 +228,6 @@ export class EntityService implements IEntityService {
 
     const file = await this.app.vault.create(path, content);
     new Notice(`Created: ${name}`);
-    await this.openFile(file);
     return file;
   }
 

@@ -136,7 +136,7 @@ describe("EntityService", () => {
   });
 
   describe("createSingleMeeting", () => {
-    it("creates a meeting file in the meetings folder", async () => {
+    it("creates a meeting file in the meetings/single folder", async () => {
       const { svc, app } = createEntityService();
       const createdFiles: string[] = [];
       app.vault.create = async (path) => {
@@ -144,7 +144,7 @@ describe("EntityService", () => {
         return new TFile(path);
       };
       await svc.createSingleMeeting("Kickoff");
-      expect(createdFiles[0]).toBe("meetings/Kickoff.md");
+      expect(createdFiles[0]).toBe("meetings/single/Kickoff.md");
     });
 
     it("sets engagement frontmatter when engagementName is provided", async () => {
@@ -161,7 +161,7 @@ describe("EntityService", () => {
   });
 
   describe("createRecurringMeeting", () => {
-    it("creates a recurring meeting file in the meetings folder", async () => {
+    it("creates a recurring meeting file in the meetings/recurring folder", async () => {
       const { svc, app } = createEntityService();
       const createdFiles: string[] = [];
       app.vault.create = async (path) => {
@@ -169,7 +169,7 @@ describe("EntityService", () => {
         return new TFile(path);
       };
       await svc.createRecurringMeeting("Weekly Standup");
-      expect(createdFiles[0]).toBe("meetings/Weekly Standup.md");
+      expect(createdFiles[0]).toBe("meetings/recurring/Weekly Standup.md");
     });
 
     it("sets engagement frontmatter when engagementName is provided", async () => {
@@ -324,6 +324,53 @@ describe("EntityService", () => {
           "Note"
         )
       ).rejects.toThrow("notesDirectory");
+    });
+  });
+
+  describe("openFile order — called after processFrontMatter", () => {
+    it("createEngagement opens file after setting client frontmatter", async () => {
+      const { svc, app } = createEntityService();
+      const callOrder: string[] = [];
+
+      app.fileManager.processFrontMatter = async (_file, fn) => {
+        fn({});
+        callOrder.push("processFrontMatter");
+      };
+      const leaf = { openFile: vi.fn(async () => { callOrder.push("openFile"); }) };
+      app.workspace.getLeaf = () => leaf as unknown as ReturnType<typeof app.workspace.getLeaf>;
+
+      await svc.createEngagement("My Engagement", "Acme Corp");
+      expect(callOrder).toEqual(["processFrontMatter", "openFile"]);
+    });
+
+    it("createProject opens file after setting engagement frontmatter", async () => {
+      const { svc, app } = createEntityService();
+      const callOrder: string[] = [];
+
+      app.fileManager.processFrontMatter = async (_file, fn) => {
+        fn({});
+        callOrder.push("processFrontMatter");
+      };
+      const leaf = { openFile: vi.fn(async () => { callOrder.push("openFile"); }) };
+      app.workspace.getLeaf = () => leaf as unknown as ReturnType<typeof app.workspace.getLeaf>;
+
+      await svc.createProject("My Project", "Acme Engagement");
+      expect(callOrder).toEqual(["processFrontMatter", "openFile"]);
+    });
+
+    it("createSingleMeeting opens file after setting engagement frontmatter", async () => {
+      const { svc, app } = createEntityService();
+      const callOrder: string[] = [];
+
+      app.fileManager.processFrontMatter = async (_file, fn) => {
+        fn({});
+        callOrder.push("processFrontMatter");
+      };
+      const leaf = { openFile: vi.fn(async () => { callOrder.push("openFile"); }) };
+      app.workspace.getLeaf = () => leaf as unknown as ReturnType<typeof app.workspace.getLeaf>;
+
+      await svc.createSingleMeeting("Kickoff", "Eng Alpha");
+      expect(callOrder).toEqual(["processFrontMatter", "openFile"]);
     });
   });
 

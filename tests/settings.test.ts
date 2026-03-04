@@ -10,7 +10,8 @@ describe("DEFAULT_SETTINGS", () => {
     expect(DEFAULT_SETTINGS.folders).toHaveProperty("projectNotes");
     expect(DEFAULT_SETTINGS.folders).toHaveProperty("people");
     expect(DEFAULT_SETTINGS.folders).toHaveProperty("inbox");
-    expect(DEFAULT_SETTINGS.folders).toHaveProperty("meetings");
+    expect(DEFAULT_SETTINGS.folders).toHaveProperty("meetingsSingle");
+    expect(DEFAULT_SETTINGS.folders).toHaveProperty("meetingsRecurring");
     expect(DEFAULT_SETTINGS.folders).toHaveProperty("dailyNotes");
     expect(DEFAULT_SETTINGS.folders).toHaveProperty("utility");
   });
@@ -33,7 +34,8 @@ describe("DEFAULT_SETTINGS", () => {
     expect(DEFAULT_SETTINGS.folders.engagements).toBe("engagements");
     expect(DEFAULT_SETTINGS.folders.projects).toBe("projects");
     expect(DEFAULT_SETTINGS.folders.inbox).toBe("inbox");
-    expect(DEFAULT_SETTINGS.folders.meetings).toBe("meetings");
+    expect(DEFAULT_SETTINGS.folders.meetingsSingle).toBe("meetings/single");
+    expect(DEFAULT_SETTINGS.folders.meetingsRecurring).toBe("meetings/recurring");
   });
 
   it("has sane default task view statuses (excludes Complete)", () => {

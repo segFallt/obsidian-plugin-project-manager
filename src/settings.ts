@@ -9,7 +9,8 @@ export interface FolderSettings {
   projectNotes: string;
   people: string;
   inbox: string;
-  meetings: string;
+  meetingsSingle: string;
+  meetingsRecurring: string;
   dailyNotes: string;
   utility: string;
 }
@@ -41,7 +42,8 @@ export const DEFAULT_SETTINGS: ProjectManagerSettings = {
     projectNotes: DEFAULT_FOLDERS.projectNotes,
     people: DEFAULT_FOLDERS.people,
     inbox: DEFAULT_FOLDERS.inbox,
-    meetings: DEFAULT_FOLDERS.meetings,
+    meetingsSingle: DEFAULT_FOLDERS.meetingsSingle,
+    meetingsRecurring: DEFAULT_FOLDERS.meetingsRecurring,
     dailyNotes: DEFAULT_FOLDERS.dailyNotes,
     utility: DEFAULT_FOLDERS.utility,
   },
@@ -100,7 +102,16 @@ export class ProjectManagerSettingTab extends PluginSettingTab {
       },
       { key: "people", name: "People folder", desc: "Folder for person notes" },
       { key: "inbox", name: "Inbox folder", desc: "Folder for inbox items" },
-      { key: "meetings", name: "Meetings folder", desc: "Folder for meeting notes" },
+      {
+        key: "meetingsSingle",
+        name: "Single meetings folder",
+        desc: "Folder for single meeting notes",
+      },
+      {
+        key: "meetingsRecurring",
+        name: "Recurring meetings folder",
+        desc: "Folder for recurring meeting notes",
+      },
       { key: "dailyNotes", name: "Daily notes folder", desc: "Folder for daily notes" },
       { key: "utility", name: "Utility folder", desc: "Folder containing utility files" },
     ];

@@ -1,4 +1,4 @@
-import { MarkdownRenderChild, TFile, parseYaml } from "obsidian";
+import { MarkdownRenderChild, TFile, TAbstractFile, parseYaml } from "obsidian";
 import type { MarkdownPostProcessorContext } from "obsidian";
 import type { PluginServices, RegisterProcessorFn } from "../plugin-context";
 import type { PmPropertiesConfig, EntityType } from "../types";
@@ -105,6 +105,9 @@ const ENTITY_FIELDS: Record<EntityType, FieldDescriptor[]> = {
 // ─── Render child ──────────────────────────────────────────────────────────
 
 class PmPropertiesRenderChild extends MarkdownRenderChild {
+  private debounceTimer: ReturnType<typeof setTimeout> | null = null;
+  private isUpdating = false;
+
   constructor(
     containerEl: HTMLElement,
     private readonly source: string,
@@ -112,6 +115,33 @@ class PmPropertiesRenderChild extends MarkdownRenderChild {
     private readonly services: PluginServices
   ) {
     super(containerEl);
+  }
+
+  onload(): void {
+    // Auto-refresh when the current file's frontmatter is updated externally.
+    // Uses a 500ms debounce; skips re-render during our own processFrontMatter writes.
+    this.registerEvent(
+      this.services.app.vault.on("modify", (file: TAbstractFile) => {
+        if (this.isUpdating) return;
+        if (!(file instanceof TFile)) return;
+        if (file.path !== this.sourcePath) return;
+        this.debouncedRefresh();
+      })
+    );
+  }
+
+  onunload(): void {
+    if (this.debounceTimer !== null) {
+      clearTimeout(this.debounceTimer);
+      this.debounceTimer = null;
+    }
+  }
+
+  private debouncedRefresh(): void {
+    if (this.debounceTimer) clearTimeout(this.debounceTimer);
+    this.debounceTimer = setTimeout(() => {
+      this.render();
+    }, 500);
   }
 
   render(): void {
@@ -375,13 +405,21 @@ class PmPropertiesRenderChild extends MarkdownRenderChild {
     key: string,
     value: unknown
   ): Promise<void> {
-    await this.services.app.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => {
-      if (value === null) {
-        delete fm[key];
-      } else {
-        fm[key] = value;
-      }
-    });
+    this.isUpdating = true;
+    try {
+      await this.services.app.fileManager.processFrontMatter(
+        file,
+        (fm: Record<string, unknown>) => {
+          if (value === null) {
+            delete fm[key];
+          } else {
+            fm[key] = value;
+          }
+        }
+      );
+    } finally {
+      this.isUpdating = false;
+    }
   }
 
   private renderError(message: string): void {

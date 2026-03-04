@@ -92,7 +92,8 @@ When converted to a project: `status` → `Inactive`, `convertedTo` is set.
 
 ## Single Meeting
 
-**File location**: `meetings/<Name>.md`
+**File location**: `meetings/single/<Name>.md`
+**Folder**: configured via Settings → Folder Paths → Single meetings folder
 
 ```yaml
 engagement: "[[Engagement Name]]"
@@ -103,7 +104,8 @@ attendees:
 
 ## Recurring Meeting
 
-**File location**: `meetings/<Name>.md`
+**File location**: `meetings/recurring/<Name>.md`
+**Folder**: configured via Settings → Folder Paths → Recurring meetings folder
 
 ```yaml
 engagement: "[[Engagement Name]]"

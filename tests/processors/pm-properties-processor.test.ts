@@ -18,6 +18,7 @@ function createMockServices(
     | null = null;
 
   const mockFile = sourcePathFile;
+  const vaultOn = vi.fn(() => ({ id: "mock-event" }));
 
   const registerProcessor: RegisterProcessorFn = vi.fn((_lang, handler) => {
     registeredHandler = handler;
@@ -26,6 +27,7 @@ function createMockServices(
   const services = {
     app: {
       vault: {
+        on: vaultOn,
         getAbstractFileByPath: vi.fn((_path: string) => mockFile),
       },
       metadataCache: {
@@ -43,6 +45,7 @@ function createMockServices(
   return {
     services,
     registerProcessor,
+    vaultOn,
     getHandler: () => registeredHandler!,
   };
 }
@@ -225,6 +228,96 @@ describe("pm-properties processor", () => {
       // list-suggester renders a select for picking people to add
       const selects = el.querySelectorAll("select");
       expect(selects.length).toBeGreaterThan(0);
+    });
+  });
+
+  describe("lifecycle — onload / onunload / auto-refresh", () => {
+    function renderWithLifecycle(
+      source: string,
+      sourcePathFile: InstanceType<typeof TFile> | null = null,
+      frontmatter: Record<string, unknown> = {}
+    ) {
+      const { services, registerProcessor, vaultOn, getHandler } =
+        createMockServices(sourcePathFile, frontmatter);
+      registerPmPropertiesProcessor(services, registerProcessor);
+
+      const el = document.createElement("div");
+      const children: Array<{
+        onload?: () => void;
+        onunload?: () => void;
+        render(): void;
+      }> = [];
+      const ctx = {
+        addChild: (child: unknown) =>
+          children.push(child as { onload?: () => void; onunload?: () => void; render(): void }),
+        sourcePath: sourcePathFile?.path ?? "test.md",
+      };
+
+      getHandler()(source, el, ctx);
+      return { el, services, vaultOn, child: children[0]! };
+    }
+
+    it("onload registers a vault.on modify listener", () => {
+      const file = new TFile("clients/Acme.md");
+      const { child, vaultOn } = renderWithLifecycle("entity: client", file);
+
+      child.onload?.();
+      expect(vaultOn).toHaveBeenCalledWith("modify", expect.any(Function));
+    });
+
+    it("auto-refreshes (re-renders) when the source file is modified", () => {
+      vi.useFakeTimers();
+      const file = new TFile("clients/Acme.md");
+      const { child, vaultOn } = renderWithLifecycle("entity: client", file);
+
+      child.onload?.();
+      const renderSpy = vi.spyOn(child, "render");
+
+      // Simulate vault modify event for the source file
+      const [[, modifyCallback]] = vaultOn.mock.calls;
+      (modifyCallback as (f: InstanceType<typeof TFile>) => void)(file);
+
+      expect(renderSpy).not.toHaveBeenCalled(); // debounced — not yet
+      vi.advanceTimersByTime(500);
+      expect(renderSpy).toHaveBeenCalledOnce();
+
+      vi.useRealTimers();
+    });
+
+    it("does NOT refresh when a different file is modified", () => {
+      vi.useFakeTimers();
+      const file = new TFile("clients/Acme.md");
+      const otherFile = new TFile("projects/Other.md");
+      const { child, vaultOn } = renderWithLifecycle("entity: client", file);
+
+      child.onload?.();
+      const renderSpy = vi.spyOn(child, "render");
+
+      const [[, modifyCallback]] = vaultOn.mock.calls;
+      (modifyCallback as (f: InstanceType<typeof TFile>) => void)(otherFile);
+
+      vi.advanceTimersByTime(500);
+      expect(renderSpy).not.toHaveBeenCalled();
+
+      vi.useRealTimers();
+    });
+
+    it("onunload clears pending debounce timer", () => {
+      vi.useFakeTimers();
+      const file = new TFile("clients/Acme.md");
+      const { child, vaultOn } = renderWithLifecycle("entity: client", file);
+
+      child.onload?.();
+      const renderSpy = vi.spyOn(child, "render");
+
+      const [[, modifyCallback]] = vaultOn.mock.calls;
+      (modifyCallback as (f: InstanceType<typeof TFile>) => void)(file);
+
+      child.onunload?.(); // clear timer before it fires
+      vi.advanceTimersByTime(500);
+      expect(renderSpy).not.toHaveBeenCalled();
+
+      vi.useRealTimers();
     });
   });
 });
