@@ -33,10 +33,30 @@ describe("TemplateService", () => {
       const tmpl = svc.getTemplate("project");
       expect(tmpl).toContain("```pm-table");
       expect(tmpl).toContain("```pm-actions");
+      expect(tmpl).toContain("create-project-note");
+      expect(tmpl).toContain("create-project");
     });
 
     it("project template includes notesDir variable placeholder", () => {
       expect(svc.getTemplate("project")).toContain("{{notesDir}}");
+    });
+
+    it("client template includes create-client pm-actions block", () => {
+      const tmpl = svc.getTemplate("client");
+      expect(tmpl).toContain("```pm-actions");
+      expect(tmpl).toContain("create-client");
+    });
+
+    it("engagement template includes create-engagement pm-actions block", () => {
+      const tmpl = svc.getTemplate("engagement");
+      expect(tmpl).toContain("```pm-actions");
+      expect(tmpl).toContain("create-engagement");
+    });
+
+    it("person template includes create-person pm-actions block", () => {
+      const tmpl = svc.getTemplate("person");
+      expect(tmpl).toContain("```pm-actions");
+      expect(tmpl).toContain("create-person");
     });
   });
 
@@ -65,11 +85,11 @@ describe("TemplateService", () => {
         datetime: "2026-03-02T10:00:00",
         name: "Test Project",
         notesDir: "projects/notes/test_project",
-        engagement: "[[My Engagement]]",
       });
       expect(result).toContain("projects/notes/test_project");
       expect(result).not.toContain("{{notesDir}}");
-      expect(result).not.toContain("{{engagement}}");
+      // engagement is set via processFrontMatter post-creation, not baked into template
+      expect(result).not.toContain("[[");
     });
   });
 

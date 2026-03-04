@@ -71,7 +71,14 @@ type: <table-type>
 
 ## `pm-actions`
 
-Renders action buttons.
+Renders action buttons. The following entity templates include a default `pm-actions` block so users can create related records directly from a note:
+
+| Template | Default button |
+|----------|----------------|
+| Client | New Client (`create-client`) |
+| Engagement | New Engagement (`create-engagement`) |
+| Project | New Project Note (`create-project-note`), New Project (`create-project`) |
+| Person | New Person (`create-person`) |
 
 ```yaml
 ```pm-actions
