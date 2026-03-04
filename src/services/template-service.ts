@@ -117,12 +117,6 @@ type: engagement-projects
 \`\`\`
 
 ---
-\`\`\`pm-actions
-actions:
-  - type: create-engagement
-    label: New Engagement
-    style: primary
-\`\`\`
 
 # Notes
 
