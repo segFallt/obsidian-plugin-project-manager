@@ -115,6 +115,12 @@ obsidianUIMode: preview
 ---
 # Clients
 
+\`\`\`pm-actions
+actions:
+  - type: create-client
+    label: New Client
+    style: primary
+\`\`\`
 \`\`\`dataview
 TABLE status, contact-name
 FROM #client
@@ -129,6 +135,12 @@ obsidianUIMode: preview
 ---
 # Engagements
 
+\`\`\`pm-actions
+actions:
+  - type: create-engagement
+    label: New Engagement
+    style: primary
+\`\`\`
 \`\`\`dataview
 TABLE client, status, start-date, end-date
 FROM #engagement
@@ -143,6 +155,12 @@ obsidianUIMode: preview
 ---
 # Projects
 
+\`\`\`pm-actions
+actions:
+  - type: create-project
+    label: New Project
+    style: primary
+\`\`\`
 \`\`\`dataview
 TABLE engagement, status, priority, start-date
 FROM #project
@@ -157,6 +175,12 @@ obsidianUIMode: preview
 ---
 # Inbox
 
+\`\`\`pm-actions
+actions:
+  - type: create-inbox
+    label: New Inbox
+    style: primary
+\`\`\`
 \`\`\`dataview
 TABLE engagement, status
 FROM "inbox"

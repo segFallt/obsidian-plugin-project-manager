@@ -158,8 +158,6 @@ actions:
   - type: create-project-note
     label: New Project Note
     style: primary
-  - type: create-project
-    label: New Project
 \`\`\`
 \`\`\`pm-table
 type: related-project-notes
