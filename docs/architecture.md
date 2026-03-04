@@ -72,7 +72,7 @@ All processors follow the same pattern:
 5. Error boundary wraps the render call
 
 ### `pm-properties`
-Reads the current file's frontmatter via `metadataCache`. Renders form fields (inputs, selects, textareas, entity suggesters). Changes persist immediately via `processFrontMatter`.
+Reads the current file's frontmatter via `metadataCache`. Renders form fields (inputs, selects, textareas, entity suggesters). Changes persist immediately via `processFrontMatter`. Auto-refreshes on vault `modify` events filtered to the current file (500ms debounce). An `isUpdating` flag suppresses re-render during the component's own writes to prevent infinite loops.
 
 ### `pm-table`
 Delegates to `QueryService` for data. Renders an HTML `<table>` with Obsidian-style internal links.
@@ -82,6 +82,27 @@ Maps `type` strings to plugin command IDs. Calls `app.commands.executeCommandByI
 
 ### `pm-tasks` (dashboard mode)
 Filter state is a plain JS object local to the render child — no frontmatter writes. Queries all tasks from `dv.pages()`, applies multi-stage filtering, renders by context/date/priority/tag. Checkbox toggle reads the source file, updates the task line, and writes back via `vault.modify()`.
+
+## Vault Folder Structure
+
+Default folder layout (all paths configurable via Settings → Folder Paths):
+
+```
+clients/
+engagements/
+projects/
+projects/notes/
+people/
+inbox/
+meetings/
+  single/          ← single meeting notes
+  recurring/       ← recurring meeting notes
+daily notes/
+utility/
+views/             ← scaffolded view files
+```
+
+The scaffold service also creates `.base` files (Obsidian Bases) alongside `.md` view files. `.base` files define named table views with filters, column order, and sort rules. The `.md` view files embed these via `![[Base File.base#view_name]]` and include `pm-actions` buttons for entity creation. Obsidian Bases is a dependency for the entity list views.
 
 ## Dataview Dependency
 

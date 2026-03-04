@@ -58,7 +58,8 @@ export const DEFAULT_FOLDERS = {
   projectNotes: "projects/notes",
   people: "people",
   inbox: "inbox",
-  meetings: "meetings",
+  meetingsSingle: "meetings/single",
+  meetingsRecurring: "meetings/recurring",
   dailyNotes: "daily notes",
   utility: "utility",
 } as const;

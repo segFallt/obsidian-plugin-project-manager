@@ -2,7 +2,7 @@
 
 ## `pm-properties`
 
-Renders an interactive frontmatter editor for the current note.
+Renders an interactive frontmatter editor for the current note. Changes are persisted immediately via `processFrontMatter`. The component auto-refreshes (500ms debounce) when the current file is modified externally, so the displayed values stay in sync. Re-renders triggered by the component's own writes are suppressed to prevent infinite loops.
 
 ```yaml
 ```pm-properties
