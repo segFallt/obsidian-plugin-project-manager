@@ -153,6 +153,56 @@
   opacity: 1;
 }
 
+/* ─── Inline Autocomplete ───────────────────────────────────────────────────── */
+
+.pm-autocomplete {
+  position: relative;
+  width: 100%;
+}
+
+.pm-autocomplete__dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  max-height: 200px;
+  overflow-y: auto;
+  background-color: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  border-top: none;
+  border-radius: 0 0 var(--radius-m) var(--radius-m);
+  z-index: var(--layer-popover);
+  box-shadow: var(--shadow-s);
+}
+
+.pm-autocomplete__option {
+  padding: 6px 10px;
+  cursor: pointer;
+  font-size: var(--font-ui-medium);
+  color: var(--text-normal);
+}
+
+.pm-autocomplete__option:hover {
+  background-color: var(--background-modifier-hover);
+}
+
+.pm-autocomplete__option--active {
+  background-color: var(--interactive-accent);
+  color: var(--text-on-accent);
+}
+
+.pm-autocomplete__option--none {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.pm-autocomplete__no-results {
+  padding: 6px 10px;
+  color: var(--text-muted);
+  font-style: italic;
+  font-size: var(--font-ui-medium);
+}
+
 /* ─── Action Buttons ─────────────────────────────────────────── */
 
 .pm-actions {
