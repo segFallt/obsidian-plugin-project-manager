@@ -1,6 +1,6 @@
 import { App, PluginSettingTab, Setting } from "obsidian";
 import type ProjectManagerPlugin from "./main";
-import { DEFAULT_FOLDERS } from "./constants";
+import { DEFAULT_FOLDERS, PLUGIN_ID } from "./constants";
 
 export interface FolderSettings {
   clients: string;
@@ -212,7 +212,7 @@ export class ProjectManagerSettingTab extends PluginSettingTab {
           .onClick(() => {
             type CommandHost = { commands?: { executeCommandById: (id: string) => void } };
             (this.plugin.app as unknown as CommandHost).commands?.executeCommandById(
-              "project-manager:scaffold-vault"
+              `${PLUGIN_ID}:scaffold-vault`
             );
           })
       );

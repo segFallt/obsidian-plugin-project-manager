@@ -7,48 +7,67 @@ import {
   addDays,
 } from "../../src/utils/task-utils";
 import { createMockTask } from "../mocks/dataview-mock";
+import { DEFAULT_FOLDERS } from "../../src/constants";
+import type { FolderSettings } from "../../src/settings";
+
+const defaultFolders = DEFAULT_FOLDERS as unknown as FolderSettings;
 
 // ─── getTaskContext ────────────────────────────────────────────────────────
 
 describe("getTaskContext", () => {
   it("returns Project for paths starting with projects/", () => {
     const task = createMockTask({ path: "projects/Foo.md" });
-    expect(getTaskContext(task)).toBe("Project");
+    expect(getTaskContext(task, defaultFolders)).toBe("Project");
   });
 
   it("returns Project for project sub-notes", () => {
     const task = createMockTask({ path: "projects/notes/foo/Note.md" });
-    expect(getTaskContext(task)).toBe("Project");
+    expect(getTaskContext(task, defaultFolders)).toBe("Project");
   });
 
   it("returns Person for paths starting with people/", () => {
     const task = createMockTask({ path: "people/Alice.md" });
-    expect(getTaskContext(task)).toBe("Person");
+    expect(getTaskContext(task, defaultFolders)).toBe("Person");
   });
 
-  it("returns Meeting for paths starting with meetings/", () => {
-    const task = createMockTask({ path: "meetings/Standup.md" });
-    expect(getTaskContext(task)).toBe("Meeting");
+  it("returns Meeting for paths starting with meetings/single/", () => {
+    const task = createMockTask({ path: "meetings/single/Standup.md" });
+    expect(getTaskContext(task, defaultFolders)).toBe("Meeting");
+  });
+
+  it("returns Meeting for paths starting with meetings/recurring/", () => {
+    const task = createMockTask({ path: "meetings/recurring/Weekly.md" });
+    expect(getTaskContext(task, defaultFolders)).toBe("Meeting");
   });
 
   it("returns Inbox for paths starting with inbox/", () => {
     const task = createMockTask({ path: "inbox/Task.md" });
-    expect(getTaskContext(task)).toBe("Inbox");
+    expect(getTaskContext(task, defaultFolders)).toBe("Inbox");
   });
 
   it("returns Daily Notes for paths starting with daily notes/", () => {
     const task = createMockTask({ path: "daily notes/2024-01-01.md" });
-    expect(getTaskContext(task)).toBe("Daily Notes");
+    expect(getTaskContext(task, defaultFolders)).toBe("Daily Notes");
   });
 
   it("returns Other for paths that don't match any known prefix", () => {
     const task = createMockTask({ path: "misc/random.md" });
-    expect(getTaskContext(task)).toBe("Other");
+    expect(getTaskContext(task, defaultFolders)).toBe("Other");
   });
 
   it("returns Other for root-level files", () => {
     const task = createMockTask({ path: "some-file.md" });
-    expect(getTaskContext(task)).toBe("Other");
+    expect(getTaskContext(task, defaultFolders)).toBe("Other");
+  });
+
+  it("respects custom folder settings", () => {
+    const customFolders = { ...defaultFolders, projects: "work/projects", people: "contacts" };
+    const projectTask = createMockTask({ path: "work/projects/Foo.md" });
+    const personTask = createMockTask({ path: "contacts/Alice.md" });
+    expect(getTaskContext(projectTask, customFolders as FolderSettings)).toBe("Project");
+    expect(getTaskContext(personTask, customFolders as FolderSettings)).toBe("Person");
+    // Default path no longer matches
+    expect(getTaskContext(createMockTask({ path: "projects/Foo.md" }), customFolders as FolderSettings)).toBe("Other");
   });
 });
 

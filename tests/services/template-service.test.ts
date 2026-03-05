@@ -29,12 +29,11 @@ describe("TemplateService", () => {
       expect(svc.getTemplate("client")).toContain("entity: client");
     });
 
-    it("project template includes pm-table and pm-actions blocks", () => {
+    it("project template includes pm-entity-view block for linked section", () => {
       const tmpl = svc.getTemplate("project");
-      expect(tmpl).toContain("```pm-table");
-      expect(tmpl).toContain("```pm-actions");
-      expect(tmpl).toContain("create-project-note");
-      expect(tmpl).toContain("create-project");
+      expect(tmpl).toContain("```pm-entity-view");
+      expect(tmpl).toContain("entity: project");
+      expect(tmpl).toContain("section: linked");
     });
 
     it("project template includes notesDir variable placeholder", () => {

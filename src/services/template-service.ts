@@ -70,15 +70,15 @@ entity: client
 \`\`\`
 
 ---
-# Engagements
-\`\`\`pm-table
-type: client-engagements
+\`\`\`pm-entity-view
+entity: client
+section: engagements
 \`\`\`
 
 ---
-# People
-\`\`\`pm-table
-type: client-people
+\`\`\`pm-entity-view
+entity: client
+section: people
 \`\`\`
 
 ---
@@ -105,9 +105,9 @@ entity: engagement
 \`\`\`
 
 ---
-# Projects
-\`\`\`pm-table
-type: engagement-projects
+\`\`\`pm-entity-view
+entity: engagement
+section: projects
 \`\`\`
 
 ---
@@ -135,21 +135,13 @@ entity: project
 \`\`\`
 
 ---
+\`\`\`pm-entity-view
+entity: project
+section: linked
+\`\`\`
+
+---
 # Notes
-
-
----
-# Linked
----
-\`\`\`pm-actions
-actions:
-  - type: create-project-note
-    label: New Project Note
-    style: primary
-\`\`\`
-\`\`\`pm-table
-type: related-project-notes
-\`\`\`
 
 
 `;
@@ -172,9 +164,9 @@ entity: person
 \`\`\`
 
 ---
-# Mentions
-\`\`\`pm-table
-type: mentions
+\`\`\`pm-entity-view
+entity: person
+section: mentions
 \`\`\`
 
 ---

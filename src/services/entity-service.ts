@@ -10,6 +10,7 @@ import {
 } from "../utils/path-utils";
 import { toWikilink, normalizeToName } from "../utils/link-utils";
 import { getFrontmatter } from "../utils/frontmatter-utils";
+import { STATUS } from "../constants";
 
 /**
  * Handles all entity creation and modification operations.
@@ -190,7 +191,7 @@ export class EntityService implements IEntityService {
     });
 
     await this.app.fileManager.processFrontMatter(inboxFile, (ifm: Record<string, unknown>) => {
-      ifm["status"] = "Inactive";
+      ifm["status"] = STATUS.INACTIVE;
       ifm["convertedTo"] = toWikilink(
         `${this.settings.folders.projects}/${projectFile.basename}`
       );

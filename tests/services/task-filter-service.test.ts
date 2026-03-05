@@ -2,6 +2,10 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { TaskFilterService } from "../../src/services/task-filter-service";
 import { createMockTask, createMockDataviewApi, createMockPage } from "../mocks/dataview-mock";
 import type { DashboardFilters } from "../../src/types";
+import { DEFAULT_FOLDERS } from "../../src/constants";
+import type { FolderSettings } from "../../src/settings";
+
+const defaultFolders = DEFAULT_FOLDERS as unknown as FolderSettings;
 
 // ─── Test helpers ─────────────────────────────────────────────────────────
 
@@ -32,7 +36,7 @@ function makeQueryService(overrides: Partial<{ getClientFromEngagementLink: (lin
   } as unknown as import("../../src/services/query-service").QueryService;
 }
 
-const service = new TaskFilterService();
+const service = new TaskFilterService(defaultFolders);
 
 // ─── applyDashboardFilters ────────────────────────────────────────────────
 
@@ -366,12 +370,12 @@ describe("TaskFilterService.applyContextSpecificFilters", () => {
   it("filters meeting tasks by meeting date", () => {
     const today = new Date().toISOString().split("T")[0];
     const dv = createMockDataviewApi([
-      { path: "meetings/Today.md", frontmatter: { date: today } },
-      { path: "meetings/OldMeeting.md", frontmatter: { date: "2020-01-01" } },
+      { path: "meetings/single/Today.md", frontmatter: { date: today } },
+      { path: "meetings/single/OldMeeting.md", frontmatter: { date: "2020-01-01" } },
     ]);
     const tasks = [
-      createMockTask({ path: "meetings/Today.md" }),
-      createMockTask({ path: "meetings/OldMeeting.md" }),
+      createMockTask({ path: "meetings/single/Today.md" }),
+      createMockTask({ path: "meetings/single/OldMeeting.md" }),
     ];
     const result = service.applyContextSpecificFilters(
       tasks,
@@ -379,6 +383,6 @@ describe("TaskFilterService.applyContextSpecificFilters", () => {
       dv
     );
     expect(result).toHaveLength(1);
-    expect(result[0].path).toBe("meetings/Today.md");
+    expect(result[0].path).toBe("meetings/single/Today.md");
   });
 });

@@ -6,7 +6,7 @@ import type {
   ByProjectFilters,
   ProjectStatus,
 } from "../types";
-import { DEFAULT_TASK_VIEW_STATUSES } from "../constants";
+import { DEFAULT_TASK_VIEW_STATUSES, PRIORITY_FALLBACK, DEBOUNCE_MS } from "../constants";
 import { normalizeToName } from "../utils/link-utils";
 import type { ITaskSortService } from "../services/interfaces";
 import type { TaskListRenderer } from "./task-list-renderer";
@@ -76,7 +76,7 @@ export class ByProjectView {
 
     // Status multi-select
     container.createEl("label", { text: "Project Status:", cls: "pm-filter-label" });
-    const statuses: ProjectStatus[] = ["New", "Active", "On Hold"];
+    const statuses: ProjectStatus[] = [...DEFAULT_TASK_VIEW_STATUSES] as ProjectStatus[];
     const statusGroup = container.createDiv({ cls: "pm-checkbox-group" });
     for (const status of statuses) {
       const label = statusGroup.createEl("label", { cls: "pm-checkbox-label" });
@@ -117,7 +117,7 @@ export class ByProjectView {
     try {
       const f = this.filters;
 
-      let projects = [...dv.pages("#project AND !\"utility\"")].filter(
+      let projects = [...dv.pages(`#project AND !"${this.services.settings.folders.utility}"`)].filter(
         (p) => f.selectedStatuses.includes(String(p.status) as ProjectStatus)
       );
 
@@ -128,7 +128,7 @@ export class ByProjectView {
       }
 
       // Sort by priority
-      projects.sort((a, b) => (Number(a.priority) || 99) - (Number(b.priority) || 99));
+      projects.sort((a, b) => (Number(a.priority) || PRIORITY_FALLBACK) - (Number(b.priority) || PRIORITY_FALLBACK));
 
       if (projects.length === 0) {
         outputEl.createEl("em", { text: "No projects match the current filters." });
@@ -207,6 +207,6 @@ export class ByProjectView {
       if (!root) return;
       const outputEl = root.querySelector(".pm-tasks-by-project__output");
       if (outputEl instanceof HTMLElement) this.refreshByProjectOutput(outputEl);
-    }, 200);
+    }, DEBOUNCE_MS.SEARCH);
   }
 }

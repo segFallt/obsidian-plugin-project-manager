@@ -1,7 +1,7 @@
 import { TFile } from "obsidian";
 import type { PluginServices } from "../plugin-context";
 import type { DataviewTask } from "../types";
-import { DUE_DATE_EMOJI, PRIORITY_EMOJI } from "../constants";
+import { DUE_DATE_EMOJI, PRIORITY_EMOJI, DEFAULT_PRIORITY, ARIA_LABEL_MAX_LENGTH } from "../constants";
 import { todayISO } from "../utils/date-utils";
 import { cleanTaskText, extractEmojiDate, getTaskPriority } from "../utils/task-utils";
 
@@ -24,7 +24,7 @@ export class TaskListRenderer {
       });
       checkbox.checked = task.completed;
       const ariaPrefix = task.completed ? "Mark incomplete: " : "Mark complete: ";
-      checkbox.setAttribute("aria-label", ariaPrefix + cleanTaskText(task.text).substring(0, 60));
+      checkbox.setAttribute("aria-label", ariaPrefix + cleanTaskText(task.text).substring(0, ARIA_LABEL_MAX_LENGTH));
 
       checkbox.addEventListener("change", () => {
         void this.toggleTask(task, checkbox.checked);
@@ -43,7 +43,7 @@ export class TaskListRenderer {
 
       // Priority badge
       const priority = getTaskPriority(task);
-      if (priority !== 3) {
+      if (priority !== DEFAULT_PRIORITY) {
         const priorityEmoji = Object.entries(PRIORITY_EMOJI).find(([, p]) => p === priority)?.[0];
         if (priorityEmoji) {
           li.createSpan({ cls: "pm-task-priority", text: priorityEmoji });

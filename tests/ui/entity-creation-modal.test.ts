@@ -8,6 +8,7 @@ function createModal(opts: {
   namePlaceholder?: string;
   parentLabel?: string | null;
   parentOptions?: ReturnType<typeof createMockPage>[];
+  preselectedParent?: string;
 }) {
   const app = new App();
   return new EntityCreationModal(
@@ -15,7 +16,8 @@ function createModal(opts: {
     opts.title ?? "Create Entity",
     opts.namePlaceholder ?? "Name",
     opts.parentLabel ?? null,
-    (opts.parentOptions ?? []) as unknown as import("../../src/types").DataviewPage[]
+    (opts.parentOptions ?? []) as unknown as import("../../src/types").DataviewPage[],
+    opts.preselectedParent
   );
 }
 
@@ -64,6 +66,17 @@ describe("EntityCreationModal", () => {
       expect(optionTexts[0]).toBe("Beta");
       expect(optionTexts[1]).toBe("Zebra");
       expect(optionTexts[2]).toBe("Alpha");
+    });
+
+    it("pre-selects the specified parent when preselectedParent is provided", () => {
+      const options = [
+        createMockPage({ path: "clients/Acme.md", name: "Acme", frontmatter: { status: "Active" } }),
+        createMockPage({ path: "clients/Beta.md", name: "Beta", frontmatter: { status: "Active" } }),
+      ];
+      const modal = createModal({ parentLabel: "Client", parentOptions: options, preselectedParent: "Acme" });
+      modal.onOpen();
+      const select = modal.contentEl.querySelector("select") as HTMLSelectElement;
+      expect(select.value).toBe("Acme");
     });
 
     it("includes a (None) option as first item", () => {

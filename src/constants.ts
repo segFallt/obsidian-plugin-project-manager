@@ -11,7 +11,17 @@ export const PROJECT_STATUSES = ["New", "Active", "On Hold", "Complete"] as cons
 export const DEFAULT_TASK_VIEW_STATUSES = ["New", "Active", "On Hold"] as const;
 
 /** All task context types based on folder location. */
-export const TASK_CONTEXTS = ["Project", "Person", "Meeting", "Inbox", "Daily Notes"] as const;
+export const TASK_CONTEXTS = ["Project", "Person", "Meeting", "Inbox", "Daily Notes", "Other"] as const;
+
+/** Named context values for type-safe comparisons. */
+export const CONTEXT = {
+  PROJECT: "Project",
+  PERSON: "Person",
+  MEETING: "Meeting",
+  INBOX: "Inbox",
+  DAILY_NOTES: "Daily Notes",
+  OTHER: "Other",
+} as const;
 
 /** Priority numbers (1 = highest, 5 = lowest). */
 export const TASK_PRIORITIES = [1, 2, 3, 4, 5] as const;
@@ -48,6 +58,57 @@ export const DUE_DATE_EMOJI = "📅";
 export const COMPLETION_DATE_EMOJI = "✅";
 /** Recurrence emoji. */
 export const RECURRENCE_EMOJI = "🔁";
+
+/** Named status values for type-safe comparisons. */
+export const STATUS = {
+  ACTIVE: "Active",
+  INACTIVE: "Inactive",
+  NEW: "New",
+  ON_HOLD: "On Hold",
+  COMPLETE: "Complete",
+} as const;
+
+/** Sort order for project statuses in tables (lower = appears first). */
+export const PROJECT_STATUS_ORDER: Record<string, number> = {
+  New: 1,
+  Active: 2,
+  "On Hold": 3,
+  Complete: 4,
+};
+
+// ─── Numeric constants ────────────────────────────────────────────────────
+
+/** Default numeric priority (Medium). */
+export const DEFAULT_PRIORITY = 3;
+/** Number of days in a week. */
+export const WEEK_DAYS = 7;
+/** Length of an ISO date string (YYYY-MM-DD). */
+export const ISO_DATE_LENGTH = 10;
+/** Length of an ISO datetime string (YYYY-MM-DDTHH:mm:ss). */
+export const ISO_DATETIME_LENGTH = 19;
+/** Fallback sort priority for items with no priority set. */
+export const PRIORITY_FALLBACK = 99;
+/** Duration (ms) for Notice messages. */
+export const NOTICE_DURATION_MS = 8000;
+/** Max length for ARIA label substrings. */
+export const ARIA_LABEL_MAX_LENGTH = 60;
+/** Delay (ms) before focusing a modal input. */
+export const FOCUS_DELAY_MS = 10;
+/** Number of rows for textarea fields. */
+export const TEXTAREA_ROWS = 3;
+
+/** Debounce durations (ms) for different contexts. */
+export const DEBOUNCE_MS = {
+  PROPERTIES: 500,
+  TASKS: 1000,
+  SEARCH: 200,
+} as const;
+
+/** Sentinel date strings for sort stability (tasks with no due date). */
+export const SORT_SENTINEL = {
+  MIN: "0000-00-00",
+  MAX: "9999-99-99",
+} as const;
 
 // ─── Folder paths (defaults, overrideable via settings) ───────────────────
 

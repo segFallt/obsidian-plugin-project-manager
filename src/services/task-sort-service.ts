@@ -1,5 +1,6 @@
 import type { DataviewTask, SortBy } from "../types";
 import { getTaskPriority } from "../utils/task-utils";
+import { SORT_SENTINEL, ISO_DATE_LENGTH } from "../constants";
 import type { ITaskSortService } from "./interfaces";
 
 /**
@@ -20,11 +21,11 @@ export class TaskSortService implements ITaskSortService {
     if (sortBy.startsWith("dueDate")) {
       return [...tasks].sort((a, b) => {
         const aDate = a.due
-          ? String(a.due).substring(0, 10)
-          : isDesc ? "0000-00-00" : "9999-99-99";
+          ? String(a.due).substring(0, ISO_DATE_LENGTH)
+          : isDesc ? SORT_SENTINEL.MIN : SORT_SENTINEL.MAX;
         const bDate = b.due
-          ? String(b.due).substring(0, 10)
-          : isDesc ? "0000-00-00" : "9999-99-99";
+          ? String(b.due).substring(0, ISO_DATE_LENGTH)
+          : isDesc ? SORT_SENTINEL.MIN : SORT_SENTINEL.MAX;
         return isDesc ? bDate.localeCompare(aDate) : aDate.localeCompare(bDate);
       });
     }
@@ -50,12 +51,12 @@ export class TaskSortService implements ITaskSortService {
 
     if (sortBy.startsWith("dueDate")) {
       const pick = isDesc ? "pop" : "shift";
-      const aDates = aTasks.filter((t) => t.due).map((t) => String(t.due).substring(0, 10)).sort();
-      const bDates = bTasks.filter((t) => t.due).map((t) => String(t.due).substring(0, 10)).sort();
+      const aDates = aTasks.filter((t) => t.due).map((t) => String(t.due).substring(0, ISO_DATE_LENGTH)).sort();
+      const bDates = bTasks.filter((t) => t.due).map((t) => String(t.due).substring(0, ISO_DATE_LENGTH)).sort();
       const aBest = aDates[pick]?.();
       const bBest = bDates[pick]?.();
-      const aKey = aBest ?? (isDesc ? "0000-00-00" : "9999-99-99");
-      const bKey = bBest ?? (isDesc ? "0000-00-00" : "9999-99-99");
+      const aKey = aBest ?? (isDesc ? SORT_SENTINEL.MIN : SORT_SENTINEL.MAX);
+      const bKey = bBest ?? (isDesc ? SORT_SENTINEL.MIN : SORT_SENTINEL.MAX);
       return isDesc ? bKey.localeCompare(aKey) : aKey.localeCompare(bKey);
     }
 

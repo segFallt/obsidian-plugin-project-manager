@@ -26,6 +26,8 @@ export interface PluginServices {
   entityService: IEntityService;
   taskParser: ITaskParser;
   scaffoldService: IScaffoldService;
+  /** Transient context set by action buttons so create commands can pre-populate parent fields. */
+  pendingActionContext: { field: string; value: string } | null;
 }
 
 /** Bound version of Plugin.addCommand, passed from the wiring layer. */
