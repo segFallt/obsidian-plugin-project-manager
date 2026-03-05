@@ -18,6 +18,7 @@ export type EntityType =
   | "inbox"
   | "single-meeting"
   | "recurring-meeting"
+  | "recurring-meeting-event"
   | "project-note";
 
 // ─── Parsed Task ───────────────────────────────────────────────────────────

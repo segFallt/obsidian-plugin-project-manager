@@ -431,4 +431,317 @@ describe("EntityService", () => {
       expect(String(projectMutations?.engagement ?? "")).toContain("My Engagement");
     });
   });
+
+  describe("createRecurringMeetingEvent", () => {
+    it("creates event file in the meetingsRecurringEvents/meetingName folder", async () => {
+      const { svc, app } = createEntityService([
+        {
+          path: "meetings/recurring/Weekly Standup.md",
+          frontmatter: { "default-attendees": [] },
+        },
+      ]);
+
+      const createdFiles: string[] = [];
+      app.vault.create = async (path, content) => {
+        createdFiles.push(path);
+        return new TFile(path);
+      };
+
+      await svc.createRecurringMeetingEvent("Weekly Standup");
+
+      expect(createdFiles).toHaveLength(1);
+      expect(createdFiles[0]).toContain("meetings/recurring-events/Weekly Standup/");
+      expect(createdFiles[0]).toMatch(/\d{4}-\d{2}-\d{2}\.md$/);
+    });
+
+    it("sets recurring-meeting wikilink in frontmatter", async () => {
+      const { svc, app } = createEntityService([
+        {
+          path: "meetings/recurring/Weekly Standup.md",
+          frontmatter: { "default-attendees": [] },
+        },
+      ]);
+
+      const mutations: Record<string, Record<string, unknown>> = {};
+      app.fileManager.processFrontMatter = async (file, fn) => {
+        const fm: Record<string, unknown> = {};
+        fn(fm);
+        mutations[file.path] = { ...(mutations[file.path] ?? {}), ...fm };
+      };
+
+      await svc.createRecurringMeetingEvent("Weekly Standup");
+
+      // Find the event file mutation (not the recurring meeting itself)
+      const eventPath = Object.keys(mutations).find((p) =>
+        p.startsWith("meetings/recurring-events/Weekly Standup/")
+      );
+      expect(eventPath).toBeDefined();
+      expect(String(mutations[eventPath!]?.["recurring-meeting"] ?? "")).toContain(
+        "Weekly Standup"
+      );
+    });
+
+    it("copies default-attendees from parent meeting as wikilinks", async () => {
+      const { svc, app } = createEntityService([
+        {
+          path: "meetings/recurring/Weekly Standup.md",
+          frontmatter: { "default-attendees": ["[[Alice]]", "[[Bob]]"] },
+        },
+      ]);
+
+      const mutations: Record<string, Record<string, unknown>> = {};
+      app.fileManager.processFrontMatter = async (file, fn) => {
+        const fm: Record<string, unknown> = {};
+        fn(fm);
+        mutations[file.path] = { ...(mutations[file.path] ?? {}), ...fm };
+      };
+
+      await svc.createRecurringMeetingEvent("Weekly Standup");
+
+      const eventPath = Object.keys(mutations).find((p) =>
+        p.startsWith("meetings/recurring-events/Weekly Standup/")
+      );
+      expect(eventPath).toBeDefined();
+      const attendees = mutations[eventPath!]?.["attendees"];
+      expect(Array.isArray(attendees)).toBe(true);
+      expect(attendees).toHaveLength(2);
+    });
+
+    it("uses explicit attendees when provided in options (overrides default-attendees)", async () => {
+      const { svc, app } = createEntityService([
+        {
+          path: "meetings/recurring/Weekly Standup.md",
+          frontmatter: { "default-attendees": ["[[Alice]]", "[[Bob]]"] },
+        },
+      ]);
+
+      const mutations: Record<string, Record<string, unknown>> = {};
+      app.fileManager.processFrontMatter = async (file, fn) => {
+        const fm: Record<string, unknown> = {};
+        fn(fm);
+        mutations[file.path] = { ...(mutations[file.path] ?? {}), ...fm };
+      };
+
+      await svc.createRecurringMeetingEvent("Weekly Standup", {
+        attendees: ["Charlie"],
+      });
+
+      const eventPath = Object.keys(mutations).find((p) =>
+        p.startsWith("meetings/recurring-events/Weekly Standup/")
+      );
+      expect(eventPath).toBeDefined();
+      const attendees = mutations[eventPath!]?.["attendees"] as string[];
+      expect(attendees).toHaveLength(1);
+      expect(attendees[0]).toContain("Charlie");
+    });
+
+    it("uses provided date when given in options", async () => {
+      const { svc, app } = createEntityService([
+        {
+          path: "meetings/recurring/Weekly Standup.md",
+          frontmatter: { "default-attendees": [] },
+        },
+      ]);
+
+      const createdFiles: string[] = [];
+      app.vault.create = async (path, content) => {
+        createdFiles.push(path);
+        return new TFile(path);
+      };
+
+      await svc.createRecurringMeetingEvent("Weekly Standup", { date: "2024-06-15T10:00" });
+
+      expect(createdFiles[0]).toContain("2024-06-15");
+    });
+
+    it("injects notesContent into the event file when provided", async () => {
+      const templateContent = `---
+recurring-meeting:
+date:
+attendees: []
+---
+
+# Properties
+
+# Notes
+-
+`;
+      const { svc, app } = createEntityService([
+        {
+          path: "meetings/recurring/Weekly Standup.md",
+          frontmatter: { "default-attendees": [] },
+        },
+      ]);
+
+      // Return the template content when the event file is read
+      app.vault.read = async (_file) => templateContent;
+
+      let modifiedContent = "";
+      app.vault.modify = async (_file, content) => {
+        modifiedContent = content;
+      };
+
+      await svc.createRecurringMeetingEvent("Weekly Standup", {
+        notesContent: "- Action item 1",
+      });
+
+      expect(modifiedContent).toContain("Action item 1");
+    });
+
+    it("does not open file when open: false is set", async () => {
+      const { svc, app } = createEntityService([
+        {
+          path: "meetings/recurring/Weekly Standup.md",
+          frontmatter: { "default-attendees": [] },
+        },
+      ]);
+
+      const leaf = { openFile: vi.fn(async () => {}) };
+      app.workspace.getLeaf = () => leaf as unknown as ReturnType<typeof app.workspace.getLeaf>;
+
+      await svc.createRecurringMeetingEvent("Weekly Standup", { open: false });
+
+      expect(leaf.openFile).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("convertSingleToRecurring", () => {
+    it("creates a recurring meeting and a first event, then deletes the single meeting", async () => {
+      const singleFile = new TFile("meetings/single/Weekly Standup.md");
+      const singleContent = `---
+engagement: "[[My Engagement]]"
+date: 2024-03-15T10:00
+attendees:
+  - "[[Alice]]"
+---
+
+# Notes
+- Key takeaway
+`;
+      const { svc, app } = createEntityService([
+        {
+          path: "meetings/single/Weekly Standup.md",
+          content: singleContent,
+          frontmatter: {
+            engagement: "[[My Engagement]]",
+            date: "2024-03-15T10:00",
+            attendees: ["[[Alice]]"],
+          },
+        },
+      ]);
+
+      const createdFiles: string[] = [];
+      app.vault.create = async (path, content) => {
+        createdFiles.push(path);
+        return new TFile(path);
+      };
+
+      const deletedFiles: string[] = [];
+      app.vault.delete = async (file) => {
+        deletedFiles.push(file.path);
+      };
+
+      await svc.convertSingleToRecurring(
+        singleFile as unknown as import("obsidian").TFile,
+        "Weekly Standup"
+      );
+
+      // Recurring meeting should be created
+      expect(createdFiles.some((p) => p.startsWith("meetings/recurring/"))).toBe(true);
+      // Event should be created in the events subfolder
+      expect(createdFiles.some((p) => p.startsWith("meetings/recurring-events/"))).toBe(true);
+      // Original single meeting should be deleted
+      expect(deletedFiles).toContain("meetings/single/Weekly Standup.md");
+    });
+
+    it("copies engagement from single meeting to recurring meeting", async () => {
+      const singleFile = new TFile("meetings/single/Weekly Standup.md");
+      const { svc, app } = createEntityService([
+        {
+          path: "meetings/single/Weekly Standup.md",
+          content: "",
+          frontmatter: {
+            engagement: "[[My Engagement]]",
+            date: "2024-03-15T10:00",
+            attendees: [],
+          },
+        },
+      ]);
+
+      const mutations: Record<string, Record<string, unknown>> = {};
+      app.fileManager.processFrontMatter = async (file, fn) => {
+        const fm: Record<string, unknown> = {};
+        fn(fm);
+        mutations[file.path] = { ...(mutations[file.path] ?? {}), ...fm };
+      };
+
+      await svc.convertSingleToRecurring(
+        singleFile as unknown as import("obsidian").TFile,
+        "Weekly Standup"
+      );
+
+      const recurringPath = "meetings/recurring/Weekly Standup.md";
+      expect(String(mutations[recurringPath]?.["engagement"] ?? "")).toContain("My Engagement");
+    });
+
+    it("sets default-attendees on the recurring meeting from single meeting attendees", async () => {
+      const singleFile = new TFile("meetings/single/Weekly Standup.md");
+      const { svc, app } = createEntityService([
+        {
+          path: "meetings/single/Weekly Standup.md",
+          content: "",
+          frontmatter: {
+            engagement: "",
+            date: "2024-03-15T10:00",
+            attendees: ["[[Alice]]", "[[Bob]]"],
+          },
+        },
+      ]);
+
+      const mutations: Record<string, Record<string, unknown>> = {};
+      app.fileManager.processFrontMatter = async (file, fn) => {
+        const fm: Record<string, unknown> = {};
+        fn(fm);
+        mutations[file.path] = { ...(mutations[file.path] ?? {}), ...fm };
+      };
+
+      await svc.convertSingleToRecurring(
+        singleFile as unknown as import("obsidian").TFile,
+        "Weekly Standup"
+      );
+
+      const recurringPath = "meetings/recurring/Weekly Standup.md";
+      const defaultAttendees = mutations[recurringPath]?.["default-attendees"];
+      expect(Array.isArray(defaultAttendees)).toBe(true);
+      expect((defaultAttendees as string[]).some((a) => String(a).includes("Alice"))).toBe(true);
+      expect((defaultAttendees as string[]).some((a) => String(a).includes("Bob"))).toBe(true);
+    });
+
+    it("uses single meeting basename as recurring name when recurringName is not provided", async () => {
+      const singleFile = new TFile("meetings/single/Team Sync.md");
+      const { svc, app } = createEntityService([
+        {
+          path: "meetings/single/Team Sync.md",
+          content: "",
+          frontmatter: {
+            engagement: "",
+            date: "2024-03-15T10:00",
+            attendees: [],
+          },
+        },
+      ]);
+
+      const createdFiles: string[] = [];
+      app.vault.create = async (path, content) => {
+        createdFiles.push(path);
+        return new TFile(path);
+      };
+
+      await svc.convertSingleToRecurring(
+        singleFile as unknown as import("obsidian").TFile
+      );
+
+      expect(createdFiles.some((p) => p.includes("Team Sync"))).toBe(true);
+    });
+  });
 });

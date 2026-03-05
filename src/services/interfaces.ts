@@ -35,6 +35,8 @@ export interface IQueryService {
   getParentProject(file: TFile): DataviewPage | null;
   getClientFromEngagementLink(engagementLink: unknown): string | null;
   getPage(path: string): DataviewPage | null;
+  getActiveRecurringMeetings(): DataviewPage[];
+  getRecurringMeetingEvents(meetingName: string): DataviewPage[];
 }
 
 export interface IEntityService {
@@ -47,6 +49,8 @@ export interface IEntityService {
   createRecurringMeeting(name: string, engagementName?: string): Promise<TFile>;
   createProjectNote(projectFile: TFile, noteName: string): Promise<TFile>;
   convertInboxToProject(inboxFile: TFile, projectName?: string): Promise<TFile>;
+  convertSingleToRecurring(singleFile: TFile, recurringName?: string): Promise<TFile>;
+  createRecurringMeetingEvent(meetingName: string, options?: { date?: string; attendees?: string[]; notesContent?: string; open?: boolean }): Promise<TFile>;
   validateResult(result: CreateFileResult): void;
 }
 

@@ -39,6 +39,7 @@ type FieldType =
   | "select"
   | "multi-select"
   | "suggester"
+  | "suggester-by-folder"
   | "list-suggester";
 
 interface FieldDescriptor {
@@ -97,6 +98,12 @@ const ENTITY_FIELDS: Record<EntityType, FieldDescriptor[]> = {
     { key: "engagement", label: "Engagement", type: "suggester", entityTag: ENTITY_TAGS.engagement },
     { key: "start-date", label: "Start Date", type: "date" },
     { key: "end-date", label: "End Date", type: "date" },
+    { key: "default-attendees", label: "Default Attendees", type: "list-suggester", entityTag: ENTITY_TAGS.person },
+  ],
+  "recurring-meeting-event": [
+    { key: "recurring-meeting", label: "Recurring Meeting", type: "suggester-by-folder" },
+    { key: "date", label: "Date", type: "datetime" },
+    { key: "attendees", label: "Attendees", type: "list-suggester", entityTag: ENTITY_TAGS.person },
   ],
   "project-note": [
     { key: "relatedProject", label: "Related Project", type: "text" },
@@ -216,6 +223,9 @@ class PmPropertiesRenderChild extends MarkdownRenderChild {
         break;
       case "suggester":
         this.renderSuggester(row, field, rawValue, file, fieldId);
+        break;
+      case "suggester-by-folder":
+        this.renderSuggesterByFolder(row, field, rawValue, file, fieldId);
         break;
       case "list-suggester":
         this.renderListSuggester(row, field, rawValue, file, fieldId);
@@ -359,6 +369,37 @@ class PmPropertiesRenderChild extends MarkdownRenderChild {
     this.autocompletes.push(ac);
   }
 
+  private renderSuggesterByFolder(
+    row: HTMLElement,
+    field: FieldDescriptor,
+    rawValue: unknown,
+    file: TFile,
+    fieldId: string
+  ): void {
+    const pages = this.services.queryService.getActiveRecurringMeetings();
+    const currentName = normalizeToName(rawValue);
+
+    const options: AutocompleteOption[] = pages
+      .sort((a, b) => a.file.name.localeCompare(b.file.name))
+      .map((page) => ({
+        value: page.file.name,
+        displayText: page.file.name,
+      }));
+
+    const ac = new InlineAutocomplete(row, options, currentName, {
+      placeholder: `Select ${field.label}...`,
+      ariaLabel: field.label,
+      onSelect: (option) => {
+        void this.updateFm(file, field.key, `[[${option.value}]]`);
+      },
+      onClear: () => {
+        void this.updateFm(file, field.key, null);
+      },
+    });
+    ac.inputEl.id = fieldId;
+    this.autocompletes.push(ac);
+  }
+
   private renderListSuggester(
     row: HTMLElement,
     field: FieldDescriptor,
@@ -370,6 +411,15 @@ class PmPropertiesRenderChild extends MarkdownRenderChild {
     const { entityTag } = field;
 
     const pages = this.services.queryService.getActiveEntitiesByTag(entityTag);
+
+    if (pages.length === 0) {
+      const msg = row.createDiv({ cls: "pm-properties__empty-hint" });
+      msg.style.color = "var(--text-muted)";
+      msg.style.fontSize = "0.875em";
+      msg.textContent = `No active ${field.label.toLowerCase()} found. Create one first.`;
+      return;
+    }
+
     const currentItems = this.parseListValue(rawValue);
 
     const wrapper = row.createDiv({ cls: "pm-properties__list-suggester" });

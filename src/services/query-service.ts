@@ -218,4 +218,29 @@ export class QueryService implements IQueryService {
   getPage(path: string): DataviewPage | null {
     return this.dv()?.page(path) ?? null;
   }
+
+  /**
+   * Returns all active recurring meetings (those without an end-date).
+   */
+  getActiveRecurringMeetings(): DataviewPage[] {
+    const dv = this.dv();
+    if (!dv) return [];
+    return [
+      ...dv.pages(`"${this.folders.meetingsRecurring}"`).where((p) => !p["end-date"]),
+    ];
+  }
+
+  /**
+   * Returns all event notes for a given recurring meeting.
+   * Events are matched by the "recurring-meeting" frontmatter property.
+   */
+  getRecurringMeetingEvents(meetingName: string): DataviewPage[] {
+    const dv = this.dv();
+    if (!dv) return [];
+    return [
+      ...dv
+        .pages(`"${this.folders.meetingsRecurringEvents}"`)
+        .where((p) => normalizeToName(p["recurring-meeting"]) === meetingName),
+    ];
+  }
 }

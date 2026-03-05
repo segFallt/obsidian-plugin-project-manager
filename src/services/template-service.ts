@@ -24,6 +24,7 @@ export class TemplateService implements ITemplateService {
       inbox: this.inboxTemplate(),
       "single-meeting": this.singleMeetingTemplate(),
       "recurring-meeting": this.recurringMeetingTemplate(),
+      "recurring-meeting-event": this.recurringMeetingEventTemplate(),
       "project-note": this.projectNoteTemplate(),
     };
     return templates[type];
@@ -213,6 +214,13 @@ entity: single-meeting
 # Invitation Message
 
 
+\`\`\`pm-actions
+actions:
+  - type: convert-single-to-recurring
+    label: Convert to Recurring Meeting
+    style: default
+\`\`\`
+
 # Notes
 -
 
@@ -225,6 +233,7 @@ entity: single-meeting
 engagement:
 start-date: {{date}}
 end-date:
+default-attendees: []
 ---
 
 # Properties
@@ -232,6 +241,35 @@ end-date:
 entity: recurring-meeting
 \`\`\`
 
+# Events
+\`\`\`pm-actions
+actions:
+  - type: create-recurring-meeting-event
+    label: New Event
+    style: primary
+    context:
+      field: recurring-meeting
+\`\`\`
+
+\`\`\`pm-recurring-events
+\`\`\`
+`;
+  }
+
+  private recurringMeetingEventTemplate(): string {
+    return `---
+recurring-meeting:
+date: {{datetime}}
+attendees: []
+---
+
+# Properties
+\`\`\`pm-properties
+entity: recurring-meeting-event
+\`\`\`
+
+# Notes
+-
 `;
   }
 

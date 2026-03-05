@@ -11,6 +11,7 @@ export interface FolderSettings {
   inbox: string;
   meetingsSingle: string;
   meetingsRecurring: string;
+  meetingsRecurringEvents: string;
   dailyNotes: string;
   utility: string;
 }
@@ -44,6 +45,7 @@ export const DEFAULT_SETTINGS: ProjectManagerSettings = {
     inbox: DEFAULT_FOLDERS.inbox,
     meetingsSingle: DEFAULT_FOLDERS.meetingsSingle,
     meetingsRecurring: DEFAULT_FOLDERS.meetingsRecurring,
+    meetingsRecurringEvents: DEFAULT_FOLDERS.meetingsRecurringEvents,
     dailyNotes: DEFAULT_FOLDERS.dailyNotes,
     utility: DEFAULT_FOLDERS.utility,
   },
@@ -111,6 +113,11 @@ export class ProjectManagerSettingTab extends PluginSettingTab {
         key: "meetingsRecurring",
         name: "Recurring meetings folder",
         desc: "Folder for recurring meeting notes",
+      },
+      {
+        key: "meetingsRecurringEvents",
+        name: "Recurring meeting events folder",
+        desc: "Folder for recurring meeting event notes",
       },
       { key: "dailyNotes", name: "Daily notes folder", desc: "Folder for daily notes" },
       { key: "utility", name: "Utility folder", desc: "Folder containing utility files" },

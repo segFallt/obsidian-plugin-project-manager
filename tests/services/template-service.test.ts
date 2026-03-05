@@ -14,6 +14,7 @@ describe("TemplateService", () => {
         "inbox",
         "single-meeting",
         "recurring-meeting",
+        "recurring-meeting-event",
         "project-note",
       ] as const;
 
@@ -50,6 +51,33 @@ describe("TemplateService", () => {
 
     it("person template includes create-person pm-actions block", () => {
       const tmpl = svc.getTemplate("person");
+    });
+
+    it("recurring-meeting-event template contains recurring-meeting frontmatter key", () => {
+      const tmpl = svc.getTemplate("recurring-meeting-event");
+      expect(tmpl).toContain("recurring-meeting:");
+    });
+
+    it("recurring-meeting-event template contains pm-properties block with entity: recurring-meeting-event", () => {
+      const tmpl = svc.getTemplate("recurring-meeting-event");
+      expect(tmpl).toContain("```pm-properties");
+      expect(tmpl).toContain("entity: recurring-meeting-event");
+    });
+
+    it("recurring-meeting-event template contains date and attendees frontmatter keys", () => {
+      const tmpl = svc.getTemplate("recurring-meeting-event");
+      expect(tmpl).toContain("date:");
+      expect(tmpl).toContain("attendees:");
+    });
+
+    it("recurring-meeting template contains pm-recurring-events code block", () => {
+      const tmpl = svc.getTemplate("recurring-meeting");
+      expect(tmpl).toContain("```pm-recurring-events");
+    });
+
+    it("recurring-meeting template contains pm-actions block with create-recurring-meeting-event action", () => {
+      const tmpl = svc.getTemplate("recurring-meeting");
+      expect(tmpl).toContain("create-recurring-meeting-event");
     });
   });
 

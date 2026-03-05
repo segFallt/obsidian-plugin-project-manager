@@ -41,10 +41,13 @@ export function createMockPlugin(overrides: {
     createRecurringMeeting: vi.fn().mockResolvedValue({}),
     createProjectNote: vi.fn().mockResolvedValue({}),
     convertInboxToProject: vi.fn().mockResolvedValue({}),
+    createRecurringMeetingEvent: vi.fn().mockResolvedValue({}),
+    convertSingleToRecurring: vi.fn().mockResolvedValue({}),
   };
 
   const queryService = {
     getActiveEntitiesByTag: vi.fn().mockReturnValue([]),
+    getActiveRecurringMeetings: vi.fn().mockReturnValue([]),
   };
 
   const scaffoldService = {
@@ -65,6 +68,7 @@ export function createMockPlugin(overrides: {
     scaffoldService: scaffoldService as unknown as import("../../src/services/interfaces").IScaffoldService,
     taskParser: {} as unknown as import("../../src/services/interfaces").ITaskParser,
     addCommand: addCommandFn,
+    pendingActionContext: null as { field: string; value: string } | null,
   };
 
   return {
