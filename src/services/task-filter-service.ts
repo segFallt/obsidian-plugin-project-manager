@@ -10,6 +10,8 @@ import type {
 import { normalizeToName } from "../utils/link-utils";
 import { todayISO } from "../utils/date-utils";
 import { getTaskContext, getTaskPriority, addDays } from "../utils/task-utils";
+import { CONTEXT, STATUS, WEEK_DAYS, ISO_DATE_LENGTH } from "../constants";
+import type { FolderSettings } from "../settings";
 import type { IQueryService, ITaskFilterService } from "./interfaces";
 
 /**
@@ -19,6 +21,8 @@ import type { IQueryService, ITaskFilterService } from "./interfaces";
  * filtered arrays. This makes them straightforward to unit-test.
  */
 export class TaskFilterService implements ITaskFilterService {
+  constructor(private readonly folders: FolderSettings) {}
+
   /**
    * Applies all dashboard filters to a task list.
    * Context-specific filters (project status, inbox status, meeting date) are
@@ -37,7 +41,7 @@ export class TaskFilterService implements ITaskFilterService {
     }
 
     if (f.contextFilter.length > 0) {
-      filtered = filtered.filter((t) => f.contextFilter.includes(getTaskContext(t)));
+      filtered = filtered.filter((t) => f.contextFilter.includes(getTaskContext(t, this.folders)));
     }
 
     if (f.searchText) {
@@ -84,7 +88,7 @@ export class TaskFilterService implements ITaskFilterService {
 
     if (f.projectStatusFilter.length > 0) {
       filtered = filtered.filter((t) => {
-        if (getTaskContext(t) !== "Project") return true;
+        if (getTaskContext(t, this.folders) !== CONTEXT.PROJECT) return true;
         const page = dv.page(t.path);
         return page !== null && f.projectStatusFilter.includes(String(page.status) as ProjectStatus);
       });
@@ -92,17 +96,17 @@ export class TaskFilterService implements ITaskFilterService {
 
     if (f.inboxStatusFilter !== "All") {
       filtered = filtered.filter((t) => {
-        if (getTaskContext(t) !== "Inbox") return true;
+        if (getTaskContext(t, this.folders) !== CONTEXT.INBOX) return true;
         const page = dv.page(t.path);
         if (!page) return true;
-        const isActive = page.status !== "Complete";
-        return f.inboxStatusFilter === "Active" ? isActive : !isActive;
+        const isActive = page.status !== STATUS.COMPLETE;
+        return f.inboxStatusFilter === STATUS.ACTIVE ? isActive : !isActive;
       });
     }
 
     if (f.meetingDateFilter !== "All") {
       filtered = filtered.filter((t) => {
-        if (getTaskContext(t) !== "Meeting") return true;
+        if (getTaskContext(t, this.folders) !== CONTEXT.MEETING) return true;
         const page = dv.page(t.path);
         if (!page?.date) return f.meetingDateFilter === "All";
         return this.matchesMeetingDateFilter(String(page.date), f.meetingDateFilter);
@@ -115,8 +119,8 @@ export class TaskFilterService implements ITaskFilterService {
   /** Returns true if the task's due date matches the given filter. */
   matchesDueDateFilter(task: DataviewTask, filter: DueDateFilter): boolean {
     const today = todayISO();
-    const weekEnd = addDays(today, 7);
-    const due = task.due ? String(task.due).substring(0, 10) : null;
+    const weekEnd = addDays(today, WEEK_DAYS);
+    const due = task.due ? String(task.due).substring(0, ISO_DATE_LENGTH) : null;
 
     switch (filter) {
       case "Today":
@@ -135,8 +139,8 @@ export class TaskFilterService implements ITaskFilterService {
   /** Returns true if an ISO date string matches the meeting date filter. */
   matchesMeetingDateFilter(dateStr: string, filter: MeetingDateFilter): boolean {
     const today = todayISO();
-    const weekEnd = addDays(today, 7);
-    const d = dateStr.substring(0, 10);
+    const weekEnd = addDays(today, WEEK_DAYS);
+    const d = dateStr.substring(0, ISO_DATE_LENGTH);
 
     switch (filter) {
       case "Today":
@@ -177,7 +181,7 @@ export class TaskFilterService implements ITaskFilterService {
     if (!taskClient && page.relatedProject) {
       const parentProjectName = normalizeToName(page.relatedProject);
       if (parentProjectName) {
-        const parentProject = dv.page(`projects/${parentProjectName}`);
+        const parentProject = dv.page(`${this.folders.projects}/${parentProjectName}`);
         if (parentProject) {
           taskClient = normalizeToName(parentProject.client);
           if (!taskClient && parentProject.engagement) {
@@ -213,7 +217,7 @@ export class TaskFilterService implements ITaskFilterService {
     if (!taskEngagement && page.relatedProject) {
       const parentProjectName = normalizeToName(page.relatedProject);
       if (parentProjectName) {
-        const parentProject = dv.page(`projects/${parentProjectName}`);
+        const parentProject = dv.page(`${this.folders.projects}/${parentProjectName}`);
         if (parentProject) {
           taskEngagement = normalizeToName(parentProject.engagement);
         }
@@ -230,7 +234,7 @@ export class TaskFilterService implements ITaskFilterService {
   /** Returns true if a task page's status matches the inbox status filter. */
   matchesInboxStatusFilter(pageStatus: unknown, filter: InboxStatusFilter): boolean {
     if (filter === "All") return true;
-    const isActive = String(pageStatus) !== "Complete";
-    return filter === "Active" ? isActive : !isActive;
+    const isActive = String(pageStatus) !== STATUS.COMPLETE;
+    return filter === STATUS.ACTIVE ? isActive : !isActive;
   }
 }

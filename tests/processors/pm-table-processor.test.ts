@@ -3,6 +3,7 @@ import { registerPmTableProcessor } from "../../src/processors/pm-table-processo
 import { createMockDataviewApi, createMockPage } from "../mocks/dataview-mock";
 import { TFile } from "../mocks/obsidian-mock";
 import type { PluginServices, RegisterProcessorFn } from "../../src/plugin-context";
+import { DEFAULT_FOLDERS } from "../../src/constants";
 
 function createMockServices(pages: Parameters<typeof createMockDataviewApi>[0] = []) {
   const dv = createMockDataviewApi(pages);
@@ -34,6 +35,7 @@ function createMockServices(pages: Parameters<typeof createMockDataviewApi>[0] =
   const services = {
     app,
     queryService,
+    settings: { folders: DEFAULT_FOLDERS },
   } as unknown as PluginServices;
 
   return {

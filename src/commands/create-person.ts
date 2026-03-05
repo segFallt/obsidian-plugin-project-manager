@@ -12,14 +12,19 @@ export function registerCreatePersonCommand(services: PluginServices, addCommand
     id: "create-person",
     name: "PM: Create Person",
     callback: async () => {
+      const pendingCtx = services.pendingActionContext;
+      services.pendingActionContext = null;
+
       const activeClients = services.queryService.getActiveEntitiesByTag(ENTITY_TAGS.client);
+      const preselected = pendingCtx?.field === "client" ? pendingCtx.value : undefined;
 
       const modal = new EntityCreationModal(
         services.app,
         "New Person",
         "Person name",
         activeClients.length > 0 ? "Client (optional)" : null,
-        activeClients
+        activeClients,
+        preselected
       );
 
       const result = await modal.prompt();

@@ -3,11 +3,15 @@ import { QueryService } from "../../src/services/query-service";
 import { createMockDataviewApi } from "../mocks/dataview-mock";
 import { createMockApp, TFile } from "../mocks/app-mock";
 import type { MockPageData } from "../mocks/dataview-mock";
+import { DEFAULT_FOLDERS } from "../../src/constants";
+import type { FolderSettings } from "../../src/settings";
+
+const defaultFolders = DEFAULT_FOLDERS as unknown as FolderSettings;
 
 function createQueryService(pages: MockPageData[]) {
   const app = createMockApp();
   const dv = createMockDataviewApi(pages);
-  const qs = new QueryService(app as unknown as import("obsidian").App, () => dv);
+  const qs = new QueryService(app as unknown as import("obsidian").App, () => dv, defaultFolders);
   return { qs, dv };
 }
 

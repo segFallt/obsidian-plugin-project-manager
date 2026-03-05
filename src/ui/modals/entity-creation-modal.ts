@@ -1,5 +1,6 @@
 import { App, Modal } from "obsidian";
 import type { DataviewPage } from "../../types";
+import { FOCUS_DELAY_MS } from "../../constants";
 
 export interface EntityCreationResult {
   name: string;
@@ -21,7 +22,8 @@ export class EntityCreationModal extends Modal {
     private readonly title: string,
     private readonly namePlaceholder: string,
     private readonly parentLabel: string | null,
-    private readonly parentOptions: DataviewPage[]
+    private readonly parentOptions: DataviewPage[],
+    private readonly preselectedParent?: string
   ) {
     super(app);
   }
@@ -84,6 +86,10 @@ export class EntityCreationModal extends Modal {
           value: page.file.name,
         });
       }
+
+      if (this.preselectedParent) {
+        this.parentSelect.value = this.preselectedParent;
+      }
     }
 
     // Buttons
@@ -111,7 +117,7 @@ export class EntityCreationModal extends Modal {
       }
     });
 
-    setTimeout(() => this.nameInput.focus(), 10);
+    setTimeout(() => this.nameInput.focus(), FOCUS_DELAY_MS);
   }
 
   onClose(): void {

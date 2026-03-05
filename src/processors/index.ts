@@ -3,6 +3,7 @@ import { registerPmTableProcessor } from "./pm-table-processor";
 import { registerPmPropertiesProcessor } from "./pm-properties-processor";
 import { registerPmActionsProcessor } from "./pm-actions-processor";
 import { registerPmTasksProcessor } from "./pm-tasks-processor";
+import { registerPmEntityViewProcessor } from "./pm-entity-view-processor";
 
 /**
  * Registers all markdown code block processors.
@@ -18,4 +19,5 @@ export function registerAllProcessors(plugin: ProjectManagerPlugin): void {
   registerPmPropertiesProcessor(plugin, registerProcessor);
   registerPmActionsProcessor(plugin, registerProcessor);
   registerPmTasksProcessor(plugin, registerProcessor);
+  registerPmEntityViewProcessor(plugin, registerProcessor);
 }

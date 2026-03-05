@@ -1,6 +1,8 @@
 import { App, TFile } from "obsidian";
 import type { DataviewApi, DataviewPage } from "../types";
 import { normalizeToName } from "../utils/link-utils";
+import { STATUS } from "../constants";
+import type { FolderSettings } from "../settings";
 import type { IQueryService } from "./interfaces";
 
 /**
@@ -15,7 +17,8 @@ import type { IQueryService } from "./interfaces";
 export class QueryService implements IQueryService {
   constructor(
     private readonly app: App,
-    private readonly getApi: () => DataviewApi | null
+    private readonly getApi: () => DataviewApi | null,
+    private readonly folders: FolderSettings
   ) {}
 
   // ─── Internal helpers ───────────────────────────────────────────────────
@@ -60,7 +63,7 @@ export class QueryService implements IQueryService {
    * Used to populate entity suggester modals.
    */
   getActiveEntitiesByTag(tag: string): DataviewPage[] {
-    return this.getEntitiesByStatus(tag, "Active");
+    return this.getEntitiesByStatus(tag, STATUS.ACTIVE);
   }
 
   // ─── Relationship traversal ──────────────────────────────────────────────
@@ -135,7 +138,7 @@ export class QueryService implements IQueryService {
     // Direct engagement link
     if (page.engagement) {
       const engName = normalizeToName(page.engagement);
-      if (engName) return dv.page(`engagements/${engName}`);
+      if (engName) return dv.page(`${this.folders.engagements}/${engName}`);
     }
 
     // For project notes: resolve via parent project
@@ -143,7 +146,7 @@ export class QueryService implements IQueryService {
       const parentProject = this.getParentProject(file);
       if (parentProject?.engagement) {
         const engName = normalizeToName(parentProject.engagement);
-        if (engName) return dv.page(`engagements/${engName}`);
+        if (engName) return dv.page(`${this.folders.engagements}/${engName}`);
       }
     }
 
@@ -164,14 +167,14 @@ export class QueryService implements IQueryService {
     // Direct client link
     if (page.client) {
       const clientName = normalizeToName(page.client);
-      if (clientName) return dv.page(`clients/${clientName}`);
+      if (clientName) return dv.page(`${this.folders.clients}/${clientName}`);
     }
 
     // Through engagement
     const engagement = this.getEngagementForEntity(file);
     if (engagement?.client) {
       const clientName = normalizeToName(engagement.client);
-      if (clientName) return dv.page(`clients/${clientName}`);
+      if (clientName) return dv.page(`${this.folders.clients}/${clientName}`);
     }
 
     return null;
@@ -191,7 +194,7 @@ export class QueryService implements IQueryService {
     const projectName = normalizeToName(page.relatedProject);
     if (!projectName) return null;
 
-    return dv.page(`projects/${projectName}`);
+    return dv.page(`${this.folders.projects}/${projectName}`);
   }
 
   /**
@@ -205,7 +208,7 @@ export class QueryService implements IQueryService {
     const engName = normalizeToName(engagementLink);
     if (!engName) return null;
 
-    const engPage = dv.page(`engagements/${engName}`);
+    const engPage = dv.page(`${this.folders.engagements}/${engName}`);
     return engPage ? (normalizeToName(engPage.client) ?? null) : null;
   }
 

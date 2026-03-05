@@ -3,6 +3,7 @@ import { registerPmTasksProcessor } from "../../src/processors/pm-tasks-processo
 import { createMockDataviewApi } from "../mocks/dataview-mock";
 import type { DataviewApi } from "../../src/types";
 import type { PluginServices, RegisterProcessorFn } from "../../src/plugin-context";
+import { DEFAULT_FOLDERS } from "../../src/constants";
 
 // ─── Mock services factory ───────────────────────────────────────────────────
 
@@ -36,6 +37,7 @@ function createMockServices(dvApi: DataviewApi | null = null) {
       },
     },
     settings: {
+      folders: DEFAULT_FOLDERS,
       ui: {
         defaultTaskViewMode: "context",
         showCompletedByDefault: false,

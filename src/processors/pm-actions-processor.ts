@@ -1,7 +1,8 @@
 import { MarkdownRenderChild, parseYaml } from "obsidian";
 import type { MarkdownPostProcessorContext } from "obsidian";
 import type { PluginServices, RegisterProcessorFn } from "../plugin-context";
-import type { PmActionsConfig, PmActionConfig } from "../types";
+import type { PmActionsConfig } from "../types";
+import { renderActionButtons } from "./shared-renderers";
 
 /**
  * Renders action buttons that execute plugin commands.
@@ -27,30 +28,17 @@ export function registerPmActionsProcessor(
   registerProcessor: RegisterProcessorFn
 ): void {
   registerProcessor("pm-actions", (source, el, ctx: MarkdownPostProcessorContext) => {
-    const child = new PmActionsRenderChild(el, source, services);
+    const child = new PmActionsRenderChild(el, source, ctx.sourcePath, services);
     ctx.addChild(child);
     child.render();
   });
 }
 
-/** Maps action type strings to plugin command IDs. */
-const ACTION_COMMAND_MAP: Record<string, string> = {
-  "create-client": "project-manager:create-client",
-  "create-engagement": "project-manager:create-engagement",
-  "create-project": "project-manager:create-project",
-  "create-person": "project-manager:create-person",
-  "create-inbox": "project-manager:create-inbox",
-  "create-single-meeting": "project-manager:create-single-meeting",
-  "create-recurring-meeting": "project-manager:create-recurring-meeting",
-  "create-project-note": "project-manager:create-project-note",
-  "convert-inbox": "project-manager:convert-inbox",
-  "scaffold-vault": "project-manager:scaffold-vault",
-};
-
 class PmActionsRenderChild extends MarkdownRenderChild {
   constructor(
     containerEl: HTMLElement,
     private readonly source: string,
+    private readonly sourcePath: string,
     private readonly services: PluginServices
   ) {
     super(containerEl);
@@ -73,35 +61,6 @@ class PmActionsRenderChild extends MarkdownRenderChild {
       return;
     }
 
-    const buttonRow = this.containerEl.createDiv({ cls: "pm-actions" });
-
-    for (const action of config.actions) {
-      this.renderButton(buttonRow, action);
-    }
-  }
-
-  private renderButton(container: HTMLElement, action: PmActionConfig): void {
-    const commandId = action.commandId ?? ACTION_COMMAND_MAP[action.type];
-
-    const cls = ["pm-actions__button"];
-    if (action.style === "primary") cls.push("mod-cta");
-    if (action.style === "destructive") cls.push("mod-destructive");
-
-    const btn = container.createEl("button", {
-      text: action.label,
-      cls: cls.join(" "),
-    });
-
-    if (!commandId) {
-      btn.disabled = true;
-      btn.title = `Unknown action type: ${action.type}`;
-      btn.style.opacity = "0.5";
-      return;
-    }
-
-    btn.addEventListener("click", () => {
-      (this.services.app as unknown as { commands: { executeCommandById: (id: string) => void } })
-        .commands.executeCommandById(commandId);
-    });
+    renderActionButtons(this.containerEl, config.actions, this.services, this.sourcePath);
   }
 }

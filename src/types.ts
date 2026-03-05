@@ -68,6 +68,8 @@ export interface PmActionConfig {
   style?: "primary" | "default" | "destructive";
   /** Optional command ID to override default */
   commandId?: string;
+  /** When set, the button pre-populates the named field in the target create command */
+  context?: { field: string };
 }
 
 export interface PmActionsConfig {

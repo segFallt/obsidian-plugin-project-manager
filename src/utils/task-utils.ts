@@ -1,17 +1,19 @@
 import type { DataviewTask, TaskContext, TaskPriority } from "../types";
-import { PRIORITY_EMOJI } from "../constants";
+import { PRIORITY_EMOJI, CONTEXT, DEFAULT_PRIORITY } from "../constants";
+import type { FolderSettings } from "../settings";
 
 /**
  * Determines the context category of a task based on its file path.
+ * Uses configurable folder settings so custom vault layouts are supported.
  */
-export function getTaskContext(task: DataviewTask): TaskContext {
+export function getTaskContext(task: DataviewTask, folders: FolderSettings): TaskContext {
   const path = task.path;
-  if (path.startsWith("projects/")) return "Project";
-  if (path.startsWith("people/")) return "Person";
-  if (path.startsWith("meetings/")) return "Meeting";
-  if (path.startsWith("inbox/")) return "Inbox";
-  if (path.startsWith("daily notes/")) return "Daily Notes";
-  return "Other";
+  if (path.startsWith(folders.projects + "/") || path.startsWith(folders.projectNotes + "/")) return CONTEXT.PROJECT;
+  if (path.startsWith(folders.people + "/")) return CONTEXT.PERSON;
+  if (path.startsWith(folders.meetingsSingle + "/") || path.startsWith(folders.meetingsRecurring + "/")) return CONTEXT.MEETING;
+  if (path.startsWith(folders.inbox + "/")) return CONTEXT.INBOX;
+  if (path.startsWith(folders.dailyNotes + "/")) return CONTEXT.DAILY_NOTES;
+  return CONTEXT.OTHER;
 }
 
 /**
@@ -23,7 +25,7 @@ export function getTaskPriority(task: DataviewTask): TaskPriority {
   for (const [emoji, priority] of Object.entries(PRIORITY_EMOJI)) {
     if (text.includes(emoji)) return priority as TaskPriority;
   }
-  return 3;
+  return DEFAULT_PRIORITY;
 }
 
 /**

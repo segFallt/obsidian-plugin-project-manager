@@ -2,6 +2,7 @@
  * Date utility functions used across the plugin.
  * All functions work with ISO date strings (YYYY-MM-DD) or ISO datetimes.
  */
+import { ISO_DATE_LENGTH, ISO_DATETIME_LENGTH } from "../constants";
 
 /** Returns today's date as an ISO string (YYYY-MM-DD). */
 export function todayISO(): string {
@@ -15,14 +16,14 @@ export function nowISO(): string {
 
 /** Returns a datetime formatted for meeting frontmatter (YYYY-MM-DDTHH:mm:ss). */
 export function nowDatetime(): string {
-  return new Date().toISOString().substring(0, 19);
+  return new Date().toISOString().substring(0, ISO_DATETIME_LENGTH);
 }
 
 /**
  * Checks if an ISO date string represents today.
  */
 export function isToday(isoDate: string): boolean {
-  return isoDate.substring(0, 10) === todayISO();
+  return isoDate.substring(0, ISO_DATE_LENGTH) === todayISO();
 }
 
 /**
@@ -40,7 +41,7 @@ export function isThisWeek(isoDate: string): boolean {
  * Checks if an ISO date string is in the past (strictly before today).
  */
 export function isPast(isoDate: string): boolean {
-  return isoDate.substring(0, 10) < todayISO();
+  return isoDate.substring(0, ISO_DATE_LENGTH) < todayISO();
 }
 
 /**
@@ -49,7 +50,7 @@ export function isPast(isoDate: string): boolean {
 export function isTomorrow(isoDate: string): boolean {
   const tomorrow = new Date(todayISO());
   tomorrow.setDate(tomorrow.getDate() + 1);
-  return isoDate.substring(0, 10) === tomorrow.toISOString().split("T")[0];
+  return isoDate.substring(0, ISO_DATE_LENGTH) === tomorrow.toISOString().split("T")[0];
 }
 
 /**

@@ -5,6 +5,7 @@ import {
   DUE_DATE_EMOJI,
   COMPLETION_DATE_EMOJI,
   RECURRENCE_EMOJI,
+  DEFAULT_PRIORITY,
 } from "../constants";
 
 // Regex to detect a markdown task line: "- [ ] text" or "- [x] text"
@@ -102,7 +103,7 @@ export class TaskParser implements ITaskParser {
     for (const [emoji, priority] of Object.entries(PRIORITY_EMOJI)) {
       if (text.includes(emoji)) return priority as TaskPriority;
     }
-    return 3; // Default: Medium
+    return DEFAULT_PRIORITY; // Default: Medium
   }
 
   private extractRecurrence(text: string): string | null {

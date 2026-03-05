@@ -2,7 +2,7 @@ import { MarkdownRenderChild, TFile, TAbstractFile, parseYaml } from "obsidian";
 import type { MarkdownPostProcessorContext } from "obsidian";
 import type { PluginServices, RegisterProcessorFn } from "../plugin-context";
 import type { PmPropertiesConfig, EntityType, DataviewPage } from "../types";
-import { ENTITY_TAGS } from "../constants";
+import { ENTITY_TAGS, CLIENT_STATUSES, ENGAGEMENT_STATUSES, PROJECT_STATUSES, TEXTAREA_ROWS, DEBOUNCE_MS } from "../constants";
 import { normalizeToName } from "../utils/link-utils";
 import { InlineAutocomplete } from "../ui/components/inline-autocomplete";
 import type { AutocompleteOption } from "../ui/components/inline-autocomplete";
@@ -52,7 +52,7 @@ interface FieldDescriptor {
 
 const ENTITY_FIELDS: Record<EntityType, FieldDescriptor[]> = {
   client: [
-    { key: "status", label: "Status", type: "select", options: ["Active", "Inactive"] },
+    { key: "status", label: "Status", type: "select", options: [...CLIENT_STATUSES] },
     { key: "contact-name", label: "Contact Name", type: "text" },
     { key: "contact-email", label: "Contact Email", type: "text" },
     { key: "contact-phone", label: "Contact Phone", type: "text" },
@@ -60,7 +60,7 @@ const ENTITY_FIELDS: Record<EntityType, FieldDescriptor[]> = {
   ],
   engagement: [
     { key: "client", label: "Client", type: "suggester", entityTag: ENTITY_TAGS.client },
-    { key: "status", label: "Status", type: "select", options: ["Active", "Inactive"] },
+    { key: "status", label: "Status", type: "select", options: [...ENGAGEMENT_STATUSES] },
     { key: "start-date", label: "Start Date", type: "date" },
     { key: "end-date", label: "End Date", type: "date" },
     { key: "description", label: "Description", type: "textarea" },
@@ -74,12 +74,12 @@ const ENTITY_FIELDS: Record<EntityType, FieldDescriptor[]> = {
       key: "status",
       label: "Status",
       type: "select",
-      options: ["New", "Active", "On Hold", "Complete"],
+      options: [...PROJECT_STATUSES],
     },
   ],
   person: [
     { key: "client", label: "Client", type: "suggester", entityTag: ENTITY_TAGS.client },
-    { key: "status", label: "Status", type: "select", options: ["Active", "Inactive"] },
+    { key: "status", label: "Status", type: "select", options: [...CLIENT_STATUSES] },
     { key: "title", label: "Title", type: "text" },
     { key: "reports-to", label: "Reports To", type: "suggester", entityTag: ENTITY_TAGS.person },
     { key: "notes", label: "Notes", type: "textarea" },
@@ -144,7 +144,7 @@ class PmPropertiesRenderChild extends MarkdownRenderChild {
     if (this.debounceTimer) clearTimeout(this.debounceTimer);
     this.debounceTimer = setTimeout(() => {
       this.render();
-    }, 500);
+    }, DEBOUNCE_MS.PROPERTIES);
   }
 
   render(): void {
@@ -253,7 +253,7 @@ class PmPropertiesRenderChild extends MarkdownRenderChild {
     });
     textarea.id = fieldId;
     textarea.value = value;
-    textarea.rows = 3;
+    textarea.rows = TEXTAREA_ROWS;
     textarea.style.width = "100%";
     textarea.addEventListener("change", () => {
       void this.updateFm(file, field.key, textarea.value.trim() || null);

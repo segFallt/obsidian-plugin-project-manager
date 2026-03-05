@@ -12,7 +12,7 @@ import type {
   TaskContext,
   TaskPriority,
 } from "../types";
-import { PRIORITY_DISPLAY } from "../constants";
+import { PRIORITY_DISPLAY, ENTITY_TAGS, TASK_CONTEXTS, DEFAULT_TASK_VIEW_STATUSES, ISO_DATE_LENGTH, WEEK_DAYS, DEBOUNCE_MS } from "../constants";
 import { todayISO } from "../utils/date-utils";
 import {
   getTaskContext,
@@ -177,7 +177,7 @@ export class DashboardView {
   ): void {
     // Context type multi-select
     container.createEl("label", { text: "Context Type:" });
-    const contexts: TaskContext[] = ["Project", "Person", "Meeting", "Inbox", "Daily Notes"];
+    const contexts: TaskContext[] = [...TASK_CONTEXTS];
     const ctxGroup = container.createDiv({ cls: "pm-checkbox-group" });
     for (const ctx of contexts) {
       const label = ctxGroup.createEl("label", { cls: "pm-checkbox-label" });
@@ -193,7 +193,7 @@ export class DashboardView {
     }
 
     // Client filter
-    const activeClients = this.services.queryService.getActiveEntitiesByTag("#client");
+    const activeClients = this.services.queryService.getActiveEntitiesByTag(ENTITY_TAGS.client);
     if (activeClients.length > 0) {
       container.createEl("label", { text: "Client:", cls: "pm-filter-label" });
       const clientSelect = container.createEl("select", {
@@ -218,7 +218,7 @@ export class DashboardView {
     }
 
     // Engagement filter
-    const activeEngagements = this.services.queryService.getActiveEntitiesByTag("#engagement");
+    const activeEngagements = this.services.queryService.getActiveEntitiesByTag(ENTITY_TAGS.engagement);
     if (activeEngagements.length > 0) {
       container.createEl("label", { text: "Engagement:", cls: "pm-filter-label" });
       const engSelect = container.createEl("select", {
@@ -244,7 +244,7 @@ export class DashboardView {
 
     // Project status filter
     container.createEl("label", { text: "Project Status:", cls: "pm-filter-label" });
-    const projectStatuses: ProjectStatus[] = ["New", "Active", "On Hold"];
+    const projectStatuses: ProjectStatus[] = [...DEFAULT_TASK_VIEW_STATUSES] as ProjectStatus[];
     const psGroup = container.createDiv({ cls: "pm-checkbox-group" });
     for (const status of projectStatuses) {
       const label = psGroup.createEl("label", { cls: "pm-checkbox-label" });
@@ -379,13 +379,14 @@ export class DashboardView {
       if (!dashboard) return;
       const outputEl = dashboard.querySelector(".pm-tasks-dashboard__output");
       if (outputEl instanceof HTMLElement) this.refreshDashboardOutput(outputEl);
-    }, 200);
+    }, DEBOUNCE_MS.SEARCH);
   }
 
   // ─── Task querying ────────────────────────────────────────────────────────
 
   private getAllTasks(dv: DataviewApi): DataviewTask[] {
-    const pages = [...dv.pages().where((p) => !p.file.path.startsWith("utility/"))];
+    const utilityPrefix = this.services.settings.folders.utility + "/";
+    const pages = [...dv.pages().where((p) => !p.file.path.startsWith(utilityPrefix))];
     return pages.flatMap((p) => [...p.file.tasks]);
   }
 
@@ -397,17 +398,10 @@ export class DashboardView {
     f: DashboardFilters,
     dv: DataviewApi
   ): void {
-    const allContexts: TaskContext[] = [
-      "Project",
-      "Person",
-      "Meeting",
-      "Inbox",
-      "Daily Notes",
-      "Other",
-    ];
+    const allContexts: TaskContext[] = [...TASK_CONTEXTS];
 
     for (const context of allContexts) {
-      const ctxTasks = tasks.filter((t) => getTaskContext(t) === context);
+      const ctxTasks = tasks.filter((t) => getTaskContext(t, this.services.settings.folders) === context);
       if (ctxTasks.length === 0) continue;
 
       container.createEl("h2", { text: context });
@@ -471,17 +465,17 @@ export class DashboardView {
   private renderByDate(container: HTMLElement, tasks: DataviewTask[], f: DashboardFilters): void {
     const today = todayISO();
     const tomorrow = addDays(today, 1);
-    const weekEnd = addDays(today, 7);
+    const weekEnd = addDays(today, WEEK_DAYS);
 
-    const overdue = tasks.filter((t) => t.due && String(t.due).substring(0, 10) < today);
-    const todayTasks = tasks.filter((t) => t.due && String(t.due).substring(0, 10) === today);
-    const tomorrowTasks = tasks.filter((t) => t.due && String(t.due).substring(0, 10) === tomorrow);
+    const overdue = tasks.filter((t) => t.due && String(t.due).substring(0, ISO_DATE_LENGTH) < today);
+    const todayTasks = tasks.filter((t) => t.due && String(t.due).substring(0, ISO_DATE_LENGTH) === today);
+    const tomorrowTasks = tasks.filter((t) => t.due && String(t.due).substring(0, ISO_DATE_LENGTH) === tomorrow);
     const thisWeek = tasks.filter((t) => {
       if (!t.due) return false;
-      const d = String(t.due).substring(0, 10);
+      const d = String(t.due).substring(0, ISO_DATE_LENGTH);
       return d > tomorrow && d <= weekEnd;
     });
-    const upcoming = tasks.filter((t) => t.due && String(t.due).substring(0, 10) > weekEnd);
+    const upcoming = tasks.filter((t) => t.due && String(t.due).substring(0, ISO_DATE_LENGTH) > weekEnd);
     const noDue = tasks.filter((t) => !t.due);
 
     if (overdue.length > 0) {
@@ -553,6 +547,6 @@ export class DashboardView {
     if (!page?.relatedProject) return null;
     const projectName = normalizeToName(page.relatedProject);
     if (!projectName) return null;
-    return `projects/${projectName}.md`;
+    return `${this.services.settings.folders.projects}/${projectName}.md`;
   }
 }

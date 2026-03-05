@@ -15,7 +15,7 @@ import type {
 import { registerAllCommands } from "./commands";
 import { registerAllProcessors } from "./processors";
 import type { DataviewApi } from "./types";
-import { DATAVIEW_PLUGIN_ID } from "./constants";
+import { DATAVIEW_PLUGIN_ID, NOTICE_DURATION_MS } from "./constants";
 
 /**
  * Project Manager Plugin — main entry point.
@@ -35,6 +35,9 @@ export default class ProjectManagerPlugin extends Plugin {
 
   // templateService is internal — used only by EntityService, not exposed to commands/processors.
   private templateService!: ITemplateService;
+
+  /** Transient context set by action buttons; consumed and cleared by create commands. */
+  pendingActionContext: { field: string; value: string } | null = null;
 
   async onload() {
     await this.loadSettings();
@@ -80,12 +83,12 @@ export default class ProjectManagerPlugin extends Plugin {
       new Notice(
         "Project Manager: Dataview plugin not found. " +
           "Please install and enable the Dataview community plugin.",
-        8000
+        NOTICE_DURATION_MS
       );
     }
 
     this.templateService = new TemplateService();
-    this.queryService = new QueryService(this.app, getDataviewApi);
+    this.queryService = new QueryService(this.app, getDataviewApi, this.settings.folders);
     this.entityService = new EntityService(this.app, this.settings, this.templateService);
     this.taskParser = new TaskParser();
     this.scaffoldService = new VaultScaffoldService(this.app, this.settings);

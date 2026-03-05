@@ -8,6 +8,7 @@ import { TaskListRenderer } from "./task-list-renderer";
 import { DashboardView } from "./pm-tasks-dashboard";
 import { ByProjectView } from "./pm-tasks-by-project";
 import { renderError } from "./dom-helpers";
+import { DEBOUNCE_MS } from "../constants";
 
 /**
  * Renders the task dashboard and tasks-by-project views.
@@ -83,7 +84,7 @@ class PmTasksRenderChild extends MarkdownRenderChild {
       return;
     }
 
-    const filterService = new TaskFilterService();
+    const filterService = new TaskFilterService(this.services.settings.folders);
     const sortService = new TaskSortService();
     const renderer = new TaskListRenderer(this.services);
 
@@ -119,6 +120,6 @@ class PmTasksRenderChild extends MarkdownRenderChild {
     if (this.debounceTimer) clearTimeout(this.debounceTimer);
     this.debounceTimer = setTimeout(() => {
       this.activeView?.refreshOutput();
-    }, 1000);
+    }, DEBOUNCE_MS.TASKS);
   }
 }
