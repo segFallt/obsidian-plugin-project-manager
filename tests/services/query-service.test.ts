@@ -349,4 +349,123 @@ describe("QueryService", () => {
       expect(qs.getEntitiesByTag("#client")).toEqual([]);
     });
   });
+
+  describe("getActiveRecurringMeetings", () => {
+    it("returns meetings without end-date", () => {
+      const { qs } = createQueryService([
+        {
+          path: "meetings/recurring/Weekly Standup.md",
+          folder: "meetings/recurring",
+          frontmatter: { "start-date": "2024-01-01" },
+        },
+        {
+          path: "meetings/recurring/Daily Check.md",
+          folder: "meetings/recurring",
+          frontmatter: { "start-date": "2024-02-01", "end-date": "2024-06-01" },
+        },
+      ]);
+      const result = qs.getActiveRecurringMeetings();
+      expect(result).toHaveLength(1);
+      expect(result[0].file.name).toBe("Weekly Standup");
+    });
+
+    it("excludes meetings with end-date", () => {
+      const { qs } = createQueryService([
+        {
+          path: "meetings/recurring/Old Meeting.md",
+          folder: "meetings/recurring",
+          frontmatter: { "end-date": "2024-01-01" },
+        },
+      ]);
+      expect(qs.getActiveRecurringMeetings()).toHaveLength(0);
+    });
+
+    it("returns empty array when no recurring meetings exist", () => {
+      const { qs } = createQueryService([]);
+      expect(qs.getActiveRecurringMeetings()).toHaveLength(0);
+    });
+
+    it("returns empty array when Dataview is unavailable", () => {
+      const app = createMockApp();
+      const qs = new QueryService(app as unknown as import("obsidian").App, () => null);
+      expect(qs.getActiveRecurringMeetings()).toEqual([]);
+    });
+
+    it("returns multiple active meetings when none have end-date", () => {
+      const { qs } = createQueryService([
+        {
+          path: "meetings/recurring/Weekly Standup.md",
+          folder: "meetings/recurring",
+          frontmatter: { "start-date": "2024-01-01" },
+        },
+        {
+          path: "meetings/recurring/Monthly Review.md",
+          folder: "meetings/recurring",
+          frontmatter: { "start-date": "2024-01-15" },
+        },
+      ]);
+      const result = qs.getActiveRecurringMeetings();
+      expect(result).toHaveLength(2);
+    });
+  });
+
+  describe("getRecurringMeetingEvents", () => {
+    it("returns events linked to parent meeting", () => {
+      const { qs } = createQueryService([
+        {
+          path: "meetings/recurring-events/Weekly Standup/2024-03-01.md",
+          folder: "meetings/recurring-events/Weekly Standup",
+          frontmatter: { "recurring-meeting": "[[Weekly Standup]]" },
+        },
+        {
+          path: "meetings/recurring-events/Weekly Standup/2024-03-08.md",
+          folder: "meetings/recurring-events/Weekly Standup",
+          frontmatter: { "recurring-meeting": "[[Weekly Standup]]" },
+        },
+        {
+          path: "meetings/recurring-events/Other Meeting/2024-03-01.md",
+          folder: "meetings/recurring-events/Other Meeting",
+          frontmatter: { "recurring-meeting": "[[Other Meeting]]" },
+        },
+      ]);
+      const result = qs.getRecurringMeetingEvents("Weekly Standup");
+      expect(result).toHaveLength(2);
+    });
+
+    it("returns empty array when no events exist for the meeting", () => {
+      const { qs } = createQueryService([
+        {
+          path: "meetings/recurring-events/Other/2024-03-01.md",
+          folder: "meetings/recurring-events/Other",
+          frontmatter: { "recurring-meeting": "[[Other]]" },
+        },
+      ]);
+      expect(qs.getRecurringMeetingEvents("Weekly Standup")).toHaveLength(0);
+    });
+
+    it("returns empty array when no events exist at all", () => {
+      const { qs } = createQueryService([]);
+      expect(qs.getRecurringMeetingEvents("Weekly Standup")).toHaveLength(0);
+    });
+
+    it("returns empty array when Dataview is unavailable", () => {
+      const app = createMockApp();
+      const qs = new QueryService(app as unknown as import("obsidian").App, () => null);
+      expect(qs.getRecurringMeetingEvents("Weekly Standup")).toEqual([]);
+    });
+
+    it("matches events using normalizeToName (wikilink format)", () => {
+      const { qs } = createQueryService([
+        {
+          path: "meetings/recurring-events/Weekly Standup/2024-04-01.md",
+          folder: "meetings/recurring-events/Weekly Standup",
+          frontmatter: { "recurring-meeting": "[[Weekly Standup]]" },
+        },
+      ]);
+      // Should find this event since "[[Weekly Standup]]" normalizes to "Weekly Standup"
+      expect(qs.getRecurringMeetingEvents("Weekly Standup")).toHaveLength(1);
+      // Should not find this event with a different name
+      expect(qs.getRecurringMeetingEvents("Other Meeting")).toHaveLength(0);
+    });
+  });
 });

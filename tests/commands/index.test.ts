@@ -9,12 +9,15 @@ vi.mock("../../src/ui/modals/input-modal", () => ({
 vi.mock("../../src/ui/modals/entity-creation-modal", () => ({
   EntityCreationModal: vi.fn(),
 }));
+vi.mock("../../src/ui/modals/suggester-modal", () => ({
+  SuggesterModal: vi.fn(),
+}));
 
 describe("registerAllCommands", () => {
-  it("registers exactly 10 commands", () => {
+  it("registers exactly 12 commands", () => {
     const { plugin, commands } = createMockPlugin();
     registerAllCommands(plugin);
-    expect(commands).toHaveLength(10);
+    expect(commands).toHaveLength(12);
   });
 
   it("registers the expected command IDs", () => {
@@ -28,8 +31,10 @@ describe("registerAllCommands", () => {
     expect(ids).toContain("create-inbox");
     expect(ids).toContain("create-single-meeting");
     expect(ids).toContain("create-recurring-meeting");
+    expect(ids).toContain("create-recurring-meeting-event");
     expect(ids).toContain("create-project-note");
     expect(ids).toContain("convert-inbox");
+    expect(ids).toContain("convert-single-to-recurring");
     expect(ids).toContain("scaffold-vault");
   });
 });

@@ -121,6 +121,7 @@ export const DEFAULT_FOLDERS = {
   inbox: "inbox",
   meetingsSingle: "meetings/single",
   meetingsRecurring: "meetings/recurring",
+  meetingsRecurringEvents: "meetings/recurring-events",
   dailyNotes: "daily notes",
   utility: "utility",
 } as const;

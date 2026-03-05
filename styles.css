@@ -470,3 +470,48 @@ details[open] .pm-filter-section__title::before {
   gap: 8px;
   margin-top: 16px;
 }
+
+/* ─── pm-recurring-events ──────────────────────────────────────────────────── */
+
+.pm-recurring-events__empty {
+  color: var(--text-muted);
+  font-style: italic;
+  padding: 8px 0;
+}
+
+.pm-recurring-events__grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+.pm-recurring-events__tile {
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.pm-recurring-events__tile-header {
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.pm-recurring-events__tile-attendees {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.pm-recurring-events__tile-attendee {
+  background: var(--background-modifier-hover);
+  border-radius: 4px;
+  padding: 2px 8px;
+  font-size: 0.85em;
+}
+
+.pm-recurring-events__tile-notes {
+  font-size: 0.9em;
+  color: var(--text-muted);
+  white-space: pre-wrap;
+}

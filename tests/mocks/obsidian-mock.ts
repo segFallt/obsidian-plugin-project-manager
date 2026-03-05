@@ -142,7 +142,7 @@ export class Setting {
 
 export class Plugin {
   app: App;
-  manifest = { id: "project-manager", name: "Project Manager", version: "0.1.4-beta.2" };
+  manifest = { id: "project-manager", name: "Project Manager", version: "0.1.4-beta.3" };
 
   constructor(app: App, manifest: unknown) {
     this.app = app;
@@ -177,6 +177,7 @@ export class App {
     createFolder: (_path: string) => Promise.resolve(),
     getAbstractFileByPath: (_path: string): TFile | TFolder | null => null,
     getMarkdownFiles: () => [] as TFile[],
+    delete: (_file: TFile) => Promise.resolve(),
     on: (_event: string, _handler: (...args: unknown[]) => void): EventRef => ({
       id: "mock-event",
     }),

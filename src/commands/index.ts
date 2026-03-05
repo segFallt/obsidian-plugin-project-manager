@@ -6,8 +6,10 @@ import { registerCreatePersonCommand } from "./create-person";
 import { registerCreateInboxCommand } from "./create-inbox";
 import { registerCreateSingleMeetingCommand } from "./create-single-meeting";
 import { registerCreateRecurringMeetingCommand } from "./create-recurring-meeting";
+import { registerCreateRecurringMeetingEventCommand } from "./create-recurring-meeting-event";
 import { registerCreateProjectNoteCommand } from "./create-project-note";
 import { registerConvertInboxCommand } from "./convert-inbox-to-project";
+import { registerConvertSingleToRecurringCommand } from "./convert-single-to-recurring";
 import { registerScaffoldVaultCommand } from "./scaffold-vault";
 
 /**
@@ -26,7 +28,9 @@ export function registerAllCommands(plugin: ProjectManagerPlugin): void {
   registerCreateInboxCommand(plugin, addCommand);
   registerCreateSingleMeetingCommand(plugin, addCommand);
   registerCreateRecurringMeetingCommand(plugin, addCommand);
+  registerCreateRecurringMeetingEventCommand(plugin, addCommand);
   registerCreateProjectNoteCommand(plugin, addCommand);
   registerConvertInboxCommand(plugin, addCommand);
+  registerConvertSingleToRecurringCommand(plugin, addCommand);
   registerScaffoldVaultCommand(plugin, addCommand);
 }

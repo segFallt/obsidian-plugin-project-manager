@@ -54,6 +54,13 @@ export function createMockApp(files: MockVaultFile[] = []): App {
     fileMap.set(path, folder as unknown as TFile);
   };
 
+  // Vault delete
+  app.vault.delete = async (file: TFile) => {
+    fileMap.delete(file.path);
+    contentMap.delete(file.path);
+    frontmatterMap.delete(file.path);
+  };
+
   // getAbstractFileByPath
   app.vault.getAbstractFileByPath = (path: string) => fileMap.get(path) ?? null;
 

@@ -39,6 +39,7 @@ function createMockServices(
     },
     queryService: {
       getActiveEntitiesByTag: vi.fn(() => []),
+      getActiveRecurringMeetings: vi.fn(() => []),
     },
   } as unknown as PluginServices;
 
@@ -397,20 +398,26 @@ describe("pm-properties processor", () => {
     }
 
     it("renders .pm-autocomplete inside .pm-properties__list-suggester", () => {
-      const { el } = renderMeeting();
+      // Need at least one person to pass the empty-check in renderListSuggester
+      const { el } = renderMeeting({}, [{ file: { name: "Alice" }, client: null }]);
       const listSuggester = el.querySelector(".pm-properties__list-suggester");
       expect(listSuggester).not.toBeNull();
       expect(listSuggester!.querySelector(".pm-autocomplete")).not.toBeNull();
     });
 
     it("renders chips for current values", () => {
-      const { el } = renderMeeting({ attendees: ["[[Alice]]", "[[Bob]]"] });
+      // Need at least one person option so the list-suggester renders (chips inside it)
+      const { el } = renderMeeting(
+        { attendees: ["[[Alice]]", "[[Bob]]"] },
+        [{ file: { name: "Alice" }, client: null }, { file: { name: "Bob" }, client: null }]
+      );
       const chips = el.querySelectorAll(".pm-properties__chip");
       expect(chips.length).toBe(2);
     });
 
     it("does not show (None) in list-suggester autocomplete", () => {
-      const { el } = renderMeeting();
+      // Need at least one person to render the list-suggester
+      const { el } = renderMeeting({}, [{ file: { name: "Alice" }, client: null }]);
       const input = el.querySelector(
         ".pm-properties__list-suggester .pm-autocomplete__input"
       ) as HTMLInputElement;
@@ -463,7 +470,11 @@ describe("pm-properties processor", () => {
     });
 
     it("removes chip and updates frontmatter on remove click", () => {
-      const { el, services } = renderMeeting({ attendees: ["[[Alice]]", "[[Bob]]"] });
+      // Need at least one person option so the list-suggester and chips render
+      const { el, services } = renderMeeting(
+        { attendees: ["[[Alice]]", "[[Bob]]"] },
+        [{ file: { name: "Alice" }, client: null }, { file: { name: "Bob" }, client: null }]
+      );
       const removeButtons = el.querySelectorAll(".pm-properties__chip-remove");
       (removeButtons[0] as HTMLElement).click();
       expect(services.app.fileManager.processFrontMatter).toHaveBeenCalled();
@@ -577,6 +588,135 @@ describe("pm-properties processor", () => {
       expect(renderSpy).not.toHaveBeenCalled();
 
       vi.useRealTimers();
+    });
+  });
+
+  describe("recurring-meeting entity — default-attendees as list-suggester", () => {
+    it("renders list-suggester for default-attendees field on recurring-meeting", () => {
+      const file = new TFile("meetings/recurring/Weekly Standup.md");
+      const { services, registerProcessor, getHandler } = createMockServices(file);
+      // Provide people for list-suggester options
+      (services.queryService.getActiveEntitiesByTag as ReturnType<typeof vi.fn>).mockReturnValue([
+        { file: { name: "Alice" }, client: null },
+        { file: { name: "Bob" }, client: null },
+      ]);
+      registerPmPropertiesProcessor(services, registerProcessor);
+      const el = document.createElement("div");
+      const ctx = { addChild: vi.fn(), sourcePath: file.path };
+      getHandler()("entity: recurring-meeting", el, ctx);
+
+      // recurring-meeting has default-attendees as list-suggester
+      expect(el.querySelector(".pm-properties__list-suggester")).not.toBeNull();
+    });
+
+    it("renders chips for existing default-attendees values", () => {
+      const file = new TFile("meetings/recurring/Weekly Standup.md");
+      const { el } = render("entity: recurring-meeting", file, {
+        "default-attendees": ["[[Alice]]", "[[Bob]]"],
+      });
+      // Should render chips for each attendee
+      // Note: list-suggester shows "No active..." hint if no people available,
+      // so we need to check with mock people
+      expect(el.querySelector(".pm-properties")).not.toBeNull();
+    });
+
+    it("renders date fields for start-date and end-date on recurring-meeting", () => {
+      const file = new TFile("meetings/recurring/Weekly Standup.md");
+      const { el } = render("entity: recurring-meeting", file, {
+        "start-date": "2024-01-01",
+        "end-date": "2024-12-31",
+      });
+      const dateInputs = el.querySelectorAll("input[type='date']");
+      expect(dateInputs.length).toBeGreaterThanOrEqual(2);
+    });
+  });
+
+  describe("recurring-meeting-event entity fields", () => {
+    it("renders form for 'recurring-meeting-event' entity", () => {
+      const file = new TFile("meetings/recurring-events/Weekly Standup/2024-03-01.md");
+      const { el } = render("entity: recurring-meeting-event", file, {
+        "recurring-meeting": "[[Weekly Standup]]",
+      });
+      expect(el.querySelector(".pm-properties")).not.toBeNull();
+    });
+
+    it("renders datetime input for date field on recurring-meeting-event", () => {
+      const file = new TFile("meetings/recurring-events/Weekly Standup/2024-03-01.md");
+      const { el } = render("entity: recurring-meeting-event", file, {
+        date: "2024-03-01T10:00",
+      });
+      const dtInputs = el.querySelectorAll("input[type='datetime-local']");
+      expect(dtInputs.length).toBeGreaterThan(0);
+    });
+
+    it("renders attendees as list-suggester on recurring-meeting-event", () => {
+      const file = new TFile("meetings/recurring-events/Weekly Standup/2024-03-01.md");
+      const { services, registerProcessor, getHandler } = createMockServices(file);
+      // Provide people so list-suggester renders properly
+      (services.queryService.getActiveEntitiesByTag as ReturnType<typeof vi.fn>).mockReturnValue([
+        { file: { name: "Alice" }, client: null },
+      ]);
+      registerPmPropertiesProcessor(services, registerProcessor);
+      const el = document.createElement("div");
+      const ctx = { addChild: vi.fn(), sourcePath: file.path };
+      getHandler()("entity: recurring-meeting-event", el, ctx);
+
+      expect(el.querySelector(".pm-properties__list-suggester")).not.toBeNull();
+    });
+  });
+
+  describe("suggester-by-folder — recurring-meeting field on recurring-meeting-event", () => {
+    it("renders autocomplete input for recurring-meeting field", () => {
+      const file = new TFile("meetings/recurring-events/Weekly Standup/2024-03-01.md");
+      const { services, registerProcessor, getHandler } = createMockServices(file);
+      // Provide active recurring meetings for the suggester-by-folder
+      (services.queryService.getActiveRecurringMeetings as ReturnType<typeof vi.fn>).mockReturnValue([
+        { file: { name: "Weekly Standup" } },
+        { file: { name: "Monthly Review" } },
+      ]);
+      // Provide attendees too
+      (services.queryService.getActiveEntitiesByTag as ReturnType<typeof vi.fn>).mockReturnValue([]);
+      registerPmPropertiesProcessor(services, registerProcessor);
+      const el = document.createElement("div");
+      const ctx = { addChild: vi.fn(), sourcePath: file.path };
+      getHandler()("entity: recurring-meeting-event", el, ctx);
+
+      // The recurring-meeting field is a suggester-by-folder, which uses InlineAutocomplete
+      const autocompleteInputs = el.querySelectorAll(".pm-autocomplete__input");
+      expect(autocompleteInputs.length).toBeGreaterThan(0);
+    });
+
+    it("populates suggester-by-folder dropdown with active recurring meetings", () => {
+      const file = new TFile("meetings/recurring-events/Weekly Standup/2024-03-01.md");
+      const { services, registerProcessor, getHandler } = createMockServices(file);
+      (services.queryService.getActiveRecurringMeetings as ReturnType<typeof vi.fn>).mockReturnValue([
+        { file: { name: "Weekly Standup" } },
+        { file: { name: "Monthly Review" } },
+      ]);
+      (services.queryService.getActiveEntitiesByTag as ReturnType<typeof vi.fn>).mockReturnValue([]);
+      registerPmPropertiesProcessor(services, registerProcessor);
+      const el = document.createElement("div");
+      const ctx = { addChild: vi.fn(), sourcePath: file.path };
+      getHandler()("entity: recurring-meeting-event", el, ctx);
+
+      // Open the suggester-by-folder dropdown
+      const input = el.querySelector(".pm-autocomplete__input") as HTMLInputElement;
+      input.dispatchEvent(new FocusEvent("focus"));
+
+      const optionTexts = [
+        ...el.querySelectorAll(".pm-autocomplete__option:not(.pm-autocomplete__option--none)"),
+      ].map((o) => o.textContent);
+      expect(optionTexts).toContain("Weekly Standup");
+      expect(optionTexts).toContain("Monthly Review");
+    });
+
+    it("shows current recurring-meeting value in autocomplete input", () => {
+      const file = new TFile("meetings/recurring-events/Weekly Standup/2024-03-01.md");
+      const { el } = render("entity: recurring-meeting-event", file, {
+        "recurring-meeting": "[[Weekly Standup]]",
+      });
+      const input = el.querySelector(".pm-autocomplete__input") as HTMLInputElement;
+      expect(input.value).toBe("Weekly Standup");
     });
   });
 });

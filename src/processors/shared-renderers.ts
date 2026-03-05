@@ -16,8 +16,10 @@ export const ACTION_COMMAND_MAP: Record<string, string> = {
   "create-inbox": `${PLUGIN_ID}:create-inbox`,
   "create-single-meeting": `${PLUGIN_ID}:create-single-meeting`,
   "create-recurring-meeting": `${PLUGIN_ID}:create-recurring-meeting`,
+  "create-recurring-meeting-event": `${PLUGIN_ID}:create-recurring-meeting-event`,
   "create-project-note": `${PLUGIN_ID}:create-project-note`,
   "convert-inbox": `${PLUGIN_ID}:convert-inbox`,
+  "convert-single-to-recurring": `${PLUGIN_ID}:convert-single-to-recurring`,
   "scaffold-vault": `${PLUGIN_ID}:scaffold-vault`,
 };
 

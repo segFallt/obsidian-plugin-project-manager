@@ -168,6 +168,79 @@ export class EntityService implements IEntityService {
   }
 
   /**
+   * Creates a new recurring meeting event note in a subfolder named after the parent meeting.
+   * The event file name is YYYY-MM-DD (today's date), with a numeric suffix for same-day conflicts.
+   * Copies default-attendees from the parent recurring meeting unless overridden in options.
+   */
+  async createRecurringMeetingEvent(
+    meetingName: string,
+    options?: { date?: string; attendees?: string[]; notesContent?: string; open?: boolean }
+  ): Promise<TFile> {
+    // Step 1: Determine event date (ISO date only, first 10 chars).
+    const rawDate = options?.date ?? this.today();
+    const dateStr = rawDate.slice(0, 10);
+
+    // Step 2: Determine event folder (base events folder / meeting name).
+    const eventFolder = `${this.settings.folders.meetingsRecurringEvents}/${meetingName}`;
+
+    // Step 3 & 4: Look up parent meeting frontmatter to get default-attendees.
+    const parentPath = `${this.settings.folders.meetingsRecurring}/${meetingName}.md`;
+    const parentAbstract = this.app.vault.getAbstractFileByPath(parentPath);
+    let parentDefaultAttendees: unknown[] = [];
+    if (parentAbstract instanceof TFile) {
+      const cache = this.app.metadataCache.getFileCache(parentAbstract);
+      const rawAttendees: unknown = cache?.frontmatter?.["default-attendees"];
+      if (Array.isArray(rawAttendees)) {
+        parentDefaultAttendees = rawAttendees;
+      }
+    }
+
+    // Step 5: Determine attendees wikilinks.
+    let attendees: string[];
+    if (options?.attendees !== undefined) {
+      // Caller provided explicit attendee names — convert to wikilinks.
+      attendees = options.attendees.map((name) => toWikilink(name));
+    } else {
+      // Copy default-attendees from parent, normalising each value to a plain name.
+      attendees = parentDefaultAttendees
+        .map((val) => normalizeToName(val))
+        .filter((name): name is string => name !== null)
+        .map((name) => toWikilink(name));
+    }
+
+    // Step 6: Create the entity file.
+    const file = await this.createEntity("recurring-meeting-event", dateStr, eventFolder);
+
+    // Step 7: Set frontmatter.
+    await this.app.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => {
+      fm["recurring-meeting"] = toWikilink(meetingName);
+      fm["attendees"] = attendees;
+    });
+
+    // Step 8: Inject notes content if provided.
+    if (options?.notesContent) {
+      const content = await this.app.vault.read(file);
+      let updated: string;
+      if (content.includes("# Notes\n-")) {
+        updated = content.replace("# Notes\n-", `# Notes\n${options.notesContent}`);
+      } else if (content.includes("# Notes\n")) {
+        updated = content.replace("# Notes\n", `# Notes\n${options.notesContent}\n`);
+      } else {
+        updated = content;
+      }
+      await this.app.vault.modify(file, updated);
+    }
+
+    // Step 9: Open the newly created file (skipped when called internally with open: false).
+    if (options?.open !== false) {
+      await this.openFile(file);
+    }
+
+    // Step 10: Return the file.
+    return file;
+  }
+
+  /**
    * Converts an inbox note to a project.
    *
    * Creates a new project file with:
@@ -198,6 +271,67 @@ export class EntityService implements IEntityService {
     });
 
     return projectFile;
+  }
+
+  /**
+   * Converts a single meeting note into a recurring meeting + its first event.
+   *
+   * Steps:
+   * 1. Read single meeting frontmatter: engagement, date, attendees
+   * 2. Read file content and extract Notes section
+   * 3. Create recurring meeting with the given name and same engagement
+   * 4. Set default-attendees on the recurring meeting from the single meeting's attendees
+   * 5. Create first event with date and attendees from single meeting + notes content
+   * 6. Delete the original single meeting file
+   */
+  async convertSingleToRecurring(singleFile: TFile, recurringName?: string): Promise<TFile> {
+    const name = recurringName ?? singleFile.basename;
+    const fm = getFrontmatter(this.app, singleFile);
+    const engagementName = normalizeToName(fm.engagement) ?? undefined;
+
+    // Extract attendees from the single meeting
+    const rawAttendees = fm.attendees;
+    const singleAttendees = Array.isArray(rawAttendees)
+      ? rawAttendees.map((a) => normalizeToName(a) ?? String(a)).filter(Boolean)
+      : [];
+
+    // Extract Notes section from file content
+    const content = await this.app.vault.read(singleFile);
+    const notesIdx = content.indexOf("\n# Notes");
+    const notesContent =
+      notesIdx >= 0
+        ? content
+            .slice(notesIdx + "\n# Notes".length)
+            .replace(/^\n-(?= *\n|$)/, "")
+            .trim()
+        : "";
+
+    // Extract date from single meeting (may be datetime string)
+    const singleDate = String(fm.date ?? "").slice(0, 10) || undefined;
+
+    // Create the recurring meeting (this calls openFile internally)
+    const recurringFile = await this.createRecurringMeeting(name, engagementName);
+
+    // Set default-attendees on the recurring meeting
+    if (singleAttendees.length > 0) {
+      await this.app.fileManager.processFrontMatter(recurringFile, (pfm: Record<string, unknown>) => {
+        pfm["default-attendees"] = singleAttendees.map((a) => toWikilink(a));
+      });
+    }
+
+    // Create the first event with data from single meeting.
+    // open: false — the recurring meeting is already open, so we don't open a second tab.
+    await this.createRecurringMeetingEvent(name, {
+      date: singleDate,
+      attendees: singleAttendees,
+      notesContent: notesContent || undefined,
+      open: false,
+    });
+
+    // Delete the original single meeting
+    await this.app.vault.delete(singleFile);
+
+    return recurringFile;
   }
 
   // ─── Generic creation ────────────────────────────────────────────────────
