@@ -12,8 +12,9 @@ Renders an interactive frontmatter editor for the current note. Changes are pers
 - **Keyboard navigation** — `ArrowDown`/`ArrowUp` to move, `Enter` to select, `Escape` to cancel.
 - **Enriched entity display** — engagement and person options are shown as `"Name (Client)"` when the entity has a client link, making it easy to distinguish entities with similar names.
 - **Frontmatter storage** — only the plain entity name is stored as a wikilink (e.g. `[[Eng1]]`), not the enriched display text.
+- **Click to open** — clicking the input opens the suggestion list even after the input already has focus.
 - **Single suggester** (`suggester`) — includes a `(None)` option to clear the field.
-- **List suggester** (`list-suggester`) — selected items appear as removable chips above the input; clicking `×` removes the item. Duplicates are silently ignored.
+- **List suggester** (`list-suggester`) — selected items appear as removable chips above the input; clicking `×` removes the item. Duplicates are silently ignored. The suggestion list automatically reopens after each selection so you can add multiple items in sequence.
 
 ```yaml
 ```pm-properties
@@ -172,3 +173,28 @@ Clicking a checkbox:
 ### Filter state
 
 All filter state is local to the rendered component — no frontmatter is written on filter change. Defaults can be set in the code block YAML (see options above).
+
+---
+
+## `pm-recurring-events`
+
+Renders a chronological tile grid of all event instances for a recurring meeting. Place this code block in a recurring meeting note — the parent meeting name is auto-detected from the file's basename.
+
+```yaml
+```pm-recurring-events
+```
+```
+
+### Tile contents
+
+Each tile shows:
+- **Date header** — links to the event note (datetime truncated to `YYYY-MM-DDTHH:mm`)
+- **Attendees** — comma-separated list of attendee names (only shown when present)
+- **Notes** — rendered markdown content from the `# Notes` section of the event file
+
+Notes support full markdown: `**bold**`, `*italic*`, `- lists`, `[[wikilinks]]`, etc.
+
+### Behaviour
+
+- Events are sorted newest-first by their `date` frontmatter field.
+- The component auto-refreshes (1 second debounce) whenever any vault file is modified, allowing Dataview to re-index before re-querying.

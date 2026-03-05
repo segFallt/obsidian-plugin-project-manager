@@ -230,6 +230,20 @@ export class MarkdownRenderChild {
   registerEvent(_eventRef: EventRef) {}
 }
 
+// ─── MarkdownRenderer stub ────────────────────────────────────────────────────
+
+export class MarkdownRenderer {
+  static async render(
+    _app: unknown,
+    markdown: string,
+    el: HTMLElement,
+    _sourcePath: string,
+    _component: unknown
+  ): Promise<void> {
+    el.innerHTML = `<p>${markdown}</p>`;
+  }
+}
+
 // ─── parseYaml stub ───────────────────────────────────────────────────────────
 // Simple YAML parser that handles the patterns used by this plugin's processors.
 

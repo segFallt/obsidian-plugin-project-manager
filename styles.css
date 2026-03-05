@@ -523,5 +523,6 @@ details[open] .pm-filter-section__title::before {
 .pm-recurring-events__tile-notes {
   font-size: 0.9em;
   color: var(--text-muted);
-  white-space: pre-wrap;
 }
+.pm-recurring-events__tile-notes p:first-child { margin-top: 0; }
+.pm-recurring-events__tile-notes p:last-child { margin-bottom: 0; }

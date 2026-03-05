@@ -1,4 +1,4 @@
-import { MarkdownRenderChild, TFile } from "obsidian";
+import { MarkdownRenderChild, MarkdownRenderer, TFile } from "obsidian";
 import type { MarkdownPostProcessorContext } from "obsidian";
 import type { PluginServices, RegisterProcessorFn } from "../plugin-context";
 import type { DataviewPage } from "../types";
@@ -105,7 +105,7 @@ class PmRecurringEventsRenderChild extends MarkdownRenderChild {
       notesIdx >= 0
         ? content
             .slice(notesIdx + notesMarker.length)
-            .replace(/^[\n\-\s]+/, "")
+            .replace(/^\s*\n/, "")
             .trim()
         : "";
 
@@ -147,7 +147,13 @@ class PmRecurringEventsRenderChild extends MarkdownRenderChild {
     // Notes (only if non-empty)
     if (notesContent) {
       const notesDiv = tile.createDiv({ cls: "pm-recurring-events__tile-notes" });
-      notesDiv.textContent = notesContent;
+      await MarkdownRenderer.render(
+        this.services.app,
+        notesContent,
+        notesDiv,
+        event.file.path,
+        this
+      );
     }
   }
 
