@@ -111,6 +111,8 @@ attendees:
 engagement: "[[Engagement Name]]"
 start-date: YYYY-MM-DD
 end-date: YYYY-MM-DD
+default-attendees:
+  - "[[Person Name]]"
 ```
 
 ## Priority Scale

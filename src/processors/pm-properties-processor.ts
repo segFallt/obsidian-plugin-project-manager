@@ -412,14 +412,6 @@ class PmPropertiesRenderChild extends MarkdownRenderChild {
 
     const pages = this.services.queryService.getActiveEntitiesByTag(entityTag);
 
-    if (pages.length === 0) {
-      const msg = row.createDiv({ cls: "pm-properties__empty-hint" });
-      msg.style.color = "var(--text-muted)";
-      msg.style.fontSize = "0.875em";
-      msg.textContent = `No active ${field.label.toLowerCase()} found. Create one first.`;
-      return;
-    }
-
     const currentItems = this.parseListValue(rawValue);
 
     const wrapper = row.createDiv({ cls: "pm-properties__list-suggester" });
