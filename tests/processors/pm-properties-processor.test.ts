@@ -224,13 +224,31 @@ describe("pm-properties processor", () => {
       expect(selects.length).toBe(2); // priority + status
     });
 
-    it("shows empty-state hint for attendees when no active persons exist", () => {
+    it("renders list-suggester for attendees even when no active persons exist", () => {
       const file = new TFile("meetings/Meet1.md");
       // render() uses default mock: getActiveEntitiesByTag returns []
-      // So renderListSuggester shows a hint instead of an autocomplete
+      // renderListSuggester always renders the autocomplete (no early-exit)
       const { el } = render("entity: single-meeting", file);
-      expect(el.querySelector(".pm-properties__empty-hint")).not.toBeNull();
-      expect(el.querySelector(".pm-properties__list-suggester")).toBeNull();
+      expect(el.querySelector(".pm-properties__list-suggester")).not.toBeNull();
+      expect(el.querySelector(".pm-autocomplete")).not.toBeNull();
+      expect(el.querySelector(".pm-properties__empty-hint")).toBeNull();
+    });
+
+    it("shows 'No matches' in list-suggester dropdown when no active persons exist", () => {
+      const file = new TFile("meetings/Meet1.md");
+      const { el } = render("entity: single-meeting", file);
+      const input = el.querySelector(".pm-properties__list-suggester .pm-autocomplete__input") as HTMLInputElement;
+      input.dispatchEvent(new FocusEvent("focus"));
+      const dropdown = el.querySelector(".pm-properties__list-suggester .pm-autocomplete__dropdown");
+      expect(dropdown).not.toBeNull();
+      expect(dropdown?.textContent).toContain("No matches");
+    });
+
+    it("renders list-suggester for default-attendees on recurring-meeting even when no active persons exist", () => {
+      const file = new TFile("meetings/recurring/StandUp.md");
+      const { el } = render("entity: recurring-meeting", file);
+      expect(el.querySelector(".pm-properties__list-suggester")).not.toBeNull();
+      expect(el.querySelector(".pm-autocomplete")).not.toBeNull();
     });
   });
 
