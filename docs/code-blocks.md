@@ -57,6 +57,16 @@ entity: <entity-type>
 **`recurring-meeting`**
 - Engagement (autocomplete suggester — shown as "Eng (Client)")
 - Start Date, End Date
+- Default Attendees (list autocomplete suggester — active people, shown as "Person (Client)")
+
+**`recurring-meeting-event`**
+- Recurring Meeting (autocomplete suggester — active recurring meetings by name)
+- Date (datetime picker)
+- Attendees (list autocomplete suggester — active people, shown as "Person (Client)")
+
+**`project-note`**
+- Related Project (text)
+- Engagement (autocomplete suggester — shown as "Eng (Client)")
 
 ---
 

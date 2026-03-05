@@ -336,3 +336,77 @@ describe("InlineAutocomplete — destroy()", () => {
     removeSpy.mockRestore();
   });
 });
+
+// ─── Multiple instances ────────────────────────────────────────────────────────
+
+describe("InlineAutocomplete — multiple instances", () => {
+  it("mousedown on second instance closes first instance's dropdown", () => {
+    const parent = document.createElement("div");
+    document.body.appendChild(parent);
+
+    const ac1 = new InlineAutocomplete(parent, OPTIONS, null, {
+      onSelect: vi.fn(),
+      includeNone: false,
+    });
+    const ac2 = new InlineAutocomplete(parent, OPTIONS, null, {
+      onSelect: vi.fn(),
+      includeNone: false,
+    });
+
+    const dropdowns = parent.querySelectorAll(".pm-autocomplete__dropdown");
+    const dropdown1 = dropdowns[0] as HTMLElement;
+    const dropdown2 = dropdowns[1] as HTMLElement;
+
+    // Open first
+    ac1.inputEl.dispatchEvent(new FocusEvent("focus"));
+    expect(dropdown1.style.display).not.toBe("none");
+
+    // Mousedown on second's input: bubbles to document.
+    // ac1's handler: target not in ac1 container → closes ac1.
+    // ac2's handler: target IS in ac2 container → does not close.
+    ac2.inputEl.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+    expect(dropdown1.style.display).toBe("none");
+
+    // Focus second → opens
+    ac2.inputEl.dispatchEvent(new FocusEvent("focus"));
+    expect(dropdown2.style.display).not.toBe("none");
+
+    ac1.destroy();
+    ac2.destroy();
+  });
+
+  it("two instances with distinct options show only their own options when opened", () => {
+    const parent = document.createElement("div");
+    document.body.appendChild(parent);
+
+    const opts1: AutocompleteOption[] = [{ value: "a", displayText: "Alpha" }];
+    const opts2: AutocompleteOption[] = [{ value: "b", displayText: "Beta" }];
+
+    const ac1 = new InlineAutocomplete(parent, opts1, null, {
+      onSelect: vi.fn(),
+      includeNone: false,
+    });
+    const ac2 = new InlineAutocomplete(parent, opts2, null, {
+      onSelect: vi.fn(),
+      includeNone: false,
+    });
+
+    const dropdowns = parent.querySelectorAll(".pm-autocomplete__dropdown");
+    const dropdown2 = dropdowns[1] as HTMLElement;
+
+    // Close first, open second
+    ac2.inputEl.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+    ac2.inputEl.dispatchEvent(new FocusEvent("focus"));
+
+    expect(dropdown2.style.display).not.toBe("none");
+
+    const visibleOptions = [...dropdown2.querySelectorAll(".pm-autocomplete__option")].map(
+      (o) => o.textContent
+    );
+    expect(visibleOptions).toContain("Beta");
+    expect(visibleOptions).not.toContain("Alpha");
+
+    ac1.destroy();
+    ac2.destroy();
+  });
+});
