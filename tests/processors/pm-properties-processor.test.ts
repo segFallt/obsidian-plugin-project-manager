@@ -224,11 +224,13 @@ describe("pm-properties processor", () => {
       expect(selects.length).toBe(2); // priority + status
     });
 
-    it("renders list-suggester for attendees on single-meeting", () => {
+    it("shows empty-state hint for attendees when no active persons exist", () => {
       const file = new TFile("meetings/Meet1.md");
+      // render() uses default mock: getActiveEntitiesByTag returns []
+      // So renderListSuggester shows a hint instead of an autocomplete
       const { el } = render("entity: single-meeting", file);
-      // list-suggester now uses InlineAutocomplete
-      expect(el.querySelector(".pm-autocomplete")).not.toBeNull();
+      expect(el.querySelector(".pm-properties__empty-hint")).not.toBeNull();
+      expect(el.querySelector(".pm-properties__list-suggester")).toBeNull();
     });
   });
 
@@ -481,6 +483,48 @@ describe("pm-properties processor", () => {
       // After removal, only 1 chip remains
       const remainingChips = el.querySelectorAll(".pm-properties__chip");
       expect(remainingChips.length).toBe(1);
+    });
+
+    it("renders engagement suggester and attendees list-suggester both when options exist", () => {
+      const file = new TFile("meetings/Meet1.md");
+      const { services, registerProcessor, getHandler } = createMockServices(file);
+      (services.queryService.getActiveEntitiesByTag as ReturnType<typeof vi.fn>).mockImplementation(
+        (tag: string) => {
+          if (tag === "#person") return [{ file: { name: "Alice" }, client: null }];
+          return [{ file: { name: "Eng1" }, client: null }];
+        }
+      );
+      registerPmPropertiesProcessor(services, registerProcessor);
+      const el = document.createElement("div");
+      const ctx = { addChild: vi.fn(), sourcePath: file.path };
+      getHandler()("entity: single-meeting", el, ctx);
+
+      // Both engagement (suggester) and attendees (list-suggester) render autocomplete inputs
+      const autocompleteInputs = el.querySelectorAll(".pm-autocomplete__input");
+      expect(autocompleteInputs.length).toBe(2);
+
+      // Attendees autocomplete lives inside the list-suggester wrapper
+      const listSuggester = el.querySelector(".pm-properties__list-suggester");
+      expect(listSuggester).not.toBeNull();
+      expect(listSuggester!.querySelector(".pm-autocomplete__input")).not.toBeNull();
+
+      // Each dropdown shows its own options when focused (note: el is detached from document,
+      // so document-level mousedown close behaviour is tested in inline-autocomplete.test.ts)
+      (autocompleteInputs[0] as HTMLInputElement).dispatchEvent(new FocusEvent("focus"));
+      const engDropdown = el.querySelectorAll(".pm-autocomplete__dropdown")[0] as HTMLElement;
+      expect(engDropdown.style.display).not.toBe("none");
+      const engOptions = [
+        ...engDropdown.querySelectorAll(".pm-autocomplete__option:not(.pm-autocomplete__option--none)"),
+      ].map((o) => o.textContent);
+      expect(engOptions).toContain("Eng1");
+
+      (autocompleteInputs[1] as HTMLInputElement).dispatchEvent(new FocusEvent("focus"));
+      const attendeesDropdown = el.querySelectorAll(".pm-autocomplete__dropdown")[1] as HTMLElement;
+      expect(attendeesDropdown.style.display).not.toBe("none");
+      const attendeesOptions = [
+        ...attendeesDropdown.querySelectorAll(".pm-autocomplete__option"),
+      ].map((o) => o.textContent);
+      expect(attendeesOptions).toContain("Alice");
     });
 
     it("shows enriched display in chips for person attendees with client link", () => {

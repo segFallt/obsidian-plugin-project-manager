@@ -85,6 +85,9 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
+  /* Explicit overflow: visible ensures the absolutely-positioned autocomplete dropdown
+     is not clipped by this container when Obsidian themes set overflow on ancestors */
+  overflow: visible;
 }
 
 .pm-properties__label {
@@ -121,6 +124,11 @@
   resize: vertical;
   min-height: 72px;
   font-family: var(--font-text);
+}
+
+/* List-suggester wrapper: overflow visible ensures the dropdown is not clipped */
+.pm-properties__list-suggester {
+  overflow: visible;
 }
 
 /* Chip list (multi-entity select) */
@@ -171,7 +179,8 @@
   border: 1px solid var(--background-modifier-border);
   border-top: none;
   border-radius: 0 0 var(--radius-m) var(--radius-m);
-  z-index: var(--layer-popover);
+  /* Fallback ensures dropdown appears above other elements when --layer-popover is undefined */
+  z-index: var(--layer-popover, 1000);
   box-shadow: var(--shadow-s);
 }
 
