@@ -4,6 +4,17 @@
 
 Renders an interactive frontmatter editor for the current note. Changes are persisted immediately via `processFrontMatter`. The component auto-refreshes (500ms debounce) when the current file is modified externally, so the displayed values stay in sync. Re-renders triggered by the component's own writes are suppressed to prevent infinite loops.
 
+### Autocomplete suggesters
+
+`suggester` and `list-suggester` fields use an **inline autocomplete** combobox instead of a plain dropdown:
+
+- **Type to filter** — options are filtered by case-insensitive substring match as you type.
+- **Keyboard navigation** — `ArrowDown`/`ArrowUp` to move, `Enter` to select, `Escape` to cancel.
+- **Enriched entity display** — engagement and person options are shown as `"Name (Client)"` when the entity has a client link, making it easy to distinguish entities with similar names.
+- **Frontmatter storage** — only the plain entity name is stored as a wikilink (e.g. `[[Eng1]]`), not the enriched display text.
+- **Single suggester** (`suggester`) — includes a `(None)` option to clear the field.
+- **List suggester** (`list-suggester`) — selected items appear as removable chips above the input; clicking `×` removes the item. Duplicates are silently ignored.
+
 ```yaml
 ```pm-properties
 entity: <entity-type>
@@ -18,33 +29,33 @@ entity: <entity-type>
 - Notes (textarea)
 
 **`engagement`**
-- Client (suggester — active clients)
+- Client (autocomplete suggester — active clients)
 - Status, Start Date, End Date
 - Description (textarea)
 
 **`project`**
-- Engagement (suggester — active engagements)
+- Engagement (autocomplete suggester — active engagements, shown as "Eng (Client)")
 - Start Date, End Date
 - Priority (1–5)
 - Status (New / Active / On Hold / Complete)
 
 **`person`**
-- Client (suggester — active clients)
+- Client (autocomplete suggester — active clients)
 - Status, Title
-- Reports To (suggester — active people)
+- Reports To (autocomplete suggester — active people, shown as "Person (Client)")
 - Notes (textarea)
 
 **`inbox`**
-- Engagement (suggester — active engagements)
+- Engagement (autocomplete suggester — active engagements, shown as "Eng (Client)")
 - Status
 
 **`single-meeting`**
-- Engagement (suggester)
+- Engagement (autocomplete suggester — shown as "Eng (Client)")
 - Date (datetime picker)
-- Attendees (multi-select from active people)
+- Attendees (list autocomplete suggester — active people, shown as "Person (Client)")
 
 **`recurring-meeting`**
-- Engagement (suggester)
+- Engagement (autocomplete suggester — shown as "Eng (Client)")
 - Start Date, End Date
 
 ---

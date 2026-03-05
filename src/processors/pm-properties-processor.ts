@@ -1,9 +1,11 @@
 import { MarkdownRenderChild, TFile, TAbstractFile, parseYaml } from "obsidian";
 import type { MarkdownPostProcessorContext } from "obsidian";
 import type { PluginServices, RegisterProcessorFn } from "../plugin-context";
-import type { PmPropertiesConfig, EntityType } from "../types";
+import type { PmPropertiesConfig, EntityType, DataviewPage } from "../types";
 import { ENTITY_TAGS } from "../constants";
 import { normalizeToName } from "../utils/link-utils";
+import { InlineAutocomplete } from "../ui/components/inline-autocomplete";
+import type { AutocompleteOption } from "../ui/components/inline-autocomplete";
 
 /**
  * Renders interactive frontmatter property editors.
@@ -107,6 +109,7 @@ const ENTITY_FIELDS: Record<EntityType, FieldDescriptor[]> = {
 class PmPropertiesRenderChild extends MarkdownRenderChild {
   private debounceTimer: ReturnType<typeof setTimeout> | null = null;
   private isUpdating = false;
+  private autocompletes: InlineAutocomplete[] = [];
 
   constructor(
     containerEl: HTMLElement,
@@ -145,6 +148,8 @@ class PmPropertiesRenderChild extends MarkdownRenderChild {
   }
 
   render(): void {
+    for (const ac of this.autocompletes) ac.destroy();
+    this.autocompletes = [];
     this.containerEl.empty();
 
     let config: PmPropertiesConfig;
@@ -293,6 +298,33 @@ class PmPropertiesRenderChild extends MarkdownRenderChild {
     });
   }
 
+  // ─── Enriched display helpers ─────────────────────────────────────────────
+
+  /**
+   * Returns "EntityName (ClientName)" for engagement/person entities that have a
+   * client link, otherwise returns the plain file name.
+   */
+  private getEnrichedDisplayText(page: DataviewPage, entityTag: string): string {
+    if (entityTag === ENTITY_TAGS.engagement || entityTag === ENTITY_TAGS.person) {
+      const clientName = normalizeToName(page.client);
+      if (clientName) return `${page.file.name} (${clientName})`;
+    }
+    return page.file.name;
+  }
+
+  /**
+   * Looks up a page by name and returns its enriched display text.
+   * Falls back to the plain name if no matching page is found.
+   */
+  private getEnrichedDisplayForName(name: string, entityTag: string): string {
+    if (entityTag === ENTITY_TAGS.engagement || entityTag === ENTITY_TAGS.person) {
+      const pages = this.services.queryService.getActiveEntitiesByTag(entityTag);
+      const page = pages.find((p) => p.file.name === name);
+      if (page) return this.getEnrichedDisplayText(page, entityTag);
+    }
+    return name;
+  }
+
   private renderSuggester(
     row: HTMLElement,
     field: FieldDescriptor,
@@ -301,28 +333,30 @@ class PmPropertiesRenderChild extends MarkdownRenderChild {
     fieldId: string
   ): void {
     if (!field.entityTag) return;
+    const { entityTag } = field;
 
-    const pages = this.services.queryService.getActiveEntitiesByTag(field.entityTag);
+    const pages = this.services.queryService.getActiveEntitiesByTag(entityTag);
     const currentName = normalizeToName(rawValue);
 
-    const select = row.createEl("select", { cls: "pm-properties__select dropdown" });
-    select.id = fieldId;
-
-    // Empty/none option
-    select.createEl("option", { text: "(None)", value: "" });
-
-    for (const page of pages.sort((a, b) => a.file.name.localeCompare(b.file.name))) {
-      const option = select.createEl("option", {
-        text: page.file.name,
+    const options: AutocompleteOption[] = pages
+      .sort((a, b) => a.file.name.localeCompare(b.file.name))
+      .map((page) => ({
         value: page.file.name,
-      });
-      if (page.file.name === currentName) option.selected = true;
-    }
+        displayText: this.getEnrichedDisplayText(page, entityTag),
+      }));
 
-    select.addEventListener("change", () => {
-      const val = select.value ? `[[${select.value}]]` : null;
-      void this.updateFm(file, field.key, val);
+    const ac = new InlineAutocomplete(row, options, currentName, {
+      placeholder: `Select ${field.label}...`,
+      ariaLabel: field.label,
+      onSelect: (option) => {
+        void this.updateFm(file, field.key, `[[${option.value}]]`);
+      },
+      onClear: () => {
+        void this.updateFm(file, field.key, null);
+      },
     });
+    ac.inputEl.id = fieldId;
+    this.autocompletes.push(ac);
   }
 
   private renderListSuggester(
@@ -333,28 +367,23 @@ class PmPropertiesRenderChild extends MarkdownRenderChild {
     _fieldId: string
   ): void {
     if (!field.entityTag) return;
+    const { entityTag } = field;
 
-    const pages = this.services.queryService.getActiveEntitiesByTag(field.entityTag);
+    const pages = this.services.queryService.getActiveEntitiesByTag(entityTag);
     const currentItems = this.parseListValue(rawValue);
 
     const wrapper = row.createDiv({ cls: "pm-properties__list-suggester" });
-
-    // Chips for current selections
     const chipsEl = wrapper.createDiv({ cls: "pm-properties__chips" });
 
     const renderChips = (items: string[]) => {
       chipsEl.empty();
       for (const item of items) {
         const chip = chipsEl.createSpan({ cls: "pm-properties__chip" });
-        chip.createSpan({ text: item });
+        chip.createSpan({ text: this.getEnrichedDisplayForName(item, entityTag) });
         const remove = chip.createSpan({ text: "×", cls: "pm-properties__chip-remove" });
         remove.addEventListener("click", () => {
           const newItems = items.filter((i) => i !== item);
-          void this.updateFm(
-            file,
-            field.key,
-            newItems.map((i) => `[[${i}]]`)
-          );
+          void this.updateFm(file, field.key, newItems.map((i) => `[[${i}]]`));
           renderChips(newItems);
         });
       }
@@ -362,33 +391,30 @@ class PmPropertiesRenderChild extends MarkdownRenderChild {
 
     renderChips(currentItems);
 
-    // Add dropdown
-    const addSelect = wrapper.createEl("select", {
-      cls: "pm-properties__select dropdown",
-    });
-    addSelect.createEl("option", { text: "+ Add...", value: "" });
+    const options: AutocompleteOption[] = pages
+      .sort((a, b) => a.file.name.localeCompare(b.file.name))
+      .map((page) => ({
+        value: page.file.name,
+        displayText: this.getEnrichedDisplayText(page, entityTag),
+      }));
 
-    for (const page of pages.sort((a, b) => a.file.name.localeCompare(b.file.name))) {
-      addSelect.createEl("option", { text: page.file.name, value: page.file.name });
-    }
-
-    addSelect.addEventListener("change", () => {
-      const name = addSelect.value;
-      if (!name) return;
-      const existing = this.parseListValue(
-        this.services.app.metadataCache.getFileCache(file)?.frontmatter?.[field.key]
-      );
-      if (!existing.includes(name)) {
-        const newItems = [...existing, name];
-        void this.updateFm(
-          file,
-          field.key,
-          newItems.map((i) => `[[${i}]]`)
+    const ac = new InlineAutocomplete(wrapper, options, null, {
+      placeholder: `+ Add ${field.label}...`,
+      ariaLabel: `Add ${field.label}`,
+      includeNone: false,
+      onSelect: (option) => {
+        const existing = this.parseListValue(
+          this.services.app.metadataCache.getFileCache(file)?.frontmatter?.[field.key]
         );
-        renderChips(newItems);
-      }
-      addSelect.value = "";
+        if (!existing.includes(option.value)) {
+          const newItems = [...existing, option.value];
+          void this.updateFm(file, field.key, newItems.map((i) => `[[${i}]]`));
+          renderChips(newItems);
+        }
+        ac.clear();
+      },
     });
+    this.autocompletes.push(ac);
   }
 
   // ─── Helpers ──────────────────────────────────────────────────────────────

@@ -212,22 +212,281 @@ describe("pm-properties processor", () => {
       expect(el.querySelector(".pm-properties")).not.toBeNull();
     });
 
-    it("renders suggester select with (None) option for engagement link fields", () => {
+    it("renders autocomplete input (not select) for suggester fields", () => {
       const file = new TFile("projects/Alpha.md");
       const { el } = render("entity: project", file);
-      // The engagement field is a suggester — should render a select with (None)
-      const options = [...el.querySelectorAll("option")];
-      expect(options.some((o) => (o as HTMLOptionElement).text === "(None)")).toBe(
-        true
-      );
+      // suggester (engagement) now uses InlineAutocomplete — has autocomplete input
+      const autocompleteInputs = el.querySelectorAll(".pm-autocomplete__input");
+      expect(autocompleteInputs.length).toBeGreaterThan(0);
+      // Only non-suggester fields (priority, status) still use <select>
+      const selects = el.querySelectorAll("select");
+      expect(selects.length).toBe(2); // priority + status
     });
 
     it("renders list-suggester for attendees on single-meeting", () => {
       const file = new TFile("meetings/Meet1.md");
       const { el } = render("entity: single-meeting", file);
-      // list-suggester renders a select for picking people to add
-      const selects = el.querySelectorAll("select");
-      expect(selects.length).toBeGreaterThan(0);
+      // list-suggester now uses InlineAutocomplete
+      expect(el.querySelector(".pm-autocomplete")).not.toBeNull();
+    });
+  });
+
+  describe("suggester — inline autocomplete", () => {
+    it("shows (None) option in dropdown when opened", () => {
+      const file = new TFile("projects/Alpha.md");
+      const { el } = render("entity: project", file);
+      const input = el.querySelector(".pm-autocomplete__input") as HTMLInputElement;
+      input.dispatchEvent(new FocusEvent("focus"));
+      const noneOption = el.querySelector(".pm-autocomplete__option--none");
+      expect(noneOption).not.toBeNull();
+      expect(noneOption?.textContent).toBe("(None)");
+    });
+
+    it("populates dropdown with active entities from queryService", () => {
+      const file = new TFile("projects/Alpha.md");
+      const { services, registerProcessor, getHandler } = createMockServices(file);
+      (services.queryService.getActiveEntitiesByTag as ReturnType<typeof vi.fn>).mockReturnValue([
+        { file: { name: "Eng1" }, client: null },
+        { file: { name: "Eng2" }, client: null },
+      ]);
+      registerPmPropertiesProcessor(services, registerProcessor);
+      const el = document.createElement("div");
+      const ctx = { addChild: vi.fn(), sourcePath: file.path };
+      getHandler()("entity: project", el, ctx);
+      const input = el.querySelector(".pm-autocomplete__input") as HTMLInputElement;
+      input.dispatchEvent(new FocusEvent("focus"));
+      const optionTexts = [...el.querySelectorAll(".pm-autocomplete__option:not(.pm-autocomplete__option--none)")]
+        .map((o) => o.textContent);
+      expect(optionTexts).toContain("Eng1");
+      expect(optionTexts).toContain("Eng2");
+    });
+
+    it("shows current value in autocomplete input", () => {
+      const file = new TFile("projects/Alpha.md");
+      const { el } = render("entity: project", file, { engagement: "[[Eng1]]" });
+      const input = el.querySelector(".pm-autocomplete__input") as HTMLInputElement;
+      expect(input.value).toBe("Eng1");
+    });
+
+    it("sets input id matching label for attribute", () => {
+      const file = new TFile("projects/Alpha.md");
+      const { el } = render("entity: project", file);
+      const label = [...el.querySelectorAll("label")].find(
+        (l) => l.textContent === "Engagement"
+      );
+      expect(label).not.toBeUndefined();
+      const inputId = label!.getAttribute("for");
+      expect(inputId).toBeTruthy();
+      // Find the autocomplete input that has this id
+      const autocompleteInputs = [...el.querySelectorAll(".pm-autocomplete__input")] as HTMLElement[];
+      const matched = autocompleteInputs.find((el) => el.id === inputId);
+      expect(matched).not.toBeUndefined();
+    });
+
+    it("persists selected value as wikilink via processFrontMatter", () => {
+      const file = new TFile("projects/Alpha.md");
+      const { services, registerProcessor, getHandler } = createMockServices(file);
+      (services.queryService.getActiveEntitiesByTag as ReturnType<typeof vi.fn>).mockReturnValue([
+        { file: { name: "MyEng" }, client: null },
+      ]);
+      registerPmPropertiesProcessor(services, registerProcessor);
+      const el = document.createElement("div");
+      const ctx = { addChild: vi.fn(), sourcePath: file.path };
+      getHandler()("entity: project", el, ctx);
+
+      const input = el.querySelector(".pm-autocomplete__input") as HTMLInputElement;
+      input.dispatchEvent(new FocusEvent("focus"));
+      const option = el.querySelector(
+        ".pm-autocomplete__option:not(.pm-autocomplete__option--none)"
+      ) as HTMLElement;
+      option.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+
+      expect(services.app.fileManager.processFrontMatter).toHaveBeenCalled();
+    });
+
+    it("persists null when (None) is selected", () => {
+      const file = new TFile("projects/Alpha.md");
+      const { services, registerProcessor, getHandler } = createMockServices(file);
+      (services.queryService.getActiveEntitiesByTag as ReturnType<typeof vi.fn>).mockReturnValue([
+        { file: { name: "Eng1" }, client: null },
+      ]);
+      registerPmPropertiesProcessor(services, registerProcessor);
+      const el = document.createElement("div");
+      const ctx = { addChild: vi.fn(), sourcePath: file.path };
+      getHandler()("entity: project", el, ctx);
+
+      const input = el.querySelector(".pm-autocomplete__input") as HTMLInputElement;
+      input.dispatchEvent(new FocusEvent("focus"));
+      const noneOption = el.querySelector(".pm-autocomplete__option--none") as HTMLElement;
+      noneOption.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+
+      expect(services.app.fileManager.processFrontMatter).toHaveBeenCalled();
+    });
+  });
+
+  describe("suggester — enriched display", () => {
+    it("shows 'Eng1 (Acme)' for engagement with client link", () => {
+      const file = new TFile("projects/Alpha.md");
+      const { services, registerProcessor, getHandler } = createMockServices(file);
+      (services.queryService.getActiveEntitiesByTag as ReturnType<typeof vi.fn>).mockReturnValue([
+        { file: { name: "Eng1" }, client: { path: "clients/Acme.md", type: "file" } },
+      ]);
+      registerPmPropertiesProcessor(services, registerProcessor);
+      const el = document.createElement("div");
+      const ctx = { addChild: vi.fn(), sourcePath: file.path };
+      getHandler()("entity: project", el, ctx);
+      const input = el.querySelector(".pm-autocomplete__input") as HTMLInputElement;
+      input.dispatchEvent(new FocusEvent("focus"));
+      const optionTexts = [...el.querySelectorAll(
+        ".pm-autocomplete__option:not(.pm-autocomplete__option--none)"
+      )].map((o) => o.textContent);
+      expect(optionTexts).toContain("Eng1 (Acme)");
+    });
+
+    it("shows plain name for entity with no client link", () => {
+      const file = new TFile("projects/Alpha.md");
+      const { services, registerProcessor, getHandler } = createMockServices(file);
+      (services.queryService.getActiveEntitiesByTag as ReturnType<typeof vi.fn>).mockReturnValue([
+        { file: { name: "Eng1" }, client: null },
+      ]);
+      registerPmPropertiesProcessor(services, registerProcessor);
+      const el = document.createElement("div");
+      const ctx = { addChild: vi.fn(), sourcePath: file.path };
+      getHandler()("entity: project", el, ctx);
+      const input = el.querySelector(".pm-autocomplete__input") as HTMLInputElement;
+      input.dispatchEvent(new FocusEvent("focus"));
+      const optionTexts = [...el.querySelectorAll(
+        ".pm-autocomplete__option:not(.pm-autocomplete__option--none)"
+      )].map((o) => o.textContent);
+      expect(optionTexts).toContain("Eng1");
+      expect(optionTexts).not.toContain("Eng1 ()");
+    });
+
+    it("shows plain name for client-tag entity (no enrichment)", () => {
+      const file = new TFile("engagements/Eng1.md");
+      const { services, registerProcessor, getHandler } = createMockServices(file);
+      (services.queryService.getActiveEntitiesByTag as ReturnType<typeof vi.fn>).mockReturnValue([
+        { file: { name: "Acme" }, client: null },
+      ]);
+      registerPmPropertiesProcessor(services, registerProcessor);
+      const el = document.createElement("div");
+      const ctx = { addChild: vi.fn(), sourcePath: file.path };
+      getHandler()("entity: engagement", el, ctx);
+      const input = el.querySelector(".pm-autocomplete__input") as HTMLInputElement;
+      input.dispatchEvent(new FocusEvent("focus"));
+      const optionTexts = [...el.querySelectorAll(
+        ".pm-autocomplete__option:not(.pm-autocomplete__option--none)"
+      )].map((o) => o.textContent);
+      expect(optionTexts).toContain("Acme");
+    });
+  });
+
+  describe("list-suggester — inline autocomplete", () => {
+    function renderMeeting(
+      frontmatter: Record<string, unknown> = {},
+      mockPeople: Array<{ file: { name: string }; client: unknown }> = []
+    ) {
+      const file = new TFile("meetings/Meet1.md");
+      const { services, registerProcessor, getHandler } = createMockServices(file, frontmatter);
+      (services.queryService.getActiveEntitiesByTag as ReturnType<typeof vi.fn>).mockReturnValue(mockPeople);
+      registerPmPropertiesProcessor(services, registerProcessor);
+      const el = document.createElement("div");
+      const ctx = { addChild: vi.fn(), sourcePath: file.path };
+      getHandler()("entity: single-meeting", el, ctx);
+      return { el, services };
+    }
+
+    it("renders .pm-autocomplete inside .pm-properties__list-suggester", () => {
+      const { el } = renderMeeting();
+      const listSuggester = el.querySelector(".pm-properties__list-suggester");
+      expect(listSuggester).not.toBeNull();
+      expect(listSuggester!.querySelector(".pm-autocomplete")).not.toBeNull();
+    });
+
+    it("renders chips for current values", () => {
+      const { el } = renderMeeting({ attendees: ["[[Alice]]", "[[Bob]]"] });
+      const chips = el.querySelectorAll(".pm-properties__chip");
+      expect(chips.length).toBe(2);
+    });
+
+    it("does not show (None) in list-suggester autocomplete", () => {
+      const { el } = renderMeeting();
+      const input = el.querySelector(
+        ".pm-properties__list-suggester .pm-autocomplete__input"
+      ) as HTMLInputElement;
+      input.dispatchEvent(new FocusEvent("focus"));
+      const noneOption = el.querySelector(".pm-autocomplete__option--none");
+      expect(noneOption).toBeNull();
+    });
+
+    it("adds new value on autocomplete selection and updates frontmatter", () => {
+      const { el, services } = renderMeeting(
+        {},
+        [{ file: { name: "Alice" }, client: null }]
+      );
+      const input = el.querySelector(
+        ".pm-properties__list-suggester .pm-autocomplete__input"
+      ) as HTMLInputElement;
+      input.dispatchEvent(new FocusEvent("focus"));
+      const option = el.querySelector(".pm-autocomplete__option") as HTMLElement;
+      option.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+      expect(services.app.fileManager.processFrontMatter).toHaveBeenCalled();
+    });
+
+    it("does not add duplicate values", () => {
+      const { el, services } = renderMeeting(
+        { attendees: ["[[Alice]]"] },
+        [{ file: { name: "Alice" }, client: null }]
+      );
+      const input = el.querySelector(
+        ".pm-properties__list-suggester .pm-autocomplete__input"
+      ) as HTMLInputElement;
+      input.dispatchEvent(new FocusEvent("focus"));
+      const option = el.querySelector(".pm-autocomplete__option") as HTMLElement;
+      option.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+      // processFrontMatter should not be called (Alice already in list)
+      expect(services.app.fileManager.processFrontMatter).not.toHaveBeenCalled();
+    });
+
+    it("clears autocomplete input after selection", () => {
+      const { el } = renderMeeting(
+        {},
+        [{ file: { name: "Alice" }, client: null }]
+      );
+      const input = el.querySelector(
+        ".pm-properties__list-suggester .pm-autocomplete__input"
+      ) as HTMLInputElement;
+      input.dispatchEvent(new FocusEvent("focus"));
+      const option = el.querySelector(".pm-autocomplete__option") as HTMLElement;
+      option.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+      expect(input.value).toBe("");
+    });
+
+    it("removes chip and updates frontmatter on remove click", () => {
+      const { el, services } = renderMeeting({ attendees: ["[[Alice]]", "[[Bob]]"] });
+      const removeButtons = el.querySelectorAll(".pm-properties__chip-remove");
+      (removeButtons[0] as HTMLElement).click();
+      expect(services.app.fileManager.processFrontMatter).toHaveBeenCalled();
+      // After removal, only 1 chip remains
+      const remainingChips = el.querySelectorAll(".pm-properties__chip");
+      expect(remainingChips.length).toBe(1);
+    });
+
+    it("shows enriched display in chips for person attendees with client link", () => {
+      const file = new TFile("meetings/Meet1.md");
+      const { services, registerProcessor, getHandler } = createMockServices(file, {
+        attendees: ["[[Alice]]"],
+      });
+      // Mock getActiveEntitiesByTag to return Alice with client link
+      (services.queryService.getActiveEntitiesByTag as ReturnType<typeof vi.fn>).mockReturnValue([
+        { file: { name: "Alice" }, client: { path: "clients/Acme.md", type: "file" } },
+      ]);
+      registerPmPropertiesProcessor(services, registerProcessor);
+      const el = document.createElement("div");
+      const ctx = { addChild: vi.fn(), sourcePath: file.path };
+      getHandler()("entity: single-meeting", el, ctx);
+      const chip = el.querySelector(".pm-properties__chip");
+      expect(chip?.textContent).toContain("Alice (Acme)");
     });
   });
 
