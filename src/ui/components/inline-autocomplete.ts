@@ -70,6 +70,9 @@ export class InlineAutocomplete {
 
     // Wire up listeners
     this.inputEl.addEventListener("focus", () => this.open());
+    this.inputEl.addEventListener("click", () => {
+      if (!this.isOpen) this.open();
+    });
     this.inputEl.addEventListener("input", () => this.onInput());
     this.inputEl.addEventListener("keydown", (e) => this.onKeydown(e));
 
@@ -84,6 +87,11 @@ export class InlineAutocomplete {
     this.currentDisplayText = "";
     this.inputEl.value = "";
     this.close();
+  }
+
+  /** Opens the dropdown (used by list-suggester to auto-reopen after selection). */
+  reopen(): void {
+    this.open();
   }
 
   /** Removes the document-level mousedown listener. Call when unmounting. */

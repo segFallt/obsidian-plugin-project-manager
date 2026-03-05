@@ -243,6 +243,61 @@ describe("pm-recurring-events processor", () => {
     vi.useRealTimers();
   });
 
+  it("renders notes via MarkdownRenderer (not raw textContent)", async () => {
+    const { el } = render([
+      {
+        name: "2024-03-01",
+        path: "meetings/recurring-events/Weekly Standup/2024-03-01.md",
+        date: "2024-03-01",
+        content: "---\ndate: 2024-03-01\n---\n# Notes\n**bold text**",
+      },
+    ]);
+
+    await new Promise((r) => setTimeout(r, 10));
+
+    const notesDiv = el.querySelector(".pm-recurring-events__tile-notes");
+    expect(notesDiv).not.toBeNull();
+    // MarkdownRenderer.render sets innerHTML — not textContent
+    expect(notesDiv?.innerHTML).toContain("**bold text**");
+    // textContent should not equal raw markdown verbatim (it would be wrapped in <p>)
+    expect(notesDiv?.textContent).toContain("**bold text**");
+  });
+
+  it("preserves leading dashes in notes (regex fix)", async () => {
+    const { el } = render([
+      {
+        name: "2024-03-01",
+        path: "meetings/recurring-events/Weekly Standup/2024-03-01.md",
+        date: "2024-03-01",
+        content: "---\ndate: 2024-03-01\n---\n# Notes\n- item one\n- item two",
+      },
+    ]);
+
+    await new Promise((r) => setTimeout(r, 10));
+
+    const notesDiv = el.querySelector(".pm-recurring-events__tile-notes");
+    expect(notesDiv).not.toBeNull();
+    // The leading "- item one" should be preserved, not stripped
+    expect(notesDiv?.textContent).toContain("item one");
+    expect(notesDiv?.textContent).toContain("item two");
+  });
+
+  it("does not render notes div when notes section is absent", async () => {
+    const { el } = render([
+      {
+        name: "2024-03-01",
+        path: "meetings/recurring-events/Weekly Standup/2024-03-01.md",
+        date: "2024-03-01",
+        content: "---\ndate: 2024-03-01\n---\nNo notes heading here.",
+      },
+    ]);
+
+    await new Promise((r) => setTimeout(r, 10));
+
+    const notesDiv = el.querySelector(".pm-recurring-events__tile-notes");
+    expect(notesDiv).toBeNull();
+  });
+
   it("auto-detects meeting name from sourcePath basename", () => {
     const { services, registerProcessor, getHandler } = createMockServices(
       "meetings/recurring/My Special Meeting.md",

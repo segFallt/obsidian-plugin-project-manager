@@ -454,6 +454,7 @@ class PmPropertiesRenderChild extends MarkdownRenderChild {
           renderChips(newItems);
         }
         ac.clear();
+        ac.reopen();
       },
     });
     this.autocompletes.push(ac);

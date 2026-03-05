@@ -325,6 +325,59 @@ describe("InlineAutocomplete — clear()", () => {
   });
 });
 
+// ─── click to open ────────────────────────────────────────────────────────────
+
+describe("InlineAutocomplete — click to open", () => {
+  it("opens dropdown when clicking a focused input with dropdown closed", () => {
+    const { parent } = makeAc();
+    const input = parent.querySelector(".pm-autocomplete__input") as HTMLInputElement;
+    // Focus first (opens), then close via Escape
+    input.dispatchEvent(new FocusEvent("focus"));
+    input.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    const dropdown = parent.querySelector(".pm-autocomplete__dropdown") as HTMLElement;
+    expect(dropdown.style.display).toBe("none");
+    // Now click — should reopen
+    input.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    expect(dropdown.style.display).not.toBe("none");
+  });
+
+  it("does not re-render dropdown when clicking an already-open dropdown", () => {
+    const { parent } = makeAc();
+    const input = parent.querySelector(".pm-autocomplete__input") as HTMLInputElement;
+    input.dispatchEvent(new FocusEvent("focus"));
+    const dropdown = parent.querySelector(".pm-autocomplete__dropdown") as HTMLElement;
+    expect(dropdown.style.display).not.toBe("none");
+    // Click while open — dropdown stays open
+    input.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    expect(dropdown.style.display).not.toBe("none");
+  });
+});
+
+// ─── reopen() ─────────────────────────────────────────────────────────────────
+
+describe("InlineAutocomplete — reopen()", () => {
+  it("opens dropdown after clear()", () => {
+    const { ac, parent } = makeAc();
+    const input = parent.querySelector(".pm-autocomplete__input") as HTMLInputElement;
+    input.dispatchEvent(new FocusEvent("focus"));
+    ac.clear();
+    const dropdown = parent.querySelector(".pm-autocomplete__dropdown") as HTMLElement;
+    expect(dropdown.style.display).toBe("none");
+    ac.reopen();
+    expect(dropdown.style.display).not.toBe("none");
+  });
+
+  it("shows all options with empty input after reopen()", () => {
+    const { ac, parent } = makeAc(OPTIONS, null, { includeNone: false });
+    const input = parent.querySelector(".pm-autocomplete__input") as HTMLInputElement;
+    input.dispatchEvent(new FocusEvent("focus"));
+    ac.clear();
+    ac.reopen();
+    const optionEls = parent.querySelectorAll(".pm-autocomplete__option");
+    expect(optionEls.length).toBe(OPTIONS.length);
+  });
+});
+
 // ─── destroy() ────────────────────────────────────────────────────────────────
 
 describe("InlineAutocomplete — destroy()", () => {
