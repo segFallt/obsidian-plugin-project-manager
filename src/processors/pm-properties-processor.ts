@@ -4,8 +4,8 @@ import type { PluginServices, RegisterProcessorFn } from "../plugin-context";
 import type { PmPropertiesConfig, EntityType, DataviewPage } from "../types";
 import { ENTITY_TAGS, CLIENT_STATUSES, ENGAGEMENT_STATUSES, PROJECT_STATUSES, TEXTAREA_ROWS, DEBOUNCE_MS } from "../constants";
 import { normalizeToName } from "../utils/link-utils";
-import { InlineAutocomplete } from "../ui/components/inline-autocomplete";
-import type { AutocompleteOption } from "../ui/components/inline-autocomplete";
+import { PropertySuggest } from "../ui/components/property-suggest";
+import type { AutocompleteOption } from "../ui/components/property-suggest";
 
 /**
  * Renders interactive frontmatter property editors.
@@ -116,7 +116,7 @@ const ENTITY_FIELDS: Record<EntityType, FieldDescriptor[]> = {
 class PmPropertiesRenderChild extends MarkdownRenderChild {
   private debounceTimer: ReturnType<typeof setTimeout> | null = null;
   private isUpdating = false;
-  private autocompletes: InlineAutocomplete[] = [];
+  private autocompletes: PropertySuggest[] = [];
 
   constructor(
     containerEl: HTMLElement,
@@ -355,7 +355,7 @@ class PmPropertiesRenderChild extends MarkdownRenderChild {
         displayText: this.getEnrichedDisplayText(page, entityTag),
       }));
 
-    const ac = new InlineAutocomplete(row, options, currentName, {
+    const ac = new PropertySuggest(row, this.services.app, options, currentName, {
       placeholder: `Select ${field.label}...`,
       ariaLabel: field.label,
       onSelect: (option) => {
@@ -386,7 +386,7 @@ class PmPropertiesRenderChild extends MarkdownRenderChild {
         displayText: page.file.name,
       }));
 
-    const ac = new InlineAutocomplete(row, options, currentName, {
+    const ac = new PropertySuggest(row, this.services.app, options, currentName, {
       placeholder: `Select ${field.label}...`,
       ariaLabel: field.label,
       onSelect: (option) => {
@@ -440,7 +440,7 @@ class PmPropertiesRenderChild extends MarkdownRenderChild {
         displayText: this.getEnrichedDisplayText(page, entityTag),
       }));
 
-    const ac = new InlineAutocomplete(wrapper, options, null, {
+    const ac = new PropertySuggest(wrapper, this.services.app, options, null, {
       placeholder: `+ Add ${field.label}...`,
       ariaLabel: `Add ${field.label}`,
       includeNone: false,

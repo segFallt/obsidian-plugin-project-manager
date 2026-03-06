@@ -79,16 +79,12 @@
   flex-direction: column;
   gap: 12px;
   padding: 8px 0;
-  overflow: visible;
 }
 
 .pm-properties__row {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  /* Explicit overflow: visible ensures the absolutely-positioned autocomplete dropdown
-     is not clipped by this container when Obsidian themes set overflow on ancestors */
-  overflow: visible;
 }
 
 .pm-properties__label {
@@ -125,11 +121,6 @@
   resize: vertical;
   min-height: 72px;
   font-family: var(--font-text);
-}
-
-/* List-suggester wrapper: overflow visible ensures the dropdown is not clipped */
-.pm-properties__list-suggester {
-  overflow: visible;
 }
 
 /* Chip list (multi-entity select) */
@@ -169,45 +160,9 @@
   width: 100%;
 }
 
-.pm-autocomplete__dropdown {
-  position: fixed;
-  max-height: 200px;
-  overflow-y: auto;
-  background-color: var(--background-primary);
-  border: 1px solid var(--background-modifier-border);
-  border-top: none;
-  border-radius: 0 0 var(--radius-m) var(--radius-m);
-  /* Fallback ensures dropdown appears above other elements when --layer-popover is undefined */
-  z-index: var(--layer-popover, 1000);
-  box-shadow: var(--shadow-s);
-}
-
-.pm-autocomplete__option {
-  padding: 6px 10px;
-  cursor: pointer;
-  font-size: var(--font-ui-medium);
-  color: var(--text-normal);
-}
-
-.pm-autocomplete__option:hover {
-  background-color: var(--background-modifier-hover);
-}
-
-.pm-autocomplete__option--active {
-  background-color: var(--interactive-accent);
-  color: var(--text-on-accent);
-}
-
 .pm-autocomplete__option--none {
   color: var(--text-muted);
   font-style: italic;
-}
-
-.pm-autocomplete__no-results {
-  padding: 6px 10px;
-  color: var(--text-muted);
-  font-style: italic;
-  font-size: var(--font-ui-medium);
 }
 
 /* ─── Action Buttons ─────────────────────────────────────────── */
