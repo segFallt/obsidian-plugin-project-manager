@@ -244,6 +244,106 @@ export class MarkdownRenderer {
   }
 }
 
+// ─── Suggest stubs ───────────────────────────────────────────────────────────
+
+export class Scope {
+  register() {}
+  unregister() {}
+}
+
+export abstract class PopoverSuggest<T> {
+  app: App;
+  scope: Scope;
+
+  constructor(app: App) {
+    this.app = app;
+    this.scope = new Scope();
+  }
+
+  abstract renderSuggestion(value: T, el: HTMLElement): void;
+  abstract selectSuggestion(value: T, evt: MouseEvent | KeyboardEvent): void;
+
+  open() {}
+  close() {}
+}
+
+export abstract class AbstractInputSuggest<T> extends PopoverSuggest<T> {
+  private textInputEl: HTMLInputElement;
+  private containerEl: HTMLElement | null = null;
+  private onSelectCallback: ((value: T, evt: MouseEvent | KeyboardEvent) => void) | null = null;
+  limit = 100;
+
+  constructor(app: App, textInputEl: HTMLInputElement) {
+    super(app);
+    this.textInputEl = textInputEl;
+    textInputEl.addEventListener("focus", () => this.showSuggestions());
+    textInputEl.addEventListener("input", () => this.showSuggestions());
+  }
+
+  abstract getSuggestions(query: string): T[] | Promise<T[]>;
+
+  private showSuggestions(): void {
+    const query = this.textInputEl.value;
+    const result = this.getSuggestions(query);
+    // Only handle synchronous results in the mock
+    const items = Array.isArray(result) ? result : ([] as T[]);
+
+    // Remove existing container
+    if (this.containerEl) {
+      this.containerEl.remove();
+    }
+
+    const container = document.createElement("div");
+    container.className = "suggestion-container";
+
+    for (const item of items) {
+      const itemEl = document.createElement("div");
+      itemEl.className = "suggestion-item";
+      this.renderSuggestion(item, itemEl);
+      itemEl.addEventListener("mousedown", (evt) => {
+        evt.preventDefault();
+        this.selectSuggestion(item, evt);
+      });
+      container.appendChild(itemEl);
+    }
+
+    // Append as sibling of input inside its parent
+    this.textInputEl.parentElement?.appendChild(container);
+    this.containerEl = container;
+  }
+
+  selectSuggestion(value: T, evt: MouseEvent | KeyboardEvent): void {
+    if (this.onSelectCallback) {
+      this.onSelectCallback(value, evt);
+    }
+    this.close();
+  }
+
+  open(): void {
+    this.showSuggestions();
+  }
+
+  close(): void {
+    if (this.containerEl) {
+      this.containerEl.style.display = "none";
+    }
+  }
+
+  setValue(value: string): this {
+    this.textInputEl.value = value;
+    return this;
+  }
+
+  getValue(): string {
+    return this.textInputEl.value;
+  }
+
+  onSelect(callback: (value: T, evt: MouseEvent | KeyboardEvent) => void): this {
+    this.onSelectCallback = callback;
+    return this;
+  }
+}
+
 // ─── parseYaml stub ───────────────────────────────────────────────────────────
 // Simple YAML parser that handles the patterns used by this plugin's processors.
 

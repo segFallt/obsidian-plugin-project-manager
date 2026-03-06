@@ -239,9 +239,10 @@ describe("pm-properties processor", () => {
       const { el } = render("entity: single-meeting", file);
       const input = el.querySelector(".pm-properties__list-suggester .pm-autocomplete__input") as HTMLInputElement;
       input.dispatchEvent(new FocusEvent("focus"));
-      const dropdown = el.querySelector(".pm-properties__list-suggester .pm-autocomplete__dropdown");
+      const dropdown = el.querySelector(".pm-properties__list-suggester .suggestion-container");
       expect(dropdown).not.toBeNull();
-      expect(dropdown?.textContent).toContain("No matches");
+      // Obsidian handles empty state internally; verify no suggestion items are rendered
+      expect(dropdown?.querySelectorAll(".suggestion-item").length).toBe(0);
     });
 
     it("renders list-suggester for default-attendees on recurring-meeting even when no active persons exist", () => {
@@ -526,10 +527,9 @@ describe("pm-properties processor", () => {
       expect(listSuggester).not.toBeNull();
       expect(listSuggester!.querySelector(".pm-autocomplete__input")).not.toBeNull();
 
-      // Each dropdown shows its own options when focused (note: el is detached from document,
-      // so document-level mousedown close behaviour is tested in inline-autocomplete.test.ts)
+      // Each dropdown shows its own options when focused
       (autocompleteInputs[0] as HTMLInputElement).dispatchEvent(new FocusEvent("focus"));
-      const engDropdown = el.querySelectorAll(".pm-autocomplete__dropdown")[0] as HTMLElement;
+      const engDropdown = el.querySelectorAll(".suggestion-container")[0] as HTMLElement;
       expect(engDropdown.style.display).not.toBe("none");
       const engOptions = [
         ...engDropdown.querySelectorAll(".pm-autocomplete__option:not(.pm-autocomplete__option--none)"),
@@ -537,7 +537,7 @@ describe("pm-properties processor", () => {
       expect(engOptions).toContain("Eng1");
 
       (autocompleteInputs[1] as HTMLInputElement).dispatchEvent(new FocusEvent("focus"));
-      const attendeesDropdown = el.querySelectorAll(".pm-autocomplete__dropdown")[1] as HTMLElement;
+      const attendeesDropdown = el.querySelectorAll(".suggestion-container")[1] as HTMLElement;
       expect(attendeesDropdown.style.display).not.toBe("none");
       const attendeesOptions = [
         ...attendeesDropdown.querySelectorAll(".pm-autocomplete__option"),
