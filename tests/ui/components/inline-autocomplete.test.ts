@@ -27,6 +27,11 @@ function makeAc(
     ...configOverrides,
   };
   const ac = new InlineAutocomplete(parent, options, currentValue, config);
+  // jsdom returns zeros for getBoundingClientRect; mock non-zero values
+  vi.spyOn(ac.inputEl, "getBoundingClientRect").mockReturnValue({
+    top: 100, bottom: 130, left: 50, right: 250, width: 200, height: 30,
+    x: 50, y: 100, toJSON: () => ({}),
+  } as DOMRect);
   return { parent, ac, onSelect, onClear };
 }
 
@@ -386,6 +391,56 @@ describe("InlineAutocomplete — destroy()", () => {
     const { ac } = makeAc();
     ac.destroy();
     expect(removeSpy).toHaveBeenCalledWith("mousedown", expect.any(Function));
+    removeSpy.mockRestore();
+  });
+});
+
+// ─── Fixed positioning ────────────────────────────────────────────────────────
+
+describe("InlineAutocomplete — fixed positioning", () => {
+  it("sets top/left/width on dropdown when opened", () => {
+    const { parent } = makeAc();
+    const input = parent.querySelector(".pm-autocomplete__input") as HTMLInputElement;
+    input.dispatchEvent(new FocusEvent("focus"));
+    const dropdown = parent.querySelector(".pm-autocomplete__dropdown") as HTMLElement;
+    expect(dropdown.style.top).toBe("130px");
+    expect(dropdown.style.left).toBe("50px");
+    expect(dropdown.style.width).toBe("200px");
+  });
+
+  it("repositions dropdown on window resize while open", () => {
+    const { parent, ac } = makeAc();
+    const input = parent.querySelector(".pm-autocomplete__input") as HTMLInputElement;
+    input.dispatchEvent(new FocusEvent("focus"));
+
+    // Update mock to simulate new window position after resize
+    vi.spyOn(ac.inputEl, "getBoundingClientRect").mockReturnValue({
+      top: 200, bottom: 230, left: 100, right: 300, width: 200, height: 30,
+      x: 100, y: 200, toJSON: () => ({}),
+    } as DOMRect);
+
+    window.dispatchEvent(new Event("resize"));
+
+    const dropdown = parent.querySelector(".pm-autocomplete__dropdown") as HTMLElement;
+    expect(dropdown.style.top).toBe("230px");
+    expect(dropdown.style.left).toBe("100px");
+  });
+
+  it("removes resize listener on close", () => {
+    const { parent } = makeAc();
+    const removeSpy = vi.spyOn(window, "removeEventListener");
+    const input = parent.querySelector(".pm-autocomplete__input") as HTMLInputElement;
+    input.dispatchEvent(new FocusEvent("focus"));
+    input.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    expect(removeSpy).toHaveBeenCalledWith("resize", expect.any(Function));
+    removeSpy.mockRestore();
+  });
+
+  it("removes resize listener on destroy", () => {
+    const { ac } = makeAc();
+    const removeSpy = vi.spyOn(window, "removeEventListener");
+    ac.destroy();
+    expect(removeSpy).toHaveBeenCalledWith("resize", expect.any(Function));
     removeSpy.mockRestore();
   });
 });

@@ -32,6 +32,9 @@ export class InlineAutocomplete {
   private isOpen: boolean = false;
   private currentDisplayText: string = "";
   private readonly boundOnDocMousedown: (e: MouseEvent) => void;
+  private readonly boundOnScroll: () => void;
+  private readonly boundOnResize: () => void;
+  private scrollAncestors: Element[] = [];
 
   constructor(
     parent: HTMLElement,
@@ -78,6 +81,8 @@ export class InlineAutocomplete {
 
     this.boundOnDocMousedown = (e: MouseEvent) => this.onDocMousedown(e);
     document.addEventListener("mousedown", this.boundOnDocMousedown);
+    this.boundOnScroll = () => this.positionDropdown();
+    this.boundOnResize = () => this.positionDropdown();
   }
 
   // ─── Public API ────────────────────────────────────────────────────────────
@@ -96,6 +101,7 @@ export class InlineAutocomplete {
 
   /** Removes the document-level mousedown listener. Call when unmounting. */
   destroy(): void {
+    this.removePositionListeners();
     document.removeEventListener("mousedown", this.boundOnDocMousedown);
   }
 
@@ -108,6 +114,8 @@ export class InlineAutocomplete {
     this.dropdownEl.style.display = "";
     this.inputEl.setAttribute("aria-expanded", "true");
     this.isOpen = true;
+    this.positionDropdown();
+    this.addPositionListeners();
   }
 
   private close(): void {
@@ -115,6 +123,7 @@ export class InlineAutocomplete {
     this.inputEl.setAttribute("aria-expanded", "false");
     this.isOpen = false;
     this.activeIndex = -1;
+    this.removePositionListeners();
   }
 
   // ─── Event handlers ───────────────────────────────────────────────────────
@@ -252,6 +261,45 @@ export class InlineAutocomplete {
       e.preventDefault();
       this.select(option);
     });
+  }
+
+  // ─── Fixed positioning ─────────────────────────────────────────────────────
+
+  private positionDropdown(): void {
+    const rect = this.inputEl.getBoundingClientRect();
+    this.dropdownEl.style.top = `${rect.bottom}px`;
+    this.dropdownEl.style.left = `${rect.left}px`;
+    this.dropdownEl.style.width = `${rect.width}px`;
+  }
+
+  private collectScrollAncestors(): Element[] {
+    const ancestors: Element[] = [];
+    let el: Element | null = this.inputEl.parentElement;
+    while (el) {
+      const style = getComputedStyle(el);
+      const overflow = `${style.overflow} ${style.overflowX} ${style.overflowY}`;
+      if (/auto|scroll|hidden/.test(overflow)) {
+        ancestors.push(el);
+      }
+      el = el.parentElement;
+    }
+    return ancestors;
+  }
+
+  private addPositionListeners(): void {
+    this.scrollAncestors = this.collectScrollAncestors();
+    for (const ancestor of this.scrollAncestors) {
+      ancestor.addEventListener("scroll", this.boundOnScroll, { passive: true });
+    }
+    window.addEventListener("resize", this.boundOnResize, { passive: true });
+  }
+
+  private removePositionListeners(): void {
+    for (const ancestor of this.scrollAncestors) {
+      ancestor.removeEventListener("scroll", this.boundOnScroll);
+    }
+    window.removeEventListener("resize", this.boundOnResize);
+    this.scrollAncestors = [];
   }
 
   private scrollActiveIntoView(): void {
