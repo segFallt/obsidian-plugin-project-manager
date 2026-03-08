@@ -55,9 +55,11 @@ export function extractEmojiDate(text: string, emoji: string): string | null {
 
 /**
  * Adds a number of days to an ISO date string and returns the result as ISO string.
+ * Parses as local date components to avoid UTC midnight shift artifacts.
  */
 export function addDays(isoDate: string, days: number): string {
-  const d = new Date(isoDate);
-  d.setDate(d.getDate() + days);
-  return d.toISOString().split("T")[0];
+  const [y, m, d] = isoDate.split("-").map(Number);
+  const date = new Date(y, m - 1, d + days);
+  const pad = (n: number) => n.toString().padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 }

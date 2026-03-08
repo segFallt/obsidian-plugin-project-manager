@@ -7,6 +7,7 @@ import {
   RECURRENCE_EMOJI,
   DEFAULT_PRIORITY,
 } from "../constants";
+import { todayISO } from "../utils/date-utils";
 
 // Regex to detect a markdown task line: "- [ ] text" or "- [x] text"
 const TASK_LINE_REGEX = /^(\s*)-\s+\[([x ])\]\s+(.+)$/i;
@@ -75,7 +76,7 @@ export class TaskParser implements ITaskParser {
   toggleTaskLine(originalLine: string, nowCompleted: boolean): string {
     if (nowCompleted) {
       // Mark as done: replace [ ] with [x], append completion date
-      const today = new Date().toISOString().split("T")[0];
+      const today = todayISO();
       return originalLine
         .replace(/\[[ ]\]/, "[x]")
         .replace(COMPLETION_DATE_EMOJI + " " + ISO_DATE_PATTERN.source, "")

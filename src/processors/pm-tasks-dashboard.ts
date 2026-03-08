@@ -4,6 +4,7 @@ import type {
   DataviewApi,
   DataviewTask,
   DashboardFilters,
+  SavedDashboardFilters,
   DueDateFilter,
   MeetingDateFilter,
   InboxStatusFilter,
@@ -40,7 +41,9 @@ export class DashboardView {
     private readonly services: PluginServices,
     private readonly filterService: ITaskFilterService,
     private readonly sortService: ITaskSortService,
-    private readonly renderer: TaskListRenderer
+    private readonly renderer: TaskListRenderer,
+    private readonly savedFilters?: SavedDashboardFilters | null,
+    private readonly onSaveFilters?: ((filters: SavedDashboardFilters | null) => void) | null
   ) {}
 
   render(): void {
@@ -60,20 +63,21 @@ export class DashboardView {
 
   private initFilters(): void {
     const cfg = this.config;
+    const saved = this.savedFilters;
     this.filters = {
-      viewMode: cfg.viewMode ?? this.services.settings.ui.defaultTaskViewMode,
-      sortBy: cfg.sortBy ?? "none",
-      showCompleted: cfg.showCompleted ?? this.services.settings.ui.showCompletedByDefault,
-      contextFilter: cfg.contextFilter ?? [],
-      dueDateFilter: cfg.dueDateFilter ?? "All",
-      priorityFilter: cfg.priorityFilter ?? [],
-      projectStatusFilter: cfg.projectStatusFilter ?? [],
-      inboxStatusFilter: cfg.inboxStatusFilter ?? "All",
-      meetingDateFilter: cfg.meetingDateFilter ?? "All",
-      clientFilter: [],
-      engagementFilter: [],
-      includeUnassignedClients: false,
-      includeUnassignedEngagements: false,
+      viewMode: saved?.viewMode ?? cfg.viewMode ?? this.services.settings.ui.defaultTaskViewMode,
+      sortBy: saved?.sortBy ?? cfg.sortBy ?? "none",
+      showCompleted: saved?.showCompleted ?? cfg.showCompleted ?? this.services.settings.ui.showCompletedByDefault,
+      contextFilter: saved?.contextFilter ?? cfg.contextFilter ?? [],
+      dueDateFilter: saved?.dueDateFilter ?? cfg.dueDateFilter ?? "All",
+      priorityFilter: saved?.priorityFilter ?? cfg.priorityFilter ?? [],
+      projectStatusFilter: saved?.projectStatusFilter ?? cfg.projectStatusFilter ?? [],
+      inboxStatusFilter: saved?.inboxStatusFilter ?? cfg.inboxStatusFilter ?? "All",
+      meetingDateFilter: saved?.meetingDateFilter ?? cfg.meetingDateFilter ?? "All",
+      clientFilter: saved?.clientFilter ?? [],
+      engagementFilter: saved?.engagementFilter ?? [],
+      includeUnassignedClients: saved?.includeUnassignedClients ?? false,
+      includeUnassignedEngagements: saved?.includeUnassignedEngagements ?? false,
       searchText: "",
     };
   }
@@ -96,6 +100,7 @@ export class DashboardView {
     viewSelect.setAttribute("aria-label", "View mode");
     viewSelect.addEventListener("change", () => {
       f.viewMode = viewSelect.value as typeof f.viewMode;
+      this.persistFilters();
       this.debouncedRefresh(container);
     });
 
@@ -113,6 +118,7 @@ export class DashboardView {
     sortSelect.setAttribute("aria-label", "Sort order");
     sortSelect.addEventListener("change", () => {
       f.sortBy = sortSelect.value as SortBy;
+      this.persistFilters();
       this.debouncedRefresh(container);
     });
 
@@ -124,6 +130,7 @@ export class DashboardView {
     completedToggle.setAttribute("aria-label", "Show completed tasks");
     completedToggle.addEventListener("change", () => {
       f.showCompleted = completedToggle.checked;
+      this.persistFilters();
       this.debouncedRefresh(container);
     });
 
@@ -143,13 +150,13 @@ export class DashboardView {
 
     // Collapsible filter sections
     renderCollapsible(container, "Context Filters", (innerEl) => {
-      this.renderContextFilters(innerEl, f, () => this.debouncedRefresh(container));
+      this.renderContextFilters(innerEl, f, () => { this.persistFilters(); this.debouncedRefresh(container); });
     });
     renderCollapsible(container, "Date Filters", (innerEl) => {
-      this.renderDateFilters(innerEl, f, () => this.debouncedRefresh(container));
+      this.renderDateFilters(innerEl, f, () => { this.persistFilters(); this.debouncedRefresh(container); });
     });
     renderCollapsible(container, "Priority Filters", (innerEl) => {
-      this.renderPriorityFilters(innerEl, f, () => this.debouncedRefresh(container));
+      this.renderPriorityFilters(innerEl, f, () => { this.persistFilters(); this.debouncedRefresh(container); });
     });
 
     // Clear filters button
@@ -158,6 +165,7 @@ export class DashboardView {
       cls: "pm-tasks-clear-btn",
     });
     clearBtn.addEventListener("click", () => {
+      this.onSaveFilters?.(null);
       this.initFilters();
       const dashboardRoot = container.parentElement;
       if (dashboardRoot) {
@@ -370,6 +378,27 @@ export class DashboardView {
       errEl.style.color = "var(--text-error)";
       errEl.textContent = `pm-tasks error: ${String(err)}`;
     }
+  }
+
+  private persistFilters(): void {
+    if (!this.onSaveFilters) return;
+    const f = this.filters;
+    const toSave: SavedDashboardFilters = {
+      viewMode: f.viewMode,
+      sortBy: f.sortBy,
+      showCompleted: f.showCompleted,
+      contextFilter: f.contextFilter,
+      dueDateFilter: f.dueDateFilter,
+      priorityFilter: f.priorityFilter,
+      projectStatusFilter: f.projectStatusFilter,
+      inboxStatusFilter: f.inboxStatusFilter,
+      meetingDateFilter: f.meetingDateFilter,
+      clientFilter: f.clientFilter,
+      engagementFilter: f.engagementFilter,
+      includeUnassignedClients: f.includeUnassignedClients,
+      includeUnassignedEngagements: f.includeUnassignedEngagements,
+    };
+    this.onSaveFilters(toSave);
   }
 
   private debouncedRefresh(controlsEl: HTMLElement): void {

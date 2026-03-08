@@ -113,10 +113,13 @@ const ENTITY_FIELDS: Record<EntityType, FieldDescriptor[]> = {
 
 // ─── Render child ──────────────────────────────────────────────────────────
 
+const MAX_CACHE_RETRIES = 3;
+
 class PmPropertiesRenderChild extends MarkdownRenderChild {
   private debounceTimer: ReturnType<typeof setTimeout> | null = null;
   private isUpdating = false;
   private autocompletes: PropertySuggest[] = [];
+  private cacheRetryCount = 0;
 
   constructor(
     containerEl: HTMLElement,
@@ -184,7 +187,29 @@ class PmPropertiesRenderChild extends MarkdownRenderChild {
       return;
     }
 
-    const fm = this.services.app.metadataCache.getFileCache(file)?.frontmatter ?? {};
+    // Read frontmatter from cache. A null/undefined value means the cache hasn't
+    // indexed the file yet (stale cache after entity creation). An empty object {}
+    // is a legitimate state (file with no frontmatter properties set yet).
+    const cachedFrontmatter = this.services.app.metadataCache.getFileCache(file)?.frontmatter;
+    const fm: Record<string, unknown> = cachedFrontmatter ?? {};
+
+    // If the cache has no frontmatter entry at all for the file, it may still be
+    // indexing after a freshly created entity. Register a one-shot "resolved"
+    // listener to re-render once the cache catches up.
+    if (cachedFrontmatter == null && this.cacheRetryCount < MAX_CACHE_RETRIES) {
+      this.cacheRetryCount++;
+      const cache = this.services.app.metadataCache as unknown as {
+        on(event: "resolved", cb: () => void): unknown;
+        offref(ref: unknown): void;
+      };
+      const ref = cache.on("resolved", () => {
+        cache.offref(ref);
+        this.render();
+      });
+      return;
+    }
+    // Reset retry counter once we have a real cache entry (even if frontmatter is empty).
+    this.cacheRetryCount = 0;
 
     const form = this.containerEl.createDiv({ cls: "pm-properties" });
 

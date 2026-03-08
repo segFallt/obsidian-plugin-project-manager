@@ -4,6 +4,7 @@ import type {
   DataviewApi,
   DataviewTask,
   ByProjectFilters,
+  SavedByProjectFilters,
   ProjectStatus,
 } from "../types";
 import { DEFAULT_TASK_VIEW_STATUSES, PRIORITY_FALLBACK, DEBOUNCE_MS } from "../constants";
@@ -24,7 +25,9 @@ export class ByProjectView {
     private readonly config: PmTasksConfig,
     private readonly services: PluginServices,
     private readonly sortService: ITaskSortService,
-    private readonly renderer: TaskListRenderer
+    private readonly renderer: TaskListRenderer,
+    private readonly savedFilters?: SavedByProjectFilters | null,
+    private readonly onSaveFilters?: ((filters: SavedByProjectFilters | null) => void) | null
   ) {}
 
   render(): void {
@@ -44,15 +47,30 @@ export class ByProjectView {
 
   private initFilters(): void {
     const cfg = this.config;
+    const saved = this.savedFilters;
     this.filters = {
-      selectedStatuses: (cfg.selectedStatuses ?? DEFAULT_TASK_VIEW_STATUSES) as ProjectStatus[],
+      selectedStatuses: saved?.selectedStatuses ?? (cfg.selectedStatuses ?? DEFAULT_TASK_VIEW_STATUSES) as ProjectStatus[],
       projectFilter: "",
-      clientFilter: [],
-      engagementFilter: [],
-      includeUnassignedClients: false,
-      includeUnassignedEngagements: false,
-      showCompleted: true,
+      clientFilter: saved?.clientFilter ?? [],
+      engagementFilter: saved?.engagementFilter ?? [],
+      includeUnassignedClients: saved?.includeUnassignedClients ?? false,
+      includeUnassignedEngagements: saved?.includeUnassignedEngagements ?? false,
+      showCompleted: saved?.showCompleted ?? true,
     };
+  }
+
+  private persistFilters(): void {
+    if (!this.onSaveFilters) return;
+    const f = this.filters;
+    const toSave: SavedByProjectFilters = {
+      selectedStatuses: f.selectedStatuses,
+      clientFilter: f.clientFilter,
+      engagementFilter: f.engagementFilter,
+      includeUnassignedClients: f.includeUnassignedClients,
+      includeUnassignedEngagements: f.includeUnassignedEngagements,
+      showCompleted: f.showCompleted,
+    };
+    this.onSaveFilters(toSave);
   }
 
   // ─── Controls rendering ───────────────────────────────────────────────────
@@ -87,6 +105,7 @@ export class ByProjectView {
       cb.addEventListener("change", () => {
         if (cb.checked) f.selectedStatuses.push(status);
         else f.selectedStatuses = f.selectedStatuses.filter((s) => s !== status);
+        this.persistFilters();
         this.debouncedRefreshByProject(container);
       });
     }
@@ -99,6 +118,7 @@ export class ByProjectView {
     completedToggle.setAttribute("aria-label", "Show completed tasks");
     completedToggle.addEventListener("change", () => {
       f.showCompleted = completedToggle.checked;
+      this.persistFilters();
       this.debouncedRefreshByProject(container);
     });
   }

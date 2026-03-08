@@ -11,6 +11,7 @@ import {
 import { toWikilink, normalizeToName } from "../utils/link-utils";
 import { getFrontmatter } from "../utils/frontmatter-utils";
 import { STATUS } from "../constants";
+import { todayISO } from "../utils/date-utils";
 
 /**
  * Handles all entity creation and modification operations.
@@ -41,7 +42,7 @@ export class EntityService implements IEntityService {
   /** Creates a new engagement note, optionally linked to a client. */
   async createEngagement(name: string, clientName?: string): Promise<TFile> {
     const file = await this.createEntity("engagement", name, this.settings.folders.engagements, {
-      date: this.today(),
+      date: todayISO(),
     });
     if (clientName) {
       await this.app.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => {
@@ -177,7 +178,7 @@ export class EntityService implements IEntityService {
     options?: { date?: string; attendees?: string[]; notesContent?: string; open?: boolean }
   ): Promise<TFile> {
     // Step 1: Determine event date (ISO date only, first 10 chars).
-    const rawDate = options?.date ?? this.today();
+    const rawDate = options?.date ?? todayISO();
     const dateStr = rawDate.slice(0, 10);
 
     // Step 2: Determine event folder (base events folder / meeting name).
@@ -371,10 +372,6 @@ export class EntityService implements IEntityService {
   private async openFile(file: TFile): Promise<void> {
     const leaf = this.app.workspace.getLeaf("tab");
     await leaf.openFile(file);
-  }
-
-  private today(): string {
-    return new Date().toISOString().split("T")[0];
   }
 
   /** Validates that a create operation result is safe to use. */

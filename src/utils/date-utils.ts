@@ -1,22 +1,29 @@
 /**
  * Date utility functions used across the plugin.
  * All functions work with ISO date strings (YYYY-MM-DD) or ISO datetimes.
+ * All date/time values use the user's local timezone, not UTC.
  */
-import { ISO_DATE_LENGTH, ISO_DATETIME_LENGTH } from "../constants";
+import { ISO_DATE_LENGTH } from "../constants";
 
-/** Returns today's date as an ISO string (YYYY-MM-DD). */
+function padTwo(n: number): string {
+  return n.toString().padStart(2, "0");
+}
+
+/** Returns today's date as an ISO string (YYYY-MM-DD) in local time. */
 export function todayISO(): string {
-  return new Date().toISOString().split("T")[0];
+  const d = new Date();
+  return `${d.getFullYear()}-${padTwo(d.getMonth() + 1)}-${padTwo(d.getDate())}`;
 }
 
-/** Returns the current date-time as an ISO string. */
-export function nowISO(): string {
-  return new Date().toISOString();
-}
-
-/** Returns a datetime formatted for meeting frontmatter (YYYY-MM-DDTHH:mm:ss). */
+/** Returns the current date-time as a local ISO string (YYYY-MM-DDTHH:mm:ss). */
 export function nowDatetime(): string {
-  return new Date().toISOString().substring(0, ISO_DATETIME_LENGTH);
+  const d = new Date();
+  return `${d.getFullYear()}-${padTwo(d.getMonth() + 1)}-${padTwo(d.getDate())}T${padTwo(d.getHours())}:${padTwo(d.getMinutes())}:${padTwo(d.getSeconds())}`;
+}
+
+/** Returns the current date-time as a local ISO string (YYYY-MM-DDTHH:mm:ss). */
+export function nowISO(): string {
+  return nowDatetime();
 }
 
 /**
@@ -48,9 +55,10 @@ export function isPast(isoDate: string): boolean {
  * Checks if an ISO date string is tomorrow.
  */
 export function isTomorrow(isoDate: string): boolean {
-  const tomorrow = new Date(todayISO());
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  return isoDate.substring(0, ISO_DATE_LENGTH) === tomorrow.toISOString().split("T")[0];
+  const [y, m, d] = todayISO().split("-").map(Number);
+  const tomorrow = new Date(y, m - 1, d + 1);
+  const tomorrowISO = `${tomorrow.getFullYear()}-${padTwo(tomorrow.getMonth() + 1)}-${padTwo(tomorrow.getDate())}`;
+  return isoDate.substring(0, ISO_DATE_LENGTH) === tomorrowISO;
 }
 
 /**
