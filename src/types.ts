@@ -218,6 +218,14 @@ export interface ByProjectFilters {
   showCompleted: boolean;
 }
 
+// ─── Persistent Filter Types ──────────────────────────────────────────────
+
+/** Dashboard filter state persisted to frontmatter (excludes ephemeral searchText). */
+export type SavedDashboardFilters = Omit<DashboardFilters, "searchText">;
+
+/** By-project filter state persisted to frontmatter (excludes ephemeral projectFilter). */
+export type SavedByProjectFilters = Omit<ByProjectFilters, "projectFilter">;
+
 // ─── Plugin Internal Types ─────────────────────────────────────────────────
 
 /** Represents a created or existing entity for display in suggesters. */

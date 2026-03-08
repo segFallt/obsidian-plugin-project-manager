@@ -1,7 +1,7 @@
-import { MarkdownRenderChild, parseYaml } from "obsidian";
+import { MarkdownRenderChild, TFile, parseYaml } from "obsidian";
 import type { MarkdownPostProcessorContext } from "obsidian";
 import type { PluginServices, RegisterProcessorFn } from "../plugin-context";
-import type { PmTasksConfig } from "../types";
+import type { PmTasksConfig, SavedDashboardFilters, SavedByProjectFilters } from "../types";
 import { TaskFilterService } from "../services/task-filter-service";
 import { TaskSortService } from "../services/task-sort-service";
 import { TaskListRenderer } from "./task-list-renderer";
@@ -24,14 +24,14 @@ import { DEBOUNCE_MS } from "../constants";
  * mode: by-project
  * ```
  *
- * All filter state is local to the component — no frontmatter writes.
+ * Filter state is persisted to the note's frontmatter under the `pm-tasks-filters` key.
  */
 export function registerPmTasksProcessor(
   services: PluginServices,
   registerProcessor: RegisterProcessorFn
 ): void {
   registerProcessor("pm-tasks", (source, el, ctx: MarkdownPostProcessorContext) => {
-    const child = new PmTasksRenderChild(el, source, services);
+    const child = new PmTasksRenderChild(el, source, ctx.sourcePath, services);
     ctx.addChild(child);
     child.render();
   });
@@ -39,14 +39,19 @@ export function registerPmTasksProcessor(
 
 // ─── Render child ──────────────────────────────────────────────────────────
 
+const FILTER_FM_KEY = "pm-tasks-filters";
+
 class PmTasksRenderChild extends MarkdownRenderChild {
   private config!: PmTasksConfig;
   private activeView: DashboardView | ByProjectView | null = null;
   private debounceTimer: ReturnType<typeof setTimeout> | null = null;
+  private saveDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+  private isUpdating = false;
 
   constructor(
     containerEl: HTMLElement,
     private readonly source: string,
+    private readonly sourcePath: string,
     private readonly services: PluginServices
   ) {
     super(containerEl);
@@ -57,7 +62,7 @@ class PmTasksRenderChild extends MarkdownRenderChild {
     // Uses a 1 second debounce to allow Dataview to re-index before querying.
     this.registerEvent(
       this.services.app.vault.on("modify", () => {
-        this.debouncedAutoRefresh();
+        if (!this.isUpdating) this.debouncedAutoRefresh();
       })
     );
   }
@@ -66,6 +71,10 @@ class PmTasksRenderChild extends MarkdownRenderChild {
     if (this.debounceTimer !== null) {
       clearTimeout(this.debounceTimer);
       this.debounceTimer = null;
+    }
+    if (this.saveDebounceTimer !== null) {
+      clearTimeout(this.saveDebounceTimer);
+      this.saveDebounceTimer = null;
     }
   }
 
@@ -87,6 +96,7 @@ class PmTasksRenderChild extends MarkdownRenderChild {
     const filterService = new TaskFilterService(this.services.settings.folders);
     const sortService = new TaskSortService();
     const renderer = new TaskListRenderer(this.services);
+    const savedFilters = this.loadSavedFilters();
 
     if (this.config.mode === "dashboard") {
       this.activeView = new DashboardView(
@@ -95,7 +105,9 @@ class PmTasksRenderChild extends MarkdownRenderChild {
         this.services,
         filterService,
         sortService,
-        renderer
+        renderer,
+        savedFilters as SavedDashboardFilters | null,
+        (filters) => this.debouncedSaveFilters(filters)
       );
       this.activeView.render();
     } else if (this.config.mode === "by-project") {
@@ -104,11 +116,46 @@ class PmTasksRenderChild extends MarkdownRenderChild {
         this.config,
         this.services,
         sortService,
-        renderer
+        renderer,
+        savedFilters as SavedByProjectFilters | null,
+        (filters) => this.debouncedSaveFilters(filters)
       );
       this.activeView.render();
     } else {
       renderError(this.containerEl, `Unknown pm-tasks mode: ${String(this.config.mode)}`);
+    }
+  }
+
+  private loadSavedFilters(): unknown {
+    const file = this.services.app.vault.getAbstractFileByPath(this.sourcePath);
+    if (!(file instanceof TFile)) return null;
+    return this.services.app.metadataCache.getFileCache(file)?.frontmatter?.[FILTER_FM_KEY] ?? null;
+  }
+
+  private debouncedSaveFilters(filters: SavedDashboardFilters | SavedByProjectFilters | null): void {
+    if (this.saveDebounceTimer) clearTimeout(this.saveDebounceTimer);
+    this.saveDebounceTimer = setTimeout(() => {
+      void this.persistFilters(filters);
+    }, DEBOUNCE_MS.PROPERTIES);
+  }
+
+  private async persistFilters(filters: SavedDashboardFilters | SavedByProjectFilters | null): Promise<void> {
+    const file = this.services.app.vault.getAbstractFileByPath(this.sourcePath);
+    if (!(file instanceof TFile)) return;
+    this.isUpdating = true;
+    try {
+      await this.services.app.fileManager.processFrontMatter(
+        file,
+        (fm: Record<string, unknown>) => {
+          if (filters === null) {
+            delete fm[FILTER_FM_KEY];
+          } else {
+            fm[FILTER_FM_KEY] = filters;
+          }
+        }
+      );
+    } finally {
+      this.isUpdating = false;
     }
   }
 

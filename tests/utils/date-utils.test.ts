@@ -26,11 +26,19 @@ describe("date-utils", () => {
     it("returns the current date as YYYY-MM-DD", () => {
       expect(todayISO()).toBe(FIXED_DATE);
     });
+
+    it("uses local getFullYear/getMonth/getDate rather than UTC", () => {
+      // Confirm the result matches local-time component extraction, not toISOString().split("T")[0]
+      const d = new Date();
+      const pad = (n: number) => n.toString().padStart(2, "0");
+      const expected = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+      expect(todayISO()).toBe(expected);
+    });
   });
 
   describe("nowISO", () => {
-    it("returns a full ISO datetime string", () => {
-      expect(nowISO()).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+    it("returns a local ISO datetime string (YYYY-MM-DDTHH:mm:ss)", () => {
+      expect(nowISO()).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/);
     });
   });
 
