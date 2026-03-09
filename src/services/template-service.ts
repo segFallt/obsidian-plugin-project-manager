@@ -233,6 +233,7 @@ actions:
 engagement:
 start-date: {{date}}
 end-date:
+last-event-date:
 default-attendees: []
 ---
 

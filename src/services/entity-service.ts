@@ -218,6 +218,13 @@ export class EntityService implements IEntityService {
       fm["attendees"] = attendees;
     });
 
+    // Step 7b: Update parent meeting's last-event-date.
+    if (parentAbstract instanceof TFile) {
+      await this.app.fileManager.processFrontMatter(parentAbstract, (pfm: Record<string, unknown>) => {
+        pfm["last-event-date"] = dateStr;
+      });
+    }
+
     // Step 8: Inject notes content if provided.
     if (options?.notesContent) {
       const content = await this.app.vault.read(file);

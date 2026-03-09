@@ -393,9 +393,9 @@ views:
       - file.name
       - engagement
       - start-date
-      - file.mtime
+      - last-event-date
     sort:
-      - property: file.mtime
+      - property: last-event-date
         direction: DESC
   - type: table
     name: meetings_past

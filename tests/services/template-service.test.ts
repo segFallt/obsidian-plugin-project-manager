@@ -70,6 +70,11 @@ describe("TemplateService", () => {
       expect(tmpl).toContain("attendees:");
     });
 
+    it("recurring-meeting template contains last-event-date frontmatter key", () => {
+      const tmpl = svc.getTemplate("recurring-meeting");
+      expect(tmpl).toContain("last-event-date:");
+    });
+
     it("recurring-meeting template contains pm-recurring-events code block", () => {
       const tmpl = svc.getTemplate("recurring-meeting");
       expect(tmpl).toContain("```pm-recurring-events");
