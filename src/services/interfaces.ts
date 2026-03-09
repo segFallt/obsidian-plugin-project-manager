@@ -104,3 +104,12 @@ export interface ITaskSortService {
   sortTasks(tasks: DataviewTask[], sortBy: SortBy): DataviewTask[];
   compareGroups(aTasks: DataviewTask[], bTasks: DataviewTask[], sortBy: SortBy): number;
 }
+
+export interface ILoggerService {
+  debug(message: string, context?: string): void;
+  info(message: string, context?: string): void;
+  warn(message: string, context?: string): void;
+  error(message: string, context?: string, err?: unknown): void;
+  flush(): Promise<void>;
+  cleanOldLogs(): Promise<void>;
+}

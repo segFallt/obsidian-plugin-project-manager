@@ -25,6 +25,7 @@ import type { ITaskFilterService } from "../services/interfaces";
 import type { ITaskSortService } from "../services/interfaces";
 import { createSelect, renderCollapsible } from "./dom-helpers";
 import type { TaskListRenderer } from "./task-list-renderer";
+import { FilterChipSelect } from "../ui/components/filter-chip-select";
 
 /**
  * Renders the full dashboard mode: filter controls and all four view renderers
@@ -34,6 +35,7 @@ export class DashboardView {
   private filters!: DashboardFilters;
   private outputEl!: HTMLElement;
   private debounceTimer: ReturnType<typeof setTimeout> | null = null;
+  private chipSelects: FilterChipSelect[] = [];
 
   constructor(
     private readonly containerEl: HTMLElement,
@@ -166,6 +168,7 @@ export class DashboardView {
     });
     clearBtn.addEventListener("click", () => {
       this.onSaveFilters?.(null);
+      this.destroyChipSelects();
       this.initFilters();
       const dashboardRoot = container.parentElement;
       if (dashboardRoot) {
@@ -200,54 +203,52 @@ export class DashboardView {
       });
     }
 
-    // Client filter
+    // Client filter (multi-select chip select)
     const activeClients = this.services.queryService.getActiveEntitiesByTag(ENTITY_TAGS.client);
     if (activeClients.length > 0) {
       container.createEl("label", { text: "Client:", cls: "pm-filter-label" });
-      const clientSelect = container.createEl("select", {
-        cls: "pm-tasks-filter-select dropdown",
-      });
-      clientSelect.createEl("option", { text: "(All Clients)", value: "" });
-      for (const p of activeClients) {
-        clientSelect.createEl("option", { text: p.file.name, value: p.file.name });
-      }
-      clientSelect.addEventListener("change", () => {
-        f.clientFilter = clientSelect.value ? [clientSelect.value] : [];
-        onChange();
-      });
-
-      const unassignedClientLabel = container.createEl("label", { cls: "pm-checkbox-label" });
-      const unassignedClientCb = unassignedClientLabel.createEl("input", { type: "checkbox" });
-      unassignedClientLabel.createSpan({ text: "Include unassigned clients" });
-      unassignedClientCb.addEventListener("change", () => {
-        f.includeUnassignedClients = unassignedClientCb.checked;
-        onChange();
-      });
+      const clientChipSelect = new FilterChipSelect(
+        container,
+        this.services.app,
+        {
+          options: activeClients.map((p) => ({ value: p.file.name, displayText: p.file.name })),
+          selectedValues: [...f.clientFilter],
+          placeholder: "Add client filter…",
+          ariaLabel: "Filter by client",
+          includeUnassigned: f.includeUnassignedClients,
+          unassignedLabel: "Include unassigned clients",
+          onChange: (values, includeUnassigned) => {
+            f.clientFilter = values;
+            f.includeUnassignedClients = includeUnassigned;
+            onChange();
+          },
+        }
+      );
+      this.chipSelects.push(clientChipSelect);
     }
 
-    // Engagement filter
+    // Engagement filter (multi-select chip select)
     const activeEngagements = this.services.queryService.getActiveEntitiesByTag(ENTITY_TAGS.engagement);
     if (activeEngagements.length > 0) {
       container.createEl("label", { text: "Engagement:", cls: "pm-filter-label" });
-      const engSelect = container.createEl("select", {
-        cls: "pm-tasks-filter-select dropdown",
-      });
-      engSelect.createEl("option", { text: "(All Engagements)", value: "" });
-      for (const p of activeEngagements) {
-        engSelect.createEl("option", { text: p.file.name, value: p.file.name });
-      }
-      engSelect.addEventListener("change", () => {
-        f.engagementFilter = engSelect.value ? [engSelect.value] : [];
-        onChange();
-      });
-
-      const unassignedEngLabel = container.createEl("label", { cls: "pm-checkbox-label" });
-      const unassignedEngCb = unassignedEngLabel.createEl("input", { type: "checkbox" });
-      unassignedEngLabel.createSpan({ text: "Include unassigned engagements" });
-      unassignedEngCb.addEventListener("change", () => {
-        f.includeUnassignedEngagements = unassignedEngCb.checked;
-        onChange();
-      });
+      const engChipSelect = new FilterChipSelect(
+        container,
+        this.services.app,
+        {
+          options: activeEngagements.map((p) => ({ value: p.file.name, displayText: p.file.name })),
+          selectedValues: [...f.engagementFilter],
+          placeholder: "Add engagement filter…",
+          ariaLabel: "Filter by engagement",
+          includeUnassigned: f.includeUnassignedEngagements,
+          unassignedLabel: "Include unassigned engagements",
+          onChange: (values, includeUnassigned) => {
+            f.engagementFilter = values;
+            f.includeUnassignedEngagements = includeUnassigned;
+            onChange();
+          },
+        }
+      );
+      this.chipSelects.push(engChipSelect);
     }
 
     // Project status filter
@@ -329,6 +330,13 @@ export class DashboardView {
         onChange();
       });
     }
+  }
+
+  // ─── Chip select cleanup ─────────────────────────────────────────────────
+
+  private destroyChipSelects(): void {
+    for (const cs of this.chipSelects) cs.destroy();
+    this.chipSelects = [];
   }
 
   // ─── Output rendering ─────────────────────────────────────────────────────

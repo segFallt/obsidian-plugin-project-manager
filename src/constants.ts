@@ -100,9 +100,19 @@ export const TEXTAREA_ROWS = 3;
 /** Debounce durations (ms) for different contexts. */
 export const DEBOUNCE_MS = {
   PROPERTIES: 500,
+  PROPERTIES_INITIAL: 150,
   TASKS: 1000,
   SEARCH: 200,
 } as const;
+
+/** Numeric weight for each log level (higher = more severe). */
+export const LOG_LEVELS = { DEBUG: 0, INFO: 1, WARN: 2, ERROR: 3 } as const;
+
+/** How often (ms) the logger flushes its in-memory buffer to disk. */
+export const LOG_FLUSH_INTERVAL_MS = 5000;
+
+/** Suffix appended to log file names (e.g. "2026-03-09-pm.log"). */
+export const LOG_FILE_SUFFIX = "-pm.log";
 
 /** Sentinel date strings for sort stability (tasks with no due date). */
 export const SORT_SENTINEL = {

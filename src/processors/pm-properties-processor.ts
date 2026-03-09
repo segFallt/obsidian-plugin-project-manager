@@ -3,6 +3,7 @@ import type { MarkdownPostProcessorContext } from "obsidian";
 import type { PluginServices, RegisterProcessorFn } from "../plugin-context";
 import type { PmPropertiesConfig, EntityType, DataviewPage } from "../types";
 import { ENTITY_TAGS, CLIENT_STATUSES, ENGAGEMENT_STATUSES, PROJECT_STATUSES, TEXTAREA_ROWS, DEBOUNCE_MS } from "../constants";
+
 import { normalizeToName } from "../utils/link-utils";
 import { PropertySuggest } from "../ui/components/property-suggest";
 import type { AutocompleteOption } from "../ui/components/property-suggest";
@@ -120,6 +121,7 @@ class PmPropertiesRenderChild extends MarkdownRenderChild {
   private isUpdating = false;
   private autocompletes: PropertySuggest[] = [];
   private cacheRetryCount = 0;
+  private hasRenderedOnce = false;
 
   constructor(
     containerEl: HTMLElement,
@@ -215,6 +217,18 @@ class PmPropertiesRenderChild extends MarkdownRenderChild {
 
     for (const field of fields) {
       this.renderField(form, field, fm, file);
+    }
+
+    // On first render, schedule a one-off deferred re-render to pick up any
+    // relationship fields that entity creation writes in a second processFrontMatter
+    // call (after the metadata cache has the template values but not yet the links).
+    if (!this.hasRenderedOnce) {
+      this.hasRenderedOnce = true;
+      setTimeout(() => {
+        if (this.containerEl.isConnected) {
+          this.render();
+        }
+      }, DEBOUNCE_MS.PROPERTIES_INITIAL);
     }
   }
 
