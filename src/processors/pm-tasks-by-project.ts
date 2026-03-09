@@ -229,6 +229,7 @@ export class ByProjectView {
         this.renderProjectTaskGroup(outputEl, project, dv, f);
       }
     } catch (err) {
+      this.services.loggerService.error(String(err), "pm-tasks-by-project", err);
       outputEl.empty();
       const errEl = outputEl.createDiv({ cls: "pm-error" });
       errEl.style.color = "var(--text-error)";

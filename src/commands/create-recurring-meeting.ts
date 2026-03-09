@@ -36,6 +36,7 @@ export function registerCreateRecurringMeetingCommand(services: PluginServices, 
           result.parentName ?? undefined
         );
       } catch (err) {
+        services.loggerService.error(String(err), "create-recurring-meeting", err);
         new Notice(`Error creating recurring meeting: ${String(err)}`);
       }
     },

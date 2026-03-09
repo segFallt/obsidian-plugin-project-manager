@@ -36,6 +36,7 @@ export function registerCreateEngagementCommand(services: PluginServices, addCom
       try {
         await services.entityService.createEngagement(result.name, result.parentName ?? undefined);
       } catch (err) {
+        services.loggerService.error(String(err), "create-engagement", err);
         new Notice(`Error creating engagement: ${String(err)}`);
       }
     },

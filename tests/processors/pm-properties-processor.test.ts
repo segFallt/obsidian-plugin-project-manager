@@ -41,6 +41,11 @@ function createMockServices(
       getActiveEntitiesByTag: vi.fn(() => []),
       getActiveRecurringMeetings: vi.fn(() => []),
     },
+    loggerService: {
+      error: vi.fn(),
+      warn: vi.fn(),
+      info: vi.fn(),
+    },
   } as unknown as PluginServices;
 
   return {

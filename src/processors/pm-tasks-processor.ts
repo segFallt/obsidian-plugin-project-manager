@@ -84,12 +84,16 @@ class PmTasksRenderChild extends MarkdownRenderChild {
     try {
       this.config = parseYaml(this.source) as PmTasksConfig;
     } catch {
-      renderError(this.containerEl, "Invalid pm-tasks config.");
+      const msg = "Invalid pm-tasks config.";
+      this.services.loggerService.warn(msg, "pm-tasks-processor");
+      renderError(this.containerEl, msg);
       return;
     }
 
     if (!this.config?.mode) {
-      renderError(this.containerEl, "pm-tasks requires a `mode` field (dashboard or by-project).");
+      const msg = "pm-tasks requires a `mode` field (dashboard or by-project).";
+      this.services.loggerService.warn(msg, "pm-tasks-processor");
+      renderError(this.containerEl, msg);
       return;
     }
 
@@ -122,7 +126,9 @@ class PmTasksRenderChild extends MarkdownRenderChild {
       );
       this.activeView.render();
     } else {
-      renderError(this.containerEl, `Unknown pm-tasks mode: ${String(this.config.mode)}`);
+      const msg = `Unknown pm-tasks mode: ${String(this.config.mode)}`;
+      this.services.loggerService.warn(msg, "pm-tasks-processor");
+      renderError(this.containerEl, msg);
     }
   }
 

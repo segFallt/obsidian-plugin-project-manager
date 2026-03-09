@@ -50,28 +50,38 @@ class PmEntityViewRenderChild extends MarkdownRenderChild {
     try {
       config = parseYaml(this.source) as PmEntityViewConfig;
     } catch {
-      this.renderError("Invalid pm-entity-view config: could not parse YAML.");
+      const msg = "Invalid pm-entity-view config: could not parse YAML.";
+      this.services.loggerService.warn(msg, "pm-entity-view");
+      this.renderError(msg);
       return;
     }
 
     if (!config?.entity) {
-      this.renderError("pm-entity-view requires an `entity` field.");
+      const msg = "pm-entity-view requires an `entity` field.";
+      this.services.loggerService.warn(msg, "pm-entity-view");
+      this.renderError(msg);
       return;
     }
     if (!config?.section) {
-      this.renderError("pm-entity-view requires a `section` field.");
+      const msg = "pm-entity-view requires a `section` field.";
+      this.services.loggerService.warn(msg, "pm-entity-view");
+      this.renderError(msg);
       return;
     }
 
     const entityDef = ENTITY_VIEW_SECTIONS[config.entity];
     if (!entityDef) {
-      this.renderError(`Unknown entity type: "${config.entity}". Valid types: ${Object.keys(ENTITY_VIEW_SECTIONS).join(", ")}`);
+      const msg = `Unknown entity type: "${config.entity}". Valid types: ${Object.keys(ENTITY_VIEW_SECTIONS).join(", ")}`;
+      this.services.loggerService.warn(msg, "pm-entity-view");
+      this.renderError(msg);
       return;
     }
 
     const sectionDef = entityDef[config.section];
     if (!sectionDef) {
-      this.renderError(`Unknown section "${config.section}" for entity "${config.entity}". Valid sections: ${Object.keys(entityDef).join(", ")}`);
+      const msg = `Unknown section "${config.section}" for entity "${config.entity}". Valid sections: ${Object.keys(entityDef).join(", ")}`;
+      this.services.loggerService.warn(msg, "pm-entity-view");
+      this.renderError(msg);
       return;
     }
 

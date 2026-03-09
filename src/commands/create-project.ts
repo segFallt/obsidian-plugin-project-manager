@@ -42,6 +42,7 @@ export function registerCreateProjectCommand(services: PluginServices, addComman
           result.parentName ?? undefined
         );
       } catch (err) {
+        services.loggerService.error(String(err), "create-project", err);
         new Notice(`Error creating project: ${String(err)}`);
       }
     },

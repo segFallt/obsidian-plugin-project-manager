@@ -36,6 +36,7 @@ export function registerCreatePersonCommand(services: PluginServices, addCommand
       try {
         await services.entityService.createPerson(result.name, result.parentName ?? undefined);
       } catch (err) {
+        services.loggerService.error(String(err), "create-person", err);
         new Notice(`Error creating person: ${String(err)}`);
       }
     },

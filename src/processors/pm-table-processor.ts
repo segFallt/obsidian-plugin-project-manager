@@ -47,18 +47,23 @@ class PmTableRenderChild extends MarkdownRenderChild {
     try {
       config = parseYaml(this.source) as PmTableConfig;
     } catch {
-      this.renderError("Invalid pm-table config: could not parse YAML.");
+      const msg = "Invalid pm-table config: could not parse YAML.";
+      this.services.loggerService.warn(msg, "pm-table");
+      this.renderError(msg);
       return;
     }
 
     if (!config?.type) {
-      this.renderError("pm-table requires a `type` field.");
+      const msg = "pm-table requires a `type` field.";
+      this.services.loggerService.warn(msg, "pm-table");
+      this.renderError(msg);
       return;
     }
 
     try {
       renderEntityTable(this.containerEl, config.type, this.sourcePath, this.services);
     } catch (err) {
+      this.services.loggerService.error(String(err), "pm-table", err);
       this.renderError(`pm-table error: ${String(err)}`);
     }
   }

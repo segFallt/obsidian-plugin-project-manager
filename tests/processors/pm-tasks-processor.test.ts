@@ -51,6 +51,11 @@ function createMockServices(dvApi: DataviewApi | null = null) {
     taskParser: {
       toggleTaskLine: vi.fn((line: string) => line),
     },
+    loggerService: {
+      error: vi.fn(),
+      warn: vi.fn(),
+      info: vi.fn(),
+    },
   } as unknown as PluginServices;
 
   return {
@@ -270,6 +275,43 @@ describe("pm-tasks processor", () => {
         dvApi
       );
       expect(el.querySelector(".pm-tasks-dashboard")).not.toBeNull();
+    });
+
+    it("context view: does not crash when project-note tasks share a parentProject with direct project tasks", () => {
+      // Regression test for the projectNoteMapping initialization bug:
+      // When byFile[parentProjectPath] is already set (because the project file has a direct task),
+      // projectNoteMapping[parentProjectPath] must still be initialized before accessing it.
+      const dvApi = createMockDataviewApi([
+        {
+          // The project file itself — has a direct task, so byFile[projectPath] is created first.
+          path: "projects/Alpha.md",
+          tags: ["#project"],
+          frontmatter: { status: "Active" },
+          tasks: [{ text: "Direct project task" }],
+        },
+        {
+          // A project-note file whose relatedProject points to Alpha —
+          // triggers the secondary byFile lookup that previously crashed.
+          path: "projects/notes/AlphaNote.md",
+          frontmatter: { relatedProject: "[[Alpha]]" },
+          tasks: [{ text: "Project note task" }],
+        },
+      ]);
+
+      // The mock dv.page() needs to resolve "projects/Alpha.md" so getParentProjectPath works.
+      // createMockDataviewApi already builds a pageMap from MockPageData paths, so the project
+      // page is accessible. The project-note page has relatedProject = "[[Alpha]]" which
+      // normalizeToName extracts as "Alpha", and the path is constructed as
+      // `${folders.projects}/Alpha.md` = "projects/Alpha.md".
+
+      let threw = false;
+      try {
+        render("mode: dashboard\nviewMode: context", dvApi);
+      } catch {
+        threw = true;
+      }
+
+      expect(threw).toBe(false);
     });
   });
 

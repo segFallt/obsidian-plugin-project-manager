@@ -36,6 +36,11 @@ function createMockServices(sourcePath = "clients/Acme.md") {
     queryService,
     settings: { folders: DEFAULT_FOLDERS },
     pendingActionContext: null as { field: string; value: string } | null,
+    loggerService: {
+      error: vi.fn(),
+      warn: vi.fn(),
+      info: vi.fn(),
+    },
   } as unknown as PluginServices;
 
   return {

@@ -36,6 +36,7 @@ export function registerCreateInboxCommand(services: PluginServices, addCommand:
           result.parentName ?? undefined
         );
       } catch (err) {
+        services.loggerService.error(String(err), "create-inbox", err);
         new Notice(`Error creating inbox note: ${String(err)}`);
       }
     },

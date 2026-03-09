@@ -381,6 +381,7 @@ export class DashboardView {
           break;
       }
     } catch (err) {
+      this.services.loggerService.error(String(err), "pm-tasks-dashboard", err);
       outputEl.empty();
       const errEl = outputEl.createDiv({ cls: "pm-error" });
       errEl.style.color = "var(--text-error)";
@@ -455,6 +456,8 @@ export class DashboardView {
           if (parentProjectPath) {
             if (!byFile[parentProjectPath]) {
               byFile[parentProjectPath] = [];
+            }
+            if (!projectNoteMapping[parentProjectPath]) {
               projectNoteMapping[parentProjectPath] = {};
             }
             if (!projectNoteMapping[parentProjectPath][filePath]) {
