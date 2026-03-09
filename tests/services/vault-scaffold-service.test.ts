@@ -138,6 +138,8 @@ describe("VaultScaffoldService", () => {
       );
       expect(fileContents["views/Recurring Meetings Base.base"]).toContain("meetings_active");
       expect(fileContents["views/Recurring Meetings Base.base"]).toContain("meetings_past");
+      expect(fileContents["views/Recurring Meetings Base.base"]).toContain("last-event-date");
+      expect(fileContents["views/Recurring Meetings Base.base"]).not.toContain("file.mtime");
     });
 
     it("entity view .md files use pm-actions and .base embeds", async () => {

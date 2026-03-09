@@ -603,6 +603,47 @@ attendees: []
 
       expect(leaf.openFile).not.toHaveBeenCalled();
     });
+
+    it("updates parent meeting's last-event-date to the event date", async () => {
+      const { svc, app } = createEntityService([
+        {
+          path: "meetings/recurring/Weekly Standup.md",
+          frontmatter: { "default-attendees": [] },
+        },
+      ]);
+
+      const mutations: Record<string, Record<string, unknown>> = {};
+      app.fileManager.processFrontMatter = async (file, fn) => {
+        const fm: Record<string, unknown> = {};
+        fn(fm);
+        mutations[file.path] = { ...(mutations[file.path] ?? {}), ...fm };
+      };
+
+      await svc.createRecurringMeetingEvent("Weekly Standup", { date: "2024-06-15" });
+
+      const parentPath = "meetings/recurring/Weekly Standup.md";
+      expect(mutations[parentPath]?.["last-event-date"]).toBe("2024-06-15");
+    });
+
+    it("does not crash when parent meeting file does not exist", async () => {
+      const { svc, app } = createEntityService();
+
+      const mutations: Record<string, Record<string, unknown>> = {};
+      app.fileManager.processFrontMatter = async (file, fn) => {
+        const fm: Record<string, unknown> = {};
+        fn(fm);
+        mutations[file.path] = { ...(mutations[file.path] ?? {}), ...fm };
+      };
+
+      // No parent file registered — should not throw
+      await expect(
+        svc.createRecurringMeetingEvent("Nonexistent Meeting", { open: false })
+      ).resolves.not.toThrow();
+
+      // Parent path should NOT have been updated since TFile check fails
+      const parentPath = "meetings/recurring/Nonexistent Meeting.md";
+      expect(mutations[parentPath]?.["last-event-date"]).toBeUndefined();
+    });
   });
 
   describe("convertSingleToRecurring", () => {
@@ -715,6 +756,41 @@ attendees:
       expect(Array.isArray(defaultAttendees)).toBe(true);
       expect((defaultAttendees as string[]).some((a) => String(a).includes("Alice"))).toBe(true);
       expect((defaultAttendees as string[]).some((a) => String(a).includes("Bob"))).toBe(true);
+    });
+
+    it("sets last-event-date on the recurring meeting when converting from single", async () => {
+      const singleFile = new TFile("meetings/single/Weekly Standup.md");
+      const { svc, app } = createEntityService([
+        {
+          path: "meetings/single/Weekly Standup.md",
+          content: "",
+          frontmatter: {
+            engagement: "",
+            date: "2024-03-15T10:00",
+            attendees: [],
+          },
+        },
+        // The recurring meeting file will be created, but we also need it registered for the parent lookup
+        {
+          path: "meetings/recurring/Weekly Standup.md",
+          frontmatter: { "default-attendees": [] },
+        },
+      ]);
+
+      const mutations: Record<string, Record<string, unknown>> = {};
+      app.fileManager.processFrontMatter = async (file, fn) => {
+        const fm: Record<string, unknown> = {};
+        fn(fm);
+        mutations[file.path] = { ...(mutations[file.path] ?? {}), ...fm };
+      };
+
+      await svc.convertSingleToRecurring(
+        singleFile as unknown as import("obsidian").TFile,
+        "Weekly Standup"
+      );
+
+      const recurringPath = "meetings/recurring/Weekly Standup.md";
+      expect(mutations[recurringPath]?.["last-event-date"]).toBe("2024-03-15");
     });
 
     it("uses single meeting basename as recurring name when recurringName is not provided", async () => {
