@@ -5,12 +5,14 @@ import { EntityService } from "./services/entity-service";
 import { TemplateService } from "./services/template-service";
 import { TaskParser } from "./services/task-parser";
 import { VaultScaffoldService } from "./services/vault-scaffold-service";
+import { LoggerService } from "./services/logger-service";
 import type {
   IQueryService,
   IEntityService,
   ITemplateService,
   ITaskParser,
   IScaffoldService,
+  ILoggerService,
 } from "./services/interfaces";
 import { registerAllCommands } from "./commands";
 import { registerAllProcessors } from "./processors";
@@ -32,9 +34,11 @@ export default class ProjectManagerPlugin extends Plugin {
   entityService!: IEntityService;
   taskParser!: ITaskParser;
   scaffoldService!: IScaffoldService;
+  loggerService!: ILoggerService;
 
   // templateService is internal — used only by EntityService, not exposed to commands/processors.
   private templateService!: ITemplateService;
+  private loggerServiceImpl!: LoggerService;
 
   /** Transient context set by action buttons; consumed and cleared by create commands. */
   pendingActionContext: { field: string; value: string } | null = null;
@@ -53,7 +57,8 @@ export default class ProjectManagerPlugin extends Plugin {
   }
 
   onunload() {
-    // Obsidian cleans up registered commands and processors automatically
+    void this.loggerService.flush();
+    this.loggerServiceImpl.destroy();
   }
 
   /** Load settings from disk, merging with defaults for any missing keys. */
@@ -71,6 +76,11 @@ export default class ProjectManagerPlugin extends Plugin {
    * Called after layout is ready so Dataview has time to load.
    */
   private initServices() {
+    // LoggerService is initialized first so other services can use it.
+    this.loggerServiceImpl = new LoggerService(this.app, () => this.settings.logging);
+    this.loggerService = this.loggerServiceImpl;
+    void this.loggerService.cleanOldLogs();
+
     const getDataviewApi = (): DataviewApi | null => {
       type PluginsHost = { plugins?: { plugins?: Record<string, { api?: DataviewApi }> } };
       const host = this.app as unknown as PluginsHost;

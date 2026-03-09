@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import { registerPmPropertiesProcessor } from "../../src/processors/pm-properties-processor";
 import { TFile } from "../mocks/obsidian-mock";
 import type { PluginServices, RegisterProcessorFn } from "../../src/plugin-context";
@@ -724,6 +724,104 @@ describe("pm-properties processor", () => {
       getHandler()("entity: recurring-meeting-event", el, ctx);
 
       expect(el.querySelector(".pm-properties__list-suggester")).not.toBeNull();
+    });
+  });
+
+  describe("deferred re-render on initial load", () => {
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it("triggers a re-render 150ms after the first render", () => {
+      vi.useFakeTimers();
+      const file = new TFile("projects/Alpha.md");
+      // First render: stale cache — only template values, no relationship fields
+      const { services, registerProcessor, getHandler } = createMockServices(file, {
+        status: "New",
+        // engagement field is absent (template not yet patched by processFrontMatter)
+      });
+
+      registerPmPropertiesProcessor(services, registerProcessor);
+      // Append to document.body so containerEl.isConnected returns true
+      const el = document.createElement("div");
+      document.body.appendChild(el);
+      const children: Array<{ render(): void }> = [];
+      const ctx = {
+        addChild: (child: { render(): void }) => { children.push(child); },
+        sourcePath: file.path,
+      };
+      getHandler()("entity: project", el, ctx);
+
+      const child = children[0]!;
+      const renderSpy = vi.spyOn(child, "render");
+
+      // Not yet called — deferred
+      expect(renderSpy).not.toHaveBeenCalled();
+
+      // After 150ms the deferred re-render fires
+      vi.advanceTimersByTime(150);
+      expect(renderSpy).toHaveBeenCalledOnce();
+    });
+
+    it("deferred re-render does not fire again on subsequent modify-listener renders", () => {
+      vi.useFakeTimers();
+      const file = new TFile("projects/Alpha.md");
+      const { services, registerProcessor, vaultOn, getHandler } = createMockServices(file, {
+        status: "New",
+      });
+
+      registerPmPropertiesProcessor(services, registerProcessor);
+      const el = document.createElement("div");
+      const children: Array<{ onload?: () => void; onunload?: () => void; render(): void }> = [];
+      const ctx = {
+        addChild: (child: unknown) => children.push(child as typeof children[0]),
+        sourcePath: file.path,
+      };
+      getHandler()("entity: project", el, ctx);
+
+      const child = children[0]!;
+      child.onload?.();
+
+      // Let the initial deferred re-render fire — this second call to render()
+      // should NOT set up another deferred re-render (hasRenderedOnce == true).
+      vi.advanceTimersByTime(150);
+
+      const renderSpy = vi.spyOn(child, "render");
+
+      // Trigger a modify-listener render (debounced at 500ms)
+      const [[, modifyCallback]] = vaultOn.mock.calls;
+      (modifyCallback as (f: InstanceType<typeof TFile>) => void)(file);
+      vi.advanceTimersByTime(500);
+
+      // Modify-listener render happened once
+      expect(renderSpy).toHaveBeenCalledOnce();
+
+      // Wait an extra 150ms — no additional deferred re-render should fire
+      vi.advanceTimersByTime(150);
+      expect(renderSpy).toHaveBeenCalledOnce();
+    });
+
+    it("deferred re-render does not fire if container is disconnected", () => {
+      vi.useFakeTimers();
+      const file = new TFile("projects/Alpha.md");
+      const { services, registerProcessor, getHandler } = createMockServices(file, { status: "New" });
+      registerPmPropertiesProcessor(services, registerProcessor);
+
+      const el = document.createElement("div");
+      // Do NOT append el to document.body → isConnected will be false
+      const children: Array<{ render(): void }> = [];
+      const ctx = {
+        addChild: (child: { render(): void }) => { children.push(child); },
+        sourcePath: file.path,
+      };
+      getHandler()("entity: project", el, ctx);
+
+      const child = children[0]!;
+      const renderSpy = vi.spyOn(child, "render");
+
+      vi.advanceTimersByTime(150);
+      // Container not in DOM → guard fires, render not called
+      expect(renderSpy).not.toHaveBeenCalled();
     });
   });
 

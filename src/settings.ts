@@ -2,6 +2,13 @@ import { App, PluginSettingTab, Setting } from "obsidian";
 import type ProjectManagerPlugin from "./main";
 import { DEFAULT_FOLDERS, PLUGIN_ID } from "./constants";
 
+export interface LoggingSettings {
+  enabled: boolean;
+  logDirectory: string;
+  minLevel: "DEBUG" | "INFO" | "WARN" | "ERROR";
+  maxRetentionDays: number;
+}
+
 export interface FolderSettings {
   clients: string;
   engagements: string;
@@ -33,6 +40,7 @@ export interface ProjectManagerSettings {
   folders: FolderSettings;
   defaults: DefaultValueSettings;
   ui: UiPreferenceSettings;
+  logging: LoggingSettings;
 }
 
 export const DEFAULT_SETTINGS: ProjectManagerSettings = {
@@ -60,6 +68,12 @@ export const DEFAULT_SETTINGS: ProjectManagerSettings = {
     defaultTaskViewMode: "context",
     showCompletedByDefault: false,
   },
+  logging: {
+    enabled: false,
+    logDirectory: "utility/logs",
+    minLevel: "INFO",
+    maxRetentionDays: 30,
+  },
 };
 
 /**
@@ -83,6 +97,7 @@ export class ProjectManagerSettingTab extends PluginSettingTab {
     this.renderFolderSettings(containerEl);
     this.renderDefaultValueSettings(containerEl);
     this.renderUiPreferenceSettings(containerEl);
+    this.renderLoggingSettings(containerEl);
     this.renderVaultManagementSettings(containerEl);
   }
 
@@ -199,6 +214,64 @@ export class ProjectManagerSettingTab extends PluginSettingTab {
           .setValue(this.plugin.settings.ui.showCompletedByDefault)
           .onChange(async (value) => {
             this.plugin.settings.ui.showCompletedByDefault = value;
+            await this.plugin.saveSettings();
+          })
+      );
+  }
+
+  private renderLoggingSettings(containerEl: HTMLElement): void {
+    containerEl.createEl("h3", { text: "Debug Logging" });
+    containerEl.createEl("p", {
+      text: "Write plugin activity to log files in your vault for debugging purposes.",
+      cls: "setting-item-description",
+    });
+
+    new Setting(containerEl)
+      .setName("Enable logging")
+      .setDesc("Write debug log entries to vault files")
+      .addToggle((toggle) =>
+        toggle.setValue(this.plugin.settings.logging.enabled).onChange(async (value) => {
+          this.plugin.settings.logging.enabled = value;
+          await this.plugin.saveSettings();
+        })
+      );
+
+    new Setting(containerEl)
+      .setName("Log directory")
+      .setDesc("Vault-relative folder path for log files (e.g. utility/logs)")
+      .addText((text) =>
+        text
+          .setPlaceholder("utility/logs")
+          .setValue(this.plugin.settings.logging.logDirectory)
+          .onChange(async (value) => {
+            this.plugin.settings.logging.logDirectory = value.trim() || "utility/logs";
+            await this.plugin.saveSettings();
+          })
+      );
+
+    new Setting(containerEl)
+      .setName("Minimum log level")
+      .setDesc("Only log entries at or above this level")
+      .addDropdown((dd) =>
+        dd
+          .addOptions({ DEBUG: "DEBUG", INFO: "INFO", WARN: "WARN", ERROR: "ERROR" })
+          .setValue(this.plugin.settings.logging.minLevel)
+          .onChange(async (value) => {
+            this.plugin.settings.logging.minLevel = value as LoggingSettings["minLevel"];
+            await this.plugin.saveSettings();
+          })
+      );
+
+    new Setting(containerEl)
+      .setName("Log retention days")
+      .setDesc("Delete log files older than this many days (0 = keep all)")
+      .addText((text) =>
+        text
+          .setPlaceholder("30")
+          .setValue(String(this.plugin.settings.logging.maxRetentionDays))
+          .onChange(async (value) => {
+            const days = parseInt(value, 10);
+            this.plugin.settings.logging.maxRetentionDays = isNaN(days) ? 30 : Math.max(0, days);
             await this.plugin.saveSettings();
           })
       );

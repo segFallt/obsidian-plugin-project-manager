@@ -4,6 +4,7 @@ import type {
   IEntityService,
   IScaffoldService,
   ITaskParser,
+  ILoggerService,
 } from "./services/interfaces";
 import type { ProjectManagerSettings } from "./settings";
 
@@ -26,6 +27,7 @@ export interface PluginServices {
   entityService: IEntityService;
   taskParser: ITaskParser;
   scaffoldService: IScaffoldService;
+  loggerService: ILoggerService;
   /** Transient context set by action buttons so create commands can pre-populate parent fields. */
   pendingActionContext: { field: string; value: string } | null;
 }

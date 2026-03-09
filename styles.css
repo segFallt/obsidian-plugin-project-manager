@@ -153,6 +153,43 @@
   opacity: 1;
 }
 
+/* ─── Filter Chip Select ─────────────────────────────────────────────────────── */
+
+.pm-filter-chip-select {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.pm-filter-chip-select__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+/* Reuse the chip styling from pm-properties */
+.pm-filter-chip-select__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  background-color: var(--interactive-accent);
+  color: var(--text-on-accent);
+  border-radius: 12px;
+  font-size: var(--font-smaller);
+}
+
+.pm-filter-chip-select__chip-remove {
+  cursor: pointer;
+  font-weight: bold;
+  opacity: 0.7;
+  transition: opacity 0.1s;
+}
+
+.pm-filter-chip-select__chip-remove:hover {
+  opacity: 1;
+}
+
 /* ─── Inline Autocomplete ───────────────────────────────────────────────────── */
 
 .pm-autocomplete {
