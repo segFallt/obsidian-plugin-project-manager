@@ -36,6 +36,11 @@ function createMockServices(pages: Parameters<typeof createMockDataviewApi>[0] =
     app,
     queryService,
     settings: { folders: DEFAULT_FOLDERS },
+    loggerService: {
+      error: vi.fn(),
+      warn: vi.fn(),
+      info: vi.fn(),
+    },
   } as unknown as PluginServices;
 
   return {

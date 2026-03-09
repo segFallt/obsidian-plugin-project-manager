@@ -54,6 +54,12 @@ export function createMockPlugin(overrides: {
     scaffoldVault: vi.fn().mockResolvedValue(undefined),
   };
 
+  const loggerService = {
+    error: vi.fn(),
+    warn: vi.fn(),
+    info: vi.fn(),
+  };
+
   const commands: Array<{ id: string; name: string; callback: () => Promise<void> }> = [];
 
   const addCommandFn = (cmd: { id: string; name: string; callback: () => Promise<void> }) => {
@@ -67,6 +73,7 @@ export function createMockPlugin(overrides: {
     queryService: queryService as unknown as import("../../src/services/interfaces").IQueryService,
     scaffoldService: scaffoldService as unknown as import("../../src/services/interfaces").IScaffoldService,
     taskParser: {} as unknown as import("../../src/services/interfaces").ITaskParser,
+    loggerService: loggerService as unknown as import("../../src/services/interfaces").ILoggerService,
     addCommand: addCommandFn,
     pendingActionContext: null as { field: string; value: string } | null,
   };
@@ -82,6 +89,7 @@ export function createMockPlugin(overrides: {
     entityService,
     queryService,
     scaffoldService,
+    loggerService,
     app,
   };
 }

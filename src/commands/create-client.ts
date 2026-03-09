@@ -22,6 +22,7 @@ export function registerCreateClientCommand(services: PluginServices, addCommand
       try {
         await services.entityService.createClient(name);
       } catch (err) {
+        services.loggerService.error(String(err), "create-client", err);
         new Notice(`Error creating client: ${String(err)}`);
       }
     },

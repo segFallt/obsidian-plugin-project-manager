@@ -50,6 +50,7 @@ export function registerCreateRecurringMeetingEventCommand(
       try {
         await services.entityService.createRecurringMeetingEvent(meetingName);
       } catch (err) {
+        services.loggerService.error(String(err), "create-recurring-meeting-event", err);
         new Notice(`Error creating event: ${String(err)}`);
       }
     },

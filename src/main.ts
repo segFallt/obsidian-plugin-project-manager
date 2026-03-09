@@ -49,6 +49,7 @@ export default class ProjectManagerPlugin extends Plugin {
     // Verify Dataview is available (warn, but don't block load)
     this.app.workspace.onLayoutReady(() => {
       this.initServices();
+      this.loggerService.info("Plugin initialized", "main");
       registerAllCommands(this);
       registerAllProcessors(this);
     });
@@ -57,6 +58,7 @@ export default class ProjectManagerPlugin extends Plugin {
   }
 
   onunload() {
+    this.loggerService.info("Plugin unloading", "main");
     void this.loggerService.flush();
     this.loggerServiceImpl.destroy();
   }

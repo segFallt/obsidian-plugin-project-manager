@@ -49,6 +49,7 @@ export function registerConvertSingleToRecurringCommand(
       try {
         await services.entityService.convertSingleToRecurring(activeFile, recurringName);
       } catch (err) {
+        services.loggerService.error(String(err), "convert-single-to-recurring", err);
         new Notice(`Error converting meeting: ${String(err)}`);
       }
     },

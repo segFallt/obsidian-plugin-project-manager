@@ -168,24 +168,32 @@ class PmPropertiesRenderChild extends MarkdownRenderChild {
     try {
       config = parseYaml(this.source) as PmPropertiesConfig;
     } catch {
-      this.renderError("Invalid pm-properties config.");
+      const msg = "Invalid pm-properties config.";
+      this.services.loggerService.warn(msg, "pm-properties");
+      this.renderError(msg);
       return;
     }
 
     if (!config?.entity) {
-      this.renderError("pm-properties requires an `entity` field.");
+      const msg = "pm-properties requires an `entity` field.";
+      this.services.loggerService.warn(msg, "pm-properties");
+      this.renderError(msg);
       return;
     }
 
     const fields = ENTITY_FIELDS[config.entity];
     if (!fields) {
-      this.renderError(`Unknown entity type: ${config.entity}`);
+      const msg = `Unknown entity type: ${config.entity}`;
+      this.services.loggerService.warn(msg, "pm-properties");
+      this.renderError(msg);
       return;
     }
 
     const file = this.services.app.vault.getAbstractFileByPath(this.sourcePath);
     if (!(file instanceof TFile)) {
-      this.renderError("Could not resolve current file.");
+      const msg = "Could not resolve current file.";
+      this.services.loggerService.warn(msg, "pm-properties");
+      this.renderError(msg);
       return;
     }
 

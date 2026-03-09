@@ -41,6 +41,7 @@ export function registerCreateProjectNoteCommand(services: PluginServices, addCo
       try {
         await services.entityService.createProjectNote(activeFile, noteName);
       } catch (err) {
+        services.loggerService.error(String(err), "create-project-note", err);
         new Notice(`Error creating project note: ${String(err)}`);
       }
     },

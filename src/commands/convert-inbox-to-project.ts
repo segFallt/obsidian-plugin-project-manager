@@ -46,6 +46,7 @@ export function registerConvertInboxCommand(services: PluginServices, addCommand
       try {
         await services.entityService.convertInboxToProject(activeFile, projectName);
       } catch (err) {
+        services.loggerService.error(String(err), "convert-inbox-to-project", err);
         new Notice(`Error converting inbox to project: ${String(err)}`);
       }
     },

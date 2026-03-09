@@ -36,6 +36,7 @@ export function registerCreateSingleMeetingCommand(services: PluginServices, add
           result.parentName ?? undefined
         );
       } catch (err) {
+        services.loggerService.error(String(err), "create-single-meeting", err);
         new Notice(`Error creating meeting: ${String(err)}`);
       }
     },
