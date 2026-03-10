@@ -13,6 +13,7 @@ import { TaskFilterService } from "./services/task-filter-service";
 import { TaskSortService } from "./services/task-sort-service";
 import { VaultScaffoldService } from "./services/vault-scaffold-service";
 import { LoggerService } from "./services/logger-service";
+import { TestDataService } from "./services/test-data-service";
 import type {
   IQueryService,
   IEntityService,
@@ -24,6 +25,7 @@ import type {
   ICommandExecutor,
   ITaskFilterService,
   ITaskSortService,
+  ITestDataService,
 } from "./services/interfaces";
 import { registerAllCommands } from "./commands";
 import { registerAllProcessors } from "./processors";
@@ -50,6 +52,7 @@ export default class ProjectManagerPlugin extends Plugin {
   commandExecutor!: ICommandExecutor;
   filterService!: ITaskFilterService;
   sortService!: ITaskSortService;
+  testDataService!: ITestDataService;
 
   // templateService is internal — used only by EntityCreationService, not exposed to consumers.
   private templateService!: ITemplateService;
@@ -125,5 +128,11 @@ export default class ProjectManagerPlugin extends Plugin {
     this.commandExecutor = new CommandExecutor(this.app);
     this.filterService = new TaskFilterService(this.settings.folders);
     this.sortService = new TaskSortService();
+    this.testDataService = new TestDataService(
+      this.app,
+      this.settings,
+      this.templateService,
+      this.loggerService
+    );
   }
 }

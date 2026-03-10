@@ -24,6 +24,7 @@ main.ts (Plugin)
   ├── sortService: TaskSortService()
   ├── actionContext: ActionContextManager()
   ├── commandExecutor: CommandExecutor(app)
+  ├── testDataService: TestDataService(app, settings, templateService, loggerService)
   ├── commands/*   → CommandServices (narrow subset of services)
   └── processors/* → TaskProcessorServices | PropertyProcessorServices | ActionProcessorServices
 ```
@@ -102,6 +103,14 @@ Injected into `TaskProcessorServices`. Previously constructed inline inside proc
 
 ### `TaskParser` (`src/services/task-parser.ts`)
 Regex-based parser for the Tasks plugin emoji format. Does not depend on the Tasks plugin API. Used by `pm-tasks` processor when checkbox state is toggled.
+
+### `TestDataService` (`src/services/test-data-service.ts`)
+Generates realistic sample vault data for development and demo purposes. All generated files are prefixed with `[TEST]` for easy identification. Accessible via **Settings → Developer Tools**.
+
+- `generateTestData()` — creates 90 files (10 per entity type) in parent-first order so all foreign-key wikilinks reference already-created entities. Each file gets 5 tasks injected under its `# Notes` heading, with 2 past and 3 future due dates. Returns `{ totalFiles, totalTasks, errors }`.
+- `cleanTestData()` — deletes all vault files whose basename starts with `[TEST]`. Returns count deleted.
+
+Name pools and task descriptions live in `src/services/test-data-constants.ts`. Entity generation order: Clients → People, Engagements → Projects, Inbox, Single Meetings, Recurring Meetings → Project Notes, Recurring Meeting Events.
 
 ## Code Block Processors
 

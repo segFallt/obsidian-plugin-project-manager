@@ -1,4 +1,4 @@
-import { App, PluginSettingTab, Setting } from "obsidian";
+import { App, Notice, PluginSettingTab, Setting } from "obsidian";
 import type ProjectManagerPlugin from "./main";
 import { DEFAULT_FOLDERS, PLUGIN_ID } from "./constants";
 
@@ -99,6 +99,7 @@ export class ProjectManagerSettingTab extends PluginSettingTab {
     this.renderUiPreferenceSettings(containerEl);
     this.renderLoggingSettings(containerEl);
     this.renderVaultManagementSettings(containerEl);
+    this.renderDeveloperSettings(containerEl);
   }
 
   private renderFolderSettings(containerEl: HTMLElement): void {
@@ -293,5 +294,59 @@ export class ProjectManagerSettingTab extends PluginSettingTab {
             this.plugin.commandExecutor.executeCommandById(`${PLUGIN_ID}:scaffold-vault`);
           })
       );
+  }
+
+  private renderDeveloperSettings(containerEl: HTMLElement): void {
+    containerEl.createEl("h3", { text: "Developer Tools" });
+    containerEl.createEl("p", {
+      text: "Tools for development and testing. Use with caution in production vaults.",
+      cls: "setting-item-description",
+    });
+
+    new Setting(containerEl)
+      .setName("Generate test data")
+      .setDesc(
+        "Create 90 sample entities (10 per type) with 5 tasks each, all prefixed with [TEST]."
+      )
+      .addButton((btn) => {
+        btn.setButtonText("Generate Test Data").setCta();
+        btn.onClick(async () => {
+          btn.setDisabled(true);
+          btn.setButtonText("Generating...");
+          try {
+            const result = await this.plugin.testDataService.generateTestData();
+            const msg =
+              result.errors.length === 0
+                ? `Generated ${result.totalFiles} files with ${result.totalTasks} tasks.`
+                : `Generated ${result.totalFiles} files with ${result.totalTasks} tasks. ${result.errors.length} error(s) — check console.`;
+            new Notice(msg);
+          } catch (err) {
+            new Notice(`Test data generation failed: ${String(err)}`);
+          } finally {
+            btn.setDisabled(false);
+            btn.setButtonText("Generate Test Data");
+          }
+        });
+      });
+
+    new Setting(containerEl)
+      .setName("Clean test data")
+      .setDesc("Delete all files whose name begins with [TEST].")
+      .addButton((btn) => {
+        btn.setButtonText("Clean Test Data");
+        btn.onClick(async () => {
+          btn.setDisabled(true);
+          btn.setButtonText("Cleaning...");
+          try {
+            const count = await this.plugin.testDataService.cleanTestData();
+            new Notice(`Deleted ${count} test file${count === 1 ? "" : "s"}.`);
+          } catch (err) {
+            new Notice(`Clean test data failed: ${String(err)}`);
+          } finally {
+            btn.setDisabled(false);
+            btn.setButtonText("Clean Test Data");
+          }
+        });
+      });
   }
 }
