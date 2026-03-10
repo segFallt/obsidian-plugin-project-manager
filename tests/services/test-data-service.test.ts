@@ -79,15 +79,15 @@ describe("TestDataService", () => {
       expect(result.errors).toHaveLength(0);
     });
 
-    it("all created file names include [TEST] prefix (except recurring event date files)", async () => {
+    it("all created file names include TEST - prefix (except recurring event date files)", async () => {
       const { svc, createdPaths } = createService();
       await svc.generateTestData();
-      // Recurring meeting events are named by date (e.g. 2026-03-10.md), not with [TEST] prefix.
-      // All other entity types use the [TEST] prefix.
+      // Recurring meeting events are named by date (e.g. 2026-03-10.md), not with TEST - prefix.
+      // All other entity types use the TEST - prefix.
       const nonEventPaths = createdPaths.filter((p) => !p.startsWith("meetings/recurring-events/"));
       for (const path of nonEventPaths) {
         const basename = path.split("/").pop() ?? "";
-        expect(basename).toMatch(/^\[TEST\]/);
+        expect(basename).toMatch(/^TEST -/);
       }
     });
 
@@ -227,7 +227,7 @@ describe("TestDataService", () => {
       const engagementFmWrites = fmWrites.filter((w) => w.path.startsWith("engagements/"));
       for (const { fm } of engagementFmWrites) {
         const client = String(fm.client ?? "");
-        expect(client).toMatch(/^\[\[.*\[TEST\].*\]\]$/);
+        expect(client).toMatch(/^\[\[TEST -.*\]\]$/);
       }
     });
 
@@ -249,7 +249,7 @@ describe("TestDataService", () => {
       );
       for (const { fm } of projectFmWrites) {
         const engagement = String(fm.engagement ?? "");
-        expect(engagement).toMatch(/^\[\[.*\[TEST\].*\]\]$/);
+        expect(engagement).toMatch(/^\[\[TEST -.*\]\]$/);
       }
     });
 
@@ -269,7 +269,7 @@ describe("TestDataService", () => {
       const personFmWrites = fmWrites.filter((w) => w.path.startsWith("people/"));
       for (const { fm } of personFmWrites) {
         const client = String(fm.client ?? "");
-        expect(client).toMatch(/^\[\[.*\[TEST\].*\]\]$/);
+        expect(client).toMatch(/^\[\[TEST -.*\]\]$/);
       }
     });
 
@@ -289,7 +289,7 @@ describe("TestDataService", () => {
       const inboxFmWrites = fmWrites.filter((w) => w.path.startsWith("inbox/"));
       for (const { fm } of inboxFmWrites) {
         const engagement = String(fm.engagement ?? "");
-        expect(engagement).toMatch(/^\[\[.*\[TEST\].*\]\]$/);
+        expect(engagement).toMatch(/^\[\[TEST -.*\]\]$/);
       }
     });
 
@@ -309,7 +309,7 @@ describe("TestDataService", () => {
       const noteFmWrites = fmWrites.filter((w) => w.path.startsWith("projects/notes/"));
       for (const { fm } of noteFmWrites) {
         const project = String(fm.relatedProject ?? "");
-        expect(project).toMatch(/^\[\[.*\[TEST\].*\]\]$/);
+        expect(project).toMatch(/^\[\[TEST -.*\]\]$/);
       }
     });
 
@@ -329,7 +329,7 @@ describe("TestDataService", () => {
       const eventFmWrites = fmWrites.filter((w) => w.path.startsWith("meetings/recurring-events/"));
       for (const { fm } of eventFmWrites) {
         const meeting = String(fm["recurring-meeting"] ?? "");
-        expect(meeting).toMatch(/^\[\[.*\[TEST\].*\]\]$/);
+        expect(meeting).toMatch(/^\[\[TEST -.*\]\]$/);
       }
     });
 
@@ -366,11 +366,11 @@ describe("TestDataService", () => {
   });
 
   describe("cleanTestData", () => {
-    it("deletes all [TEST] prefixed files and returns count", async () => {
+    it("deletes all TEST - prefixed files and returns count", async () => {
       const testFiles = [
-        { path: "clients/[TEST] Acme.md", content: "" },
-        { path: "projects/[TEST] Alpha.md", content: "" },
-        { path: "engagements/[TEST] Beta.md", content: "" },
+        { path: "clients/TEST - Acme.md", content: "" },
+        { path: "projects/TEST - Alpha.md", content: "" },
+        { path: "engagements/TEST - Beta.md", content: "" },
         { path: "people/Real Person.md", content: "" },
       ];
       const app = createMockApp(testFiles);
@@ -393,6 +393,39 @@ describe("TestDataService", () => {
       expect(deletedPaths).not.toContain("people/Real Person.md");
     });
 
+    it("deletes date-named event files inside TEST - prefixed folders", async () => {
+      const testFiles = [
+        { path: "meetings/recurring-events/TEST - Weekly Sync/2026-03-10.md", content: "" },
+        { path: "meetings/recurring-events/TEST - Daily Standup/2026-03-10.md", content: "" },
+        { path: "meetings/recurring-events/Real Meeting/2026-03-10.md", content: "" },
+      ];
+      const app = createMockApp(testFiles);
+      const deletedPaths: string[] = [];
+      app.vault.delete = vi.fn(async (file: TFile) => {
+        deletedPaths.push(file.path);
+      }) as typeof app.vault.delete;
+
+      const svc = new TestDataService(
+        app as unknown as import("obsidian").App,
+        structuredClone(DEFAULT_SETTINGS),
+        new TemplateService(),
+        createMockLogger()
+      );
+
+      const count = await svc.cleanTestData();
+
+      expect(count).toBe(2);
+      expect(deletedPaths).toContain(
+        "meetings/recurring-events/TEST - Weekly Sync/2026-03-10.md"
+      );
+      expect(deletedPaths).toContain(
+        "meetings/recurring-events/TEST - Daily Standup/2026-03-10.md"
+      );
+      expect(deletedPaths).not.toContain(
+        "meetings/recurring-events/Real Meeting/2026-03-10.md"
+      );
+    });
+
     it("returns 0 when no test files exist", async () => {
       const app = createMockApp([{ path: "clients/Real Client.md", content: "" }]);
       const svc = new TestDataService(
@@ -405,11 +438,11 @@ describe("TestDataService", () => {
       expect(count).toBe(0);
     });
 
-    it("only deletes files whose basename starts with [TEST]", async () => {
+    it("only deletes files whose basename starts with TEST -", async () => {
       const testFiles = [
-        { path: "clients/[TEST] Foo.md", content: "" },
+        { path: "clients/TEST - Foo.md", content: "" },
         { path: "clients/Not A Test.md", content: "" },
-        { path: "projects/[TEST] Bar.md", content: "" },
+        { path: "projects/TEST - Bar.md", content: "" },
       ];
       const app = createMockApp(testFiles);
       const deletedPaths: string[] = [];
@@ -426,8 +459,8 @@ describe("TestDataService", () => {
 
       await svc.cleanTestData();
 
-      expect(deletedPaths).toContain("clients/[TEST] Foo.md");
-      expect(deletedPaths).toContain("projects/[TEST] Bar.md");
+      expect(deletedPaths).toContain("clients/TEST - Foo.md");
+      expect(deletedPaths).toContain("projects/TEST - Bar.md");
       expect(deletedPaths).not.toContain("clients/Not A Test.md");
     });
 

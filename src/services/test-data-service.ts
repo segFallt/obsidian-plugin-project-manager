@@ -34,7 +34,7 @@ interface ProjectRecord {
 /**
  * Generates test/demo data across all entity types.
  *
- * All generated files are prefixed with TEST_PREFIX ("[TEST]") so they can be
+ * All generated files are prefixed with TEST_PREFIX ("TEST -") so they can be
  * identified and removed without touching real vault content.
  *
  * Generation order is parent-first to ensure foreign-key relationships are valid:
@@ -90,7 +90,7 @@ export class TestDataService implements ITestDataService {
   async cleanTestData(): Promise<number> {
     const testFiles = this.app.vault
       .getMarkdownFiles()
-      .filter((f) => f.basename.startsWith(TEST_PREFIX));
+      .filter((f) => f.basename.startsWith(TEST_PREFIX) || f.path.includes(`/${TEST_PREFIX}`));
 
     for (const file of testFiles) {
       try {

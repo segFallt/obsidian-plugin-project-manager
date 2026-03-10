@@ -3,7 +3,7 @@
  * All generated entities use TEST_PREFIX for easy identification and cleanup.
  */
 
-export const TEST_PREFIX = "[TEST]";
+export const TEST_PREFIX = "TEST -";
 
 export const CLIENT_NAMES = [
   "Acme Corporation",

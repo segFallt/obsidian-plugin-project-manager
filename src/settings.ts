@@ -306,7 +306,7 @@ export class ProjectManagerSettingTab extends PluginSettingTab {
     new Setting(containerEl)
       .setName("Generate test data")
       .setDesc(
-        "Create 90 sample entities (10 per type) with 5 tasks each, all prefixed with [TEST]."
+        "Create 90 sample entities (10 per type) with 5 tasks each, all prefixed with TEST -."
       )
       .addButton((btn) => {
         btn.setButtonText("Generate Test Data").setCta();
@@ -331,7 +331,7 @@ export class ProjectManagerSettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName("Clean test data")
-      .setDesc("Delete all files whose name begins with [TEST].")
+      .setDesc("Delete all files whose name begins with TEST -.")
       .addButton((btn) => {
         btn.setButtonText("Clean Test Data");
         btn.onClick(async () => {
