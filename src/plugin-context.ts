@@ -9,6 +9,7 @@ import type {
   ICommandExecutor,
   ITaskFilterService,
   ITaskSortService,
+  ITestDataService,
 } from "./services/interfaces";
 import type { ProjectManagerSettings } from "./settings";
 
@@ -80,6 +81,7 @@ export interface PluginServices {
   sortService: ITaskSortService;
   actionContext: IActionContextManager;
   commandExecutor: ICommandExecutor;
+  testDataService: ITestDataService;
 }
 
 /** Bound version of Plugin.addCommand, passed from the wiring layer. */

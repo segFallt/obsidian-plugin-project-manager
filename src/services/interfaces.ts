@@ -133,3 +133,17 @@ export interface ILoggerService {
   flush(): Promise<void>;
   cleanOldLogs(): Promise<void>;
 }
+
+/** Summary returned by TestDataService.generateTestData(). */
+export interface TestDataResult {
+  totalFiles: number;
+  totalTasks: number;
+  errors: string[];
+}
+
+export interface ITestDataService {
+  /** Generate test entities across all entity types. */
+  generateTestData(): Promise<TestDataResult>;
+  /** Delete all files whose basename starts with [TEST]. Returns count deleted. */
+  cleanTestData(): Promise<number>;
+}
