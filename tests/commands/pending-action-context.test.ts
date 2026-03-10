@@ -1,8 +1,8 @@
 /**
- * Tests for the pendingActionContext mechanism — Phase D.
+ * Tests for the ActionContextManager mechanism — Phase D.
  *
  * Verifies that create-engagement, create-project, and create-person each:
- *  - Read and immediately clear services.pendingActionContext
+ *  - Consume (read and clear) services.actionContext
  *  - Pass the context value as preselectedParent to EntityCreationModal
  *  - Fall back to undefined preselectedParent when context is absent or for a different field
  */
@@ -30,14 +30,11 @@ beforeEach(async () => {
 
 // ─── create-engagement ────────────────────────────────────────────────────────
 
-describe("create-engagement: pendingActionContext", () => {
-  it("passes preselectedParent when pendingActionContext.field === 'client'", async () => {
+describe("create-engagement: actionContext", () => {
+  it("passes preselectedParent when actionContext.field === 'client'", async () => {
     const MockCtor = await getMockCtor();
-    const { services, addCommand, commands } = createMockPlugin();
-    (services as unknown as Record<string, unknown>).pendingActionContext = {
-      field: "client",
-      value: "Acme Corp",
-    };
+    const { services, addCommand, commands, actionContext } = createMockPlugin();
+    actionContext.set({ field: "client", value: "Acme Corp" });
 
     registerCreateEngagementCommand(services, addCommand);
     await runCommand(commands, "create-engagement");
@@ -53,23 +50,20 @@ describe("create-engagement: pendingActionContext", () => {
     );
   });
 
-  it("clears pendingActionContext after reading it", async () => {
-    const { services, addCommand, commands } = createMockPlugin();
-    (services as unknown as Record<string, unknown>).pendingActionContext = {
-      field: "client",
-      value: "Acme Corp",
-    };
+  it("clears actionContext after reading it", async () => {
+    const { services, addCommand, commands, actionContext } = createMockPlugin();
+    actionContext.set({ field: "client", value: "Acme Corp" });
 
     registerCreateEngagementCommand(services, addCommand);
     await runCommand(commands, "create-engagement");
 
-    expect(services.pendingActionContext).toBeNull();
+    expect(actionContext.consume()).toBeNull();
   });
 
-  it("passes undefined preselectedParent when pendingActionContext is null", async () => {
+  it("passes undefined preselectedParent when actionContext is empty", async () => {
     const MockCtor = await getMockCtor();
     const { services, addCommand, commands } = createMockPlugin();
-    (services as unknown as Record<string, unknown>).pendingActionContext = null;
+    // No context set — actionContext starts empty
 
     registerCreateEngagementCommand(services, addCommand);
     await runCommand(commands, "create-engagement");
@@ -86,11 +80,8 @@ describe("create-engagement: pendingActionContext", () => {
 
   it("passes undefined preselectedParent when context field is for a different entity", async () => {
     const MockCtor = await getMockCtor();
-    const { services, addCommand, commands } = createMockPlugin();
-    (services as unknown as Record<string, unknown>).pendingActionContext = {
-      field: "engagement", // wrong field for create-engagement
-      value: "Some Engagement",
-    };
+    const { services, addCommand, commands, actionContext } = createMockPlugin();
+    actionContext.set({ field: "engagement", value: "Some Engagement" }); // wrong field for create-engagement
 
     registerCreateEngagementCommand(services, addCommand);
     await runCommand(commands, "create-engagement");
@@ -108,14 +99,11 @@ describe("create-engagement: pendingActionContext", () => {
 
 // ─── create-project ────────────────────────────────────────────────────────────
 
-describe("create-project: pendingActionContext", () => {
-  it("passes preselectedParent when pendingActionContext.field === 'engagement'", async () => {
+describe("create-project: actionContext", () => {
+  it("passes preselectedParent when actionContext.field === 'engagement'", async () => {
     const MockCtor = await getMockCtor();
-    const { services, addCommand, commands } = createMockPlugin();
-    (services as unknown as Record<string, unknown>).pendingActionContext = {
-      field: "engagement",
-      value: "Q1 2026",
-    };
+    const { services, addCommand, commands, actionContext } = createMockPlugin();
+    actionContext.set({ field: "engagement", value: "Q1 2026" });
 
     registerCreateProjectCommand(services, addCommand);
     await runCommand(commands, "create-project");
@@ -130,26 +118,20 @@ describe("create-project: pendingActionContext", () => {
     );
   });
 
-  it("clears pendingActionContext after reading it", async () => {
-    const { services, addCommand, commands } = createMockPlugin();
-    (services as unknown as Record<string, unknown>).pendingActionContext = {
-      field: "engagement",
-      value: "Q1 2026",
-    };
+  it("clears actionContext after reading it", async () => {
+    const { services, addCommand, commands, actionContext } = createMockPlugin();
+    actionContext.set({ field: "engagement", value: "Q1 2026" });
 
     registerCreateProjectCommand(services, addCommand);
     await runCommand(commands, "create-project");
 
-    expect(services.pendingActionContext).toBeNull();
+    expect(actionContext.consume()).toBeNull();
   });
 
   it("passes undefined preselectedParent when context field is for a different entity", async () => {
     const MockCtor = await getMockCtor();
-    const { services, addCommand, commands } = createMockPlugin();
-    (services as unknown as Record<string, unknown>).pendingActionContext = {
-      field: "client", // wrong field for create-project
-      value: "Acme",
-    };
+    const { services, addCommand, commands, actionContext } = createMockPlugin();
+    actionContext.set({ field: "client", value: "Acme" }); // wrong field for create-project
 
     registerCreateProjectCommand(services, addCommand);
     await runCommand(commands, "create-project");
@@ -167,14 +149,11 @@ describe("create-project: pendingActionContext", () => {
 
 // ─── create-person ─────────────────────────────────────────────────────────────
 
-describe("create-person: pendingActionContext", () => {
-  it("passes preselectedParent when pendingActionContext.field === 'client'", async () => {
+describe("create-person: actionContext", () => {
+  it("passes preselectedParent when actionContext.field === 'client'", async () => {
     const MockCtor = await getMockCtor();
-    const { services, addCommand, commands } = createMockPlugin();
-    (services as unknown as Record<string, unknown>).pendingActionContext = {
-      field: "client",
-      value: "Acme Corp",
-    };
+    const { services, addCommand, commands, actionContext } = createMockPlugin();
+    actionContext.set({ field: "client", value: "Acme Corp" });
 
     registerCreatePersonCommand(services, addCommand);
     await runCommand(commands, "create-person");
@@ -189,16 +168,13 @@ describe("create-person: pendingActionContext", () => {
     );
   });
 
-  it("clears pendingActionContext after reading it", async () => {
-    const { services, addCommand, commands } = createMockPlugin();
-    (services as unknown as Record<string, unknown>).pendingActionContext = {
-      field: "client",
-      value: "Acme Corp",
-    };
+  it("clears actionContext after reading it", async () => {
+    const { services, addCommand, commands, actionContext } = createMockPlugin();
+    actionContext.set({ field: "client", value: "Acme Corp" });
 
     registerCreatePersonCommand(services, addCommand);
     await runCommand(commands, "create-person");
 
-    expect(services.pendingActionContext).toBeNull();
+    expect(actionContext.consume()).toBeNull();
   });
 });

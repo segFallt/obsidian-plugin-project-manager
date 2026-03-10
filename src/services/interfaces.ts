@@ -39,7 +39,7 @@ export interface IQueryService {
   getRecurringMeetingEvents(meetingName: string): DataviewPage[];
 }
 
-export interface IEntityService {
+export interface IEntityCreationService {
   createClient(name: string): Promise<TFile>;
   createEngagement(name: string, clientName?: string): Promise<TFile>;
   createProject(name: string, engagementName?: string): Promise<TFile>;
@@ -48,11 +48,31 @@ export interface IEntityService {
   createSingleMeeting(name: string, engagementName?: string): Promise<TFile>;
   createRecurringMeeting(name: string, engagementName?: string): Promise<TFile>;
   createProjectNote(projectFile: TFile, noteName: string): Promise<TFile>;
-  convertInboxToProject(inboxFile: TFile, projectName?: string): Promise<TFile>;
-  convertSingleToRecurring(singleFile: TFile, recurringName?: string): Promise<TFile>;
   createRecurringMeetingEvent(meetingName: string, options?: { date?: string; attendees?: string[]; notesContent?: string; open?: boolean }): Promise<TFile>;
   validateResult(result: CreateFileResult): void;
 }
+
+export interface IEntityConversionService {
+  convertInboxToProject(inboxFile: TFile, projectName?: string): Promise<TFile>;
+  convertSingleToRecurring(singleFile: TFile, recurringName?: string): Promise<TFile>;
+}
+
+export interface INavigationService {
+  openFile(file: TFile): Promise<void>;
+}
+
+export interface ICommandExecutor {
+  executeCommandById(commandId: string): void;
+}
+
+export interface IActionContextManager {
+  get(): { field: string; value: string } | null;
+  set(context: { field: string; value: string }): void;
+  consume(): { field: string; value: string } | null;
+}
+
+/** Facade interface combining creation and conversion. Kept for backward compatibility. */
+export interface IEntityService extends IEntityCreationService, IEntityConversionService {}
 
 export interface ITemplateService {
   getTemplate(type: EntityType): string;

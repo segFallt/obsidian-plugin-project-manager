@@ -1,5 +1,8 @@
 import { describe, it, expect, vi } from "vitest";
 import { EntityService } from "../../src/services/entity-service";
+import { EntityCreationService } from "../../src/services/entity-creation-service";
+import { EntityConversionService } from "../../src/services/entity-conversion-service";
+import { NavigationService } from "../../src/services/navigation-service";
 import { TemplateService } from "../../src/services/template-service";
 import { createMockApp, TFile } from "../mocks/app-mock";
 import { DEFAULT_SETTINGS } from "../../src/settings";
@@ -7,11 +10,11 @@ import { DEFAULT_SETTINGS } from "../../src/settings";
 function createEntityService(existingFiles: Parameters<typeof createMockApp>[0] = []) {
   const app = createMockApp(existingFiles);
   const templates = new TemplateService();
-  const svc = new EntityService(
-    app as unknown as import("obsidian").App,
-    DEFAULT_SETTINGS,
-    templates
-  );
+  const obsidianApp = app as unknown as import("obsidian").App;
+  const navigation = new NavigationService(obsidianApp);
+  const creation = new EntityCreationService(obsidianApp, DEFAULT_SETTINGS, templates, navigation);
+  const conversion = new EntityConversionService(obsidianApp, DEFAULT_SETTINGS, creation);
+  const svc = new EntityService(creation, conversion);
   return { svc, app };
 }
 

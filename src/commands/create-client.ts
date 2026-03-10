@@ -1,12 +1,13 @@
 import { Notice } from "obsidian";
-import type { PluginServices, AddCommandFn } from "../plugin-context";
+import type { CommandServices, AddCommandFn } from "../plugin-context";
 import { InputModal } from "../ui/modals/input-modal";
+import { MSG } from "../constants";
 
 /**
  * PM: Create Client
  * Prompts for a name and creates a new client note.
  */
-export function registerCreateClientCommand(services: PluginServices, addCommand: AddCommandFn): void {
+export function registerCreateClientCommand(services: CommandServices, addCommand: AddCommandFn): void {
   addCommand({
     id: "create-client",
     name: "PM: Create Client",
@@ -15,7 +16,7 @@ export function registerCreateClientCommand(services: PluginServices, addCommand
       const name = await modal.prompt();
 
       if (!name) {
-        new Notice("No name provided.");
+        new Notice(MSG.NO_NAME);
         return;
       }
 

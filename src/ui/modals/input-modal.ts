@@ -1,4 +1,5 @@
 import { App, Modal } from "obsidian";
+import { FOCUS_DELAY_MS } from "../../constants";
 
 /**
  * A simple text input modal with Enter to submit.
@@ -71,7 +72,7 @@ export class InputModal extends Modal {
     setTimeout(() => {
       this.inputEl.focus();
       this.inputEl.select();
-    }, 10);
+    }, FOCUS_DELAY_MS);
   }
 
   onClose(): void {

@@ -1,12 +1,11 @@
 import { MarkdownRenderChild, TFile, TAbstractFile, parseYaml } from "obsidian";
 import type { MarkdownPostProcessorContext } from "obsidian";
-import type { PluginServices, RegisterProcessorFn } from "../plugin-context";
-import type { PmPropertiesConfig, EntityType, DataviewPage } from "../types";
-import { ENTITY_TAGS, CLIENT_STATUSES, ENGAGEMENT_STATUSES, PROJECT_STATUSES, TEXTAREA_ROWS, DEBOUNCE_MS } from "../constants";
+import type { PropertyProcessorServices, RegisterProcessorFn } from "../plugin-context";
+import type { PmPropertiesConfig } from "../types";
+import { DEBOUNCE_MS, CODEBLOCK, CSS_CLS, CSS_VAR } from "../constants";
 
-import { normalizeToName } from "../utils/link-utils";
-import { PropertySuggest } from "../ui/components/property-suggest";
-import type { AutocompleteOption } from "../ui/components/property-suggest";
+import { ENTITY_FIELDS } from "./entity-field-config";
+import { renderField } from "./property-field-renderers";
 
 /**
  * Renders interactive frontmatter property editors.
@@ -20,97 +19,15 @@ import type { AutocompleteOption } from "../ui/components/property-suggest";
  * ```
  */
 export function registerPmPropertiesProcessor(
-  services: PluginServices,
+  services: PropertyProcessorServices,
   registerProcessor: RegisterProcessorFn
 ): void {
-  registerProcessor("pm-properties", (source, el, ctx: MarkdownPostProcessorContext) => {
+  registerProcessor(CODEBLOCK.PM_PROPERTIES, (source, el, ctx: MarkdownPostProcessorContext) => {
     const child = new PmPropertiesRenderChild(el, source, ctx.sourcePath, services);
     ctx.addChild(child);
     child.render();
   });
 }
-
-// ─── Field descriptors ────────────────────────────────────────────────────
-
-type FieldType =
-  | "text"
-  | "textarea"
-  | "date"
-  | "datetime"
-  | "select"
-  | "multi-select"
-  | "suggester"
-  | "suggester-by-folder"
-  | "list-suggester";
-
-interface FieldDescriptor {
-  key: string;
-  label: string;
-  type: FieldType;
-  options?: string[];
-  /** For suggester fields: the Dataview tag to query */
-  entityTag?: string;
-}
-
-const ENTITY_FIELDS: Record<EntityType, FieldDescriptor[]> = {
-  client: [
-    { key: "status", label: "Status", type: "select", options: [...CLIENT_STATUSES] },
-    { key: "contact-name", label: "Contact Name", type: "text" },
-    { key: "contact-email", label: "Contact Email", type: "text" },
-    { key: "contact-phone", label: "Contact Phone", type: "text" },
-    { key: "notes", label: "Notes", type: "textarea" },
-  ],
-  engagement: [
-    { key: "client", label: "Client", type: "suggester", entityTag: ENTITY_TAGS.client },
-    { key: "status", label: "Status", type: "select", options: [...ENGAGEMENT_STATUSES] },
-    { key: "start-date", label: "Start Date", type: "date" },
-    { key: "end-date", label: "End Date", type: "date" },
-    { key: "description", label: "Description", type: "textarea" },
-  ],
-  project: [
-    { key: "engagement", label: "Engagement", type: "suggester", entityTag: ENTITY_TAGS.engagement },
-    { key: "start-date", label: "Start Date", type: "date" },
-    { key: "end-date", label: "End Date", type: "date" },
-    { key: "priority", label: "Priority", type: "select", options: ["1", "2", "3", "4", "5"] },
-    {
-      key: "status",
-      label: "Status",
-      type: "select",
-      options: [...PROJECT_STATUSES],
-    },
-  ],
-  person: [
-    { key: "client", label: "Client", type: "suggester", entityTag: ENTITY_TAGS.client },
-    { key: "status", label: "Status", type: "select", options: [...CLIENT_STATUSES] },
-    { key: "title", label: "Title", type: "text" },
-    { key: "reports-to", label: "Reports To", type: "suggester", entityTag: ENTITY_TAGS.person },
-    { key: "notes", label: "Notes", type: "textarea" },
-  ],
-  inbox: [
-    { key: "engagement", label: "Engagement", type: "suggester", entityTag: ENTITY_TAGS.engagement },
-    { key: "status", label: "Status", type: "select", options: ["Active", "Complete"] },
-  ],
-  "single-meeting": [
-    { key: "engagement", label: "Engagement", type: "suggester", entityTag: ENTITY_TAGS.engagement },
-    { key: "date", label: "Date", type: "datetime" },
-    { key: "attendees", label: "Attendees", type: "list-suggester", entityTag: ENTITY_TAGS.person },
-  ],
-  "recurring-meeting": [
-    { key: "engagement", label: "Engagement", type: "suggester", entityTag: ENTITY_TAGS.engagement },
-    { key: "start-date", label: "Start Date", type: "date" },
-    { key: "end-date", label: "End Date", type: "date" },
-    { key: "default-attendees", label: "Default Attendees", type: "list-suggester", entityTag: ENTITY_TAGS.person },
-  ],
-  "recurring-meeting-event": [
-    { key: "recurring-meeting", label: "Recurring Meeting", type: "suggester-by-folder" },
-    { key: "date", label: "Date", type: "datetime" },
-    { key: "attendees", label: "Attendees", type: "list-suggester", entityTag: ENTITY_TAGS.person },
-  ],
-  "project-note": [
-    { key: "relatedProject", label: "Related Project", type: "text" },
-    { key: "engagement", label: "Engagement", type: "suggester", entityTag: ENTITY_TAGS.engagement },
-  ],
-};
 
 // ─── Render child ──────────────────────────────────────────────────────────
 
@@ -119,7 +36,7 @@ const MAX_CACHE_RETRIES = 3;
 class PmPropertiesRenderChild extends MarkdownRenderChild {
   private debounceTimer: ReturnType<typeof setTimeout> | null = null;
   private isUpdating = false;
-  private autocompletes: PropertySuggest[] = [];
+  private autocompletes: Array<{ destroy(): void }> = [];
   private cacheRetryCount = 0;
   private hasRenderedOnce = false;
 
@@ -127,7 +44,7 @@ class PmPropertiesRenderChild extends MarkdownRenderChild {
     containerEl: HTMLElement,
     private readonly source: string,
     private readonly sourcePath: string,
-    private readonly services: PluginServices
+    private readonly services: PropertyProcessorServices
   ) {
     super(containerEl);
   }
@@ -224,7 +141,12 @@ class PmPropertiesRenderChild extends MarkdownRenderChild {
     const form = this.containerEl.createDiv({ cls: "pm-properties" });
 
     for (const field of fields) {
-      this.renderField(form, field, fm, file);
+      renderField(form, field, fm, file, {
+        services: this.services,
+        sourcePath: this.sourcePath,
+        onAutocomplete: (ac) => this.autocompletes.push(ac),
+        updateFm: (f, key, value) => { void this.updateFm(f, key, value); },
+      });
     }
 
     // On first render, schedule a one-off deferred re-render to pick up any
@@ -238,282 +160,6 @@ class PmPropertiesRenderChild extends MarkdownRenderChild {
         }
       }, DEBOUNCE_MS.PROPERTIES_INITIAL);
     }
-  }
-
-  private renderField(
-    container: HTMLElement,
-    field: FieldDescriptor,
-    fm: Record<string, unknown>,
-    file: TFile
-  ): void {
-    const row = container.createDiv({ cls: "pm-properties__row" });
-    // Unique ID ties the <label> to its control for screen-reader accessibility.
-    const fieldId = `pm-prop-${this.sourcePath.replace(/[^a-z0-9]/gi, "-")}-${field.key}`;
-    const label = row.createEl("label", { text: field.label, cls: "pm-properties__label" });
-    label.setAttribute("for", fieldId);
-
-    const rawValue = fm[field.key];
-
-    switch (field.type) {
-      case "text":
-        this.renderTextInput(row, field, String(rawValue ?? ""), file, fieldId);
-        break;
-      case "textarea":
-        this.renderTextarea(row, field, String(rawValue ?? ""), file, fieldId);
-        break;
-      case "date":
-      case "datetime":
-        this.renderDateInput(row, field, String(rawValue ?? ""), file, fieldId);
-        break;
-      case "select":
-        this.renderSelect(row, field, String(rawValue ?? ""), file, fieldId);
-        break;
-      case "suggester":
-        this.renderSuggester(row, field, rawValue, file, fieldId);
-        break;
-      case "suggester-by-folder":
-        this.renderSuggesterByFolder(row, field, rawValue, file, fieldId);
-        break;
-      case "list-suggester":
-        this.renderListSuggester(row, field, rawValue, file, fieldId);
-        break;
-    }
-  }
-
-  private renderTextInput(
-    row: HTMLElement,
-    field: FieldDescriptor,
-    value: string,
-    file: TFile,
-    fieldId: string
-  ): void {
-    const input = row.createEl("input", {
-      type: "text",
-      value,
-      cls: "pm-properties__input",
-    });
-    input.id = fieldId;
-    input.addEventListener("change", () => {
-      void this.updateFm(file, field.key, input.value.trim() || null);
-    });
-  }
-
-  private renderTextarea(
-    row: HTMLElement,
-    field: FieldDescriptor,
-    value: string,
-    file: TFile,
-    fieldId: string
-  ): void {
-    const textarea = row.createEl("textarea", {
-      cls: "pm-properties__textarea",
-    });
-    textarea.id = fieldId;
-    textarea.value = value;
-    textarea.rows = TEXTAREA_ROWS;
-    textarea.style.width = "100%";
-    textarea.addEventListener("change", () => {
-      void this.updateFm(file, field.key, textarea.value.trim() || null);
-    });
-  }
-
-  private renderDateInput(
-    row: HTMLElement,
-    field: FieldDescriptor,
-    value: string,
-    file: TFile,
-    fieldId: string
-  ): void {
-    const input = row.createEl("input", {
-      type: field.type === "datetime" ? "datetime-local" : "date",
-      value: value.substring(0, field.type === "datetime" ? 16 : 10),
-      cls: "pm-properties__input",
-    });
-    input.id = fieldId;
-    input.addEventListener("change", () => {
-      void this.updateFm(file, field.key, input.value || null);
-    });
-  }
-
-  private renderSelect(
-    row: HTMLElement,
-    field: FieldDescriptor,
-    currentValue: string,
-    file: TFile,
-    fieldId: string
-  ): void {
-    const select = row.createEl("select", { cls: "pm-properties__select dropdown" });
-    select.id = fieldId;
-
-    for (const opt of field.options ?? []) {
-      const option = select.createEl("option", { text: opt, value: opt });
-      if (opt === currentValue) option.selected = true;
-    }
-
-    select.addEventListener("change", () => {
-      void this.updateFm(file, field.key, select.value);
-    });
-  }
-
-  // ─── Enriched display helpers ─────────────────────────────────────────────
-
-  /**
-   * Returns "EntityName (ClientName)" for engagement/person entities that have a
-   * client link, otherwise returns the plain file name.
-   */
-  private getEnrichedDisplayText(page: DataviewPage, entityTag: string): string {
-    if (entityTag === ENTITY_TAGS.engagement || entityTag === ENTITY_TAGS.person) {
-      const clientName = normalizeToName(page.client);
-      if (clientName) return `${page.file.name} (${clientName})`;
-    }
-    return page.file.name;
-  }
-
-  /**
-   * Looks up a page by name and returns its enriched display text.
-   * Falls back to the plain name if no matching page is found.
-   */
-  private getEnrichedDisplayForName(name: string, entityTag: string): string {
-    if (entityTag === ENTITY_TAGS.engagement || entityTag === ENTITY_TAGS.person) {
-      const pages = this.services.queryService.getActiveEntitiesByTag(entityTag);
-      const page = pages.find((p) => p.file.name === name);
-      if (page) return this.getEnrichedDisplayText(page, entityTag);
-    }
-    return name;
-  }
-
-  private renderSuggester(
-    row: HTMLElement,
-    field: FieldDescriptor,
-    rawValue: unknown,
-    file: TFile,
-    fieldId: string
-  ): void {
-    if (!field.entityTag) return;
-    const { entityTag } = field;
-
-    const pages = this.services.queryService.getActiveEntitiesByTag(entityTag);
-    const currentName = normalizeToName(rawValue);
-
-    const options: AutocompleteOption[] = pages
-      .sort((a, b) => a.file.name.localeCompare(b.file.name))
-      .map((page) => ({
-        value: page.file.name,
-        displayText: this.getEnrichedDisplayText(page, entityTag),
-      }));
-
-    const ac = new PropertySuggest(row, this.services.app, options, currentName, {
-      placeholder: `Select ${field.label}...`,
-      ariaLabel: field.label,
-      onSelect: (option) => {
-        void this.updateFm(file, field.key, `[[${option.value}]]`);
-      },
-      onClear: () => {
-        void this.updateFm(file, field.key, null);
-      },
-    });
-    ac.inputEl.id = fieldId;
-    this.autocompletes.push(ac);
-  }
-
-  private renderSuggesterByFolder(
-    row: HTMLElement,
-    field: FieldDescriptor,
-    rawValue: unknown,
-    file: TFile,
-    fieldId: string
-  ): void {
-    const pages = this.services.queryService.getActiveRecurringMeetings();
-    const currentName = normalizeToName(rawValue);
-
-    const options: AutocompleteOption[] = pages
-      .sort((a, b) => a.file.name.localeCompare(b.file.name))
-      .map((page) => ({
-        value: page.file.name,
-        displayText: page.file.name,
-      }));
-
-    const ac = new PropertySuggest(row, this.services.app, options, currentName, {
-      placeholder: `Select ${field.label}...`,
-      ariaLabel: field.label,
-      onSelect: (option) => {
-        void this.updateFm(file, field.key, `[[${option.value}]]`);
-      },
-      onClear: () => {
-        void this.updateFm(file, field.key, null);
-      },
-    });
-    ac.inputEl.id = fieldId;
-    this.autocompletes.push(ac);
-  }
-
-  private renderListSuggester(
-    row: HTMLElement,
-    field: FieldDescriptor,
-    rawValue: unknown,
-    file: TFile,
-    _fieldId: string
-  ): void {
-    if (!field.entityTag) return;
-    const { entityTag } = field;
-
-    const pages = this.services.queryService.getActiveEntitiesByTag(entityTag);
-
-    const currentItems = this.parseListValue(rawValue);
-
-    const wrapper = row.createDiv({ cls: "pm-properties__list-suggester" });
-    const chipsEl = wrapper.createDiv({ cls: "pm-properties__chips" });
-
-    const renderChips = (items: string[]) => {
-      chipsEl.empty();
-      for (const item of items) {
-        const chip = chipsEl.createSpan({ cls: "pm-properties__chip" });
-        chip.createSpan({ text: this.getEnrichedDisplayForName(item, entityTag) });
-        const remove = chip.createSpan({ text: "×", cls: "pm-properties__chip-remove" });
-        remove.addEventListener("click", () => {
-          const newItems = items.filter((i) => i !== item);
-          void this.updateFm(file, field.key, newItems.map((i) => `[[${i}]]`));
-          renderChips(newItems);
-        });
-      }
-    };
-
-    renderChips(currentItems);
-
-    const options: AutocompleteOption[] = pages
-      .sort((a, b) => a.file.name.localeCompare(b.file.name))
-      .map((page) => ({
-        value: page.file.name,
-        displayText: this.getEnrichedDisplayText(page, entityTag),
-      }));
-
-    const ac = new PropertySuggest(wrapper, this.services.app, options, null, {
-      placeholder: `+ Add ${field.label}...`,
-      ariaLabel: `Add ${field.label}`,
-      includeNone: false,
-      onSelect: (option) => {
-        const existing = this.parseListValue(
-          this.services.app.metadataCache.getFileCache(file)?.frontmatter?.[field.key]
-        );
-        if (!existing.includes(option.value)) {
-          const newItems = [...existing, option.value];
-          void this.updateFm(file, field.key, newItems.map((i) => `[[${i}]]`));
-          renderChips(newItems);
-        }
-        ac.clear();
-        ac.reopen();
-      },
-    });
-    this.autocompletes.push(ac);
-  }
-
-  // ─── Helpers ──────────────────────────────────────────────────────────────
-
-  private parseListValue(raw: unknown): string[] {
-    if (!raw) return [];
-    if (Array.isArray(raw)) return raw.map((i) => normalizeToName(i) ?? String(i)).filter(Boolean);
-    const name = normalizeToName(raw);
-    return name ? [name] : [];
   }
 
   private async updateFm(
@@ -539,8 +185,8 @@ class PmPropertiesRenderChild extends MarkdownRenderChild {
   }
 
   private renderError(message: string): void {
-    const div = this.containerEl.createDiv({ cls: "pm-error" });
-    div.style.color = "var(--text-error)";
+    const div = this.containerEl.createDiv({ cls: CSS_CLS.PM_ERROR });
+    div.style.color = CSS_VAR.TEXT_ERROR;
     div.textContent = message;
   }
 }

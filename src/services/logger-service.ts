@@ -1,7 +1,7 @@
 import type { App } from "obsidian";
 import type { LoggingSettings } from "../settings";
 import type { ILoggerService } from "./interfaces";
-import { LOG_LEVELS, LOG_FLUSH_INTERVAL_MS, LOG_FILE_SUFFIX } from "../constants";
+import { LOG_LEVELS, LOG_FLUSH_INTERVAL_MS, LOG_FILE_SUFFIX, ISO_DATE_LENGTH } from "../constants";
 
 type LogLevel = keyof typeof LOG_LEVELS;
 
@@ -62,7 +62,7 @@ export class LoggerService implements ILoggerService {
     const entries = this.buffer.splice(0);
     const byDate = new Map<string, LogEntry[]>();
     for (const entry of entries) {
-      const date = entry.timestamp.substring(0, 10); // YYYY-MM-DD
+      const date = entry.timestamp.substring(0, ISO_DATE_LENGTH); // YYYY-MM-DD
       const bucket = byDate.get(date) ?? [];
       bucket.push(entry);
       byDate.set(date, bucket);
@@ -97,13 +97,13 @@ export class LoggerService implements ILoggerService {
 
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - settings.maxRetentionDays);
-    const cutoffISO = cutoffDate.toISOString().substring(0, 10);
+    const cutoffISO = cutoffDate.toISOString().substring(0, ISO_DATE_LENGTH);
 
     for (const filePath of listing.files) {
       const fileName = filePath.split("/").pop() ?? "";
       if (!fileName.endsWith(LOG_FILE_SUFFIX)) continue;
       // File name format: YYYY-MM-DD-pm.log
-      const dateStr = fileName.substring(0, 10);
+      const dateStr = fileName.substring(0, ISO_DATE_LENGTH);
       if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr) && dateStr < cutoffISO) {
         try {
           await adapter.remove(filePath);

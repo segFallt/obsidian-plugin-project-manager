@@ -4,6 +4,7 @@ import { createMockApp } from "../mocks/app-mock";
 import { Notice } from "../mocks/obsidian-mock";
 import type { TFile } from "../mocks/obsidian-mock";
 import type { PluginServices, AddCommandFn } from "../../src/plugin-context";
+import { ActionContextManager } from "../../src/services/action-context-manager";
 
 /**
  * Creates a minimal mock plugin with spy-based services.
@@ -60,6 +61,23 @@ export function createMockPlugin(overrides: {
     info: vi.fn(),
   };
 
+  const actionContext = new ActionContextManager();
+
+  const commandExecutor = {
+    executeCommandById: vi.fn(),
+  };
+
+  const filterService = {
+    filterByContext: vi.fn().mockReturnValue([]),
+    filterByDueDate: vi.fn().mockReturnValue([]),
+    filterByMeetingDate: vi.fn().mockReturnValue([]),
+    filterByInboxStatus: vi.fn().mockReturnValue([]),
+  };
+
+  const sortService = {
+    sort: vi.fn().mockReturnValue([]),
+  };
+
   const commands: Array<{ id: string; name: string; callback: () => Promise<void> }> = [];
 
   const addCommandFn = (cmd: { id: string; name: string; callback: () => Promise<void> }) => {
@@ -74,8 +92,11 @@ export function createMockPlugin(overrides: {
     scaffoldService: scaffoldService as unknown as import("../../src/services/interfaces").IScaffoldService,
     taskParser: {} as unknown as import("../../src/services/interfaces").ITaskParser,
     loggerService: loggerService as unknown as import("../../src/services/interfaces").ILoggerService,
+    actionContext: actionContext as import("../../src/services/interfaces").IActionContextManager,
+    commandExecutor: commandExecutor as unknown as import("../../src/services/interfaces").ICommandExecutor,
+    filterService: filterService as unknown as import("../../src/services/interfaces").ITaskFilterService,
+    sortService: sortService as unknown as import("../../src/services/interfaces").ITaskSortService,
     addCommand: addCommandFn,
-    pendingActionContext: null as { field: string; value: string } | null,
   };
 
   return {
@@ -90,6 +111,7 @@ export function createMockPlugin(overrides: {
     queryService,
     scaffoldService,
     loggerService,
+    actionContext,
     app,
   };
 }

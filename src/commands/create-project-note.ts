@@ -1,13 +1,14 @@
 import { Notice } from "obsidian";
-import type { PluginServices, AddCommandFn } from "../plugin-context";
+import type { CommandServices, AddCommandFn } from "../plugin-context";
 import { InputModal } from "../ui/modals/input-modal";
+import { MSG } from "../constants";
 
 /**
  * PM: Create Project Note
  * Context: the active file must be a project with a `notesDirectory` frontmatter property.
  * Prompts for a note name, then creates the note in the project's notes directory.
  */
-export function registerCreateProjectNoteCommand(services: PluginServices, addCommand: AddCommandFn): void {
+export function registerCreateProjectNoteCommand(services: CommandServices, addCommand: AddCommandFn): void {
   addCommand({
     id: "create-project-note",
     name: "PM: Create Project Note",
@@ -34,7 +35,7 @@ export function registerCreateProjectNoteCommand(services: PluginServices, addCo
       const noteName = await modal.prompt();
 
       if (!noteName) {
-        new Notice("No name provided.");
+        new Notice(MSG.NO_NAME);
         return;
       }
 

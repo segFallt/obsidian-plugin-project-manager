@@ -2,8 +2,15 @@ import { Notice, Plugin } from "obsidian";
 import { ProjectManagerSettings, DEFAULT_SETTINGS, ProjectManagerSettingTab } from "./settings";
 import { QueryService } from "./services/query-service";
 import { EntityService } from "./services/entity-service";
+import { EntityCreationService } from "./services/entity-creation-service";
+import { EntityConversionService } from "./services/entity-conversion-service";
+import { NavigationService } from "./services/navigation-service";
+import { ActionContextManager } from "./services/action-context-manager";
+import { CommandExecutor } from "./services/command-executor";
 import { TemplateService } from "./services/template-service";
 import { TaskParser } from "./services/task-parser";
+import { TaskFilterService } from "./services/task-filter-service";
+import { TaskSortService } from "./services/task-sort-service";
 import { VaultScaffoldService } from "./services/vault-scaffold-service";
 import { LoggerService } from "./services/logger-service";
 import type {
@@ -13,6 +20,10 @@ import type {
   ITaskParser,
   IScaffoldService,
   ILoggerService,
+  IActionContextManager,
+  ICommandExecutor,
+  ITaskFilterService,
+  ITaskSortService,
 } from "./services/interfaces";
 import { registerAllCommands } from "./commands";
 import { registerAllProcessors } from "./processors";
@@ -35,13 +46,14 @@ export default class ProjectManagerPlugin extends Plugin {
   taskParser!: ITaskParser;
   scaffoldService!: IScaffoldService;
   loggerService!: ILoggerService;
+  actionContext!: IActionContextManager;
+  commandExecutor!: ICommandExecutor;
+  filterService!: ITaskFilterService;
+  sortService!: ITaskSortService;
 
-  // templateService is internal — used only by EntityService, not exposed to commands/processors.
+  // templateService is internal — used only by EntityCreationService, not exposed to consumers.
   private templateService!: ITemplateService;
   private loggerServiceImpl!: LoggerService;
-
-  /** Transient context set by action buttons; consumed and cleared by create commands. */
-  pendingActionContext: { field: string; value: string } | null = null;
 
   async onload() {
     await this.loadSettings();
@@ -101,8 +113,17 @@ export default class ProjectManagerPlugin extends Plugin {
 
     this.templateService = new TemplateService();
     this.queryService = new QueryService(this.app, getDataviewApi, this.settings.folders);
-    this.entityService = new EntityService(this.app, this.settings, this.templateService);
+
+    const navigationService = new NavigationService(this.app);
+    const creationService = new EntityCreationService(this.app, this.settings, this.templateService, navigationService);
+    const conversionService = new EntityConversionService(this.app, this.settings, creationService);
+    this.entityService = new EntityService(creationService, conversionService);
+
     this.taskParser = new TaskParser();
     this.scaffoldService = new VaultScaffoldService(this.app, this.settings);
+    this.actionContext = new ActionContextManager();
+    this.commandExecutor = new CommandExecutor(this.app);
+    this.filterService = new TaskFilterService(this.settings.folders);
+    this.sortService = new TaskSortService();
   }
 }

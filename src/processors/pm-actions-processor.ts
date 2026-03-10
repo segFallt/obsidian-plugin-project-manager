@@ -1,8 +1,9 @@
 import { MarkdownRenderChild, parseYaml } from "obsidian";
 import type { MarkdownPostProcessorContext } from "obsidian";
-import type { PluginServices, RegisterProcessorFn } from "../plugin-context";
+import type { ActionProcessorServices, RegisterProcessorFn } from "../plugin-context";
 import type { PmActionsConfig } from "../types";
 import { renderActionButtons } from "./shared-renderers";
+import { CODEBLOCK, CSS_CLS } from "../constants";
 
 /**
  * Renders action buttons that execute plugin commands.
@@ -24,10 +25,10 @@ import { renderActionButtons } from "./shared-renderers";
  * Custom commandId can override the default mapping.
  */
 export function registerPmActionsProcessor(
-  services: PluginServices,
+  services: ActionProcessorServices,
   registerProcessor: RegisterProcessorFn
 ): void {
-  registerProcessor("pm-actions", (source, el, ctx: MarkdownPostProcessorContext) => {
+  registerProcessor(CODEBLOCK.PM_ACTIONS, (source, el, ctx: MarkdownPostProcessorContext) => {
     const child = new PmActionsRenderChild(el, source, ctx.sourcePath, services);
     ctx.addChild(child);
     child.render();
@@ -39,7 +40,7 @@ class PmActionsRenderChild extends MarkdownRenderChild {
     containerEl: HTMLElement,
     private readonly source: string,
     private readonly sourcePath: string,
-    private readonly services: PluginServices
+    private readonly services: ActionProcessorServices
   ) {
     super(containerEl);
   }
@@ -52,7 +53,7 @@ class PmActionsRenderChild extends MarkdownRenderChild {
       config = parseYaml(this.source) as PmActionsConfig;
     } catch {
       this.containerEl
-        .createDiv({ cls: "pm-error" })
+        .createDiv({ cls: CSS_CLS.PM_ERROR })
         .setText("Invalid pm-actions config.");
       return;
     }

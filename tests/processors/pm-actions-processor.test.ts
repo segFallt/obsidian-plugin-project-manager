@@ -1,13 +1,17 @@
 import { describe, it, expect, vi } from "vitest";
 import { registerPmActionsProcessor } from "../../src/processors/pm-actions-processor";
-import type { PluginServices, RegisterProcessorFn } from "../../src/plugin-context";
+import type { ActionProcessorServices, RegisterProcessorFn } from "../../src/plugin-context";
+import { ActionContextManager } from "../../src/services/action-context-manager";
 
 function createMockServices() {
   const app = {
-    commands: {
-      executeCommandById: vi.fn(),
+    vault: {
+      getAbstractFileByPath: vi.fn().mockReturnValue(null),
     },
   };
+
+  const commandExecutorFn = vi.fn();
+  const actionContext = new ActionContextManager();
 
   let registeredHandler: ((source: string, el: HTMLElement, ctx: { addChild: (child: { render: () => void }) => void }) => void) | null = null;
 
@@ -17,18 +21,24 @@ function createMockServices() {
 
   const services = {
     app,
-  } as unknown as PluginServices;
+    settings: {},
+    loggerService: { error: vi.fn(), warn: vi.fn() },
+    commandExecutor: { executeCommandById: commandExecutorFn },
+    actionContext,
+  } as unknown as ActionProcessorServices;
 
   return {
     services,
     registerProcessor,
     app,
+    commandExecutorFn,
+    actionContext,
     getHandler: () => registeredHandler!,
   };
 }
 
 function render(source: string) {
-  const { services, registerProcessor, app, getHandler } = createMockServices();
+  const { services, registerProcessor, commandExecutorFn, actionContext, getHandler } = createMockServices();
   registerPmActionsProcessor(services, registerProcessor);
 
   const el = document.createElement("div");
@@ -42,7 +52,7 @@ function render(source: string) {
 
   getHandler()(source, el, ctx);
 
-  return { el, app, children };
+  return { el, commandExecutorFn, actionContext, children };
 }
 
 describe("pm-actions processor", () => {
@@ -105,10 +115,10 @@ describe("pm-actions processor", () => {
   - type: create-client
     label: New Client`;
 
-    const { el, app } = render(source);
+    const { el, commandExecutorFn } = render(source);
     const btn = el.querySelector("button");
     btn?.click();
-    expect(app.commands.executeCommandById).toHaveBeenCalledWith("project-manager:create-client");
+    expect(commandExecutorFn).toHaveBeenCalledWith("project-manager:create-client");
   });
 
   it("executes custom commandId when provided", () => {
@@ -117,10 +127,10 @@ describe("pm-actions processor", () => {
     label: Custom
     commandId: some-plugin:custom-command`;
 
-    const { el, app } = render(source);
+    const { el, commandExecutorFn } = render(source);
     const btn = el.querySelector("button");
     btn?.click();
-    expect(app.commands.executeCommandById).toHaveBeenCalledWith("some-plugin:custom-command");
+    expect(commandExecutorFn).toHaveBeenCalledWith("some-plugin:custom-command");
   });
 
   it("renders nothing when actions array is empty", () => {

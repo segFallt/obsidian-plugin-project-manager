@@ -12,15 +12,35 @@ Layer 1: Services & Utils   (pure logic, Dataview API wrapper, independently tes
 
 ```
 main.ts (Plugin)
-  ├── settings: PluginSettings
   ├── queryService: QueryService(app, getDataviewApi)
-  ├── entityService: EntityService(app, settings, templateService)
+  ├── navigationService: NavigationService(app)
   ├── templateService: TemplateService()
-  ├── taskParser: TaskParser()
+  ├── creationService: EntityCreationService(app, settings, templateService, navigationService)
+  ├── conversionService: EntityConversionService(app, settings, creationService)
+  ├── entityService: EntityService(creationService, conversionService)  ← thin facade
   ├── scaffoldService: VaultScaffoldService(app, settings)
-  ├── commands/*   → queryService, entityService, modals
-  └── processors/* → queryService, taskParser, UI components
+  ├── taskParser: TaskParser()
+  ├── filterService: TaskFilterService(settings.folders)
+  ├── sortService: TaskSortService()
+  ├── actionContext: ActionContextManager()
+  ├── commandExecutor: CommandExecutor(app)
+  ├── commands/*   → CommandServices (narrow subset of services)
+  └── processors/* → TaskProcessorServices | PropertyProcessorServices | ActionProcessorServices
 ```
+
+## Narrow Interface Pattern
+
+Consumers declare only the services they actually need:
+
+| Consumer type         | Interface                   | Key fields                                          |
+|-----------------------|-----------------------------|-----------------------------------------------------|
+| Command handlers      | `CommandServices`           | app, settings, queryService, entityService, actionContext |
+| Task processors       | `TaskProcessorServices`     | app, settings, queryService, taskParser, filterService, sortService |
+| Property processors   | `PropertyProcessorServices` | app, settings, queryService, loggerService          |
+| Action processors     | `ActionProcessorServices`   | app, settings, commandExecutor, actionContext        |
+| Scaffold commands     | `ScaffoldCommandServices`   | scaffoldService, loggerService                      |
+
+`PluginServices` (the superset) is used only in `main.ts` for wiring and in test helpers.
 
 ## Data Flow
 
@@ -34,33 +54,54 @@ Command (orchestration) ─── or ─── Code Block Processor (on render)
 Modal (user input)               QueryService (wraps Dataview API)
     │                                   │
     ▼                                   ▼
-EntityService                    TaskParser (for task views)
+EntityCreationService            TaskParser (for task views)
     │                                   │
     ▼                                   ▼
-Vault API (create/modify)        UI Components (DOM rendering)
+NavigationService                UI Components (DOM rendering)
+    │
+    ▼
+Vault API (create/modify)
 ```
 
 ## Key Services
 
+### `EntityCreationService` (`src/services/entity-creation-service.ts`)
+Handles all vault file creation. Reads templates from `TemplateService`, resolves path conflicts, creates folders, sets frontmatter via `processFrontMatter`. Delegates navigation to `NavigationService`.
+
+**Wikilink frontmatter convention**: Fields that hold wikilinks (e.g. `engagement`, `client`, `convertedFrom`) are never baked into template content via string substitution. Instead they are always set via `processFrontMatter` after file creation. This avoids YAML parsing issues caused by unquoted `[[...]]` sequences in raw template text.
+
+### `EntityConversionService` (`src/services/entity-conversion-service.ts`)
+Handles `convertInboxToProject()` and `convertSingleToRecurring()`. Delegates entity creation to `EntityCreationService`.
+
+### `EntityService` (`src/services/entity-service.ts`)
+Thin facade combining `EntityCreationService` and `EntityConversionService`. Maintains backward compatibility for consumers that need both capabilities.
+
+### `NavigationService` (`src/services/navigation-service.ts`)
+Encapsulates `workspace.getLeaf().openFile(file)`. Extracted from `EntityService` to satisfy SRP and enable isolated testing.
+
+### `ActionContextManager` (`src/services/action-context-manager.ts`)
+Replaces the former mutable `pendingActionContext` field on `PluginServices`. Provides `set()`, `get()`, and `consume()` (read-and-clear) for passing a pre-selected entity context from an action button click to the subsequent command invocation.
+
+### `CommandExecutor` (`src/services/command-executor.ts`)
+Encapsulates the unsafe `(app as any).commands.executeCommandById()` cast. Provides a typed `ICommandExecutor` interface so consumers never touch the internal Obsidian command API directly.
+
 ### `QueryService` (`src/services/query-service.ts`)
-Wraps the Dataview plugin API. Never imported by the plugin directly — obtained via `app.plugins.plugins['dataview'].api`. Returns typed arrays of `DataviewPage` objects.
+Wraps the Dataview plugin API. Returns typed arrays of `DataviewPage` objects.
 
 Key methods:
 - `getActiveEntitiesByTag(tag)` — powers entity suggesters in modals
 - `getLinkedEntities(folder, tag, property, file)` — powers pm-table relationships
-- `getClientFromEngagementLink(link)` — traverses engagement → client chain
-- `getParentProject(file)` — resolves project note → parent project
-
-### `EntityService` (`src/services/entity-service.ts`)
-Handles all vault file creation. Reads templates from `TemplateService`, resolves path conflicts, creates folders, sets frontmatter via `processFrontMatter`.
-
-**Wikilink frontmatter convention**: Fields that hold wikilinks (e.g. `engagement`, `client`, `convertedFrom`) are never baked into template content via string substitution. Instead they are always set via `processFrontMatter` after file creation. This avoids YAML parsing issues caused by unquoted `[[...]]` sequences in raw template text.
+- `getProjectNotes(file)` — resolves project-note files linked to a project
+- `getActiveRecurringMeetings()` — folders-based query for recurring meeting files
 
 ### `TemplateService` (`src/services/template-service.ts`)
-Returns embedded template strings for all 8 entity types. Templates use `{{variable}}` placeholders processed by `processTemplate()`. Templates include `pm-*` code blocks instead of Meta Bind syntax.
+Returns template strings for all 9 entity types via a static lookup map. Template strings are defined as named exports in `src/services/template-constants.ts`. Templates use `{{variable}}` placeholders processed by `processTemplate()`.
+
+### `TaskFilterService` / `TaskSortService` (`src/services/task-filter-service.ts`, `task-sort-service.ts`)
+Injected into `TaskProcessorServices`. Previously constructed inline inside processors (DIP violation); now wired in `main.ts` and injected.
 
 ### `TaskParser` (`src/services/task-parser.ts`)
-Regex-based parser for the Tasks plugin emoji format. Does not depend on the Tasks plugin API. Used by `pm-tasks` processor when checkbox state is toggled (to update the source markdown).
+Regex-based parser for the Tasks plugin emoji format. Does not depend on the Tasks plugin API. Used by `pm-tasks` processor when checkbox state is toggled.
 
 ## Code Block Processors
 
@@ -72,16 +113,37 @@ All processors follow the same pattern:
 5. Error boundary wraps the render call
 
 ### `pm-properties`
-Reads the current file's frontmatter via `metadataCache`. Renders form fields (inputs, selects, textareas, entity suggesters). Changes persist immediately via `processFrontMatter`. Auto-refreshes on vault `modify` events filtered to the current file (500ms debounce). An `isUpdating` flag suppresses re-render during the component's own writes to prevent infinite loops.
+Reads the current file's frontmatter via `metadataCache`. Renders form fields via `renderField()` (in `property-field-renderers.ts`). Field type configuration lives in `entity-field-config.ts`. Changes persist immediately via `processFrontMatter`. Auto-refreshes on vault `modify` events (500ms debounce). An `isUpdating` flag suppresses re-render during the component's own writes to prevent infinite loops.
 
 ### `pm-table`
 Delegates to `QueryService` for data. Renders an HTML `<table>` with Obsidian-style internal links.
 
 ### `pm-actions`
-Maps `type` strings to plugin command IDs. Calls `app.commands.executeCommandById()` on click.
+Maps `type` strings to plugin command IDs. Calls `commandExecutor.executeCommandById()` on click. Sets `actionContext` when an action button carries a `context` field, so the invoked command can skip its selection modal and use the pre-selected value.
 
 ### `pm-tasks` (dashboard mode)
-Filter state is a plain JS object local to the render child — no frontmatter writes. Queries all tasks from `dv.pages()`, applies multi-stage filtering, renders by context/date/priority/tag. Checkbox toggle reads the source file, updates the task line, and writes back via `vault.modify()`.
+Filter state is a plain JS object local to the render child — no frontmatter writes. Queries all tasks from `dv.pages()`, applies multi-stage filtering via `TaskFilterService`, then delegates to one of four view renderers in `src/processors/dashboard-views/`:
+
+- `ContextViewRenderer` — groups by context (Project / Person / Meeting / Inbox / etc.)
+- `DateViewRenderer` — groups into Overdue / Today / Tomorrow / This Week / Upcoming / No Date
+- `PriorityViewRenderer` — groups by priority level 1–5
+- `TagViewRenderer` — groups by tag, Untagged last
+
+Checkbox toggle reads the source file, updates the task line, and writes back via `vault.modify()`.
+
+## Architecture Decision Notes
+
+### Why a facade for `EntityService`?
+`EntityService` is retained as a single entry point for backward-compatibility with tests and consumers that need both creation and conversion. Internally it delegates to `EntityCreationService` and `EntityConversionService` so each sub-service has a single responsibility.
+
+### Why narrow interfaces instead of a service locator?
+Narrow interfaces (ISP) make dependencies explicit at the call site, improve IDE discoverability, and allow unit tests to provide only the subset of services a processor actually needs — reducing mock boilerplate.
+
+### Why `ActionContextManager` instead of mutable state?
+The former `pendingActionContext` on `PluginServices` was a shared mutable field — fragile under concurrent commands and invisible to type-checking. `ActionContextManager.consume()` provides explicit, one-shot read-and-clear semantics, making the data flow auditable.
+
+### Why `CommandExecutor`?
+`app.commands.executeCommandById` is not in Obsidian's public TypeScript types, requiring an unsafe cast at every call site. `CommandExecutor` isolates the cast to one place and exposes a typed `ICommandExecutor` interface.
 
 ## Vault Folder Structure
 
@@ -102,7 +164,7 @@ utility/
 views/             ← scaffolded view files
 ```
 
-The scaffold service also creates `.base` files (Obsidian Bases) alongside `.md` view files. `.base` files define named table views with filters, column order, and sort rules. The `.md` view files embed these via `![[Base File.base#view_name]]` and include `pm-actions` buttons for entity creation. Obsidian Bases is a dependency for the entity list views.
+The scaffold service also creates `.base` files (Obsidian Bases) alongside `.md` view files. `.base` file content is defined in `src/services/scaffold-constants.ts`. `.md` view files embed these via `![[Base File.base#view_name]]` and include `pm-actions` buttons for entity creation. Obsidian Bases is a dependency for the entity list views.
 
 ## Dataview Dependency
 

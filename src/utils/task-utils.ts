@@ -1,6 +1,7 @@
-import type { DataviewTask, TaskContext, TaskPriority } from "../types";
+import type { DataviewTask, DataviewApi, TaskContext, TaskPriority } from "../types";
 import { PRIORITY_EMOJI, CONTEXT, DEFAULT_PRIORITY } from "../constants";
 import type { FolderSettings } from "../settings";
+import { normalizeToName } from "./link-utils";
 
 /**
  * Determines the context category of a task based on its file path.
@@ -51,6 +52,22 @@ export function extractEmojiDate(text: string, emoji: string): string | null {
   const rest = text.substring(idx + emoji.length).trim();
   const match = rest.match(/(\d{4}-\d{2}-\d{2})/);
   return match ? match[1] : null;
+}
+
+/**
+ * Resolves the parent project path for a project-note file using Dataview.
+ * Returns null if the file has no relatedProject front-matter link.
+ */
+export function getParentProjectPath(
+  filePath: string,
+  dv: DataviewApi,
+  projectsFolder: string
+): string | null {
+  const page = dv.page(filePath);
+  if (!page?.relatedProject) return null;
+  const projectName = normalizeToName(page.relatedProject);
+  if (!projectName) return null;
+  return `${projectsFolder}/${projectName}.md`;
 }
 
 /**
