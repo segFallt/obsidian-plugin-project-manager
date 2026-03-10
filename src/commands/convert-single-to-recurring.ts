@@ -1,5 +1,5 @@
 import { Notice } from "obsidian";
-import type { PluginServices, AddCommandFn } from "../plugin-context";
+import type { CommandServices, AddCommandFn } from "../plugin-context";
 import { InputModal } from "../ui/modals/input-modal";
 
 /**
@@ -11,7 +11,7 @@ import { InputModal } from "../ui/modals/input-modal";
  * - Deletes the original single meeting note
  */
 export function registerConvertSingleToRecurringCommand(
-  services: PluginServices,
+  services: CommandServices,
   addCommand: AddCommandFn
 ): void {
   addCommand({

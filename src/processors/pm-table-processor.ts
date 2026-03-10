@@ -1,8 +1,9 @@
 import { MarkdownRenderChild, parseYaml } from "obsidian";
 import type { MarkdownPostProcessorContext } from "obsidian";
-import type { PluginServices, RegisterProcessorFn } from "../plugin-context";
+import type { PropertyProcessorServices, RegisterProcessorFn } from "../plugin-context";
 import type { PmTableConfig } from "../types";
 import { renderEntityTable } from "./shared-renderers";
+import { CODEBLOCK, CSS_CLS, CSS_VAR } from "../constants";
 
 /**
  * Renders entity relationship tables in note context.
@@ -20,10 +21,10 @@ import { renderEntityTable } from "./shared-renderers";
  * ```
  */
 export function registerPmTableProcessor(
-  services: PluginServices,
+  services: PropertyProcessorServices,
   registerProcessor: RegisterProcessorFn
 ): void {
-  registerProcessor("pm-table", (source, el, ctx: MarkdownPostProcessorContext) => {
+  registerProcessor(CODEBLOCK.PM_TABLE, (source, el, ctx: MarkdownPostProcessorContext) => {
     const child = new PmTableRenderChild(el, source, ctx.sourcePath, services);
     ctx.addChild(child);
     child.render();
@@ -35,7 +36,7 @@ class PmTableRenderChild extends MarkdownRenderChild {
     containerEl: HTMLElement,
     private readonly source: string,
     private readonly sourcePath: string,
-    private readonly services: PluginServices
+    private readonly services: PropertyProcessorServices
   ) {
     super(containerEl);
   }
@@ -69,8 +70,8 @@ class PmTableRenderChild extends MarkdownRenderChild {
   }
 
   private renderError(message: string): void {
-    const div = this.containerEl.createDiv({ cls: "pm-error" });
-    div.style.color = "var(--text-error)";
+    const div = this.containerEl.createDiv({ cls: CSS_CLS.PM_ERROR });
+    div.style.color = CSS_VAR.TEXT_ERROR;
     div.style.padding = "8px";
     div.textContent = message;
   }

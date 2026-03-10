@@ -1,4 +1,4 @@
-import type { PluginServices } from "../plugin-context";
+import type { TaskProcessorServices } from "../plugin-context";
 import type {
   PmTasksConfig,
   DataviewApi,
@@ -13,19 +13,16 @@ import type {
   TaskContext,
   TaskPriority,
 } from "../types";
-import { PRIORITY_DISPLAY, ENTITY_TAGS, TASK_CONTEXTS, DEFAULT_TASK_VIEW_STATUSES, ISO_DATE_LENGTH, WEEK_DAYS, DEBOUNCE_MS } from "../constants";
-import { todayISO } from "../utils/date-utils";
-import {
-  getTaskContext,
-  getTaskPriority,
-  addDays,
-} from "../utils/task-utils";
-import { normalizeToName } from "../utils/link-utils";
+import { ENTITY_TAGS, TASK_CONTEXTS, DEFAULT_TASK_VIEW_STATUSES, DEBOUNCE_MS, CSS_CLS, CSS_VAR, MSG } from "../constants";
 import type { ITaskFilterService } from "../services/interfaces";
 import type { ITaskSortService } from "../services/interfaces";
 import { createSelect, renderCollapsible } from "./dom-helpers";
 import type { TaskListRenderer } from "./task-list-renderer";
 import { FilterChipSelect } from "../ui/components/filter-chip-select";
+import { ContextViewRenderer } from "./dashboard-views/context-view-renderer";
+import { DateViewRenderer } from "./dashboard-views/date-view-renderer";
+import { PriorityViewRenderer } from "./dashboard-views/priority-view-renderer";
+import { TagViewRenderer } from "./dashboard-views/tag-view-renderer";
 
 /**
  * Renders the full dashboard mode: filter controls and all four view renderers
@@ -36,17 +33,26 @@ export class DashboardView {
   private outputEl!: HTMLElement;
   private debounceTimer: ReturnType<typeof setTimeout> | null = null;
   private chipSelects: FilterChipSelect[] = [];
+  private readonly contextRenderer: ContextViewRenderer;
+  private readonly dateRenderer: DateViewRenderer;
+  private readonly priorityRenderer: PriorityViewRenderer;
+  private readonly tagRenderer: TagViewRenderer;
 
   constructor(
     private readonly containerEl: HTMLElement,
     private readonly config: PmTasksConfig,
-    private readonly services: PluginServices,
+    private readonly services: TaskProcessorServices,
     private readonly filterService: ITaskFilterService,
     private readonly sortService: ITaskSortService,
     private readonly renderer: TaskListRenderer,
     private readonly savedFilters?: SavedDashboardFilters | null,
     private readonly onSaveFilters?: ((filters: SavedDashboardFilters | null) => void) | null
-  ) {}
+  ) {
+    this.contextRenderer = new ContextViewRenderer(services, sortService, renderer);
+    this.dateRenderer = new DateViewRenderer(sortService, renderer);
+    this.priorityRenderer = new PriorityViewRenderer(sortService, renderer);
+    this.tagRenderer = new TagViewRenderer(sortService, renderer);
+  }
 
   render(): void {
     this.initFilters();
@@ -346,7 +352,7 @@ export class DashboardView {
 
     const dv = this.services.queryService.dv();
     if (!dv) {
-      outputEl.createEl("em", { text: "Dataview is not available. Install and enable the Dataview plugin." });
+      outputEl.createEl("em", { text: MSG.DATAVIEW_UNAVAILABLE });
       return;
     }
 
@@ -368,23 +374,23 @@ export class DashboardView {
 
       switch (f.viewMode) {
         case "context":
-          this.renderByContext(outputEl, allTasks, f, dv);
+          this.contextRenderer.render(outputEl, allTasks, f, dv);
           break;
         case "date":
-          this.renderByDate(outputEl, allTasks, f);
+          this.dateRenderer.render(outputEl, allTasks, f);
           break;
         case "priority":
-          this.renderByPriority(outputEl, allTasks, f);
+          this.priorityRenderer.render(outputEl, allTasks, f);
           break;
         case "tag":
-          this.renderByTag(outputEl, allTasks, f);
+          this.tagRenderer.render(outputEl, allTasks, f);
           break;
       }
     } catch (err) {
       this.services.loggerService.error(String(err), "pm-tasks-dashboard", err);
       outputEl.empty();
-      const errEl = outputEl.createDiv({ cls: "pm-error" });
-      errEl.style.color = "var(--text-error)";
+      const errEl = outputEl.createDiv({ cls: CSS_CLS.PM_ERROR });
+      errEl.style.color = CSS_VAR.TEXT_ERROR;
       errEl.textContent = `pm-tasks error: ${String(err)}`;
     }
   }
@@ -428,165 +434,4 @@ export class DashboardView {
     return pages.flatMap((p) => [...p.file.tasks]);
   }
 
-  // ─── View mode renderers ─────────────────────────────────────────────────
-
-  private renderByContext(
-    container: HTMLElement,
-    tasks: DataviewTask[],
-    f: DashboardFilters,
-    dv: DataviewApi
-  ): void {
-    const allContexts: TaskContext[] = [...TASK_CONTEXTS];
-
-    for (const context of allContexts) {
-      const ctxTasks = tasks.filter((t) => getTaskContext(t, this.services.settings.folders) === context);
-      if (ctxTasks.length === 0) continue;
-
-      container.createEl("h2", { text: context });
-
-      // Group by file (project notes → under parent project)
-      const byFile: Record<string, DataviewTask[]> = {};
-      const projectNoteMapping: Record<string, Record<string, DataviewTask[]>> = {};
-
-      for (const task of ctxTasks) {
-        const filePath = task.link.path;
-
-        if (context === "Project") {
-          const parentProjectPath = this.getParentProjectPath(filePath, dv);
-          if (parentProjectPath) {
-            if (!byFile[parentProjectPath]) {
-              byFile[parentProjectPath] = [];
-            }
-            if (!projectNoteMapping[parentProjectPath]) {
-              projectNoteMapping[parentProjectPath] = {};
-            }
-            if (!projectNoteMapping[parentProjectPath][filePath]) {
-              projectNoteMapping[parentProjectPath][filePath] = [];
-            }
-            projectNoteMapping[parentProjectPath][filePath].push(task);
-            byFile[parentProjectPath].push(task);
-            continue;
-          }
-        }
-
-        if (!byFile[filePath]) byFile[filePath] = [];
-        byFile[filePath].push(task);
-      }
-
-      const fileGroups = Object.entries(byFile)
-        .map(([fp, ts]) => ({ filePath: fp, tasks: ts }))
-        .sort((a, b) => this.sortService.compareGroups(a.tasks, b.tasks, f.sortBy));
-
-      for (const { filePath, tasks: fileTasks } of fileGroups) {
-        const page = dv.page(filePath);
-        const name = page?.file.name ?? filePath;
-        container.createEl("h3").innerHTML = `<a class="internal-link" data-href="${filePath}" href="${filePath}">${name}</a>`;
-
-        if (context === "Project" && projectNoteMapping[filePath]) {
-          // Direct project tasks first
-          const directTasks = fileTasks.filter((t) => t.link.path === filePath);
-          if (directTasks.length > 0) {
-            this.renderer.renderTaskList(container, this.sortService.sortTasks(directTasks, f.sortBy));
-          }
-          // Then note sub-sections
-          for (const [notePath, noteTasks] of Object.entries(projectNoteMapping[filePath])) {
-            const notePage = dv.page(notePath);
-            const noteName = notePage?.file.name ?? notePath;
-            container.createEl("h4").innerHTML = `<a class="internal-link" data-href="${notePath}" href="${notePath}">${noteName}</a>`;
-            this.renderer.renderTaskList(container, this.sortService.sortTasks(noteTasks, f.sortBy));
-          }
-        } else {
-          this.renderer.renderTaskList(container, this.sortService.sortTasks(fileTasks, f.sortBy));
-        }
-      }
-    }
-  }
-
-  private renderByDate(container: HTMLElement, tasks: DataviewTask[], f: DashboardFilters): void {
-    const today = todayISO();
-    const tomorrow = addDays(today, 1);
-    const weekEnd = addDays(today, WEEK_DAYS);
-
-    const overdue = tasks.filter((t) => t.due && String(t.due).substring(0, ISO_DATE_LENGTH) < today);
-    const todayTasks = tasks.filter((t) => t.due && String(t.due).substring(0, ISO_DATE_LENGTH) === today);
-    const tomorrowTasks = tasks.filter((t) => t.due && String(t.due).substring(0, ISO_DATE_LENGTH) === tomorrow);
-    const thisWeek = tasks.filter((t) => {
-      if (!t.due) return false;
-      const d = String(t.due).substring(0, ISO_DATE_LENGTH);
-      return d > tomorrow && d <= weekEnd;
-    });
-    const upcoming = tasks.filter((t) => t.due && String(t.due).substring(0, ISO_DATE_LENGTH) > weekEnd);
-    const noDue = tasks.filter((t) => !t.due);
-
-    if (overdue.length > 0) {
-      container.createEl("h2", { text: "⚠️ Overdue" });
-      this.renderer.renderTaskList(container, this.sortService.sortTasks(overdue, f.sortBy || "dueDate-asc"));
-    }
-    if (todayTasks.length > 0) {
-      container.createEl("h2", { text: "📅 Today" });
-      this.renderer.renderTaskList(container, this.sortService.sortTasks(todayTasks, f.sortBy || "priority-asc"));
-    }
-    if (tomorrowTasks.length > 0) {
-      container.createEl("h2", { text: "📆 Tomorrow" });
-      this.renderer.renderTaskList(container, this.sortService.sortTasks(tomorrowTasks, f.sortBy || "priority-asc"));
-    }
-    if (thisWeek.length > 0) {
-      container.createEl("h2", { text: "📋 This Week" });
-      this.renderer.renderTaskList(container, this.sortService.sortTasks(thisWeek, f.sortBy || "dueDate-asc"));
-    }
-    if (upcoming.length > 0) {
-      container.createEl("h2", { text: "🔮 Upcoming" });
-      this.renderer.renderTaskList(container, this.sortService.sortTasks(upcoming, f.sortBy || "dueDate-asc"));
-    }
-    if (noDue.length > 0) {
-      container.createEl("h2", { text: "📝 No Due Date" });
-      this.renderer.renderTaskList(container, this.sortService.sortTasks(noDue, f.sortBy || "priority-asc"));
-    }
-  }
-
-  private renderByPriority(container: HTMLElement, tasks: DataviewTask[], f: DashboardFilters): void {
-    for (let priority = 1; priority <= 5; priority++) {
-      const priTasks = tasks.filter((t) => getTaskPriority(t) === priority);
-      if (priTasks.length === 0) continue;
-      container.createEl("h2", { text: PRIORITY_DISPLAY[priority] });
-      this.renderer.renderTaskList(container, this.sortService.sortTasks(priTasks, f.sortBy));
-    }
-  }
-
-  private renderByTag(container: HTMLElement, tasks: DataviewTask[], f: DashboardFilters): void {
-    const tagMap: Record<string, DataviewTask[]> = {};
-    const untagged: DataviewTask[] = [];
-
-    for (const task of tasks) {
-      const tags = task.tags ?? [];
-      if (tags.length === 0) {
-        untagged.push(task);
-      } else {
-        for (const tag of tags) {
-          if (!tagMap[tag]) tagMap[tag] = [];
-          tagMap[tag].push(task);
-        }
-      }
-    }
-
-    for (const tag of Object.keys(tagMap).sort()) {
-      container.createEl("h2", { text: tag });
-      this.renderer.renderTaskList(container, this.sortService.sortTasks(tagMap[tag], f.sortBy));
-    }
-
-    if (untagged.length > 0) {
-      container.createEl("h2", { text: "📌 Untagged" });
-      this.renderer.renderTaskList(container, this.sortService.sortTasks(untagged, f.sortBy));
-    }
-  }
-
-  // ─── Utilities ────────────────────────────────────────────────────────────
-
-  private getParentProjectPath(filePath: string, dv: DataviewApi): string | null {
-    const page = dv.page(filePath);
-    if (!page?.relatedProject) return null;
-    const projectName = normalizeToName(page.relatedProject);
-    if (!projectName) return null;
-    return `${this.services.settings.folders.projects}/${projectName}.md`;
-  }
 }

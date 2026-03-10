@@ -1,19 +1,18 @@
 import { Notice } from "obsidian";
-import type { PluginServices, AddCommandFn } from "../plugin-context";
+import type { CommandServices, AddCommandFn } from "../plugin-context";
 import { EntityCreationModal } from "../ui/modals/entity-creation-modal";
-import { ENTITY_TAGS } from "../constants";
+import { ENTITY_TAGS, MSG } from "../constants";
 
 /**
  * PM: Create Person
  * Prompts for a name and optional active client, then creates a person note.
  */
-export function registerCreatePersonCommand(services: PluginServices, addCommand: AddCommandFn): void {
+export function registerCreatePersonCommand(services: CommandServices, addCommand: AddCommandFn): void {
   addCommand({
     id: "create-person",
     name: "PM: Create Person",
     callback: async () => {
-      const pendingCtx = services.pendingActionContext;
-      services.pendingActionContext = null;
+      const pendingCtx = services.actionContext.consume();
 
       const activeClients = services.queryService.getActiveEntitiesByTag(ENTITY_TAGS.client);
       const preselected = pendingCtx?.field === "client" ? pendingCtx.value : undefined;
@@ -29,7 +28,7 @@ export function registerCreatePersonCommand(services: PluginServices, addCommand
 
       const result = await modal.prompt();
       if (!result?.name) {
-        new Notice("No name provided.");
+        new Notice(MSG.NO_NAME);
         return;
       }
 

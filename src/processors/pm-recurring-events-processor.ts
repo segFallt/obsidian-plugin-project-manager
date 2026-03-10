@@ -1,9 +1,9 @@
 import { MarkdownRenderChild, MarkdownRenderer, TFile } from "obsidian";
 import type { MarkdownPostProcessorContext } from "obsidian";
-import type { PluginServices, RegisterProcessorFn } from "../plugin-context";
+import type { PropertyProcessorServices, RegisterProcessorFn } from "../plugin-context";
 import type { DataviewPage } from "../types";
 import { normalizeToName } from "../utils/link-utils";
-import { DEBOUNCE_MS } from "../constants";
+import { DEBOUNCE_MS, CODEBLOCK, CSS_CLS, ISO_DATETIME_INPUT_LENGTH } from "../constants";
 
 /**
  * Renders recurring meeting events as a tile grid.
@@ -14,11 +14,11 @@ import { DEBOUNCE_MS } from "../constants";
  * The parent meeting is auto-detected from the file's basename.
  */
 export function registerPmRecurringEventsProcessor(
-  services: PluginServices,
+  services: PropertyProcessorServices,
   registerProcessor: RegisterProcessorFn
 ): void {
   registerProcessor(
-    "pm-recurring-events",
+    CODEBLOCK.PM_RECURRING_EVENTS,
     (source, el, ctx: MarkdownPostProcessorContext) => {
       const child = new PmRecurringEventsRenderChild(el, ctx.sourcePath, services);
       ctx.addChild(child);
@@ -35,7 +35,7 @@ class PmRecurringEventsRenderChild extends MarkdownRenderChild {
   constructor(
     containerEl: HTMLElement,
     private readonly sourcePath: string,
-    private readonly services: PluginServices
+    private readonly services: PropertyProcessorServices
   ) {
     super(containerEl);
   }
@@ -119,7 +119,7 @@ class PmRecurringEventsRenderChild extends MarkdownRenderChild {
 
     // Date display — truncate datetime to YYYY-MM-DDTHH:mm (16 chars)
     const rawDate = String(event.date ?? event.file.name);
-    const dateDisplay = rawDate.length > 16 ? rawDate.slice(0, 16) : rawDate;
+    const dateDisplay = rawDate.length > ISO_DATETIME_INPUT_LENGTH ? rawDate.slice(0, ISO_DATETIME_INPUT_LENGTH) : rawDate;
 
     // Build tile
     const tile = grid.createDiv({ cls: "pm-recurring-events__tile" });
@@ -127,7 +127,7 @@ class PmRecurringEventsRenderChild extends MarkdownRenderChild {
     // Header with internal link
     const header = tile.createDiv({ cls: "pm-recurring-events__tile-header" });
     const link = header.createEl("a", {
-      cls: "internal-link",
+      cls: CSS_CLS.INTERNAL_LINK,
       text: dateDisplay,
     });
     link.setAttribute("data-href", event.file.path);

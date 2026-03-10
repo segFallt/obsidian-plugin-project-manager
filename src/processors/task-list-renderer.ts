@@ -1,5 +1,5 @@
 import { TFile } from "obsidian";
-import type { PluginServices } from "../plugin-context";
+import type { TaskProcessorServices } from "../plugin-context";
 import type { DataviewTask } from "../types";
 import { DUE_DATE_EMOJI, PRIORITY_EMOJI, DEFAULT_PRIORITY, ARIA_LABEL_MAX_LENGTH } from "../constants";
 import { todayISO } from "../utils/date-utils";
@@ -10,7 +10,7 @@ import { cleanTaskText, extractEmojiDate, getTaskPriority } from "../utils/task-
  * Also handles toggling task completion state in the vault.
  */
 export class TaskListRenderer {
-  constructor(private readonly services: PluginServices) {}
+  constructor(private readonly services: TaskProcessorServices) {}
 
   renderTaskList(container: HTMLElement, tasks: DataviewTask[]): void {
     const ul = container.createEl("ul", { cls: "pm-task-list contains-task-list" });

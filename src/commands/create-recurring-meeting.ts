@@ -1,13 +1,13 @@
 import { Notice } from "obsidian";
-import type { PluginServices, AddCommandFn } from "../plugin-context";
+import type { CommandServices, AddCommandFn } from "../plugin-context";
 import { EntityCreationModal } from "../ui/modals/entity-creation-modal";
-import { ENTITY_TAGS } from "../constants";
+import { ENTITY_TAGS, MSG } from "../constants";
 
 /**
  * PM: Create Recurring Meeting
  * Prompts for a name and optional engagement, then creates a recurring meeting note.
  */
-export function registerCreateRecurringMeetingCommand(services: PluginServices, addCommand: AddCommandFn): void {
+export function registerCreateRecurringMeetingCommand(services: CommandServices, addCommand: AddCommandFn): void {
   addCommand({
     id: "create-recurring-meeting",
     name: "PM: Create Recurring Meeting",
@@ -26,7 +26,7 @@ export function registerCreateRecurringMeetingCommand(services: PluginServices, 
 
       const result = await modal.prompt();
       if (!result?.name) {
-        new Notice("No name provided.");
+        new Notice(MSG.NO_NAME);
         return;
       }
 

@@ -290,10 +290,7 @@ export class ProjectManagerSettingTab extends PluginSettingTab {
           .setButtonText("Set Up Vault")
           .setCta()
           .onClick(() => {
-            type CommandHost = { commands?: { executeCommandById: (id: string) => void } };
-            (this.plugin.app as unknown as CommandHost).commands?.executeCommandById(
-              `${PLUGIN_ID}:scaffold-vault`
-            );
+            this.plugin.commandExecutor.executeCommandById(`${PLUGIN_ID}:scaffold-vault`);
           })
       );
   }

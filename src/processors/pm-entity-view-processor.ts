@@ -3,6 +3,7 @@ import type { MarkdownPostProcessorContext } from "obsidian";
 import type { PluginServices, RegisterProcessorFn } from "../plugin-context";
 import { ENTITY_VIEW_SECTIONS } from "./entity-view-registry";
 import { renderActionButtons, renderEntityTable } from "./shared-renderers";
+import { CODEBLOCK, CSS_CLS, CSS_VAR } from "../constants";
 
 interface PmEntityViewConfig {
   entity: string;
@@ -26,7 +27,7 @@ export function registerPmEntityViewProcessor(
   services: PluginServices,
   registerProcessor: RegisterProcessorFn
 ): void {
-  registerProcessor("pm-entity-view", (source, el, ctx: MarkdownPostProcessorContext) => {
+  registerProcessor(CODEBLOCK.PM_ENTITY_VIEW, (source, el, ctx: MarkdownPostProcessorContext) => {
     const child = new PmEntityViewRenderChild(el, source, ctx.sourcePath, services);
     ctx.addChild(child);
     child.render();
@@ -104,8 +105,8 @@ class PmEntityViewRenderChild extends MarkdownRenderChild {
   }
 
   private renderError(message: string): void {
-    const div = this.containerEl.createDiv({ cls: "pm-error" });
-    div.style.color = "var(--text-error)";
+    const div = this.containerEl.createDiv({ cls: CSS_CLS.PM_ERROR });
+    div.style.color = CSS_VAR.TEXT_ERROR;
     div.style.padding = "8px";
     div.textContent = message;
   }

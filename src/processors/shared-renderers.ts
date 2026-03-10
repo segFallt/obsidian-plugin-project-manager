@@ -1,7 +1,7 @@
 import type { TFile } from "obsidian";
-import type { PluginServices } from "../plugin-context";
+import type { ActionProcessorServices, PropertyProcessorServices } from "../plugin-context";
 import type { PmActionConfig, PmTableConfig, DataviewPage } from "../types";
-import { PLUGIN_ID, ENTITY_TAGS, STATUS, PROJECT_STATUS_ORDER, PRIORITY_FALLBACK } from "../constants";
+import { PLUGIN_ID, ENTITY_TAGS, STATUS, PROJECT_STATUS_ORDER, PRIORITY_FALLBACK, CSS_CLS, CSS_VAR } from "../constants";
 import { normalizeToName } from "../utils/link-utils";
 import { formatDate } from "../utils/date-utils";
 
@@ -27,18 +27,18 @@ export const ACTION_COMMAND_MAP: Record<string, string> = {
 
 /**
  * Renders a row of action buttons that execute plugin commands.
- * When an action has a `context` field, sets `pendingActionContext` on services
+ * When an action has a `context` field, sets the action context on services
  * so the target command can auto-populate its parent entity field.
  *
  * @param container   - Parent element to append the button row to
  * @param actions     - Action descriptors from the config
- * @param services    - Plugin services (for app.commands and pendingActionContext)
+ * @param services    - Action processor services (commandExecutor, actionContext)
  * @param sourcePath  - Path of the note containing this block (for context value)
  */
 export function renderActionButtons(
   container: HTMLElement,
   actions: PmActionConfig[],
-  services: PluginServices,
+  services: ActionProcessorServices,
   sourcePath?: string
 ): void {
   if (!Array.isArray(actions) || actions.length === 0) return;
@@ -52,7 +52,7 @@ export function renderActionButtons(
 function renderButton(
   container: HTMLElement,
   action: PmActionConfig,
-  services: PluginServices,
+  services: ActionProcessorServices,
   sourcePath?: string
 ): void {
   const commandId = action.commandId ?? ACTION_COMMAND_MAP[action.type];
@@ -77,14 +77,13 @@ function renderButton(
     if (action.context && sourcePath) {
       const currentFile = services.app.vault.getAbstractFileByPath(sourcePath);
       if (currentFile && "basename" in currentFile) {
-        services.pendingActionContext = {
+        services.actionContext.set({
           field: action.context.field,
           value: (currentFile as TFile).basename,
-        };
+        });
       }
     }
-    (services.app as unknown as { commands: { executeCommandById: (id: string) => void } })
-      .commands.executeCommandById(commandId);
+    services.commandExecutor.executeCommandById(commandId);
   });
 }
 
@@ -98,7 +97,7 @@ export function renderEntityTable(
   container: HTMLElement,
   tableType: PmTableConfig["type"],
   sourcePath: string,
-  services: PluginServices
+  services: PropertyProcessorServices
 ): void {
   const qs = services.queryService;
   const currentFile = services.app.vault.getAbstractFileByPath(sourcePath);
@@ -246,7 +245,7 @@ export function buildTable(container: HTMLElement, headers: string[], rows: stri
 }
 
 export function fileLink(page: DataviewPage): string {
-  return `<a class="internal-link" data-href="${page.file.path}" href="${page.file.path}">${page.file.name}</a>`;
+  return `<a class="${CSS_CLS.INTERNAL_LINK}" data-href="${page.file.path}" href="${page.file.path}">${page.file.name}</a>`;
 }
 
 export function statusBadge(status: string): string {
@@ -255,13 +254,13 @@ export function statusBadge(status: string): string {
 }
 
 function renderTableError(container: HTMLElement, message: string): void {
-  const div = container.createDiv({ cls: "pm-error" });
-  div.style.color = "var(--text-error)";
+  const div = container.createDiv({ cls: CSS_CLS.PM_ERROR });
+  div.style.color = CSS_VAR.TEXT_ERROR;
   div.style.padding = "8px";
   div.textContent = message;
 }
 
 function renderTableEmpty(container: HTMLElement, message: string): void {
   const em = container.createEl("em", { text: message });
-  em.style.color = "var(--text-muted)";
+  em.style.color = CSS_VAR.TEXT_MUTED;
 }

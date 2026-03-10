@@ -1,13 +1,13 @@
-import type { PluginServices } from "../plugin-context";
+import { TFile } from "obsidian";
+import type { TaskProcessorServices } from "../plugin-context";
 import type {
   PmTasksConfig,
-  DataviewApi,
   DataviewTask,
   ByProjectFilters,
   SavedByProjectFilters,
   ProjectStatus,
 } from "../types";
-import { DEFAULT_TASK_VIEW_STATUSES, PRIORITY_FALLBACK, DEBOUNCE_MS, ENTITY_TAGS } from "../constants";
+import { DEFAULT_TASK_VIEW_STATUSES, PRIORITY_FALLBACK, DEBOUNCE_MS, ENTITY_TAGS, CSS_CLS, CSS_VAR, MSG } from "../constants";
 import { normalizeToName } from "../utils/link-utils";
 import type { ITaskSortService } from "../services/interfaces";
 import type { TaskListRenderer } from "./task-list-renderer";
@@ -25,7 +25,7 @@ export class ByProjectView {
   constructor(
     private readonly containerEl: HTMLElement,
     private readonly config: PmTasksConfig,
-    private readonly services: PluginServices,
+    private readonly services: TaskProcessorServices,
     private readonly sortService: ITaskSortService,
     private readonly renderer: TaskListRenderer,
     private readonly savedFilters?: SavedByProjectFilters | null,
@@ -182,7 +182,7 @@ export class ByProjectView {
 
     const dv = this.services.queryService.dv();
     if (!dv) {
-      outputEl.createEl("em", { text: "Dataview is not available. Install and enable the Dataview plugin." });
+      outputEl.createEl("em", { text: MSG.DATAVIEW_UNAVAILABLE });
       return;
     }
 
@@ -226,13 +226,13 @@ export class ByProjectView {
       }
 
       for (const project of projects) {
-        this.renderProjectTaskGroup(outputEl, project, dv, f);
+        this.renderProjectTaskGroup(outputEl, project, f);
       }
     } catch (err) {
       this.services.loggerService.error(String(err), "pm-tasks-by-project", err);
       outputEl.empty();
-      const errEl = outputEl.createDiv({ cls: "pm-error" });
-      errEl.style.color = "var(--text-error)";
+      const errEl = outputEl.createDiv({ cls: CSS_CLS.PM_ERROR });
+      errEl.style.color = CSS_VAR.TEXT_ERROR;
       errEl.textContent = `pm-tasks error: ${String(err)}`;
     }
   }
@@ -246,17 +246,17 @@ export class ByProjectView {
   private renderProjectTaskGroup(
     container: HTMLElement,
     project: import("../types").DataviewPage,
-    dv: DataviewApi,
     f: ByProjectFilters
   ): void {
     const projectTasks = [...project.file.tasks];
     const incompleteTasks = projectTasks.filter((t) => !t.completed);
     const completedTasks = projectTasks.filter((t) => t.completed);
 
-    // Get project notes
-    const projectNotes = [...dv.pages()].filter(
-      (p) => normalizeToName(p.relatedProject) === project.file.name
-    );
+    // Get project notes via queryService (DIP-compliant)
+    const projectTFile = this.services.app.vault.getAbstractFileByPath(project.file.path);
+    const projectNotes = projectTFile instanceof TFile
+      ? this.services.queryService.getProjectNotes(projectTFile)
+      : [];
 
     const noteIncompleteTasks: DataviewTask[] = [];
     const noteCompletedTasks: DataviewTask[] = [];
@@ -273,7 +273,7 @@ export class ByProjectView {
     const projectEl = container.createDiv({ cls: "pm-tasks-project-group" });
     projectEl.createEl("h2", {
       cls: "pm-tasks-project-group__title",
-    }).innerHTML = `<a class="internal-link" data-href="${project.file.path}" href="${project.file.path}">${project.file.name}</a>`;
+    }).innerHTML = `<a class="${CSS_CLS.INTERNAL_LINK}" data-href="${project.file.path}" href="${project.file.path}">${project.file.name}</a>`;
 
     if (incompleteTasks.length > 0) {
       this.renderer.renderTaskList(projectEl, incompleteTasks);
@@ -282,7 +282,7 @@ export class ByProjectView {
     for (const note of projectNotes) {
       const noteTasks = [...note.file.tasks].filter((t) => !t.completed);
       if (noteTasks.length > 0) {
-        projectEl.createEl("h3").innerHTML = `<a class="internal-link" data-href="${note.file.path}" href="${note.file.path}">${note.file.name}</a>`;
+        projectEl.createEl("h3").innerHTML = `<a class="${CSS_CLS.INTERNAL_LINK}" data-href="${note.file.path}" href="${note.file.path}">${note.file.name}</a>`;
         this.renderer.renderTaskList(projectEl, noteTasks);
       }
     }

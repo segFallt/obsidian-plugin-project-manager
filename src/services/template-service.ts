@@ -1,6 +1,17 @@
 import type { EntityType } from "../types";
 import { todayISO, nowDatetime } from "../utils/date-utils";
 import type { ITemplateService } from "./interfaces";
+import {
+  TEMPLATE_CLIENT,
+  TEMPLATE_ENGAGEMENT,
+  TEMPLATE_PROJECT,
+  TEMPLATE_PERSON,
+  TEMPLATE_INBOX,
+  TEMPLATE_SINGLE_MEETING,
+  TEMPLATE_RECURRING_MEETING,
+  TEMPLATE_RECURRING_MEETING_EVENT,
+  TEMPLATE_PROJECT_NOTE,
+} from "./template-constants";
 
 /**
  * Provides embedded note templates for all entity types.
@@ -12,22 +23,23 @@ import type { ITemplateService } from "./interfaces";
  *                      {{engagement}}, {{relatedProject}}
  */
 export class TemplateService implements ITemplateService {
+  private static readonly TEMPLATES: Record<EntityType, string> = {
+    client: TEMPLATE_CLIENT,
+    engagement: TEMPLATE_ENGAGEMENT,
+    project: TEMPLATE_PROJECT,
+    person: TEMPLATE_PERSON,
+    inbox: TEMPLATE_INBOX,
+    "single-meeting": TEMPLATE_SINGLE_MEETING,
+    "recurring-meeting": TEMPLATE_RECURRING_MEETING,
+    "recurring-meeting-event": TEMPLATE_RECURRING_MEETING_EVENT,
+    "project-note": TEMPLATE_PROJECT_NOTE,
+  };
+
   /**
    * Returns the raw template string for the given entity type.
    */
   getTemplate(type: EntityType): string {
-    const templates: Record<EntityType, string> = {
-      client: this.clientTemplate(),
-      engagement: this.engagementTemplate(),
-      project: this.projectTemplate(),
-      person: this.personTemplate(),
-      inbox: this.inboxTemplate(),
-      "single-meeting": this.singleMeetingTemplate(),
-      "recurring-meeting": this.recurringMeetingTemplate(),
-      "recurring-meeting-event": this.recurringMeetingEventTemplate(),
-      "project-note": this.projectNoteTemplate(),
-    };
-    return templates[type];
+    return TemplateService.TEMPLATES[type];
   }
 
   /**
@@ -50,235 +62,5 @@ export class TemplateService implements ITemplateService {
       datetime: nowDatetime(),
       name: "",
     };
-  }
-
-  // ─── Template definitions ────────────────────────────────────────────────
-
-  private clientTemplate(): string {
-    return `---
-obsidianUIMode: preview
-tags:
-  - "#client"
-status: Active
-contact-name:
-contact-email:
-contact-phone:
-notes:
----
-# Properties
-\`\`\`pm-properties
-entity: client
-\`\`\`
-
----
-\`\`\`pm-entity-view
-entity: client
-section: engagements
-\`\`\`
-
----
-\`\`\`pm-entity-view
-entity: client
-section: people
-\`\`\`
-
----
-
-# Notes
-
-`;
-  }
-
-  private engagementTemplate(): string {
-    return `---
-obsidianUIMode: preview
-tags:
-  - "#engagement"
-client:
-status: Active
-start-date: {{date}}
-end-date:
-description:
----
-# Properties
-\`\`\`pm-properties
-entity: engagement
-\`\`\`
-
----
-\`\`\`pm-entity-view
-entity: engagement
-section: projects
-\`\`\`
-
----
-
-# Notes
-
-`;
-  }
-
-  private projectTemplate(): string {
-    return `---
-notesDirectory: {{notesDir}}
-engagement:
-start-date: {{date}}
-end-date:
-status: New
-tags:
-  - "#project"
-priority:
-convertedFrom:
----
-# Properties
-\`\`\`pm-properties
-entity: project
-\`\`\`
-
----
-\`\`\`pm-entity-view
-entity: project
-section: linked
-\`\`\`
-
----
-# Notes
-
-
-`;
-  }
-
-  private personTemplate(): string {
-    return `---
-obsidianUIMode: preview
-tags:
-  - "#person"
-client:
-status: Active
-title:
-reports-to:
-notes:
----
-# Profile
-\`\`\`pm-properties
-entity: person
-\`\`\`
-
----
-\`\`\`pm-entity-view
-entity: person
-section: mentions
-\`\`\`
-
----
-`;
-  }
-
-  private inboxTemplate(): string {
-    return `---
-engagement:
-status: Active
-convertedTo:
----
-
-# Properties
-\`\`\`pm-properties
-entity: inbox
-\`\`\`
-
----
-\`\`\`pm-actions
-actions:
-  - type: convert-inbox
-    label: Convert to Project
-    style: primary
-\`\`\`
-
-# Notes
-
-`;
-  }
-
-  private singleMeetingTemplate(): string {
-    return `---
-engagement:
-date: {{datetime}}
-attendees: []
----
-
-# Properties
-\`\`\`pm-properties
-entity: single-meeting
-\`\`\`
-
-# Invitation Message
-
-
-\`\`\`pm-actions
-actions:
-  - type: convert-single-to-recurring
-    label: Convert to Recurring Meeting
-    style: default
-\`\`\`
-
-# Notes
--
-
-
-`;
-  }
-
-  private recurringMeetingTemplate(): string {
-    return `---
-engagement:
-start-date: {{date}}
-end-date:
-last-event-date:
-default-attendees: []
----
-
-# Properties
-\`\`\`pm-properties
-entity: recurring-meeting
-\`\`\`
-
-# Events
-\`\`\`pm-actions
-actions:
-  - type: create-recurring-meeting-event
-    label: New Event
-    style: primary
-    context:
-      field: recurring-meeting
-\`\`\`
-
-\`\`\`pm-recurring-events
-\`\`\`
-`;
-  }
-
-  private recurringMeetingEventTemplate(): string {
-    return `---
-recurring-meeting:
-date: {{datetime}}
-attendees: []
----
-
-# Properties
-\`\`\`pm-properties
-entity: recurring-meeting-event
-\`\`\`
-
-# Notes
--
-`;
-  }
-
-  private projectNoteTemplate(): string {
-    return `---
-engagement:
-relatedProject: "[[{{relatedProject}}]]"
----
-`;
   }
 }

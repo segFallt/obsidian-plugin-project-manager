@@ -27,11 +27,11 @@ describe("registerCreateRecurringMeetingEventCommand", () => {
     expect(entityService.createRecurringMeetingEvent).toHaveBeenCalledWith("Weekly Standup");
   });
 
-  it("uses pendingActionContext when field is 'recurring-meeting' (skips modal)", async () => {
-    const { services, addCommand, commands, entityService, queryService } = createMockPlugin();
+  it("uses actionContext when field is 'recurring-meeting' (skips modal)", async () => {
+    const { services, addCommand, commands, entityService, queryService, actionContext } = createMockPlugin();
 
     // Set pre-selected context (as if triggered from an action button)
-    services.pendingActionContext = { field: "recurring-meeting", value: "Weekly Standup" };
+    actionContext.set({ field: "recurring-meeting", value: "Weekly Standup" });
 
     registerCreateRecurringMeetingEventCommand(services, addCommand);
     await runCommand(commands, "create-recurring-meeting-event");
@@ -41,7 +41,7 @@ describe("registerCreateRecurringMeetingEventCommand", () => {
     // Modal should NOT be shown — queryService not called
     expect(queryService.getActiveRecurringMeetings).not.toHaveBeenCalled();
     // Context should be cleared after use
-    expect(services.pendingActionContext).toBeNull();
+    expect(actionContext.consume()).toBeNull();
   });
 
   it("shows Notice and does NOT call createRecurringMeetingEvent when no active meetings", async () => {

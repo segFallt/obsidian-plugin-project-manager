@@ -1,6 +1,7 @@
 /**
  * DOM helper utilities shared by pm-tasks view components.
  */
+import { CSS_CLS, CSS_VAR } from "../constants";
 
 /**
  * Creates a `<select>` element populated with options.
@@ -38,7 +39,7 @@ export function renderCollapsible(
  * Renders a styled error message into the given container.
  */
 export function renderError(container: HTMLElement, message: string): void {
-  const div = container.createDiv({ cls: "pm-error" });
-  div.style.color = "var(--text-error)";
+  const div = container.createDiv({ cls: CSS_CLS.PM_ERROR });
+  div.style.color = CSS_VAR.TEXT_ERROR;
   div.textContent = message;
 }

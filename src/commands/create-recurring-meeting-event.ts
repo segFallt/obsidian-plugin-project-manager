@@ -1,5 +1,5 @@
 import { Notice } from "obsidian";
-import type { PluginServices, AddCommandFn } from "../plugin-context";
+import type { CommandServices, AddCommandFn } from "../plugin-context";
 import { SuggesterModal } from "../ui/modals/suggester-modal";
 import type { DataviewPage } from "../types";
 
@@ -12,7 +12,7 @@ import type { DataviewPage } from "../types";
  *   - Shows a SuggesterModal to pick the parent recurring meeting
  */
 export function registerCreateRecurringMeetingEventCommand(
-  services: PluginServices,
+  services: CommandServices,
   addCommand: AddCommandFn
 ): void {
   addCommand({
@@ -22,9 +22,9 @@ export function registerCreateRecurringMeetingEventCommand(
       let meetingName: string | null = null;
 
       // Check for pre-selected parent from action button context
-      if (services.pendingActionContext?.field === "recurring-meeting") {
-        meetingName = services.pendingActionContext.value;
-        services.pendingActionContext = null;
+      const pendingCtx = services.actionContext.consume();
+      if (pendingCtx?.field === "recurring-meeting") {
+        meetingName = pendingCtx.value;
       }
 
       // If no pre-selected parent, show suggester modal

@@ -1,13 +1,13 @@
 import { Notice } from "obsidian";
-import type { PluginServices, AddCommandFn } from "../plugin-context";
+import type { CommandServices, AddCommandFn } from "../plugin-context";
 import { EntityCreationModal } from "../ui/modals/entity-creation-modal";
-import { ENTITY_TAGS } from "../constants";
+import { ENTITY_TAGS, MSG } from "../constants";
 
 /**
  * PM: Create Single Meeting
  * Prompts for a name and optional engagement, then creates a single meeting note.
  */
-export function registerCreateSingleMeetingCommand(services: PluginServices, addCommand: AddCommandFn): void {
+export function registerCreateSingleMeetingCommand(services: CommandServices, addCommand: AddCommandFn): void {
   addCommand({
     id: "create-single-meeting",
     name: "PM: Create Single Meeting",
@@ -26,7 +26,7 @@ export function registerCreateSingleMeetingCommand(services: PluginServices, add
 
       const result = await modal.prompt();
       if (!result?.name) {
-        new Notice("No name provided.");
+        new Notice(MSG.NO_NAME);
         return;
       }
 

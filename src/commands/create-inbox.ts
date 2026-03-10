@@ -1,13 +1,13 @@
 import { Notice } from "obsidian";
-import type { PluginServices, AddCommandFn } from "../plugin-context";
+import type { CommandServices, AddCommandFn } from "../plugin-context";
 import { EntityCreationModal } from "../ui/modals/entity-creation-modal";
-import { ENTITY_TAGS } from "../constants";
+import { ENTITY_TAGS, MSG } from "../constants";
 
 /**
  * PM: Create Inbox Note
  * Prompts for a name and optional engagement, then creates an inbox note.
  */
-export function registerCreateInboxCommand(services: PluginServices, addCommand: AddCommandFn): void {
+export function registerCreateInboxCommand(services: CommandServices, addCommand: AddCommandFn): void {
   addCommand({
     id: "create-inbox",
     name: "PM: Create Inbox Note",
@@ -26,7 +26,7 @@ export function registerCreateInboxCommand(services: PluginServices, addCommand:
 
       const result = await modal.prompt();
       if (!result?.name) {
-        new Notice("No name provided.");
+        new Notice(MSG.NO_NAME);
         return;
       }
 

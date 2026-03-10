@@ -1,5 +1,5 @@
 import { Notice } from "obsidian";
-import type { PluginServices, AddCommandFn } from "../plugin-context";
+import type { CommandServices, AddCommandFn } from "../plugin-context";
 import { InputModal } from "../ui/modals/input-modal";
 
 /**
@@ -10,7 +10,7 @@ import { InputModal } from "../ui/modals/input-modal";
  * - Links the inbox note back to the project (bidirectional)
  * - Sets inbox status to Inactive
  */
-export function registerConvertInboxCommand(services: PluginServices, addCommand: AddCommandFn): void {
+export function registerConvertInboxCommand(services: CommandServices, addCommand: AddCommandFn): void {
   addCommand({
     id: "convert-inbox",
     name: "PM: Convert Inbox to Project",

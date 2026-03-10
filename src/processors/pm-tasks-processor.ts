@@ -1,14 +1,12 @@
 import { MarkdownRenderChild, TFile, parseYaml } from "obsidian";
 import type { MarkdownPostProcessorContext } from "obsidian";
-import type { PluginServices, RegisterProcessorFn } from "../plugin-context";
+import type { TaskProcessorServices, RegisterProcessorFn } from "../plugin-context";
 import type { PmTasksConfig, SavedDashboardFilters, SavedByProjectFilters } from "../types";
-import { TaskFilterService } from "../services/task-filter-service";
-import { TaskSortService } from "../services/task-sort-service";
 import { TaskListRenderer } from "./task-list-renderer";
 import { DashboardView } from "./pm-tasks-dashboard";
 import { ByProjectView } from "./pm-tasks-by-project";
 import { renderError } from "./dom-helpers";
-import { DEBOUNCE_MS } from "../constants";
+import { DEBOUNCE_MS, CODEBLOCK } from "../constants";
 
 /**
  * Renders the task dashboard and tasks-by-project views.
@@ -27,10 +25,10 @@ import { DEBOUNCE_MS } from "../constants";
  * Filter state is persisted to the note's frontmatter under the `pm-tasks-filters` key.
  */
 export function registerPmTasksProcessor(
-  services: PluginServices,
+  services: TaskProcessorServices,
   registerProcessor: RegisterProcessorFn
 ): void {
-  registerProcessor("pm-tasks", (source, el, ctx: MarkdownPostProcessorContext) => {
+  registerProcessor(CODEBLOCK.PM_TASKS, (source, el, ctx: MarkdownPostProcessorContext) => {
     const child = new PmTasksRenderChild(el, source, ctx.sourcePath, services);
     ctx.addChild(child);
     child.render();
@@ -52,7 +50,7 @@ class PmTasksRenderChild extends MarkdownRenderChild {
     containerEl: HTMLElement,
     private readonly source: string,
     private readonly sourcePath: string,
-    private readonly services: PluginServices
+    private readonly services: TaskProcessorServices
   ) {
     super(containerEl);
   }
@@ -97,8 +95,8 @@ class PmTasksRenderChild extends MarkdownRenderChild {
       return;
     }
 
-    const filterService = new TaskFilterService(this.services.settings.folders);
-    const sortService = new TaskSortService();
+    const filterService = this.services.filterService;
+    const sortService = this.services.sortService;
     const renderer = new TaskListRenderer(this.services);
     const savedFilters = this.loadSavedFilters();
 

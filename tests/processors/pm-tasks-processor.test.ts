@@ -2,8 +2,10 @@ import { describe, it, expect, vi } from "vitest";
 import { registerPmTasksProcessor } from "../../src/processors/pm-tasks-processor";
 import { createMockDataviewApi } from "../mocks/dataview-mock";
 import type { DataviewApi } from "../../src/types";
-import type { PluginServices, RegisterProcessorFn } from "../../src/plugin-context";
+import type { TaskProcessorServices, RegisterProcessorFn } from "../../src/plugin-context";
 import { DEFAULT_FOLDERS } from "../../src/constants";
+import { TaskFilterService } from "../../src/services/task-filter-service";
+import { TaskSortService } from "../../src/services/task-sort-service";
 
 // ─── Mock services factory ───────────────────────────────────────────────────
 
@@ -56,7 +58,9 @@ function createMockServices(dvApi: DataviewApi | null = null) {
       warn: vi.fn(),
       info: vi.fn(),
     },
-  } as unknown as PluginServices;
+    filterService: new TaskFilterService(DEFAULT_FOLDERS),
+    sortService: new TaskSortService(),
+  } as unknown as TaskProcessorServices;
 
   return {
     services,
