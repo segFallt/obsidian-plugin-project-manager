@@ -22,7 +22,7 @@ export function registerPmRecurringEventsProcessor(
     (source, el, ctx: MarkdownPostProcessorContext) => {
       const child = new PmRecurringEventsRenderChild(el, ctx.sourcePath, services);
       ctx.addChild(child);
-      child.render();
+      void child.render();
     }
   );
 }
@@ -57,7 +57,11 @@ class PmRecurringEventsRenderChild extends MarkdownRenderChild {
     }
   }
 
-  render(): void {
+  async render(): Promise<void> {
+    // Capture scroll position before destroying DOM
+    const scrollParent = this.getScrollableParent();
+    const savedScrollTop = scrollParent?.scrollTop ?? 0;
+
     this.containerEl.empty();
 
     const meetingName =
@@ -83,7 +87,28 @@ class PmRecurringEventsRenderChild extends MarkdownRenderChild {
     }
 
     const grid = this.containerEl.createDiv({ cls: "pm-recurring-events__grid" });
-    void this.renderAll(sorted, grid);
+    await this.renderAll(sorted, grid);
+
+    // Restore scroll position after re-render
+    if (scrollParent) {
+      scrollParent.scrollTop = savedScrollTop;
+    }
+  }
+
+  private getScrollableParent(): HTMLElement | null {
+    let el: HTMLElement | null = this.containerEl.parentElement;
+    while (el) {
+      const style = getComputedStyle(el);
+      const overflowY = style.overflowY;
+      if (
+        (overflowY === "auto" || overflowY === "scroll") &&
+        el.scrollHeight > el.clientHeight
+      ) {
+        return el;
+      }
+      el = el.parentElement;
+    }
+    return null;
   }
 
   private async renderAll(events: DataviewPage[], grid: HTMLElement): Promise<void> {
@@ -164,7 +189,7 @@ class PmRecurringEventsRenderChild extends MarkdownRenderChild {
   private debouncedRefresh(): void {
     if (this.debounceTimer) clearTimeout(this.debounceTimer);
     this.debounceTimer = setTimeout(() => {
-      this.render();
+      void this.render();
     }, DEBOUNCE_MS.TASKS);
   }
 }

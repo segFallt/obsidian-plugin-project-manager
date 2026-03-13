@@ -21,7 +21,7 @@ function createMockServices(
         el: HTMLElement,
         ctx: {
           addChild: (c: {
-            render(): void;
+            render(): void | Promise<void>;
             onload?(): void;
             onunload?(): void;
             registerEvent?(ref: unknown): void;
@@ -98,7 +98,7 @@ function render(
 
   const el = document.createElement("div");
   const children: Array<{
-    render(): void;
+    render(): void | Promise<void>;
     onload?(): void;
     onunload?(): void;
     registerEvent?(ref: unknown): void;
@@ -209,7 +209,7 @@ describe("pm-recurring-events processor", () => {
 
     const el = document.createElement("div");
     let capturedChild: {
-      render?(): void;
+      render?(): void | Promise<void>;
       onload?(): void;
       onunload?(): void;
       registerEvent?(ref: unknown): void;
@@ -317,5 +317,57 @@ describe("pm-recurring-events processor", () => {
     expect(services.queryService.getRecurringMeetingEvents).toHaveBeenCalledWith(
       "My Special Meeting"
     );
+  });
+
+  it("scroll position is restored after render when scrollable parent exists", async () => {
+    const { services, registerProcessor, getHandler } = createMockServices(
+      "meetings/recurring/Weekly Standup.md",
+      [
+        {
+          name: "2024-03-01",
+          path: "meetings/recurring-events/Weekly Standup/2024-03-01.md",
+          date: "2024-03-01",
+          content: "",
+        },
+      ]
+    );
+    registerPmRecurringEventsProcessor(services, registerProcessor);
+
+    // Wrap container in a scrollable parent
+    const scrollParent = document.createElement("div");
+    // jsdom doesn't perform real layout — mock scrollHeight/clientHeight and getComputedStyle
+    Object.defineProperty(scrollParent, "scrollHeight", { value: 1000, configurable: true });
+    Object.defineProperty(scrollParent, "clientHeight", { value: 300, configurable: true });
+    const origGetComputedStyle = window.getComputedStyle.bind(window);
+    vi.spyOn(window, "getComputedStyle").mockImplementation((el, pseudo) => {
+      if (el === scrollParent) {
+        return { overflowY: "auto" } as CSSStyleDeclaration;
+      }
+      return origGetComputedStyle(el, pseudo ?? null);
+    });
+
+    const el = document.createElement("div");
+    scrollParent.appendChild(el);
+    document.body.appendChild(scrollParent);
+
+    let capturedChild: { render?(): void | Promise<void> } | null = null;
+    const ctx = {
+      addChild: (child: typeof capturedChild) => { capturedChild = child; },
+      sourcePath: "meetings/recurring/Weekly Standup.md",
+    };
+
+    getHandler()("", el, ctx);
+
+    // Simulate user scrolling to position 250
+    scrollParent.scrollTop = 250;
+
+    // Call render() directly — this is what debouncedRefresh() does
+    await capturedChild?.render?.();
+
+    // Scroll position should be restored to 250
+    expect(scrollParent.scrollTop).toBe(250);
+
+    document.body.removeChild(scrollParent);
+    vi.restoreAllMocks();
   });
 });
