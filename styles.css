@@ -482,6 +482,7 @@ details[open] .pm-filter-section__title::before {
   display: grid;
   grid-template-columns: 1fr;
   gap: 12px;
+  overflow-anchor: none; /* prevent browser scroll anchoring during tile rebuilds */
 }
 
 .pm-recurring-events__tile {

@@ -58,11 +58,8 @@ class PmRecurringEventsRenderChild extends MarkdownRenderChild {
   }
 
   async render(): Promise<void> {
-    // Capture scroll position before destroying DOM
     const scrollParent = this.getScrollableParent();
     const savedScrollTop = scrollParent?.scrollTop ?? 0;
-
-    this.containerEl.empty();
 
     const meetingName =
       this.sourcePath.split("/").pop()?.replace(/\.md$/, "") ?? "";
@@ -78,20 +75,34 @@ class PmRecurringEventsRenderChild extends MarkdownRenderChild {
       return 0;
     });
 
+    // Build new content off-DOM to prevent incremental scroll anchoring as
+    // tiles are appended one-by-one during the async renderAll loop.
+    const fragment = document.createDocumentFragment();
+
     if (sorted.length === 0) {
-      this.containerEl.createDiv({
-        cls: "pm-recurring-events__empty",
-        text: "No events yet. Use the New Event button to create the first one.",
-      });
-      return;
+      const emptyDiv = document.createElement("div");
+      emptyDiv.className = "pm-recurring-events__empty";
+      emptyDiv.textContent = "No events yet. Use the New Event button to create the first one.";
+      fragment.appendChild(emptyDiv);
+    } else {
+      // Obsidian patches createDiv/createEl onto HTMLElement.prototype globally,
+      // so they work on detached elements too.
+      const grid = document.createElement("div");
+      grid.className = "pm-recurring-events__grid";
+      await this.renderAll(sorted, grid);
+      fragment.appendChild(grid);
     }
 
-    const grid = this.containerEl.createDiv({ cls: "pm-recurring-events__grid" });
-    await this.renderAll(sorted, grid);
+    // Atomic swap — single DOM mutation replaces all children at once,
+    // preventing the browser from triggering scroll anchoring mid-rebuild.
+    this.containerEl.empty();
+    this.containerEl.appendChild(fragment);
 
-    // Restore scroll position after re-render
+    // Restore scroll after the browser processes the DOM swap layout.
     if (scrollParent) {
-      scrollParent.scrollTop = savedScrollTop;
+      requestAnimationFrame(() => {
+        scrollParent.scrollTop = savedScrollTop;
+      });
     }
   }
 

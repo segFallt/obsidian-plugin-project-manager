@@ -356,6 +356,13 @@ describe("pm-recurring-events processor", () => {
       sourcePath: "meetings/recurring/Weekly Standup.md",
     };
 
+    // Mock requestAnimationFrame to execute synchronously so scroll restore
+    // happens before the assertion rather than being deferred to the next frame.
+    vi.spyOn(window, "requestAnimationFrame").mockImplementation((cb) => {
+      cb(0);
+      return 0;
+    });
+
     getHandler()("", el, ctx);
 
     // Simulate user scrolling to position 250
