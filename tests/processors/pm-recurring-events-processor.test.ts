@@ -356,8 +356,8 @@ describe("pm-recurring-events processor", () => {
       sourcePath: "meetings/recurring/Weekly Standup.md",
     };
 
-    // Mock requestAnimationFrame to execute synchronously so scroll restore
-    // happens before the assertion rather than being deferred to the next frame.
+    // Mock requestAnimationFrame to execute synchronously so the height-pin
+    // release (containerEl.style.minHeight = "") happens before the assertion.
     vi.spyOn(window, "requestAnimationFrame").mockImplementation((cb) => {
       cb(0);
       return 0;
@@ -371,8 +371,11 @@ describe("pm-recurring-events processor", () => {
     // Call render() directly — this is what debouncedRefresh() does
     await capturedChild?.render?.();
 
-    // Scroll position should be restored to 250
+    // Scroll position is restored synchronously in the same JS frame as the DOM swap.
     expect(scrollParent.scrollTop).toBe(250);
+
+    // Height pin should be cleared after rAF fires.
+    expect(el.style.minHeight).toBe("");
 
     document.body.removeChild(scrollParent);
     vi.restoreAllMocks();

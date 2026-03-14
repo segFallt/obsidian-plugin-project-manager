@@ -483,6 +483,7 @@ details[open] .pm-filter-section__title::before {
   grid-template-columns: 1fr;
   gap: 12px;
   overflow-anchor: none; /* prevent browser scroll anchoring during tile rebuilds */
+  contain: layout style; /* limit relayout scope when tiles are swapped */
 }
 
 .pm-recurring-events__tile {
