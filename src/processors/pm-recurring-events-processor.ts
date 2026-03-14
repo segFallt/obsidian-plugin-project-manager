@@ -61,6 +61,12 @@ class PmRecurringEventsRenderChild extends MarkdownRenderChild {
     const scrollParent = this.getScrollableParent();
     const savedScrollTop = scrollParent?.scrollTop ?? 0;
 
+    // Pin container height to prevent collapse during the DOM swap.
+    const currentHeight = this.containerEl.offsetHeight;
+    if (currentHeight > 0) {
+      this.containerEl.style.minHeight = `${currentHeight}px`;
+    }
+
     const meetingName =
       this.sourcePath.split("/").pop()?.replace(/\.md$/, "") ?? "";
 
@@ -93,17 +99,21 @@ class PmRecurringEventsRenderChild extends MarkdownRenderChild {
       fragment.appendChild(grid);
     }
 
-    // Atomic swap — single DOM mutation replaces all children at once,
-    // preventing the browser from triggering scroll anchoring mid-rebuild.
-    this.containerEl.empty();
-    this.containerEl.appendChild(fragment);
+    // Single atomic mutation — avoids the brief zero-height flash that
+    // empty() + appendChild() causes between the two operations.
+    this.containerEl.replaceChildren(fragment);
 
-    // Restore scroll after the browser processes the DOM swap layout.
+    // Restore scroll synchronously in the same JS frame as the DOM mutation,
+    // so no painted frame occurs at the wrong scroll position.
     if (scrollParent) {
-      requestAnimationFrame(() => {
-        scrollParent.scrollTop = savedScrollTop;
-      });
+      scrollParent.scrollTop = savedScrollTop;
     }
+
+    // Release height pin after the next paint so the container can shrink
+    // naturally if the new content is shorter.
+    requestAnimationFrame(() => {
+      this.containerEl.style.minHeight = "";
+    });
   }
 
   private getScrollableParent(): HTMLElement | null {
