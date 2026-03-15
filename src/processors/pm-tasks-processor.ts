@@ -1,4 +1,4 @@
-import { App, MarkdownRenderChild, TAbstractFile, TFile, parseYaml } from "obsidian";
+import { MarkdownRenderChild, TFile, parseYaml } from "obsidian";
 import type { MarkdownPostProcessorContext } from "obsidian";
 import type { TaskProcessorServices, RegisterProcessorFn } from "../plugin-context";
 import type { PmTasksConfig, SavedDashboardFilters, SavedByProjectFilters } from "../types";
@@ -22,16 +22,13 @@ import { DEBOUNCE_MS, CODEBLOCK } from "../constants";
  * mode: by-project
  * ```
  *
- * Filter state is held in the module-level cache during the session and flushed
- * to the note's frontmatter on plugin unload (via flushFilterStateCache).
+ * Filter state is persisted to the note's frontmatter under the `pm-tasks-filters` key.
  */
-
-const FILTER_FM_KEY = "pm-tasks-filters";
 
 /**
  * In-memory cache keyed by sourcePath. Updated synchronously in debouncedSaveFilters
- * so that re-renders always load fresh filter state without writing to the source note
- * (which would trigger a widget destroy/rebuild flash in Obsidian's Live Preview).
+ * so that re-renders triggered by the subsequent processFrontMatter write always load
+ * fresh filter state, bypassing the metadataCache race condition.
  */
 const filterStateCache = new Map<string, SavedDashboardFilters | SavedByProjectFilters>();
 
@@ -39,25 +36,6 @@ const filterStateCache = new Map<string, SavedDashboardFilters | SavedByProjectF
 export function _clearFilterStateCacheForTests(): void {
   filterStateCache.clear();
 }
-
-/**
- * Flushes in-memory filter state to each note's frontmatter.
- * Call this from the plugin's onunload() for cross-session persistence.
- */
-export async function flushFilterStateCache(app: App): Promise<void> {
-  for (const [sourcePath, filters] of filterStateCache.entries()) {
-    const file = app.vault.getAbstractFileByPath(sourcePath);
-    if (!(file instanceof TFile)) continue;
-    try {
-      await app.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => {
-        fm[FILTER_FM_KEY] = filters;
-      });
-    } catch {
-      // Best-effort — file may have been deleted/moved
-    }
-  }
-}
-
 export function registerPmTasksProcessor(
   services: TaskProcessorServices,
   registerProcessor: RegisterProcessorFn
@@ -71,10 +49,14 @@ export function registerPmTasksProcessor(
 
 // ─── Render child ──────────────────────────────────────────────────────────
 
+const FILTER_FM_KEY = "pm-tasks-filters";
+
 class PmTasksRenderChild extends MarkdownRenderChild {
   private config!: PmTasksConfig;
   private activeView: DashboardView | ByProjectView | null = null;
   private debounceTimer: ReturnType<typeof setTimeout> | null = null;
+  private saveDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+  private isUpdating = false;
 
   constructor(
     containerEl: HTMLElement,
@@ -86,15 +68,11 @@ class PmTasksRenderChild extends MarkdownRenderChild {
   }
 
   onload(): void {
-    // Auto-refresh task output when other vault files are modified.
-    // Ignores modifications to the source note itself (e.g. from flushFilterStateCache
-    // on plugin unload) to avoid spurious refreshes.
+    // Auto-refresh task output when any vault file is modified.
     // Uses a 1 second debounce to allow Dataview to re-index before querying.
     this.registerEvent(
-      this.services.app.vault.on("modify", (file: TAbstractFile) => {
-        if (file.path !== this.sourcePath) {
-          this.debouncedAutoRefresh();
-        }
+      this.services.app.vault.on("modify", () => {
+        if (!this.isUpdating) this.debouncedAutoRefresh();
       })
     );
   }
@@ -103,6 +81,10 @@ class PmTasksRenderChild extends MarkdownRenderChild {
     if (this.debounceTimer !== null) {
       clearTimeout(this.debounceTimer);
       this.debounceTimer = null;
+    }
+    if (this.saveDebounceTimer !== null) {
+      clearTimeout(this.saveDebounceTimer);
+      this.saveDebounceTimer = null;
     }
   }
 
@@ -161,7 +143,8 @@ class PmTasksRenderChild extends MarkdownRenderChild {
   }
 
   private loadSavedFilters(): unknown {
-    // Prefer in-memory cache (always current) over metadataCache (may be stale).
+    // Prefer in-memory cache (always current) over metadataCache (may be stale after
+    // a processFrontMatter write that hasn't been indexed yet).
     const cached = filterStateCache.get(this.sourcePath);
     if (cached) return cached;
     const file = this.services.app.vault.getAbstractFileByPath(this.sourcePath);
@@ -170,18 +153,41 @@ class PmTasksRenderChild extends MarkdownRenderChild {
   }
 
   private debouncedSaveFilters(filters: SavedDashboardFilters | SavedByProjectFilters | null): void {
-    // Update in-memory cache only — no frontmatter write during the session.
-    // Writing to the source note triggers widget destroy/rebuild in Live Preview,
-    // causing a visible flash. Persistence happens on plugin unload via flushFilterStateCache.
+    // Update in-memory cache immediately so re-renders pick up fresh state before
+    // the debounced frontmatter write has fired (and been indexed by metadataCache).
     if (filters !== null) {
       filterStateCache.set(this.sourcePath, filters);
     } else {
       filterStateCache.delete(this.sourcePath);
     }
+    if (this.saveDebounceTimer) clearTimeout(this.saveDebounceTimer);
+    this.saveDebounceTimer = setTimeout(() => {
+      void this.persistFilters(filters);
+    }, DEBOUNCE_MS.PROPERTIES);
+  }
+
+  private async persistFilters(filters: SavedDashboardFilters | SavedByProjectFilters | null): Promise<void> {
+    const file = this.services.app.vault.getAbstractFileByPath(this.sourcePath);
+    if (!(file instanceof TFile)) return;
+    this.isUpdating = true;
+    try {
+      await this.services.app.fileManager.processFrontMatter(
+        file,
+        (fm: Record<string, unknown>) => {
+          if (filters === null) {
+            delete fm[FILTER_FM_KEY];
+          } else {
+            fm[FILTER_FM_KEY] = filters;
+          }
+        }
+      );
+    } finally {
+      this.isUpdating = false;
+    }
   }
 
   /**
-   * Triggered by vault 'modify' events for files other than the source note.
+   * Triggered by vault 'modify' events.
    * Uses a longer debounce (1 s) to allow Dataview to re-index before re-querying.
    */
   private debouncedAutoRefresh(): void {

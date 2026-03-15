@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { registerPmTasksProcessor, _clearFilterStateCacheForTests, flushFilterStateCache } from "../../src/processors/pm-tasks-processor";
+import { registerPmTasksProcessor, _clearFilterStateCacheForTests } from "../../src/processors/pm-tasks-processor";
 
 afterEach(() => { _clearFilterStateCacheForTests(); });
 import { createMockDataviewApi } from "../mocks/dataview-mock";
@@ -38,12 +38,6 @@ function createMockServices(dvApi: DataviewApi | null = null) {
         getAbstractFileByPath: vi.fn(() => null),
         read: vi.fn(async () => ""),
         modify: vi.fn(async () => {}),
-      },
-      fileManager: {
-        processFrontMatter: vi.fn(async (_file: unknown, cb: (fm: Record<string, unknown>) => void) => { cb({}); }),
-      },
-      metadataCache: {
-        getFileCache: vi.fn(() => null),
       },
     },
     settings: {
@@ -480,98 +474,11 @@ describe("pm-tasks processor", () => {
       expect(vaultOn).toHaveBeenCalledWith("modify", expect.any(Function));
     });
 
-    it("vault modify handler ignores modifications to the source note itself", () => {
-      const { child, vaultOn } = render("mode: dashboard");
-      (child as { onload(): void }).onload();
-      const modifyHandler = vaultOn.mock.calls.find(([event]) => event === "modify")?.[1] as
-        | ((file: { path: string }) => void)
-        | undefined;
-      expect(modifyHandler).toBeDefined();
-
-      // Spy on the private debouncedAutoRefresh by checking debounceTimer side effects.
-      // Simplest: call handler with source path and verify no timer is scheduled (no side effects).
-      // We verify by checking that calling with sourcePath does NOT throw and returns without action.
-      expect(() => modifyHandler!({ path: "test.md" })).not.toThrow();
-
-      // Calling with a different file should schedule an auto-refresh (no throw).
-      expect(() => modifyHandler!({ path: "other.md" })).not.toThrow();
-    });
-
     it("onunload clears debounce timer without throwing", () => {
       const { child } = render("mode: dashboard");
       expect(() =>
         (child as { onunload(): void }).onunload()
       ).not.toThrow();
-    });
-  });
-
-  // ─── flushFilterStateCache ────────────────────────────────────────────────
-
-  describe("flushFilterStateCache", () => {
-    it("writes cached filter state to frontmatter via processFrontMatter", async () => {
-      const sourcePath = "flush-test.md";
-      const { services, registerProcessor } = createMockServices(createMockDataviewApi([]));
-      registerPmTasksProcessor(services, registerProcessor);
-
-      const el = document.createElement("div");
-      let handler: ((source: string, el: HTMLElement, ctx: Record<string, unknown>) => void) | null = null;
-      (registerProcessor as unknown as { mock: { calls: unknown[][] } }).mock.calls.forEach(([, fn]) => {
-        handler = fn as typeof handler;
-      });
-      handler!("mode: dashboard", el, { addChild: () => {}, sourcePath } as unknown as Record<string, unknown>);
-
-      // Populate cache via preset button click
-      const presetBtn = el.querySelector(".pm-date-preset-btn") as HTMLButtonElement | null;
-      expect(presetBtn).not.toBeNull();
-      presetBtn!.click();
-
-      // Set up a mock app where getAbstractFileByPath returns a TFile-like object
-      const mockFile = Object.create(
-        (await import("obsidian")).TFile.prototype as object
-      ) as InstanceType<typeof import("obsidian").TFile>;
-      const processFrontMatter = vi.fn(async (_file: unknown, cb: (fm: Record<string, unknown>) => void) => { cb({}); });
-      const mockApp = {
-        vault: {
-          getAbstractFileByPath: vi.fn(() => mockFile),
-        },
-        fileManager: { processFrontMatter },
-      };
-
-      await flushFilterStateCache(mockApp as unknown as import("obsidian").App);
-
-      expect(processFrontMatter).toHaveBeenCalledTimes(1);
-      expect(processFrontMatter).toHaveBeenCalledWith(mockFile, expect.any(Function));
-
-      // Verify the callback writes the filter key
-      const fm: Record<string, unknown> = {};
-      const cb = processFrontMatter.mock.calls[0][1] as (fm: Record<string, unknown>) => void;
-      cb(fm);
-      expect(fm["pm-tasks-filters"]).toBeDefined();
-    });
-
-    it("skips entries where the file is not found in vault", async () => {
-      const sourcePath = "flush-missing-test.md";
-      const { services, registerProcessor } = createMockServices(createMockDataviewApi([]));
-      registerPmTasksProcessor(services, registerProcessor);
-
-      const el = document.createElement("div");
-      let handler: ((source: string, el: HTMLElement, ctx: Record<string, unknown>) => void) | null = null;
-      (registerProcessor as unknown as { mock: { calls: unknown[][] } }).mock.calls.forEach(([, fn]) => {
-        handler = fn as typeof handler;
-      });
-      handler!("mode: dashboard", el, { addChild: () => {}, sourcePath } as unknown as Record<string, unknown>);
-
-      const presetBtn = el.querySelector(".pm-date-preset-btn") as HTMLButtonElement | null;
-      presetBtn!.click();
-
-      const processFrontMatter = vi.fn();
-      const mockApp = {
-        vault: { getAbstractFileByPath: vi.fn(() => null) },
-        fileManager: { processFrontMatter },
-      };
-
-      await flushFilterStateCache(mockApp as unknown as import("obsidian").App);
-      expect(processFrontMatter).not.toHaveBeenCalled();
     });
   });
 });
