@@ -64,7 +64,11 @@ export const RECURRENCE_EMOJI = "🔁";
 export const DUE_DATE_PRESETS: readonly DueDatePreset[] = ["Today", "Tomorrow", "This Week", "Next Week", "Overdue", "No Date"];
 
 /** Default (empty) due date filter — no presets selected, no range set. */
-export const DEFAULT_DUE_DATE_FILTER: DueDateFilter = Object.freeze({ mode: "presets", presets: [], rangeFrom: null, rangeTo: null });
+export const DEFAULT_DUE_DATE_FILTER: DueDateFilter = Object.freeze({
+  rangeFrom: null,
+  rangeTo: null,
+  includeNoDate: false,
+});
 
 /** Named status values for type-safe comparisons. */
 export const STATUS = {

@@ -4,6 +4,8 @@
  * All date/time values use the user's local timezone, not UTC.
  */
 import { ISO_DATE_LENGTH } from "../constants";
+import type { DueDatePreset } from "../types";
+import { addDays } from "./task-utils";
 
 function padTwo(n: number): string {
   return n.toString().padStart(2, "0");
@@ -75,5 +77,21 @@ export function formatDate(isoDate: string | null | undefined): string {
     });
   } catch {
     return isoDate;
+  }
+}
+
+/**
+ * Converts a due-date preset button label into an ISO date range.
+ * "No Date" is intentionally excluded — callers must handle it separately by
+ * setting `includeNoDate: true` on the filter rather than using a date range.
+ */
+export function presetToDateRange(preset: Exclude<DueDatePreset, "No Date">): { rangeFrom: string | null; rangeTo: string | null } {
+  const today = todayISO();
+  switch (preset) {
+    case "Today":     return { rangeFrom: today, rangeTo: today };
+    case "Tomorrow":  return { rangeFrom: addDays(today, 1), rangeTo: addDays(today, 1) };
+    case "This Week": return { rangeFrom: today, rangeTo: addDays(today, 7) };
+    case "Next Week": return { rangeFrom: addDays(today, 8), rangeTo: addDays(today, 14) };
+    case "Overdue":   return { rangeFrom: null, rangeTo: addDays(today, -1) };
   }
 }

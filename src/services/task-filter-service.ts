@@ -3,7 +3,6 @@ import type {
   DataviewApi,
   DashboardFilters,
   DueDateFilter,
-  DueDatePreset,
   MeetingDateFilter,
   ProjectStatus,
   InboxStatusFilter,
@@ -123,49 +122,18 @@ export class TaskFilterService implements ITaskFilterService {
 
   /** Returns true if the task's due date matches the given filter. */
   matchesDueDateFilter(task: DataviewTask, filter: DueDateFilter): boolean {
-    // Empty presets in preset mode = "All" (show everything)
-    if (filter.mode === "presets" && filter.presets.length === 0) return true;
+    if (!this.isDueDateFilterActive(filter)) return true;
 
-    const today = todayISO();
     const due = task.due ? String(task.due).substring(0, ISO_DATE_LENGTH) : null;
 
-    if (filter.mode === "range") {
-      if (due === null) return false; // no-date tasks excluded from range
-      if (filter.rangeFrom && due < filter.rangeFrom) return false;
-      if (filter.rangeTo && due > filter.rangeTo) return false;
-      return true;
-    }
-
-    // Preset mode: OR across selected presets
-    return filter.presets.some(preset => this.matchesSinglePreset(due, preset, today));
-  }
-
-  private matchesSinglePreset(due: string | null, preset: DueDatePreset, today: string): boolean {
-    switch (preset) {
-      case "Today":
-        return due === today;
-      case "Tomorrow":
-        return due === addDays(today, 1);
-      case "This Week":
-        return due !== null && due >= today && due <= addDays(today, 7);
-      case "Next Week": {
-        const nextWeekStart = addDays(today, 8);
-        const nextWeekEnd = addDays(today, 14);
-        return due !== null && due >= nextWeekStart && due <= nextWeekEnd;
-      }
-      case "Overdue":
-        return due !== null && due < today;
-      case "No Date":
-        return due === null;
-      default:
-        return true;
-    }
+    if (due === null) return filter.includeNoDate;
+    if (filter.rangeFrom && due < filter.rangeFrom) return false;
+    if (filter.rangeTo && due > filter.rangeTo) return false;
+    return true;
   }
 
   private isDueDateFilterActive(filter: DueDateFilter): boolean {
-    // Guard against legacy string values during migration (pm-tasks-dashboard.ts not yet updated)
-    if (typeof filter !== "object" || filter === null) return false;
-    return !(filter.mode === "presets" && filter.presets.length === 0);
+    return filter.rangeFrom !== null || filter.rangeTo !== null || filter.includeNoDate;
   }
 
   /** Returns true if the task matches the tag filter. */
