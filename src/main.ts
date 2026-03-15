@@ -29,6 +29,7 @@ import type {
 } from "./services/interfaces";
 import { registerAllCommands } from "./commands";
 import { registerAllProcessors } from "./processors";
+import { flushFilterStateCache } from "./processors/pm-tasks-processor";
 import type { DataviewApi } from "./types";
 import { DATAVIEW_PLUGIN_ID, NOTICE_DURATION_MS } from "./constants";
 
@@ -74,6 +75,7 @@ export default class ProjectManagerPlugin extends Plugin {
 
   onunload() {
     this.loggerService.info("Plugin unloading", "main");
+    void flushFilterStateCache(this.app);
     void this.loggerService.flush();
     this.loggerServiceImpl.destroy();
   }
