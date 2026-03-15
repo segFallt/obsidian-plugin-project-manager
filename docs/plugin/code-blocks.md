@@ -139,6 +139,15 @@ mode: dashboard | by-project
 viewMode: context | date | priority | tag
 sortBy: none | dueDate-asc | dueDate-desc | priority-asc | priority-desc
 showCompleted: false
+# Due date filter (presets or range)
+dueDateFilter:
+  mode: presets | range
+  presets: [Today, Tomorrow, This Week, Next Week, Overdue, "No Date"]
+  rangeFrom: "2026-03-15"  # ISO date "YYYY-MM-DD", or null
+  rangeTo: "2026-04-15"    # ISO date "YYYY-MM-DD", or null
+# Tag filter
+tagFilter: [tag1, tag2]
+includeUntagged: false
 ```
 ```
 
@@ -151,10 +160,33 @@ Displays all vault tasks (excluding the `utility/` folder) with these filter pan
 - **Show Completed**: toggle
 - **Search**: text filter
 - **Context Filters**: context type, client, engagement, project status, inbox status, meeting date
-- **Date Filters**: due date (All / Today / This Week / Overdue / No Date)
+- **Date Filters**: preset buttons (Today, Tomorrow, This Week, Next Week, Overdue, No Date) + custom date range
 - **Priority Filters**: Urgent / High / Medium / Low / Someday
+- **Tag Filters**: dynamic tag buttons (when tasks have tags) + "Include untagged" checkbox
 
 Context view groups tasks hierarchically: Context → File → Task. For the Project context, tasks from project notes are nested under their parent project.
+
+#### Due date filter details
+
+The due date filter offers two modes:
+
+**Preset mode** — Click any of the 6 preset buttons:
+- **Today** — tasks due today
+- **Tomorrow** — tasks due tomorrow
+- **This Week** — tasks due within the next 7 days
+- **Next Week** — tasks due 8–14 days from now
+- **Overdue** — tasks with a due date in the past
+- **No Date** — tasks with no due date set
+
+Multiple presets can be active simultaneously (OR logic) — clicking a preset toggles it on/off. An empty preset selection shows all tasks.
+
+**Range mode** — Use the "From" and "To" date inputs to filter by a custom date range (ISO format `YYYY-MM-DD`). Entering a date automatically switches to range mode and clears all preset selections. Only one range can be active at a time.
+
+#### Tag filter details
+
+When tasks in the vault have tags, a tag filter section appears with:
+- **Tag buttons** — one button per unique tag found in tasks. Click to toggle a tag filter (OR logic across selected tags).
+- **Include untagged checkbox** — when checked, includes tasks with no tags in the results.
 
 ### By-project mode (`mode: by-project`)
 
@@ -172,7 +204,9 @@ Clicking a checkbox:
 
 ### Filter state
 
-All filter state is local to the rendered component — no frontmatter is written on filter change. Defaults can be set in the code block YAML (see options above).
+Filter state is persisted to the note's frontmatter under the `pm-tasks-filters` key and restored on page reload. Defaults can be set in the code block YAML (see options above).
+
+**Note on backward compatibility:** The old `dueDateFilter: "Today"` string format is still supported for existing notes and will be automatically migrated to the new structured format.
 
 ---
 

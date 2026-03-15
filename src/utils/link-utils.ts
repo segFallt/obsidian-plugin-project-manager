@@ -36,7 +36,8 @@ export function normalizeToName(item: unknown): string | null {
   // Dataview Link object
   if (typeof item === "object" && item !== null && "path" in item) {
     const link = item as DataviewLink;
-    return link.path.split("/").pop()?.replace(/\.md$/, "") ?? null;
+    const name = link.path.split("/").pop()?.replace(/\.md$/, "") ?? null;
+    return name || null; // treat empty string as null
   }
 
   const str = String(item);
@@ -47,7 +48,7 @@ export function normalizeToName(item: unknown): string | null {
   }
 
   // Plain name possibly ending in .md
-  return str.replace(/\.md$/, "").split("/").pop() ?? str;
+  return str.replace(/\.md$/, "").split("/").pop() || null; // treat empty string as null
 }
 
 /**

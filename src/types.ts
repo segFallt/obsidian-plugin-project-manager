@@ -78,7 +78,16 @@ export interface PmActionsConfig {
 }
 
 export type TaskViewMode = "dashboard" | "by-project";
-export type DueDateFilter = "All" | "Today" | "This Week" | "Overdue" | "No Date";
+export type DueDatePreset = "Today" | "Tomorrow" | "This Week" | "Next Week" | "Overdue" | "No Date";
+export interface DueDateFilter {
+  mode: "presets" | "range";
+  /** Multi-select presets, OR logic */
+  presets: DueDatePreset[];
+  /** ISO date "YYYY-MM-DD", or null */
+  rangeFrom: string | null;
+  /** ISO date "YYYY-MM-DD", or null */
+  rangeTo: string | null;
+}
 export type MeetingDateFilter = "All" | "Today" | "This Week" | "Past";
 export type InboxStatusFilter = "All" | "Active" | "Inactive";
 export type SortBy =
@@ -101,6 +110,8 @@ export interface PmTasksConfig {
   projectStatusFilter?: ProjectStatus[];
   inboxStatusFilter?: InboxStatusFilter;
   meetingDateFilter?: MeetingDateFilter;
+  tagFilter?: string[];
+  includeUntagged?: boolean;
   // By-project defaults
   selectedStatuses?: ProjectStatus[];
 }
@@ -204,6 +215,8 @@ export interface DashboardFilters {
   engagementFilter: string[];
   includeUnassignedClients: boolean;
   includeUnassignedEngagements: boolean;
+  tagFilter: string[];
+  includeUntagged: boolean;
   searchText: string;
 }
 

@@ -6,6 +6,7 @@ import type {
   DashboardFilters,
   SavedDashboardFilters,
   DueDateFilter,
+  DueDatePreset,
   MeetingDateFilter,
   InboxStatusFilter,
   SortBy,
@@ -13,7 +14,7 @@ import type {
   TaskContext,
   TaskPriority,
 } from "../types";
-import { ENTITY_TAGS, TASK_CONTEXTS, DEFAULT_TASK_VIEW_STATUSES, DEBOUNCE_MS, CSS_CLS, CSS_VAR, MSG } from "../constants";
+import { ENTITY_TAGS, TASK_CONTEXTS, DEFAULT_TASK_VIEW_STATUSES, DUE_DATE_PRESETS, DEFAULT_DUE_DATE_FILTER, DEBOUNCE_MS, CSS_CLS, CSS_VAR, MSG } from "../constants";
 import type { ITaskFilterService } from "../services/interfaces";
 import type { ITaskSortService } from "../services/interfaces";
 import { createSelect, renderCollapsible } from "./dom-helpers";
@@ -72,12 +73,24 @@ export class DashboardView {
   private initFilters(): void {
     const cfg = this.config;
     const saved = this.savedFilters;
+
+    // Backward-compat migration: old saved state stored dueDateFilter as a string
+    const rawDueDate = saved?.dueDateFilter;
+    let dueDateFilter: DueDateFilter;
+    if (typeof rawDueDate === "string") {
+      dueDateFilter = rawDueDate === "All"
+        ? { ...DEFAULT_DUE_DATE_FILTER }
+        : { mode: "presets", presets: [rawDueDate as DueDatePreset], rangeFrom: null, rangeTo: null };
+    } else {
+      dueDateFilter = rawDueDate ?? cfg.dueDateFilter ?? { ...DEFAULT_DUE_DATE_FILTER };
+    }
+
     this.filters = {
       viewMode: saved?.viewMode ?? cfg.viewMode ?? this.services.settings.ui.defaultTaskViewMode,
       sortBy: saved?.sortBy ?? cfg.sortBy ?? "none",
       showCompleted: saved?.showCompleted ?? cfg.showCompleted ?? this.services.settings.ui.showCompletedByDefault,
       contextFilter: saved?.contextFilter ?? cfg.contextFilter ?? [],
-      dueDateFilter: saved?.dueDateFilter ?? cfg.dueDateFilter ?? "All",
+      dueDateFilter,
       priorityFilter: saved?.priorityFilter ?? cfg.priorityFilter ?? [],
       projectStatusFilter: saved?.projectStatusFilter ?? cfg.projectStatusFilter ?? [],
       inboxStatusFilter: saved?.inboxStatusFilter ?? cfg.inboxStatusFilter ?? "All",
@@ -86,6 +99,8 @@ export class DashboardView {
       engagementFilter: saved?.engagementFilter ?? [],
       includeUnassignedClients: saved?.includeUnassignedClients ?? false,
       includeUnassignedEngagements: saved?.includeUnassignedEngagements ?? false,
+      tagFilter: saved?.tagFilter ?? cfg.tagFilter ?? [],
+      includeUntagged: saved?.includeUntagged ?? cfg.includeUntagged ?? false,
       searchText: "",
     };
   }
@@ -166,6 +181,9 @@ export class DashboardView {
     renderCollapsible(container, "Priority Filters", (innerEl) => {
       this.renderPriorityFilters(innerEl, f, () => { this.persistFilters(); this.debouncedRefresh(container); });
     });
+    renderCollapsible(container, "Tag Filters", (innerEl) => {
+      this.renderTagFilters(innerEl, f, () => { this.persistFilters(); this.debouncedRefresh(container); });
+    });
 
     // Clear filters button
     const clearBtn = container.createEl("button", {
@@ -176,6 +194,11 @@ export class DashboardView {
       this.onSaveFilters?.(null);
       this.destroyChipSelects();
       this.initFilters();
+      // Explicitly reset fields that may have been loaded from saved state
+      const f = this.filters;
+      f.tagFilter = [];
+      f.includeUntagged = false;
+      f.dueDateFilter = { ...DEFAULT_DUE_DATE_FILTER };
       const dashboardRoot = container.parentElement;
       if (dashboardRoot) {
         dashboardRoot.empty();
@@ -297,15 +320,70 @@ export class DashboardView {
     f: DashboardFilters,
     onChange: () => void
   ): void {
-    container.createEl("label", { text: "Due Date:" });
-    const dueDateSelect = createSelect(
-      container,
-      ["All", "Today", "This Week", "Overdue", "No Date"],
-      {}
-    );
-    dueDateSelect.value = f.dueDateFilter;
-    dueDateSelect.addEventListener("change", () => {
-      f.dueDateFilter = dueDateSelect.value as DueDateFilter;
+    const section = container.createEl("div", { cls: "pm-filter-group" });
+    section.createEl("span", { cls: "pm-filter-label", text: "Due:" });
+
+    // Preset buttons container
+    const presetsContainer = section.createEl("div", { cls: "pm-date-presets" });
+    const buttons = new Map<DueDatePreset, HTMLButtonElement>();
+
+    // Range inputs are declared before the preset button loop so their
+    // references are fully initialised when the preset click handlers close
+    // over them (avoids a TDZ hazard). The container is created now but the
+    // "or" separator is inserted before it after the loop to preserve visual
+    // order: presets → separator → range.
+    const rangeContainer = section.createEl("div", { cls: "pm-date-range" });
+    rangeContainer.createEl("span", { text: "From:" });
+    const fromInput = rangeContainer.createEl("input", { type: "date", cls: "pm-date-range-input" });
+    fromInput.value = f.dueDateFilter.rangeFrom ?? "";
+    fromInput.setAttribute("aria-label", "Filter from date");
+    rangeContainer.createEl("span", { text: "To:" });
+    const toInput = rangeContainer.createEl("input", { type: "date", cls: "pm-date-range-input" });
+    toInput.value = f.dueDateFilter.rangeTo ?? "";
+    toInput.setAttribute("aria-label", "Filter to date");
+
+    for (const preset of DUE_DATE_PRESETS) {
+      const btn = presetsContainer.createEl("button", {
+        cls: "pm-date-preset-btn",
+        text: preset,
+      });
+      if (f.dueDateFilter.presets.includes(preset)) {
+        btn.classList.add("pm-date-preset-btn--active");
+      }
+      btn.addEventListener("click", () => {
+        f.dueDateFilter.mode = "presets";
+        f.dueDateFilter.rangeFrom = null;
+        f.dueDateFilter.rangeTo = null;
+        fromInput.value = "";
+        toInput.value = "";
+        if (f.dueDateFilter.presets.includes(preset)) {
+          f.dueDateFilter.presets = f.dueDateFilter.presets.filter(p => p !== preset);
+          btn.classList.remove("pm-date-preset-btn--active");
+        } else {
+          f.dueDateFilter.presets = [...f.dueDateFilter.presets, preset];
+          btn.classList.add("pm-date-preset-btn--active");
+        }
+        onChange();
+      });
+      buttons.set(preset, btn);
+    }
+
+    // Insert "or" separator between presets and range container in the DOM
+    const separator = section.createEl("span", { cls: "pm-date-range-separator", text: "\u2014 or \u2014" });
+    section.insertBefore(separator, rangeContainer);
+
+    fromInput.addEventListener("change", () => {
+      f.dueDateFilter.mode = "range";
+      f.dueDateFilter.rangeFrom = fromInput.value || null;
+      f.dueDateFilter.presets = [];
+      buttons.forEach(btn => btn.classList.remove("pm-date-preset-btn--active"));
+      onChange();
+    });
+    toInput.addEventListener("change", () => {
+      f.dueDateFilter.mode = "range";
+      f.dueDateFilter.rangeTo = toInput.value || null;
+      f.dueDateFilter.presets = [];
+      buttons.forEach(btn => btn.classList.remove("pm-date-preset-btn--active"));
       onChange();
     });
   }
@@ -336,6 +414,59 @@ export class DashboardView {
         onChange();
       });
     }
+  }
+
+  private renderTagFilters(
+    container: HTMLElement,
+    f: DashboardFilters,
+    onChange: () => void
+  ): void {
+    // Collect unique tags from all tasks currently in the vault
+    const dv = this.services.queryService.dv();
+    if (!dv) {
+      container.createEl("div", {
+        cls: "pm-filter-group",
+        text: "Tag filters unavailable (Dataview not loaded)",
+      });
+      return;
+    }
+    const allTasks = this.getAllTasks(dv);
+    const allTags = [...new Set(allTasks.flatMap(t => t.tags ?? []))].sort();
+
+    if (allTags.length === 0) return;
+
+    const section = container.createEl("div", { cls: "pm-filter-group" });
+    section.createEl("span", { cls: "pm-filter-label", text: "Tags:" });
+
+    for (const tag of allTags) {
+      const btn = section.createEl("button", {
+        cls: "pm-tag-filter-btn",
+        text: tag,
+      });
+      if (f.tagFilter.includes(tag)) {
+        btn.classList.add("pm-tag-filter-btn--active");
+      }
+      btn.addEventListener("click", () => {
+        if (f.tagFilter.includes(tag)) {
+          f.tagFilter = f.tagFilter.filter(t => t !== tag);
+          btn.classList.remove("pm-tag-filter-btn--active");
+        } else {
+          f.tagFilter = [...f.tagFilter, tag];
+          btn.classList.add("pm-tag-filter-btn--active");
+        }
+        onChange();
+      });
+    }
+
+    // Include untagged checkbox
+    const untaggedLabel = section.createEl("label", { cls: "pm-filter-checkbox-label" });
+    const untaggedCheck = untaggedLabel.createEl("input", { type: "checkbox" });
+    untaggedCheck.checked = f.includeUntagged;
+    untaggedLabel.createSpan({ text: "Include untagged" });
+    untaggedCheck.addEventListener("change", () => {
+      f.includeUntagged = untaggedCheck.checked;
+      onChange();
+    });
   }
 
   // ─── Chip select cleanup ─────────────────────────────────────────────────
@@ -412,6 +543,8 @@ export class DashboardView {
       engagementFilter: f.engagementFilter,
       includeUnassignedClients: f.includeUnassignedClients,
       includeUnassignedEngagements: f.includeUnassignedEngagements,
+      tagFilter: f.tagFilter,
+      includeUntagged: f.includeUntagged,
     };
     this.onSaveFilters(toSave);
   }
