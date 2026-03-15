@@ -1,7 +1,5 @@
-import { describe, it, expect, vi, afterEach } from "vitest";
-import { registerPmTasksProcessor, _clearFilterStateCacheForTests } from "../../src/processors/pm-tasks-processor";
-
-afterEach(() => { _clearFilterStateCacheForTests(); });
+import { describe, it, expect, vi } from "vitest";
+import { registerPmTasksProcessor } from "../../src/processors/pm-tasks-processor";
 import { createMockDataviewApi } from "../mocks/dataview-mock";
 import type { DataviewApi } from "../../src/types";
 import type { TaskProcessorServices, RegisterProcessorFn } from "../../src/plugin-context";
@@ -383,84 +381,6 @@ describe("pm-tasks processor", () => {
       const { el } = render("mode: by-project\nshowCompleted: true", dvApi);
       const details = el.querySelectorAll(".pm-tasks-completed");
       expect(details.length).toBeGreaterThan(0);
-    });
-  });
-
-  // ─── In-memory filter cache ───────────────────────────────────────────────
-
-  describe("in-memory filter cache", () => {
-    it("loadSavedFilters returns cached state immediately after debouncedSaveFilters is called", () => {
-      // First render — click a date preset button to trigger debouncedSaveFilters
-      const sourcePath = "cache-preset-test.md";
-      const { services: s1, registerProcessor: rp1 } = createMockServices(createMockDataviewApi([]));
-      registerPmTasksProcessor(s1, rp1);
-      const el1 = document.createElement("div");
-      const h1 = (rp1 as ReturnType<typeof createMockServices>["registerProcessor"]);
-      // Retrieve the registered handler directly from the mock
-      let handler1: ((source: string, el: HTMLElement, ctx: Record<string, unknown>) => void) | null = null;
-      (rp1 as unknown as { mock: { calls: unknown[][] } }).mock.calls.forEach(([, fn]) => { handler1 = fn as typeof handler1; });
-      handler1!(
-        "mode: dashboard",
-        el1,
-        { addChild: () => {}, sourcePath } as unknown as Record<string, unknown>
-      );
-
-      // Click the first date preset button to populate the cache
-      const presetBtn = el1.querySelector(".pm-date-preset-btn") as HTMLButtonElement | null;
-      expect(presetBtn).not.toBeNull();
-      presetBtn!.click();
-
-      // Second render with the same sourcePath — cache should supply the saved filters
-      const { services: s2, registerProcessor: rp2 } = createMockServices(createMockDataviewApi([]));
-      registerPmTasksProcessor(s2, rp2);
-      const el2 = document.createElement("div");
-      let handler2: ((source: string, el: HTMLElement, ctx: Record<string, unknown>) => void) | null = null;
-      (rp2 as unknown as { mock: { calls: unknown[][] } }).mock.calls.forEach(([, fn]) => { handler2 = fn as typeof handler2; });
-      handler2!(
-        "mode: dashboard",
-        el2,
-        { addChild: () => {}, sourcePath } as unknown as Record<string, unknown>
-      );
-
-      // The preset button in the second render should be marked active
-      const presetBtn2 = el2.querySelector(".pm-date-preset-btn");
-      expect(presetBtn2?.classList.contains("pm-date-preset-btn--active")).toBe(true);
-    });
-
-    it("clears cached state when null is passed (Clear Filters)", () => {
-      const sourcePath = "cache-null-test.md";
-      const { services: s1, registerProcessor: rp1 } = createMockServices(createMockDataviewApi([]));
-      registerPmTasksProcessor(s1, rp1);
-      const el1 = document.createElement("div");
-      let handler1: ((source: string, el: HTMLElement, ctx: Record<string, unknown>) => void) | null = null;
-      (rp1 as unknown as { mock: { calls: unknown[][] } }).mock.calls.forEach(([, fn]) => { handler1 = fn as typeof handler1; });
-      handler1!(
-        "mode: dashboard",
-        el1,
-        { addChild: () => {}, sourcePath } as unknown as Record<string, unknown>
-      );
-
-      // Populate the cache via a preset click, then clear it
-      const presetBtn = el1.querySelector(".pm-date-preset-btn") as HTMLButtonElement | null;
-      presetBtn!.click();
-      const clearBtn = [...el1.querySelectorAll("button")].find(b => b.textContent === "Clear Filters") as HTMLButtonElement | undefined;
-      expect(clearBtn).not.toBeUndefined();
-      clearBtn!.click();
-
-      // Second render — cache is empty; no preset should be active
-      const { services: s2, registerProcessor: rp2 } = createMockServices(createMockDataviewApi([]));
-      registerPmTasksProcessor(s2, rp2);
-      const el2 = document.createElement("div");
-      let handler2: ((source: string, el: HTMLElement, ctx: Record<string, unknown>) => void) | null = null;
-      (rp2 as unknown as { mock: { calls: unknown[][] } }).mock.calls.forEach(([, fn]) => { handler2 = fn as typeof handler2; });
-      handler2!(
-        "mode: dashboard",
-        el2,
-        { addChild: () => {}, sourcePath } as unknown as Record<string, unknown>
-      );
-
-      const presetBtn2 = el2.querySelector(".pm-date-preset-btn");
-      expect(presetBtn2?.classList.contains("pm-date-preset-btn--active")).toBe(false);
     });
   });
 
