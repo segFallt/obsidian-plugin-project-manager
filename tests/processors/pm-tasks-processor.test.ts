@@ -1,6 +1,7 @@
-import { describe, it, expect, vi } from "vitest";
-import { registerPmTasksProcessor } from "../../src/processors/pm-tasks-processor";
+import { describe, it, expect, vi, afterEach } from "vitest";
+import { registerPmTasksProcessor, _clearFilterStateCacheForTests } from "../../src/processors/pm-tasks-processor";
 import { createMockDataviewApi } from "../mocks/dataview-mock";
+import { TFile } from "obsidian";
 import type { DataviewApi } from "../../src/types";
 import type { TaskProcessorServices, RegisterProcessorFn } from "../../src/plugin-context";
 import { DEFAULT_FOLDERS } from "../../src/constants";
@@ -9,12 +10,29 @@ import { TaskSortService } from "../../src/services/task-sort-service";
 
 // ─── Mock services factory ───────────────────────────────────────────────────
 
-function createMockServices(dvApi: DataviewApi | null = null) {
+interface MockServiceOptions {
+  dvApi?: DataviewApi | null;
+  frontmatter?: Record<string, unknown>;
+  sourcePath?: string;
+}
+
+function createMockServices(options: MockServiceOptions = {}) {
+  const { dvApi = null, frontmatter, sourcePath = "test.md" } = options;
+
   let registeredHandler:
     | ((source: string, el: HTMLElement, ctx: Record<string, unknown>) => void)
     | null = null;
 
   const vaultOn = vi.fn(() => ({ id: "mock-event" }));
+
+  const mockFile = frontmatter !== undefined ? new TFile(sourcePath) : null;
+
+  const processFrontMatter = vi.fn(
+    async (_file: TFile, callback: (fm: Record<string, unknown>) => void) => {
+      const fm: Record<string, unknown> = { ...(frontmatter ?? {}) };
+      callback(fm);
+    }
+  );
 
   const registerProcessor: RegisterProcessorFn = vi.fn(
     (
@@ -33,9 +51,17 @@ function createMockServices(dvApi: DataviewApi | null = null) {
     app: {
       vault: {
         on: vaultOn,
-        getAbstractFileByPath: vi.fn(() => null),
+        getAbstractFileByPath: vi.fn(() => mockFile),
         read: vi.fn(async () => ""),
         modify: vi.fn(async () => {}),
+      },
+      metadataCache: {
+        getFileCache: vi.fn(() =>
+          frontmatter !== undefined ? { frontmatter } : null
+        ),
+      },
+      fileManager: {
+        processFrontMatter,
       },
     },
     settings: {
@@ -66,31 +92,52 @@ function createMockServices(dvApi: DataviewApi | null = null) {
     services,
     registerProcessor,
     vaultOn,
+    processFrontMatter,
+    sourcePath,
     getHandler: () => registeredHandler!,
   };
 }
 
 // ─── Render helper ──────────────────────────────────────────────────────────
 
-function render(source: string, dvApi: DataviewApi | null = null) {
-  const { services, registerProcessor, vaultOn, getHandler } = createMockServices(dvApi);
-  registerPmTasksProcessor(services, registerProcessor);
+interface RenderOptions {
+  dvApi?: DataviewApi | null;
+  frontmatter?: Record<string, unknown>;
+  sourcePath?: string;
+}
+
+function render(source: string, options: RenderOptions = {}) {
+  const { dvApi, frontmatter, sourcePath = "test.md" } = options;
+  const mock = createMockServices({ dvApi, frontmatter, sourcePath });
+  registerPmTasksProcessor(mock.services, mock.registerProcessor);
 
   const el = document.createElement("div");
   const children: unknown[] = [];
   const ctx = {
     addChild: (child: unknown) => children.push(child),
-    sourcePath: "test.md",
+    sourcePath,
   };
 
-  getHandler()(source, el, ctx as unknown as Record<string, unknown>);
+  mock.getHandler()(source, el, ctx as unknown as Record<string, unknown>);
   return {
     el,
-    services,
-    vaultOn,
-    child: children[0] as { onload?: () => void; onunload?: () => void },
+    services: mock.services,
+    vaultOn: mock.vaultOn,
+    processFrontMatter: mock.processFrontMatter,
+    child: children[0] as {
+      onload?: () => void;
+      onunload?: () => void;
+      isUpdating?: boolean;
+    },
   };
 }
+
+// ─── Test isolation ──────────────────────────────────────────────────────────
+
+afterEach(() => {
+  _clearFilterStateCacheForTests();
+  vi.useRealTimers();
+});
 
 // ─── Tests ──────────────────────────────────────────────────────────────────
 
@@ -171,7 +218,7 @@ describe("pm-tasks processor", () => {
 
     it("shows 'no tasks match' message when dv returns no tasks", () => {
       const dvApi = createMockDataviewApi([]);
-      const { el } = render("mode: dashboard", dvApi);
+      const { el } = render("mode: dashboard", { dvApi });
       const output = el.querySelector(".pm-tasks-dashboard__output");
       expect(output!.textContent).toContain("No tasks match");
     });
@@ -183,7 +230,7 @@ describe("pm-tasks processor", () => {
           tasks: [{ text: "Task A 📅 2030-06-01", due: "2030-06-01" }],
         },
       ]);
-      const { el } = render("mode: dashboard\nviewMode: context", dvApi);
+      const { el } = render("mode: dashboard\nviewMode: context", { dvApi });
       const output = el.querySelector(".pm-tasks-dashboard__output");
       expect(output).not.toBeNull();
       // Should render "Project" context heading
@@ -199,7 +246,7 @@ describe("pm-tasks processor", () => {
           tasks: [{ text: "Task B 📅 2030-06-01", due: "2030-06-01" }],
         },
       ]);
-      const { el } = render("mode: dashboard\nviewMode: date", dvApi);
+      const { el } = render("mode: dashboard\nviewMode: date", { dvApi });
       const output = el.querySelector(".pm-tasks-dashboard__output");
       expect(output).not.toBeNull();
     });
@@ -211,7 +258,7 @@ describe("pm-tasks processor", () => {
           tasks: [{ text: "Urgent task ⏫" }],
         },
       ]);
-      const { el } = render("mode: dashboard\nviewMode: priority", dvApi);
+      const { el } = render("mode: dashboard\nviewMode: priority", { dvApi });
       const output = el.querySelector(".pm-tasks-dashboard__output");
       expect(output).not.toBeNull();
     });
@@ -223,7 +270,7 @@ describe("pm-tasks processor", () => {
           tasks: [{ text: "Tagged task", tags: ["#work"] }],
         },
       ]);
-      const { el } = render("mode: dashboard\nviewMode: tag", dvApi);
+      const { el } = render("mode: dashboard\nviewMode: tag", { dvApi });
       const output = el.querySelector(".pm-tasks-dashboard__output");
       expect(output).not.toBeNull();
     });
@@ -235,7 +282,7 @@ describe("pm-tasks processor", () => {
           tasks: [{ text: "Checkbox task" }],
         },
       ]);
-      const { el } = render("mode: dashboard\nviewMode: context", dvApi);
+      const { el } = render("mode: dashboard\nviewMode: context", { dvApi });
       const checkboxes = el.querySelectorAll(".task-list-item-checkbox");
       expect(checkboxes.length).toBeGreaterThan(0);
     });
@@ -247,7 +294,7 @@ describe("pm-tasks processor", () => {
           tasks: [{ text: "Due task 📅 2030-01-15", due: "2030-01-15" }],
         },
       ]);
-      const { el } = render("mode: dashboard\nviewMode: context", dvApi);
+      const { el } = render("mode: dashboard\nviewMode: context", { dvApi });
       const badges = el.querySelectorAll(".pm-task-due");
       expect(badges.length).toBeGreaterThan(0);
     });
@@ -259,7 +306,7 @@ describe("pm-tasks processor", () => {
           tasks: [{ text: "No tag task", tags: [] }],
         },
       ]);
-      const { el } = render("mode: dashboard\nviewMode: tag", dvApi);
+      const { el } = render("mode: dashboard\nviewMode: tag", { dvApi });
       const output = el.querySelector(".pm-tasks-dashboard__output");
       expect(output!.textContent).toContain("Untagged");
     });
@@ -276,7 +323,7 @@ describe("pm-tasks processor", () => {
       ]);
       const { el } = render(
         "mode: dashboard\nviewMode: context\nsortBy: dueDate-asc",
-        dvApi
+        { dvApi }
       );
       expect(el.querySelector(".pm-tasks-dashboard")).not.toBeNull();
     });
@@ -310,7 +357,7 @@ describe("pm-tasks processor", () => {
 
       let threw = false;
       try {
-        render("mode: dashboard\nviewMode: context", dvApi);
+        render("mode: dashboard\nviewMode: context", { dvApi });
       } catch {
         threw = true;
       }
@@ -345,7 +392,7 @@ describe("pm-tasks processor", () => {
 
     it("shows 'no projects match' when dv returns no matching projects", () => {
       const dvApi = createMockDataviewApi([]);
-      const { el } = render("mode: by-project", dvApi);
+      const { el } = render("mode: by-project", { dvApi });
       const output = el.querySelector(".pm-tasks-by-project__output");
       expect(output!.textContent).toContain("No projects");
     });
@@ -359,7 +406,7 @@ describe("pm-tasks processor", () => {
           tasks: [{ text: "Project task" }],
         },
       ]);
-      const { el } = render("mode: by-project", dvApi);
+      const { el } = render("mode: by-project", { dvApi });
       const output = el.querySelector(".pm-tasks-by-project__output");
       expect(output).not.toBeNull();
       // Project group should be rendered
@@ -378,7 +425,7 @@ describe("pm-tasks processor", () => {
           ],
         },
       ]);
-      const { el } = render("mode: by-project\nshowCompleted: true", dvApi);
+      const { el } = render("mode: by-project\nshowCompleted: true", { dvApi });
       const details = el.querySelectorAll(".pm-tasks-completed");
       expect(details.length).toBeGreaterThan(0);
     });
@@ -399,6 +446,157 @@ describe("pm-tasks processor", () => {
       expect(() =>
         (child as { onunload(): void }).onunload()
       ).not.toThrow();
+    });
+  });
+
+  // ─── Filter state persistence ─────────────────────────────────────────────
+
+  describe("filter state persistence", () => {
+    it("loads saved filters from frontmatter on initial render", () => {
+      const savedFilters = { viewMode: "priority", sortBy: "dueDate-asc" };
+      const { el } = render("mode: dashboard", {
+        frontmatter: { "pm-tasks-filters": savedFilters },
+      });
+      // The view-mode select should reflect the saved viewMode
+      const viewSelect = el.querySelector<HTMLSelectElement>(
+        "select[aria-label='View mode']"
+      );
+      expect(viewSelect).not.toBeNull();
+      expect(viewSelect!.value).toBe("priority");
+    });
+
+    it("filter state survives widget recreation via in-memory cache", () => {
+      const sourcePath = "notes/my-note.md";
+
+      // Render 1: no frontmatter, user changes view mode (simulated via the
+      // view-mode select's change event which triggers debouncedSaveFilters).
+      const r1 = render("mode: dashboard", { sourcePath });
+      const viewSelect1 = r1.el.querySelector<HTMLSelectElement>(
+        "select[aria-label='View mode']"
+      );
+      expect(viewSelect1).not.toBeNull();
+      // Simulate user selecting "priority" — fires a change event
+      viewSelect1!.value = "priority";
+      viewSelect1!.dispatchEvent(new Event("change"));
+
+      // Render 2: same sourcePath, but metadataCache returns nothing (stale)
+      // — the cache populated by render 1 should restore the filter.
+      const r2 = render("mode: dashboard", { sourcePath });
+      const viewSelect2 = r2.el.querySelector<HTMLSelectElement>(
+        "select[aria-label='View mode']"
+      );
+      expect(viewSelect2).not.toBeNull();
+      expect(viewSelect2!.value).toBe("priority");
+    });
+
+    it("Clear Filters removes state from cache so next render gets defaults", () => {
+      const sourcePath = "notes/my-note.md";
+
+      // Render 1: populate the cache by changing the view mode
+      const r1 = render("mode: dashboard", { sourcePath });
+      const viewSelect1 = r1.el.querySelector<HTMLSelectElement>(
+        "select[aria-label='View mode']"
+      );
+      viewSelect1!.value = "priority";
+      viewSelect1!.dispatchEvent(new Event("change"));
+
+      // Now click "Clear Filters" — this calls debouncedSaveFilters(null)
+      const buttons1 = [...r1.el.querySelectorAll("button")];
+      const clearBtn = buttons1.find((b) => b.textContent === "Clear Filters");
+      expect(clearBtn).not.toBeUndefined();
+      clearBtn!.click();
+
+      // Render 2: cache should be cleared, so the select gets the default value
+      const r2 = render("mode: dashboard", { sourcePath });
+      const viewSelect2 = r2.el.querySelector<HTMLSelectElement>(
+        "select[aria-label='View mode']"
+      );
+      expect(viewSelect2).not.toBeNull();
+      expect(viewSelect2!.value).toBe("context"); // default from settings
+    });
+
+    it("persistFilters writes to processFrontMatter after debounce", async () => {
+      vi.useFakeTimers();
+      const sourcePath = "notes/my-note.md";
+      const { el, processFrontMatter } = render("mode: dashboard", {
+        sourcePath,
+        frontmatter: {},
+      });
+
+      // Trigger a filter change via the view-mode select
+      const viewSelect = el.querySelector<HTMLSelectElement>(
+        "select[aria-label='View mode']"
+      );
+      expect(viewSelect).not.toBeNull();
+      viewSelect!.value = "priority";
+      viewSelect!.dispatchEvent(new Event("change"));
+
+      expect(processFrontMatter).not.toHaveBeenCalled();
+
+      // Advance past the debounce interval
+      await vi.runAllTimersAsync();
+
+      expect(processFrontMatter).toHaveBeenCalled();
+    });
+
+    it("isUpdating flag suppresses auto-refresh during frontmatter write", async () => {
+      vi.useFakeTimers();
+
+      let resolvePersist!: () => void;
+      const persistPromise = new Promise<void>((resolve) => {
+        resolvePersist = resolve;
+      });
+
+      const sourcePath = "notes/my-note.md";
+      const mock = createMockServices({ sourcePath, frontmatter: {} });
+
+      // Override processFrontMatter to be manually resolvable
+      (
+        mock.services.app.fileManager as { processFrontMatter: ReturnType<typeof vi.fn> }
+      ).processFrontMatter = vi.fn(async () => persistPromise);
+
+      registerPmTasksProcessor(mock.services, mock.registerProcessor);
+
+      const el = document.createElement("div");
+      let capturedChild: { onload(): void; isUpdating?: boolean } | null = null;
+      const ctx = {
+        addChild: (child: unknown) => {
+          capturedChild = child as { onload(): void; isUpdating?: boolean };
+        },
+        sourcePath,
+      };
+      mock.getHandler()("mode: dashboard", el, ctx as unknown as Record<string, unknown>);
+
+      expect(capturedChild).not.toBeNull();
+      capturedChild!.onload();
+
+      // Capture the vault modify callback
+      const vaultModifyCallback = mock.vaultOn.mock.calls[0][1] as () => void;
+
+      // Trigger a filter change to kick off debounced persist
+      const viewSelect = el.querySelector<HTMLSelectElement>(
+        "select[aria-label='View mode']"
+      );
+      viewSelect!.value = "priority";
+      viewSelect!.dispatchEvent(new Event("change"));
+
+      // Advance timers so persistFilters starts (sets isUpdating = true)
+      await vi.runAllTimersAsync();
+
+      // While the persist promise is still unresolved, fire the vault modify event
+      // isUpdating should be true, so debouncedAutoRefresh should NOT be scheduled
+      const autoRefreshSpy = vi.spyOn(
+        capturedChild as unknown as { debouncedAutoRefresh(): void },
+        "debouncedAutoRefresh" as never
+      );
+      vaultModifyCallback();
+
+      // autoRefresh should NOT have been called while isUpdating=true
+      expect(autoRefreshSpy).not.toHaveBeenCalled();
+
+      // Resolve the persist promise and verify isUpdating resets
+      resolvePersist();
+      await persistPromise;
     });
   });
 });

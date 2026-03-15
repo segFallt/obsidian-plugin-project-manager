@@ -8,6 +8,17 @@ import { ByProjectView } from "./pm-tasks-by-project";
 import { renderError } from "./dom-helpers";
 import { DEBOUNCE_MS, CODEBLOCK } from "../constants";
 
+// ─── Module-level filter state cache ───────────────────────────────────────
+// Stores filter state synchronously when the user changes a filter, so a
+// newly-recreated widget can restore the correct active state even before
+// Obsidian's metadataCache has indexed the freshly-written frontmatter.
+
+const filterStateCache = new Map<string, SavedDashboardFilters | SavedByProjectFilters>();
+
+export function _clearFilterStateCacheForTests(): void {
+  filterStateCache.clear();
+}
+
 /**
  * Renders the task dashboard and tasks-by-project views.
  *
@@ -131,12 +142,24 @@ class PmTasksRenderChild extends MarkdownRenderChild {
   }
 
   private loadSavedFilters(): unknown {
+    // Check in-memory cache first — it's updated synchronously when the user
+    // changes a filter, so it remains accurate even when metadataCache is stale
+    // (e.g. immediately after a frontmatter write that recreated the widget).
+    const cached = filterStateCache.get(this.sourcePath);
+    if (cached) return cached;
     const file = this.services.app.vault.getAbstractFileByPath(this.sourcePath);
     if (!(file instanceof TFile)) return null;
     return this.services.app.metadataCache.getFileCache(file)?.frontmatter?.[FILTER_FM_KEY] ?? null;
   }
 
   private debouncedSaveFilters(filters: SavedDashboardFilters | SavedByProjectFilters | null): void {
+    // Update the in-memory cache synchronously so a widget recreation that
+    // happens before the debounced frontmatter write still reads the correct state.
+    if (filters === null) {
+      filterStateCache.delete(this.sourcePath);
+    } else {
+      filterStateCache.set(this.sourcePath, filters);
+    }
     if (this.saveDebounceTimer) clearTimeout(this.saveDebounceTimer);
     this.saveDebounceTimer = setTimeout(() => {
       void this.persistFilters(filters);

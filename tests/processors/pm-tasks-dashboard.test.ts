@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { registerPmTasksProcessor } from "../../src/processors/pm-tasks-processor";
+import { registerPmTasksProcessor, _clearFilterStateCacheForTests } from "../../src/processors/pm-tasks-processor";
 import { createMockDataviewApi } from "../mocks/dataview-mock";
 import type { DataviewApi } from "../../src/types";
 import type { TaskProcessorServices, RegisterProcessorFn } from "../../src/plugin-context";
@@ -86,6 +86,13 @@ function render(source: string, dvApi: DataviewApi | null = null) {
   getHandler()(source, el, ctx as unknown as Record<string, unknown>);
   return { el, services };
 }
+
+// ─── Test isolation ──────────────────────────────────────────────────────────
+
+afterEach(() => {
+  _clearFilterStateCacheForTests();
+  vi.useRealTimers();
+});
 
 // ─── Tests ──────────────────────────────────────────────────────────────────
 
