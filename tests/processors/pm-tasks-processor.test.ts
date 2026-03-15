@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { registerPmTasksProcessor, _clearFilterStateCacheForTests } from "../../src/processors/pm-tasks-processor";
+import { registerPmTasksProcessor } from "../../src/processors/pm-tasks-processor";
 import { createMockDataviewApi } from "../mocks/dataview-mock";
 import { TFile } from "obsidian";
 import type { DataviewApi } from "../../src/types";
@@ -135,7 +135,6 @@ function render(source: string, options: RenderOptions = {}) {
 // ─── Test isolation ──────────────────────────────────────────────────────────
 
 afterEach(() => {
-  _clearFilterStateCacheForTests();
   vi.useRealTimers();
 });
 
@@ -463,56 +462,6 @@ describe("pm-tasks processor", () => {
       );
       expect(viewSelect).not.toBeNull();
       expect(viewSelect!.value).toBe("priority");
-    });
-
-    it("filter state survives widget recreation via in-memory cache", () => {
-      const sourcePath = "notes/my-note.md";
-
-      // Render 1: no frontmatter, user changes view mode (simulated via the
-      // view-mode select's change event which triggers debouncedSaveFilters).
-      const r1 = render("mode: dashboard", { sourcePath });
-      const viewSelect1 = r1.el.querySelector<HTMLSelectElement>(
-        "select[aria-label='View mode']"
-      );
-      expect(viewSelect1).not.toBeNull();
-      // Simulate user selecting "priority" — fires a change event
-      viewSelect1!.value = "priority";
-      viewSelect1!.dispatchEvent(new Event("change"));
-
-      // Render 2: same sourcePath, but metadataCache returns nothing (stale)
-      // — the cache populated by render 1 should restore the filter.
-      const r2 = render("mode: dashboard", { sourcePath });
-      const viewSelect2 = r2.el.querySelector<HTMLSelectElement>(
-        "select[aria-label='View mode']"
-      );
-      expect(viewSelect2).not.toBeNull();
-      expect(viewSelect2!.value).toBe("priority");
-    });
-
-    it("Clear Filters removes state from cache so next render gets defaults", () => {
-      const sourcePath = "notes/my-note.md";
-
-      // Render 1: populate the cache by changing the view mode
-      const r1 = render("mode: dashboard", { sourcePath });
-      const viewSelect1 = r1.el.querySelector<HTMLSelectElement>(
-        "select[aria-label='View mode']"
-      );
-      viewSelect1!.value = "priority";
-      viewSelect1!.dispatchEvent(new Event("change"));
-
-      // Now click "Clear Filters" — this calls debouncedSaveFilters(null)
-      const buttons1 = [...r1.el.querySelectorAll("button")];
-      const clearBtn = buttons1.find((b) => b.textContent === "Clear Filters");
-      expect(clearBtn).not.toBeUndefined();
-      clearBtn!.click();
-
-      // Render 2: cache should be cleared, so the select gets the default value
-      const r2 = render("mode: dashboard", { sourcePath });
-      const viewSelect2 = r2.el.querySelector<HTMLSelectElement>(
-        "select[aria-label='View mode']"
-      );
-      expect(viewSelect2).not.toBeNull();
-      expect(viewSelect2!.value).toBe("context"); // default from settings
     });
 
     it("persistFilters writes to processFrontMatter after debounce", async () => {

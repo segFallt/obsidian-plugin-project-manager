@@ -18,6 +18,7 @@ import { ENTITY_TAGS, TASK_CONTEXTS, DEFAULT_TASK_VIEW_STATUSES, DUE_DATE_PRESET
 import type { ITaskFilterService } from "../services/interfaces";
 import type { ITaskSortService } from "../services/interfaces";
 import { createSelect, renderCollapsible } from "./dom-helpers";
+import { presetToDateRange } from "../utils/date-utils";
 import type { TaskListRenderer } from "./task-list-renderer";
 import { FilterChipSelect } from "../ui/components/filter-chip-select";
 import { ContextViewRenderer } from "./dashboard-views/context-view-renderer";
@@ -74,15 +75,59 @@ export class DashboardView {
     const cfg = this.config;
     const saved = this.savedFilters;
 
-    // Backward-compat migration: old saved state stored dueDateFilter as a string
-    const rawDueDate = saved?.dueDateFilter;
+    // Backward-compat migration: legacy saved state may be a string, an old
+    // object with mode/presets fields, or the new rangeFrom/rangeTo/includeNoDate shape.
+    const rawDueDate = saved?.dueDateFilter as unknown;
     let dueDateFilter: DueDateFilter;
     if (typeof rawDueDate === "string") {
-      dueDateFilter = rawDueDate === "All"
-        ? { ...DEFAULT_DUE_DATE_FILTER }
-        : { mode: "presets", presets: [rawDueDate as DueDatePreset], rangeFrom: null, rangeTo: null };
+      // Legacy string format: "All", "Today", "Tomorrow", etc.
+      const validRangePresets: DueDatePreset[] = ["Today", "Tomorrow", "This Week", "Next Week", "Overdue"];
+      if (rawDueDate === "No Date") {
+        dueDateFilter = { rangeFrom: null, rangeTo: null, includeNoDate: true };
+      } else if (validRangePresets.includes(rawDueDate as DueDatePreset)) {
+        const range = presetToDateRange(rawDueDate as Exclude<DueDatePreset, "No Date">);
+        dueDateFilter = { rangeFrom: range.rangeFrom, rangeTo: range.rangeTo, includeNoDate: false };
+      } else {
+        dueDateFilter = { ...DEFAULT_DUE_DATE_FILTER };
+      }
+    } else if (rawDueDate !== null && typeof rawDueDate === "object" && "mode" in rawDueDate) {
+      // Legacy object format with mode/presets fields
+      const legacy = rawDueDate as Record<string, unknown>;
+      if (legacy["mode"] === "range") {
+        dueDateFilter = {
+          rangeFrom: (legacy["rangeFrom"] as string | null) ?? null,
+          rangeTo: (legacy["rangeTo"] as string | null) ?? null,
+          includeNoDate: false,
+        };
+      } else if (legacy["mode"] === "presets") {
+        const presets = Array.isArray(legacy["presets"]) ? (legacy["presets"] as DueDatePreset[]) : [];
+        if (presets.length === 1) {
+          const p = presets[0];
+          if (p === "No Date") {
+            dueDateFilter = { rangeFrom: null, rangeTo: null, includeNoDate: true };
+          } else {
+            const range = presetToDateRange(p);
+            dueDateFilter = { rangeFrom: range.rangeFrom, rangeTo: range.rangeTo, includeNoDate: false };
+          }
+        } else {
+          dueDateFilter = { ...DEFAULT_DUE_DATE_FILTER };
+        }
+      } else {
+        dueDateFilter = { ...DEFAULT_DUE_DATE_FILTER };
+      }
+    } else if (
+      rawDueDate !== null &&
+      typeof rawDueDate === "object" &&
+      "rangeFrom" in rawDueDate &&
+      "rangeTo" in rawDueDate &&
+      "includeNoDate" in rawDueDate
+    ) {
+      // New format: use directly
+      const newFormat = rawDueDate as DueDateFilter;
+      dueDateFilter = { rangeFrom: newFormat.rangeFrom, rangeTo: newFormat.rangeTo, includeNoDate: newFormat.includeNoDate };
     } else {
-      dueDateFilter = rawDueDate ?? cfg.dueDateFilter ?? { ...DEFAULT_DUE_DATE_FILTER };
+      // No saved filter; fall back to config default or the empty default
+      dueDateFilter = cfg.dueDateFilter ? { ...cfg.dueDateFilter } : { ...DEFAULT_DUE_DATE_FILTER };
     }
 
     this.filters = {
@@ -323,15 +368,25 @@ export class DashboardView {
     const section = container.createEl("div", { cls: "pm-filter-group" });
     section.createEl("span", { cls: "pm-filter-label", text: "Due:" });
 
+    // Derive the initial active preset from the current filter state.
+    // "No Date" is tracked via includeNoDate, not activePreset.
+    const rangePresets: Exclude<DueDatePreset, "No Date">[] = ["Today", "Tomorrow", "This Week", "Next Week", "Overdue"];
+    let activePreset: Exclude<DueDatePreset, "No Date"> | null = null;
+    for (const p of rangePresets) {
+      const r = presetToDateRange(p);
+      if (r.rangeFrom === f.dueDateFilter.rangeFrom && r.rangeTo === f.dueDateFilter.rangeTo) {
+        activePreset = p;
+        break;
+      }
+    }
+
     // Preset buttons container
     const presetsContainer = section.createEl("div", { cls: "pm-date-presets" });
-    const buttons = new Map<DueDatePreset, HTMLButtonElement>();
+    const presetButtons = new Map<DueDatePreset, HTMLElement>();
 
     // Range inputs are declared before the preset button loop so their
     // references are fully initialised when the preset click handlers close
-    // over them (avoids a TDZ hazard). The container is created now but the
-    // "or" separator is inserted before it after the loop to preserve visual
-    // order: presets → separator → range.
+    // over them (avoids a TDZ hazard).
     const rangeContainer = section.createEl("div", { cls: "pm-date-range" });
     rangeContainer.createEl("span", { text: "From:" });
     const fromInput = rangeContainer.createEl("input", { type: "date", cls: "pm-date-range-input" });
@@ -342,50 +397,70 @@ export class DashboardView {
     toInput.value = f.dueDateFilter.rangeTo ?? "";
     toInput.setAttribute("aria-label", "Filter to date");
 
+    // Helper: sync CSS active class on all preset buttons from current state.
+    function updatePresetHighlights(): void {
+      for (const [preset, btn] of presetButtons) {
+        if (preset === "No Date") {
+          btn.classList.toggle("--active", f.dueDateFilter.includeNoDate);
+        } else {
+          btn.classList.toggle("--active", preset === activePreset);
+        }
+      }
+    }
+
     for (const preset of DUE_DATE_PRESETS) {
       const btn = presetsContainer.createEl("button", {
         cls: "pm-date-preset-btn",
         text: preset,
       });
-      if (f.dueDateFilter.presets.includes(preset)) {
-        btn.classList.add("pm-date-preset-btn--active");
+      presetButtons.set(preset, btn);
+
+      if (preset === "No Date") {
+        btn.addEventListener("click", () => {
+          f.dueDateFilter.includeNoDate = !f.dueDateFilter.includeNoDate;
+          // Do NOT touch rangeFrom/rangeTo or activePreset
+          updatePresetHighlights();
+          onChange();
+        });
+      } else {
+        btn.addEventListener("click", () => {
+          if (activePreset === preset) {
+            // Toggle off: clear the range
+            f.dueDateFilter.rangeFrom = null;
+            f.dueDateFilter.rangeTo = null;
+            activePreset = null;
+            fromInput.value = "";
+            toInput.value = "";
+          } else {
+            const range = presetToDateRange(preset);
+            f.dueDateFilter.rangeFrom = range.rangeFrom;
+            f.dueDateFilter.rangeTo = range.rangeTo;
+            activePreset = preset;
+            fromInput.value = range.rangeFrom ?? "";
+            toInput.value = range.rangeTo ?? "";
+          }
+          // Do NOT touch includeNoDate
+          updatePresetHighlights();
+          onChange();
+        });
       }
-      btn.addEventListener("click", () => {
-        f.dueDateFilter.mode = "presets";
-        f.dueDateFilter.rangeFrom = null;
-        f.dueDateFilter.rangeTo = null;
-        fromInput.value = "";
-        toInput.value = "";
-        if (f.dueDateFilter.presets.includes(preset)) {
-          f.dueDateFilter.presets = f.dueDateFilter.presets.filter(p => p !== preset);
-          btn.classList.remove("pm-date-preset-btn--active");
-        } else {
-          f.dueDateFilter.presets = [...f.dueDateFilter.presets, preset];
-          btn.classList.add("pm-date-preset-btn--active");
-        }
-        onChange();
-      });
-      buttons.set(preset, btn);
     }
 
-    // Insert "or" separator between presets and range container in the DOM
-    const separator = section.createEl("span", { cls: "pm-date-range-separator", text: "\u2014 or \u2014" });
-    section.insertBefore(separator, rangeContainer);
-
     fromInput.addEventListener("change", () => {
-      f.dueDateFilter.mode = "range";
       f.dueDateFilter.rangeFrom = fromInput.value || null;
-      f.dueDateFilter.presets = [];
-      buttons.forEach(btn => btn.classList.remove("pm-date-preset-btn--active"));
+      activePreset = null; // manual edit clears preset highlight
+      updatePresetHighlights();
       onChange();
     });
     toInput.addEventListener("change", () => {
-      f.dueDateFilter.mode = "range";
       f.dueDateFilter.rangeTo = toInput.value || null;
-      f.dueDateFilter.presets = [];
-      buttons.forEach(btn => btn.classList.remove("pm-date-preset-btn--active"));
+      activePreset = null; // manual edit clears preset highlight
+      updatePresetHighlights();
       onChange();
     });
+
+    // Set initial highlight state
+    updatePresetHighlights();
   }
 
   private renderPriorityFilters(

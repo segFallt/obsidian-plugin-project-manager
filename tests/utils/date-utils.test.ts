@@ -8,6 +8,7 @@ import {
   isPast,
   isTomorrow,
   formatDate,
+  presetToDateRange,
 } from "../../src/utils/date-utils";
 
 describe("date-utils", () => {
@@ -101,6 +102,30 @@ describe("date-utils", () => {
 
     it("returns false for today", () => {
       expect(isTomorrow(FIXED_DATE)).toBe(false);
+    });
+  });
+
+  describe("presetToDateRange", () => {
+    // All tests run with the clock fixed to 2026-03-02 (set in beforeEach)
+
+    it("Today returns rangeFrom and rangeTo both equal to today", () => {
+      expect(presetToDateRange("Today")).toEqual({ rangeFrom: "2026-03-02", rangeTo: "2026-03-02" });
+    });
+
+    it("Tomorrow returns rangeFrom and rangeTo both equal to the next day", () => {
+      expect(presetToDateRange("Tomorrow")).toEqual({ rangeFrom: "2026-03-03", rangeTo: "2026-03-03" });
+    });
+
+    it("This Week returns rangeFrom of today and rangeTo 7 days later", () => {
+      expect(presetToDateRange("This Week")).toEqual({ rangeFrom: "2026-03-02", rangeTo: "2026-03-09" });
+    });
+
+    it("Next Week returns rangeFrom 8 days ahead and rangeTo 14 days ahead", () => {
+      expect(presetToDateRange("Next Week")).toEqual({ rangeFrom: "2026-03-10", rangeTo: "2026-03-16" });
+    });
+
+    it("Overdue returns rangeFrom null and rangeTo yesterday", () => {
+      expect(presetToDateRange("Overdue")).toEqual({ rangeFrom: null, rangeTo: "2026-03-01" });
     });
   });
 

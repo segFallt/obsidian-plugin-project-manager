@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { registerPmTasksProcessor, _clearFilterStateCacheForTests } from "../../src/processors/pm-tasks-processor";
+import { registerPmTasksProcessor } from "../../src/processors/pm-tasks-processor";
 import { createMockDataviewApi } from "../mocks/dataview-mock";
 import type { DataviewApi } from "../../src/types";
 import type { TaskProcessorServices, RegisterProcessorFn } from "../../src/plugin-context";
@@ -90,7 +90,6 @@ function render(source: string, dvApi: DataviewApi | null = null) {
 // ─── Test isolation ──────────────────────────────────────────────────────────
 
 afterEach(() => {
-  _clearFilterStateCacheForTests();
   vi.useRealTimers();
 });
 
@@ -113,37 +112,48 @@ describe("pm-tasks-dashboard — due date filter UI", () => {
     expect(dateInputs.length).toBe(2);
   });
 
-  it("renders 'or' separator between presets and range", () => {
-    const { el } = render("mode: dashboard");
-    const separator = el.querySelector(".pm-date-range-separator");
-    expect(separator).not.toBeNull();
-    expect(separator!.textContent).toContain("or");
-  });
-
-  it("clicking a preset button adds active class", () => {
+  it("clicking a preset button adds active class and populates From/To inputs", () => {
     const dvApi = createMockDataviewApi([
       { path: "projects/A.md", tasks: [{ text: "task" }] },
     ]);
     const { el } = render("mode: dashboard", dvApi);
-    const btn = el.querySelector(".pm-date-preset-btn") as HTMLButtonElement;
-    expect(btn).not.toBeNull();
 
-    btn.click();
-    expect(btn.classList.contains("pm-date-preset-btn--active")).toBe(true);
+    // Find the "Today" preset button specifically
+    const buttons = [...el.querySelectorAll(".pm-date-preset-btn")] as HTMLButtonElement[];
+    const todayBtn = buttons.find(b => b.textContent === "Today");
+    expect(todayBtn).not.toBeUndefined();
+
+    todayBtn!.click();
+    expect(todayBtn!.classList.contains("--active")).toBe(true);
+
+    // From/To inputs should be populated with today's date
+    const dateInputs = el.querySelectorAll("input[type='date']") as NodeListOf<HTMLInputElement>;
+    const today = new Date().toISOString().split("T")[0];
+    expect(dateInputs[0].value).toBe(today);
+    expect(dateInputs[1].value).toBe(today);
   });
 
-  it("clicking an active preset button deactivates it", () => {
+  it("clicking an active preset button deactivates it and clears From/To inputs", () => {
     const dvApi = createMockDataviewApi([
       { path: "projects/A.md", tasks: [{ text: "task" }] },
     ]);
     const { el } = render("mode: dashboard", dvApi);
-    const btn = el.querySelector(".pm-date-preset-btn") as HTMLButtonElement;
+
+    const buttons = [...el.querySelectorAll(".pm-date-preset-btn")] as HTMLButtonElement[];
+    const todayBtn = buttons.find(b => b.textContent === "Today");
+    expect(todayBtn).not.toBeUndefined();
 
     // Activate then deactivate
-    btn.click();
-    expect(btn.classList.contains("pm-date-preset-btn--active")).toBe(true);
-    btn.click();
-    expect(btn.classList.contains("pm-date-preset-btn--active")).toBe(false);
+    todayBtn!.click();
+    expect(todayBtn!.classList.contains("--active")).toBe(true);
+
+    todayBtn!.click();
+    expect(todayBtn!.classList.contains("--active")).toBe(false);
+
+    // From/To inputs should be cleared
+    const dateInputs = el.querySelectorAll("input[type='date']") as NodeListOf<HTMLInputElement>;
+    expect(dateInputs[0].value).toBe("");
+    expect(dateInputs[1].value).toBe("");
   });
 
   it("entering a range date clears preset active states", () => {
@@ -152,10 +162,12 @@ describe("pm-tasks-dashboard — due date filter UI", () => {
     ]);
     const { el } = render("mode: dashboard", dvApi);
 
-    // Activate a preset first
-    const btn = el.querySelector(".pm-date-preset-btn") as HTMLButtonElement;
-    btn.click();
-    expect(btn.classList.contains("pm-date-preset-btn--active")).toBe(true);
+    // Activate the "Today" preset first
+    const buttons = [...el.querySelectorAll(".pm-date-preset-btn")] as HTMLButtonElement[];
+    const todayBtn = buttons.find(b => b.textContent === "Today");
+    expect(todayBtn).not.toBeUndefined();
+    todayBtn!.click();
+    expect(todayBtn!.classList.contains("--active")).toBe(true);
 
     // Now change a date range input
     const fromInput = el.querySelector("input[type='date']") as HTMLInputElement;
@@ -163,7 +175,55 @@ describe("pm-tasks-dashboard — due date filter UI", () => {
     fromInput.dispatchEvent(new Event("change"));
 
     // Preset should no longer be active
-    expect(btn.classList.contains("pm-date-preset-btn--active")).toBe(false);
+    expect(todayBtn!.classList.contains("--active")).toBe(false);
+  });
+
+  it("No Date button toggles independently without clearing From/To inputs", () => {
+    const dvApi = createMockDataviewApi([
+      { path: "projects/A.md", tasks: [{ text: "task" }] },
+    ]);
+    const { el } = render("mode: dashboard", dvApi);
+
+    // Activate "Today" preset first to set From/To values
+    const buttons = [...el.querySelectorAll(".pm-date-preset-btn")] as HTMLButtonElement[];
+    const todayBtn = buttons.find(b => b.textContent === "Today");
+    todayBtn!.click();
+    const today = new Date().toISOString().split("T")[0];
+    const dateInputs = el.querySelectorAll("input[type='date']") as NodeListOf<HTMLInputElement>;
+    expect(dateInputs[0].value).toBe(today);
+
+    // Now click "No Date" button — should not clear From/To inputs
+    const noDateBtn = buttons.find(b => b.textContent === "No Date");
+    expect(noDateBtn).not.toBeUndefined();
+    noDateBtn!.click();
+    expect(noDateBtn!.classList.contains("--active")).toBe(true);
+
+    // From/To inputs should still be populated
+    expect(dateInputs[0].value).toBe(today);
+    expect(dateInputs[1].value).toBe(today);
+
+    // "Today" preset should still be active too
+    expect(todayBtn!.classList.contains("--active")).toBe(true);
+  });
+
+  it("No Date and a range preset can both be active simultaneously", () => {
+    const dvApi = createMockDataviewApi([
+      { path: "projects/A.md", tasks: [{ text: "task" }] },
+    ]);
+    const { el } = render("mode: dashboard", dvApi);
+
+    const buttons = [...el.querySelectorAll(".pm-date-preset-btn")] as HTMLButtonElement[];
+    const todayBtn = buttons.find(b => b.textContent === "Today");
+    const noDateBtn = buttons.find(b => b.textContent === "No Date");
+    expect(todayBtn).not.toBeUndefined();
+    expect(noDateBtn).not.toBeUndefined();
+
+    // Activate both
+    todayBtn!.click();
+    noDateBtn!.click();
+
+    expect(todayBtn!.classList.contains("--active")).toBe(true);
+    expect(noDateBtn!.classList.contains("--active")).toBe(true);
   });
 });
 
@@ -273,10 +333,12 @@ describe("pm-tasks-dashboard — clear filters", () => {
     ]);
     const { el } = render("mode: dashboard", dvApi);
 
-    // Activate a preset
-    const presetBtn = el.querySelector(".pm-date-preset-btn") as HTMLButtonElement;
-    presetBtn.click();
-    expect(presetBtn.classList.contains("pm-date-preset-btn--active")).toBe(true);
+    // Activate the "Today" preset
+    const buttons = [...el.querySelectorAll(".pm-date-preset-btn")] as HTMLButtonElement[];
+    const todayBtn = buttons.find(b => b.textContent === "Today");
+    expect(todayBtn).not.toBeUndefined();
+    todayBtn!.click();
+    expect(todayBtn!.classList.contains("--active")).toBe(true);
 
     // Click Clear Filters
     const clearBtn = [...el.querySelectorAll("button")].find(b => b.textContent === "Clear Filters");
@@ -284,7 +346,7 @@ describe("pm-tasks-dashboard — clear filters", () => {
     clearBtn!.click();
 
     // After clear, the dashboard re-renders — check that no presets are active
-    const activePresets = el.querySelectorAll(".pm-date-preset-btn--active");
+    const activePresets = el.querySelectorAll(".--active");
     expect(activePresets.length).toBe(0);
 
     // Also verify no tag chips remain selected
