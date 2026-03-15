@@ -1,13 +1,11 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { registerPmTasksProcessor, _clearFilterStateCacheForTests } from "../../src/processors/pm-tasks-processor";
+import { registerPmTasksProcessor } from "../../src/processors/pm-tasks-processor";
 import { createMockDataviewApi } from "../mocks/dataview-mock";
 import type { DataviewApi } from "../../src/types";
 import type { TaskProcessorServices, RegisterProcessorFn } from "../../src/plugin-context";
 import { DEFAULT_FOLDERS, DUE_DATE_PRESETS } from "../../src/constants";
 import { TaskFilterService } from "../../src/services/task-filter-service";
 import { TaskSortService } from "../../src/services/task-sort-service";
-
-afterEach(() => { _clearFilterStateCacheForTests(); });
 
 // ─── Mock services factory ───────────────────────────────────────────────────
 

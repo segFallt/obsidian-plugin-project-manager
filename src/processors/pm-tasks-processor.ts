@@ -24,18 +24,6 @@ import { DEBOUNCE_MS, CODEBLOCK } from "../constants";
  *
  * Filter state is persisted to the note's frontmatter under the `pm-tasks-filters` key.
  */
-
-/**
- * In-memory cache keyed by sourcePath. Updated synchronously in debouncedSaveFilters
- * so that re-renders triggered by the subsequent processFrontMatter write always load
- * fresh filter state, bypassing the metadataCache race condition.
- */
-const filterStateCache = new Map<string, SavedDashboardFilters | SavedByProjectFilters>();
-
-/** @internal Exposed for unit tests only — clears all cached filter state. */
-export function _clearFilterStateCacheForTests(): void {
-  filterStateCache.clear();
-}
 export function registerPmTasksProcessor(
   services: TaskProcessorServices,
   registerProcessor: RegisterProcessorFn
@@ -143,23 +131,12 @@ class PmTasksRenderChild extends MarkdownRenderChild {
   }
 
   private loadSavedFilters(): unknown {
-    // Prefer in-memory cache (always current) over metadataCache (may be stale after
-    // a processFrontMatter write that hasn't been indexed yet).
-    const cached = filterStateCache.get(this.sourcePath);
-    if (cached) return cached;
     const file = this.services.app.vault.getAbstractFileByPath(this.sourcePath);
     if (!(file instanceof TFile)) return null;
     return this.services.app.metadataCache.getFileCache(file)?.frontmatter?.[FILTER_FM_KEY] ?? null;
   }
 
   private debouncedSaveFilters(filters: SavedDashboardFilters | SavedByProjectFilters | null): void {
-    // Update in-memory cache immediately so re-renders pick up fresh state before
-    // the debounced frontmatter write has fired (and been indexed by metadataCache).
-    if (filters !== null) {
-      filterStateCache.set(this.sourcePath, filters);
-    } else {
-      filterStateCache.delete(this.sourcePath);
-    }
     if (this.saveDebounceTimer) clearTimeout(this.saveDebounceTimer);
     this.saveDebounceTimer = setTimeout(() => {
       void this.persistFilters(filters);
