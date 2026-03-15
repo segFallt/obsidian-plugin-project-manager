@@ -435,38 +435,25 @@ export class DashboardView {
 
     if (allTags.length === 0) return;
 
-    const section = container.createEl("div", { cls: "pm-filter-group" });
-    section.createEl("span", { cls: "pm-filter-label", text: "Tags:" });
-
-    for (const tag of allTags) {
-      const btn = section.createEl("button", {
-        cls: "pm-tag-filter-btn",
-        text: tag,
-      });
-      if (f.tagFilter.includes(tag)) {
-        btn.classList.add("pm-tag-filter-btn--active");
+    container.createEl("label", { text: "Tags:", cls: "pm-filter-label" });
+    const tagChipSelect = new FilterChipSelect(
+      container,
+      this.services.app,
+      {
+        options: allTags.map((tag) => ({ value: tag, displayText: tag })),
+        selectedValues: [...f.tagFilter],
+        placeholder: "Add tag filter...",
+        ariaLabel: "Filter by tag",
+        includeUnassigned: f.includeUntagged,
+        unassignedLabel: "Include untagged",
+        onChange: (values, includeUnassigned) => {
+          f.tagFilter = values;
+          f.includeUntagged = includeUnassigned;
+          onChange();
+        },
       }
-      btn.addEventListener("click", () => {
-        if (f.tagFilter.includes(tag)) {
-          f.tagFilter = f.tagFilter.filter(t => t !== tag);
-          btn.classList.remove("pm-tag-filter-btn--active");
-        } else {
-          f.tagFilter = [...f.tagFilter, tag];
-          btn.classList.add("pm-tag-filter-btn--active");
-        }
-        onChange();
-      });
-    }
-
-    // Include untagged checkbox
-    const untaggedLabel = section.createEl("label", { cls: "pm-filter-checkbox-label" });
-    const untaggedCheck = untaggedLabel.createEl("input", { type: "checkbox" });
-    untaggedCheck.checked = f.includeUntagged;
-    untaggedLabel.createSpan({ text: "Include untagged" });
-    untaggedCheck.addEventListener("change", () => {
-      f.includeUntagged = untaggedCheck.checked;
-      onChange();
-    });
+    );
+    this.chipSelects.push(tagChipSelect);
   }
 
   // ─── Chip select cleanup ─────────────────────────────────────────────────
