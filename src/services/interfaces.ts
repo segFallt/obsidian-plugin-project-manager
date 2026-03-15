@@ -103,6 +103,7 @@ export interface ITaskFilterService {
     dv: DataviewApi
   ): DataviewTask[];
   matchesDueDateFilter(task: DataviewTask, filter: DueDateFilter): boolean;
+  matchesTagFilter(task: DataviewTask, tagFilter: string[], includeUntagged: boolean): boolean;
   matchesMeetingDateFilter(dateStr: string, filter: MeetingDateFilter): boolean;
   matchesClientFilter(
     task: DataviewTask,

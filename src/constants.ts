@@ -2,6 +2,7 @@
  * Shared constants for the Project Manager plugin.
  * Mirrors the vault's constants.js for consistency.
  */
+import type { DueDatePreset, DueDateFilter } from "./types";
 
 export const CLIENT_STATUSES = ["Active", "Inactive"] as const;
 export const ENGAGEMENT_STATUSES = ["Active", "Inactive"] as const;
@@ -58,6 +59,12 @@ export const DUE_DATE_EMOJI = "📅";
 export const COMPLETION_DATE_EMOJI = "✅";
 /** Recurrence emoji. */
 export const RECURRENCE_EMOJI = "🔁";
+
+/** All available due date preset options in display order. */
+export const DUE_DATE_PRESETS: readonly DueDatePreset[] = ["Today", "Tomorrow", "This Week", "Next Week", "Overdue", "No Date"];
+
+/** Default (empty) due date filter — no presets selected, no range set. */
+export const DEFAULT_DUE_DATE_FILTER: DueDateFilter = Object.freeze({ mode: "presets", presets: [], rangeFrom: null, rangeTo: null });
 
 /** Named status values for type-safe comparisons. */
 export const STATUS = {

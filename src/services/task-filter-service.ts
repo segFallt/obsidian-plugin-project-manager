@@ -3,6 +3,7 @@ import type {
   DataviewApi,
   DashboardFilters,
   DueDateFilter,
+  DueDatePreset,
   MeetingDateFilter,
   ProjectStatus,
   InboxStatusFilter,
@@ -48,7 +49,7 @@ export class TaskFilterService implements ITaskFilterService {
       filtered = filtered.filter((t) => t.text.toLowerCase().includes(f.searchText));
     }
 
-    if (f.dueDateFilter && f.dueDateFilter !== "All") {
+    if (this.isDueDateFilterActive(f.dueDateFilter)) {
       filtered = filtered.filter((t) => this.matchesDueDateFilter(t, f.dueDateFilter));
     }
 
@@ -66,6 +67,10 @@ export class TaskFilterService implements ITaskFilterService {
       filtered = filtered.filter((t) =>
         this.matchesEngagementFilter(t, f.engagementFilter, f.includeUnassignedEngagements, dv)
       );
+    }
+
+    if ((f.tagFilter?.length ?? 0) > 0 || f.includeUntagged) {
+      filtered = filtered.filter((t) => this.matchesTagFilter(t, f.tagFilter ?? [], f.includeUntagged ?? false));
     }
 
     if (f.viewMode === "context") {
@@ -118,15 +123,36 @@ export class TaskFilterService implements ITaskFilterService {
 
   /** Returns true if the task's due date matches the given filter. */
   matchesDueDateFilter(task: DataviewTask, filter: DueDateFilter): boolean {
+    // Empty presets in preset mode = "All" (show everything)
+    if (filter.mode === "presets" && filter.presets.length === 0) return true;
+
     const today = todayISO();
-    const weekEnd = addDays(today, WEEK_DAYS);
     const due = task.due ? String(task.due).substring(0, ISO_DATE_LENGTH) : null;
 
-    switch (filter) {
+    if (filter.mode === "range") {
+      if (due === null) return false; // no-date tasks excluded from range
+      if (filter.rangeFrom && due < filter.rangeFrom) return false;
+      if (filter.rangeTo && due > filter.rangeTo) return false;
+      return true;
+    }
+
+    // Preset mode: OR across selected presets
+    return filter.presets.some(preset => this.matchesSinglePreset(due, preset, today));
+  }
+
+  private matchesSinglePreset(due: string | null, preset: DueDatePreset, today: string): boolean {
+    switch (preset) {
       case "Today":
         return due === today;
+      case "Tomorrow":
+        return due === addDays(today, 1);
       case "This Week":
-        return due !== null && due >= today && due <= weekEnd;
+        return due !== null && due >= today && due <= addDays(today, 7);
+      case "Next Week": {
+        const nextWeekStart = addDays(today, 8);
+        const nextWeekEnd = addDays(today, 14);
+        return due !== null && due >= nextWeekStart && due <= nextWeekEnd;
+      }
       case "Overdue":
         return due !== null && due < today;
       case "No Date":
@@ -134,6 +160,23 @@ export class TaskFilterService implements ITaskFilterService {
       default:
         return true;
     }
+  }
+
+  private isDueDateFilterActive(filter: DueDateFilter): boolean {
+    // Guard against legacy string values during migration (pm-tasks-dashboard.ts not yet updated)
+    if (typeof filter !== "object" || filter === null) return false;
+    return !(filter.mode === "presets" && filter.presets.length === 0);
+  }
+
+  /** Returns true if the task matches the tag filter. */
+  matchesTagFilter(task: DataviewTask, tagFilter: string[], includeUntagged: boolean): boolean {
+    if (tagFilter.length === 0 && !includeUntagged) return true; // no filter active
+
+    const taskTags: string[] = task.tags ?? [];
+    const isUntagged = taskTags.length === 0;
+
+    if (isUntagged) return includeUntagged;
+    return tagFilter.some(tag => taskTags.includes(tag));
   }
 
   /** Returns true if an ISO date string matches the meeting date filter. */

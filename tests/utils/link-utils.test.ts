@@ -48,6 +48,18 @@ describe("link-utils", () => {
       expect(normalizeToName(undefined)).toBeNull();
     });
 
+    it("returns null for a DataviewLink with empty path", () => {
+      expect(normalizeToName({ path: "" })).toBeNull();
+    });
+
+    it("returns null for an empty string", () => {
+      expect(normalizeToName("")).toBeNull();
+    });
+
+    it("extracts name from a DataviewLink with nested path", () => {
+      expect(normalizeToName({ path: "clients/Acme.md" })).toBe("Acme");
+    });
+
     it("handles nested path in wikilink", () => {
       expect(normalizeToName("[[projects/My Project]]")).toBe("My Project");
     });
