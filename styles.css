@@ -358,6 +358,60 @@ details[open] .pm-filter-section__title::before {
   cursor: pointer;
 }
 
+/* ─── Date Presets ───────────────────────────────────────────── */
+
+.pm-date-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.pm-date-preset-btn {
+  padding: 4px 12px;
+  border-radius: var(--radius-m);
+  border: 1px solid var(--background-modifier-border);
+  background-color: var(--interactive-normal);
+  color: var(--text-normal);
+  cursor: pointer;
+  font-size: var(--font-ui-small);
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.pm-date-preset-btn:hover {
+  background-color: var(--interactive-hover);
+}
+
+.pm-date-preset-btn--active {
+  background-color: var(--interactive-accent);
+  color: var(--text-on-accent);
+  border-color: transparent;
+}
+
+.pm-date-preset-btn--active:hover {
+  background-color: var(--interactive-accent-hover);
+}
+
+.pm-date-range {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.pm-date-range-input {
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-s);
+  background-color: var(--background-primary);
+  color: var(--text-normal);
+  font-size: var(--font-ui-small);
+  padding: 3px 6px;
+}
+
+.pm-date-range-separator {
+  color: var(--text-muted);
+  font-size: var(--font-ui-small);
+}
+
 /* ─── Task List ──────────────────────────────────────────────── */
 
 .pm-task-list {

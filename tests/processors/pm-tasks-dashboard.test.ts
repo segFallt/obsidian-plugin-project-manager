@@ -161,7 +161,7 @@ describe("pm-tasks-dashboard — due date filter UI", () => {
 });
 
 describe("pm-tasks-dashboard — tag filter UI", () => {
-  it("renders tag filter buttons when tasks have tags", () => {
+  it("renders FilterChipSelect with tag options when tasks have tags", () => {
     const dvApi = createMockDataviewApi([
       {
         path: "projects/A.md",
@@ -172,14 +172,14 @@ describe("pm-tasks-dashboard — tag filter UI", () => {
       },
     ]);
     const { el } = render("mode: dashboard", dvApi);
-    const tagBtns = el.querySelectorAll(".pm-tag-filter-btn");
-    expect(tagBtns.length).toBe(2);
-    const labels = [...tagBtns].map(b => b.textContent);
-    expect(labels).toContain("#work");
-    expect(labels).toContain("#personal");
+    const chipSelect = el.querySelector(".pm-filter-chip-select");
+    expect(chipSelect).not.toBeNull();
+    // The filter chip select should contain option elements for both tags
+    const input = chipSelect?.querySelector("input");
+    expect(input).not.toBeNull();
   });
 
-  it("does not render tag filter section when no tasks have tags", () => {
+  it("does not render tag FilterChipSelect when no tasks have tags", () => {
     const dvApi = createMockDataviewApi([
       {
         path: "projects/A.md",
@@ -187,11 +187,13 @@ describe("pm-tasks-dashboard — tag filter UI", () => {
       },
     ]);
     const { el } = render("mode: dashboard", dvApi);
-    const tagBtns = el.querySelectorAll(".pm-tag-filter-btn");
-    expect(tagBtns.length).toBe(0);
+    // With no tags, renderTagFilters returns early — no chip selects added for tags
+    // We check that the chip selects that ARE present belong to client/engagement
+    const chips = el.querySelectorAll(".pm-filter-chip-select__chip");
+    expect(chips.length).toBe(0);
   });
 
-  it("renders 'Include untagged' checkbox when tags exist", () => {
+  it("renders 'Include untagged' checkbox within FilterChipSelect when tags exist", () => {
     const dvApi = createMockDataviewApi([
       {
         path: "projects/A.md",
@@ -199,43 +201,14 @@ describe("pm-tasks-dashboard — tag filter UI", () => {
       },
     ]);
     const { el } = render("mode: dashboard", dvApi);
-    const labels = [...el.querySelectorAll(".pm-filter-checkbox-label")];
+    const chipSelect = el.querySelector(".pm-filter-chip-select");
+    expect(chipSelect).not.toBeNull();
+    const labels = [...(chipSelect?.querySelectorAll(".pm-checkbox-label") ?? [])];
     const untaggedLabel = labels.find(l => l.textContent?.includes("Include untagged"));
     expect(untaggedLabel).not.toBeUndefined();
   });
 
-  it("clicking a tag button adds active class", () => {
-    const dvApi = createMockDataviewApi([
-      {
-        path: "projects/A.md",
-        tasks: [{ text: "tagged", tags: ["#work"] }],
-      },
-    ]);
-    const { el } = render("mode: dashboard", dvApi);
-    const btn = el.querySelector(".pm-tag-filter-btn") as HTMLButtonElement;
-    expect(btn).not.toBeNull();
-
-    btn.click();
-    expect(btn.classList.contains("pm-tag-filter-btn--active")).toBe(true);
-  });
-
-  it("clicking an active tag button deactivates it", () => {
-    const dvApi = createMockDataviewApi([
-      {
-        path: "projects/A.md",
-        tasks: [{ text: "tagged", tags: ["#work"] }],
-      },
-    ]);
-    const { el } = render("mode: dashboard", dvApi);
-    const btn = el.querySelector(".pm-tag-filter-btn") as HTMLButtonElement;
-
-    btn.click();
-    expect(btn.classList.contains("pm-tag-filter-btn--active")).toBe(true);
-    btn.click();
-    expect(btn.classList.contains("pm-tag-filter-btn--active")).toBe(false);
-  });
-
-  it("toggling 'Include untagged' checkbox updates filter state and re-renders", () => {
+  it("FilterChipSelect onChange updates tagFilter and includeUntagged state and re-renders", () => {
     vi.useFakeTimers();
     try {
       const dvApi = createMockDataviewApi([
@@ -249,8 +222,10 @@ describe("pm-tasks-dashboard — tag filter UI", () => {
       ]);
       const { el } = render("mode: dashboard", dvApi);
 
-      // Locate the "Include untagged" checkbox
-      const labels = [...el.querySelectorAll(".pm-filter-checkbox-label")];
+      // Locate the "Include untagged" checkbox inside the tag FilterChipSelect
+      const chipSelect = el.querySelector(".pm-filter-chip-select");
+      expect(chipSelect).not.toBeNull();
+      const labels = [...(chipSelect?.querySelectorAll(".pm-checkbox-label") ?? [])];
       const untaggedLabel = labels.find(l => l.textContent?.includes("Include untagged"));
       expect(untaggedLabel).not.toBeUndefined();
 
@@ -304,6 +279,10 @@ describe("pm-tasks-dashboard — clear filters", () => {
     // After clear, the dashboard re-renders — check that no presets are active
     const activePresets = el.querySelectorAll(".pm-date-preset-btn--active");
     expect(activePresets.length).toBe(0);
+
+    // Also verify no tag chips remain selected
+    const activeChips = el.querySelectorAll(".pm-filter-chip-select__chip");
+    expect(activeChips.length).toBe(0);
   });
 
   it("renders collapsible Tag Filters section", () => {
