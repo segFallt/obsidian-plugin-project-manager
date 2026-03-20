@@ -105,6 +105,8 @@ Events are sorted **newest-first** by their `date` frontmatter field (ISO 8601 d
 - [ ] If Dataview is unavailable, a "Dataview is not available" message is shown instead of the grid.
 - [ ] Tasks in recurring meeting event files are visible in the `pm-tasks` dashboard and correctly matched when filtering by the parent recurring meeting's client or engagement.
 - [ ] Tasks in recurring meeting event files appear under a "Recurring Meeting" header in the `pm-tasks` context view, separate from single-meeting tasks (which appear under "Meeting").
+- [ ] In the `pm-tasks` context view, recurring meeting event tasks are grouped in a three-level hierarchy: the parent recurring meeting note (H3) → the event file (H4) → tasks. Multiple events belonging to the same parent meeting share a single H3 heading.
+- [ ] Event files with no `recurring-meeting` frontmatter link render flat under their own H3 heading (orphan fallback) rather than causing an error.
 
 ---
 

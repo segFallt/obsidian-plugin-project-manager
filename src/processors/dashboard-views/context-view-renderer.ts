@@ -1,13 +1,14 @@
 import type { TaskProcessorServices } from "../../plugin-context";
 import type { DataviewTask, DataviewApi, DashboardFilters } from "../../types";
-import { TASK_CONTEXTS, CSS_CLS } from "../../constants";
-import { getTaskContext, getParentProjectPath } from "../../utils/task-utils";
+import { TASK_CONTEXTS, CSS_CLS, CONTEXT } from "../../constants";
+import { getTaskContext, getParentProjectPath, getParentRecurringMeetingPath } from "../../utils/task-utils";
 import type { ITaskSortService } from "../../services/interfaces";
 import type { TaskListRenderer } from "../task-list-renderer";
 
 /**
  * Renders tasks grouped by context (Project, Person, Meeting, Inbox, etc.).
  * Project-note tasks are nested under their parent project heading.
+ * Recurring meeting event tasks are nested under their parent recurring meeting heading.
  */
 export class ContextViewRenderer {
   constructor(
@@ -32,11 +33,12 @@ export class ContextViewRenderer {
 
       const byFile: Record<string, DataviewTask[]> = {};
       const projectNoteMapping: Record<string, Record<string, DataviewTask[]>> = {};
+      const recurringMeetingMapping: Record<string, Record<string, DataviewTask[]>> = {};
 
       for (const task of ctxTasks) {
         const filePath = task.link.path;
 
-        if (context === "Project") {
+        if (context === CONTEXT.PROJECT) {
           const parentProjectPath = getParentProjectPath(
             filePath,
             dv,
@@ -49,6 +51,23 @@ export class ContextViewRenderer {
               projectNoteMapping[parentProjectPath][filePath] = [];
             projectNoteMapping[parentProjectPath][filePath].push(task);
             byFile[parentProjectPath].push(task);
+            continue;
+          }
+        }
+
+        if (context === CONTEXT.RECURRING_MEETING) {
+          const parentMeetingPath = getParentRecurringMeetingPath(
+            filePath,
+            dv,
+            this.services.settings.folders.meetingsRecurring
+          );
+          if (parentMeetingPath) {
+            if (!byFile[parentMeetingPath]) byFile[parentMeetingPath] = [];
+            if (!recurringMeetingMapping[parentMeetingPath]) recurringMeetingMapping[parentMeetingPath] = {};
+            if (!recurringMeetingMapping[parentMeetingPath][filePath])
+              recurringMeetingMapping[parentMeetingPath][filePath] = [];
+            recurringMeetingMapping[parentMeetingPath][filePath].push(task);
+            byFile[parentMeetingPath].push(task);
             continue;
           }
         }
@@ -67,7 +86,7 @@ export class ContextViewRenderer {
         container.createEl("h3").innerHTML =
           `<a class="${CSS_CLS.INTERNAL_LINK}" data-href="${filePath}" href="${filePath}">${name}</a>`;
 
-        if (context === "Project" && projectNoteMapping[filePath]) {
+        if (context === CONTEXT.PROJECT && projectNoteMapping[filePath]) {
           const directTasks = fileTasks.filter((t) => t.link.path === filePath);
           if (directTasks.length > 0) {
             this.renderer.renderTaskList(
@@ -83,6 +102,17 @@ export class ContextViewRenderer {
             this.renderer.renderTaskList(
               container,
               this.sortService.sortTasks(noteTasks, f.sortBy)
+            );
+          }
+        } else if (context === CONTEXT.RECURRING_MEETING && recurringMeetingMapping[filePath]) {
+          for (const [eventPath, eventTasks] of Object.entries(recurringMeetingMapping[filePath])) {
+            const eventPage = dv.page(eventPath);
+            const eventName = eventPage?.file.name ?? eventPath;
+            container.createEl("h4").innerHTML =
+              `<a class="${CSS_CLS.INTERNAL_LINK}" data-href="${eventPath}" href="${eventPath}">${eventName}</a>`;
+            this.renderer.renderTaskList(
+              container,
+              this.sortService.sortTasks(eventTasks, f.sortBy)
             );
           }
         } else {
