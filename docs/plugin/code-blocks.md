@@ -164,7 +164,11 @@ Displays all vault tasks (excluding the `utility/` folder) with these filter pan
 - **Priority Filters**: Urgent / High / Medium / Low / Someday
 - **Tag Filters**: dynamic tag buttons (when tasks have tags) + "Include untagged" checkbox
 
-Context view groups tasks hierarchically: Context → File → Task. For the Project context, tasks from project notes are nested under their parent project.
+Context view groups tasks hierarchically:
+
+- **Project**: Parent Project (H3) → Project Note (H4) → Tasks. Tasks from project notes are nested under their parent project via the `relatedProject` frontmatter field. Direct project tasks render under the H3 before any H4s.
+- **Recurring Meeting**: Parent Recurring Meeting (H3) → Event File (H4) → Tasks. Tasks from recurring meeting event files are nested under their parent recurring meeting via the `recurring-meeting` frontmatter field. Event files without this frontmatter link render flat (H3 → Tasks).
+- **All other contexts**: File (H3) → Tasks.
 
 #### Due date filter details
 
