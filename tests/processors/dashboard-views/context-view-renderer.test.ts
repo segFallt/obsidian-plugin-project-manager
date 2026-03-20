@@ -150,4 +150,84 @@ describe("ContextViewRenderer", () => {
     expect(headings).toContain("Recurring Meeting");
     expect(headings).not.toContain("Meeting");
   });
+
+  it("nests recurring meeting event tasks under parent recurring meeting with h3 and h4", () => {
+    const { contextRenderer, renderTaskList } = createRenderer();
+    const el = document.createElement("div");
+
+    const eventTask = createMockTask({
+      path: "meetings/recurring-events/StandUp/2024-01-15.md",
+    });
+
+    const dv = createMockDataviewApi([
+      { path: "meetings/recurring/StandUp.md" },
+      {
+        path: "meetings/recurring-events/StandUp/2024-01-15.md",
+        frontmatter: { "recurring-meeting": "[[StandUp]]" },
+      },
+    ]);
+
+    contextRenderer.render(el, [eventTask], makeFilters(), dv);
+
+    const h3s = el.querySelectorAll("h3");
+    const h4s = el.querySelectorAll("h4");
+    expect(h3s.length).toBe(1);
+    expect(h3s[0].querySelector("a")?.getAttribute("data-href")).toBe("meetings/recurring/StandUp.md");
+    expect(h4s.length).toBe(1);
+    expect(h4s[0].querySelector("a")?.getAttribute("data-href")).toBe(
+      "meetings/recurring-events/StandUp/2024-01-15.md"
+    );
+    expect(renderTaskList).toHaveBeenCalledTimes(1);
+  });
+
+  it("renders one h3 with multiple h4s when multiple events share the same parent recurring meeting", () => {
+    const { contextRenderer, renderTaskList } = createRenderer();
+    const el = document.createElement("div");
+
+    const event1Task = createMockTask({
+      path: "meetings/recurring-events/StandUp/2024-01-15.md",
+    });
+    const event2Task = createMockTask({
+      path: "meetings/recurring-events/StandUp/2024-01-22.md",
+    });
+
+    const dv = createMockDataviewApi([
+      { path: "meetings/recurring/StandUp.md" },
+      {
+        path: "meetings/recurring-events/StandUp/2024-01-15.md",
+        frontmatter: { "recurring-meeting": "[[StandUp]]" },
+      },
+      {
+        path: "meetings/recurring-events/StandUp/2024-01-22.md",
+        frontmatter: { "recurring-meeting": "[[StandUp]]" },
+      },
+    ]);
+
+    contextRenderer.render(el, [event1Task, event2Task], makeFilters(), dv);
+
+    const h3s = el.querySelectorAll("h3");
+    const h4s = el.querySelectorAll("h4");
+    expect(h3s.length).toBe(1);
+    expect(h4s.length).toBe(2);
+    expect(renderTaskList).toHaveBeenCalledTimes(2);
+  });
+
+  it("renders flat output (no h4) for orphan recurring meeting event with no recurring-meeting frontmatter", () => {
+    const { contextRenderer, renderTaskList } = createRenderer();
+    const el = document.createElement("div");
+
+    const orphanTask = createMockTask({
+      path: "meetings/recurring-events/StandUp/2024-01-15.md",
+    });
+
+    const dv = createMockDataviewApi([
+      { path: "meetings/recurring-events/StandUp/2024-01-15.md" },
+    ]);
+
+    contextRenderer.render(el, [orphanTask], makeFilters(), dv);
+
+    const h4s = el.querySelectorAll("h4");
+    expect(h4s.length).toBe(0);
+    expect(renderTaskList).toHaveBeenCalledTimes(1);
+  });
 });

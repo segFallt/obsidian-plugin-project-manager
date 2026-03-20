@@ -1,5 +1,5 @@
 import type { DataviewTask, DataviewApi, TaskContext, TaskPriority } from "../types";
-import { PRIORITY_EMOJI, CONTEXT, DEFAULT_PRIORITY } from "../constants";
+import { PRIORITY_EMOJI, CONTEXT, DEFAULT_PRIORITY, FM_KEY } from "../constants";
 import type { FolderSettings } from "../settings";
 import { normalizeToName } from "./link-utils";
 
@@ -72,6 +72,22 @@ export function getParentProjectPath(
   const projectName = normalizeToName(page.relatedProject);
   if (!projectName) return null;
   return `${projectsFolder}/${projectName}.md`;
+}
+
+/**
+ * Resolves the parent recurring meeting path for a recurring meeting event file using Dataview.
+ * Returns null if the file has no recurring-meeting front-matter link.
+ */
+export function getParentRecurringMeetingPath(
+  filePath: string,
+  dv: DataviewApi,
+  meetingsRecurringFolder: string
+): string | null {
+  const page = dv.page(filePath);
+  if (!page?.[FM_KEY.RECURRING_MEETING]) return null;
+  const meetingName = normalizeToName(page[FM_KEY.RECURRING_MEETING]);
+  if (!meetingName) return null;
+  return `${meetingsRecurringFolder}/${meetingName}.md`;
 }
 
 /**

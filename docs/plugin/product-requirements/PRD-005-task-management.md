@@ -76,6 +76,8 @@ Context types and their source folders:
 
 For the Project context type, tasks from project notes are nested under their parent project (using the relationship traversal chain from PRD-001).
 
+For the Recurring Meeting context type, tasks from recurring meeting event files are nested under their parent recurring meeting using a three-level hierarchy: Recurring Meeting (H3) → Event (H4) → Tasks. The parent meeting is resolved via the `recurring-meeting` frontmatter field on the event file. Event files with no `recurring-meeting` frontmatter are rendered flat (H3 → Tasks) as orphan entries.
+
 Recurring meeting event tasks appear under a distinct **"Recurring Meeting"** header, separate from single-meeting and recurring-meeting-definition tasks (which appear under "Meeting").
 
 #### View Mode: Due Date
@@ -182,6 +184,7 @@ The `TaskParser` (regex-based, Tasks plugin emoji format, no Tasks plugin API de
 - [ ] Dashboard mode displays tasks from all vault files except those in `utility/`.
 - [ ] All four view modes (context, date, priority, tag) render tasks in the correct groups.
 - [ ] Context view nests project-note tasks under their parent project.
+- [ ] Context view nests recurring meeting event tasks under their parent recurring meeting: H3 for the parent meeting, H4 for each event file, then tasks. Event files without a `recurring-meeting` frontmatter link render flat under their own H3.
 - [ ] Client/engagement filters correctly resolve tasks in recurring meeting event files via their parent recurring meeting's engagement.
 - [ ] Due date presets filter correctly; multiple presets use OR logic; empty selection shows all.
 - [ ] Entering a date range switches to range mode and clears presets.

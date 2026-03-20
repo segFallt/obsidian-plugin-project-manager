@@ -5,8 +5,9 @@ import {
   cleanTaskText,
   extractEmojiDate,
   addDays,
+  getParentRecurringMeetingPath,
 } from "../../src/utils/task-utils";
-import { createMockTask } from "../mocks/dataview-mock";
+import { createMockTask, createMockDataviewApi } from "../mocks/dataview-mock";
 import { DEFAULT_FOLDERS } from "../../src/constants";
 import type { FolderSettings } from "../../src/settings";
 
@@ -203,5 +204,46 @@ describe("addDays", () => {
 
   it("handles year boundary correctly", () => {
     expect(addDays("2023-12-31", 1)).toBe("2024-01-01");
+  });
+});
+
+// ─── getParentRecurringMeetingPath ────────────────────────────────────────
+
+describe("getParentRecurringMeetingPath", () => {
+  it("returns correct path when recurring-meeting frontmatter is a wikilink", () => {
+    const dv = createMockDataviewApi([
+      {
+        path: "meetings/recurring-events/StandUp/2024-01-15.md",
+        frontmatter: { "recurring-meeting": "[[StandUp]]" },
+      },
+    ]);
+    const result = getParentRecurringMeetingPath(
+      "meetings/recurring-events/StandUp/2024-01-15.md",
+      dv,
+      "meetings/recurring"
+    );
+    expect(result).toBe("meetings/recurring/StandUp.md");
+  });
+
+  it("returns null when recurring-meeting frontmatter is absent", () => {
+    const dv = createMockDataviewApi([
+      { path: "meetings/recurring-events/StandUp/2024-01-15.md" },
+    ]);
+    const result = getParentRecurringMeetingPath(
+      "meetings/recurring-events/StandUp/2024-01-15.md",
+      dv,
+      "meetings/recurring"
+    );
+    expect(result).toBeNull();
+  });
+
+  it("returns null when dv.page() returns null", () => {
+    const dv = createMockDataviewApi([]);
+    const result = getParentRecurringMeetingPath(
+      "meetings/recurring-events/StandUp/2024-01-15.md",
+      dv,
+      "meetings/recurring"
+    );
+    expect(result).toBeNull();
   });
 });
