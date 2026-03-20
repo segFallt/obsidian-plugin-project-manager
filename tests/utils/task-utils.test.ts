@@ -40,9 +40,9 @@ describe("getTaskContext", () => {
     expect(getTaskContext(task, defaultFolders)).toBe("Meeting");
   });
 
-  it("returns Meeting for paths starting with meetings/recurring-events/", () => {
+  it("returns Recurring Meeting for paths starting with meetings/recurring-events/", () => {
     const task = createMockTask({ path: "meetings/recurring-events/StandUp/2024-01-15.md" });
-    expect(getTaskContext(task, defaultFolders)).toBe("Meeting");
+    expect(getTaskContext(task, defaultFolders)).toBe("Recurring Meeting");
   });
 
   it("returns Inbox for paths starting with inbox/", () => {
@@ -77,7 +77,7 @@ describe("getTaskContext", () => {
     const recurringEventTask = createMockTask({ path: "my/recurring-events/StandUp/2024-01-15.md" });
     expect(getTaskContext(projectTask, customFolders as FolderSettings)).toBe("Project");
     expect(getTaskContext(personTask, customFolders as FolderSettings)).toBe("Person");
-    expect(getTaskContext(recurringEventTask, customFolders as FolderSettings)).toBe("Meeting");
+    expect(getTaskContext(recurringEventTask, customFolders as FolderSettings)).toBe("Recurring Meeting");
     // Default paths no longer match
     expect(getTaskContext(createMockTask({ path: "projects/Foo.md" }), customFolders as FolderSettings)).toBe("Other");
     expect(getTaskContext(createMockTask({ path: "meetings/recurring-events/StandUp/2024-01-15.md" }), customFolders as FolderSettings)).toBe("Other");

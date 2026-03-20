@@ -62,7 +62,21 @@ Displays all vault tasks, excluding tasks in the `utility/` folder.
 
 Groups tasks hierarchically: Context type → File → Task.
 
+Context types and their source folders:
+
+| Context type | Source folder(s) |
+|---|---|
+| Project | `projects/`, `projects/notes/` |
+| Person | `people/` |
+| Meeting | `meetings/single/`, `meetings/recurring/` |
+| Recurring Meeting | `meetings/recurring-events/` |
+| Inbox | `inbox/` |
+| Daily Notes | `daily notes/` |
+| Other | all other paths |
+
 For the Project context type, tasks from project notes are nested under their parent project (using the relationship traversal chain from PRD-001).
+
+Recurring meeting event tasks appear under a distinct **"Recurring Meeting"** header, separate from single-meeting and recurring-meeting-definition tasks (which appear under "Meeting").
 
 #### View Mode: Due Date
 
@@ -177,6 +191,9 @@ The `TaskParser` (regex-based, Tasks plugin emoji format, no Tasks plugin API de
 - [ ] Checkbox toggle updates the source file (toggles `[ ]`/`[x]`, adds/removes completion date).
 - [ ] Filter state is saved to frontmatter under `pm-tasks-filters` and restored on reload.
 - [ ] Old `dueDateFilter: "Today"` string format is automatically migrated to structured format.
+- [ ] Context view renders a "Recurring Meeting" h2 header for tasks from `meetings/recurring-events/`, distinct from the "Meeting" header for single-meeting and recurring-meeting-definition tasks.
+- [ ] Selecting "Recurring Meeting" in the context-type filter shows only recurring meeting event tasks; selecting "Meeting" shows only single-meeting and recurring-meeting-definition tasks.
+- [ ] Saved `contextFilter` values containing "Meeting" are automatically migrated to also include "Recurring Meeting" on first load, preserving the user's original intent.
 - [ ] By-project mode groups tasks by project and respects status and name filters.
 
 ---
