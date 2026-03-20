@@ -135,4 +135,19 @@ describe("ContextViewRenderer", () => {
     expect(headings).not.toContain("Person");
     expect(headings).not.toContain("Meeting");
   });
+
+  it("renders h2 'Recurring Meeting' (not 'Meeting') for tasks from meetings/recurring-events/", () => {
+    const { contextRenderer } = createRenderer();
+    const el = document.createElement("div");
+    const tasks = [
+      createMockTask({ path: "meetings/recurring-events/StandUp/2024-01-15.md" }),
+    ];
+    const dv = createMockDataviewApi([
+      { path: "meetings/recurring-events/StandUp/2024-01-15.md" },
+    ]);
+    contextRenderer.render(el, tasks, makeFilters(), dv);
+    const headings = [...el.querySelectorAll("h2")].map((h) => h.textContent);
+    expect(headings).toContain("Recurring Meeting");
+    expect(headings).not.toContain("Meeting");
+  });
 });

@@ -360,4 +360,16 @@ describe("pm-tasks-dashboard — clear filters", () => {
     const summaryTexts = [...details].map(d => d.querySelector("summary")?.textContent ?? "");
     expect(summaryTexts).toContain("Tag Filters");
   });
+
+  it("renders a 'Recurring Meeting' context-type checkbox alongside 'Meeting'", () => {
+    const { el } = render("mode: dashboard");
+    const labels = [...el.querySelectorAll(".pm-checkbox-group .pm-checkbox-label")];
+    const labelTexts = labels.map(l => l.textContent ?? "");
+    expect(labelTexts).toContain("Meeting");
+    expect(labelTexts).toContain("Recurring Meeting");
+    // 'Recurring Meeting' should appear immediately after 'Meeting'
+    const meetingIdx = labelTexts.indexOf("Meeting");
+    const recurringIdx = labelTexts.indexOf("Recurring Meeting");
+    expect(recurringIdx).toBe(meetingIdx + 1);
+  });
 });

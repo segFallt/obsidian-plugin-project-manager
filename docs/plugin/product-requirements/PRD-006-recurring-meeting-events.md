@@ -104,6 +104,7 @@ Events are sorted **newest-first** by their `date` frontmatter field (ISO 8601 d
 - [ ] The component re-renders within 1 second of any vault file being modified.
 - [ ] If Dataview is unavailable, a "Dataview is not available" message is shown instead of the grid.
 - [ ] Tasks in recurring meeting event files are visible in the `pm-tasks` dashboard and correctly matched when filtering by the parent recurring meeting's client or engagement.
+- [ ] Tasks in recurring meeting event files appear under a "Recurring Meeting" header in the `pm-tasks` context view, separate from single-meeting tasks (which appear under "Meeting").
 
 ---
 

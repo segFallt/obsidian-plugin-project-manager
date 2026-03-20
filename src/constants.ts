@@ -12,13 +12,14 @@ export const PROJECT_STATUSES = ["New", "Active", "On Hold", "Complete"] as cons
 export const DEFAULT_TASK_VIEW_STATUSES = ["New", "Active", "On Hold"] as const;
 
 /** All task context types based on folder location. */
-export const TASK_CONTEXTS = ["Project", "Person", "Meeting", "Inbox", "Daily Notes", "Other"] as const;
+export const TASK_CONTEXTS = ["Project", "Person", "Meeting", "Recurring Meeting", "Inbox", "Daily Notes", "Other"] as const;
 
 /** Named context values for type-safe comparisons. */
 export const CONTEXT = {
   PROJECT: "Project",
   PERSON: "Person",
   MEETING: "Meeting",
+  RECURRING_MEETING: "Recurring Meeting",
   INBOX: "Inbox",
   DAILY_NOTES: "Daily Notes",
   OTHER: "Other",
