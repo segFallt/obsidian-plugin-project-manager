@@ -61,14 +61,13 @@ export class TaskListRenderer {
         }
       }
 
-      // Source file link
+      // Source file link — compact "link" label maximises screen real-estate
       const sourceLink = li.createEl("a", {
         cls: "pm-task-source internal-link",
         href: task.link.path,
       });
       sourceLink.dataset.href = task.link.path;
-      const page = this.services.queryService.getPage(task.link.path);
-      sourceLink.textContent = page?.file.name ?? task.link.path;
+      sourceLink.textContent = "link";
     }
   }
 
