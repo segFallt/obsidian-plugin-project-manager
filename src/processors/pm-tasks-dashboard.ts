@@ -14,7 +14,7 @@ import type {
   TaskContext,
   TaskPriority,
 } from "../types";
-import { ENTITY_TAGS, TASK_CONTEXTS, DEFAULT_TASK_VIEW_STATUSES, DUE_DATE_PRESETS, DEFAULT_DUE_DATE_FILTER, DEBOUNCE_MS, CSS_CLS, CSS_VAR, MSG } from "../constants";
+import { CONTEXT, ENTITY_TAGS, TASK_CONTEXTS, DEFAULT_TASK_VIEW_STATUSES, DUE_DATE_PRESETS, DEFAULT_DUE_DATE_FILTER, DEBOUNCE_MS, CSS_CLS, CSS_VAR, MSG } from "../constants";
 import type { ITaskFilterService } from "../services/interfaces";
 import type { ITaskSortService } from "../services/interfaces";
 import { createSelect, renderCollapsible } from "./dom-helpers";
@@ -148,6 +148,15 @@ export class DashboardView {
       includeUntagged: saved?.includeUntagged ?? cfg.includeUntagged ?? false,
       searchText: "",
     };
+
+    // Migration: if a saved contextFilter includes 'Meeting' but not 'Recurring Meeting',
+    // append 'Recurring Meeting' so existing saved filters continue to capture all meeting tasks.
+    if (
+      this.filters.contextFilter.includes(CONTEXT.MEETING) &&
+      !this.filters.contextFilter.includes(CONTEXT.RECURRING_MEETING)
+    ) {
+      this.filters.contextFilter = [...this.filters.contextFilter, CONTEXT.RECURRING_MEETING];
+    }
   }
 
   // ─── Controls rendering ───────────────────────────────────────────────────

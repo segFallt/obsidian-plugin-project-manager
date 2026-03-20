@@ -110,7 +110,8 @@ export class TaskFilterService implements ITaskFilterService {
 
     if (f.meetingDateFilter !== "All") {
       filtered = filtered.filter((t) => {
-        if (getTaskContext(t, this.folders) !== CONTEXT.MEETING) return true;
+        const ctx = getTaskContext(t, this.folders);
+        if (ctx !== CONTEXT.MEETING && ctx !== CONTEXT.RECURRING_MEETING) return true;
         const page = dv.page(t.path);
         if (!page?.date) return f.meetingDateFilter === "All";
         return this.matchesMeetingDateFilter(String(page.date), f.meetingDateFilter);

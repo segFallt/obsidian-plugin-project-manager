@@ -8,7 +8,7 @@
 export type ClientStatus = "Active" | "Inactive";
 export type EngagementStatus = "Active" | "Inactive";
 export type ProjectStatus = "New" | "Active" | "On Hold" | "Complete";
-export type TaskContext = "Project" | "Person" | "Meeting" | "Inbox" | "Daily Notes" | "Other";
+export type TaskContext = "Project" | "Person" | "Meeting" | "Recurring Meeting" | "Inbox" | "Daily Notes" | "Other";
 export type TaskPriority = 1 | 2 | 3 | 4 | 5;
 export type EntityType =
   | "client"

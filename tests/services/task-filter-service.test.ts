@@ -622,6 +622,44 @@ describe("TaskFilterService.applyContextSpecificFilters", () => {
     expect(resultAll).toHaveLength(1);
     expect(resultAll[0].path).toBe("meetings/recurring-events/StandUp/NoDate.md");
   });
+
+  it("contextFilter ['Recurring Meeting'] isolates recurring-event tasks and excludes single-meeting tasks", () => {
+    const dv = createMockDataviewApi([
+      { path: "meetings/recurring-events/StandUp/2024-01-15.md" },
+      { path: "meetings/single/Standup.md" },
+    ]);
+    const tasks = [
+      createMockTask({ path: "meetings/recurring-events/StandUp/2024-01-15.md" }),
+      createMockTask({ path: "meetings/single/Standup.md" }),
+    ];
+    const result = service.applyDashboardFilters(
+      tasks,
+      makeFilters({ contextFilter: ["Recurring Meeting"] }),
+      dv,
+      makeQueryService()
+    );
+    expect(result).toHaveLength(1);
+    expect(result[0].path).toBe("meetings/recurring-events/StandUp/2024-01-15.md");
+  });
+
+  it("contextFilter ['Meeting'] excludes recurring-event tasks", () => {
+    const dv = createMockDataviewApi([
+      { path: "meetings/recurring-events/StandUp/2024-01-15.md" },
+      { path: "meetings/single/Standup.md" },
+    ]);
+    const tasks = [
+      createMockTask({ path: "meetings/recurring-events/StandUp/2024-01-15.md" }),
+      createMockTask({ path: "meetings/single/Standup.md" }),
+    ];
+    const result = service.applyDashboardFilters(
+      tasks,
+      makeFilters({ contextFilter: ["Meeting"] }),
+      dv,
+      makeQueryService()
+    );
+    expect(result).toHaveLength(1);
+    expect(result[0].path).toBe("meetings/single/Standup.md");
+  });
 });
 
 // ─── matchesTagFilter ─────────────────────────────────────────────────────
