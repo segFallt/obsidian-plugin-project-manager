@@ -1,4 +1,4 @@
-import { TFile } from "obsidian";
+import { MarkdownRenderChild, MarkdownRenderer, TFile } from "obsidian";
 import type { TaskProcessorServices } from "../plugin-context";
 import type { DataviewTask } from "../types";
 import { DUE_DATE_EMOJI, PRIORITY_EMOJI, DEFAULT_PRIORITY, ARIA_LABEL_MAX_LENGTH } from "../constants";
@@ -7,12 +7,17 @@ import { cleanTaskText, extractEmojiDate, getTaskPriority } from "../utils/task-
 
 /**
  * Renders a list of tasks as interactive `<ul>` items with checkboxes, badges, and source links.
+ * Task text is rendered via MarkdownRenderer so that wikilinks and external markdown links
+ * are clickable rather than appearing as raw strings.
  * Also handles toggling task completion state in the vault.
  */
 export class TaskListRenderer {
-  constructor(private readonly services: TaskProcessorServices) {}
+  constructor(
+    private readonly services: TaskProcessorServices,
+    private readonly component: MarkdownRenderChild
+  ) {}
 
-  renderTaskList(container: HTMLElement, tasks: DataviewTask[]): void {
+  async renderTaskList(container: HTMLElement, tasks: DataviewTask[]): Promise<void> {
     const ul = container.createEl("ul", { cls: "pm-task-list contains-task-list" });
 
     for (const task of tasks) {
@@ -31,7 +36,13 @@ export class TaskListRenderer {
       });
 
       const textSpan = li.createSpan({ cls: "pm-task-text" });
-      textSpan.setText(cleanTaskText(task.text));
+      await MarkdownRenderer.render(
+        this.services.app,
+        cleanTaskText(task.text),
+        textSpan,
+        task.link.path,
+        this.component
+      );
 
       // Due date badge
       const dueDate = extractEmojiDate(task.text, DUE_DATE_EMOJI);

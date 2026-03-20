@@ -97,7 +97,7 @@ class PmTasksRenderChild extends MarkdownRenderChild {
 
     const filterService = this.services.filterService;
     const sortService = this.services.sortService;
-    const renderer = new TaskListRenderer(this.services);
+    const renderer = new TaskListRenderer(this.services, this);
     const savedFilters = this.loadSavedFilters();
 
     if (this.config.mode === "dashboard") {

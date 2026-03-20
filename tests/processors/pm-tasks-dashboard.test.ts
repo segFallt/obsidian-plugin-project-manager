@@ -361,6 +361,26 @@ describe("pm-tasks-dashboard — clear filters", () => {
     expect(summaryTexts).toContain("Tag Filters");
   });
 
+  it("renders task text via MarkdownRenderer (not plain setText)", async () => {
+    const dvApi = createMockDataviewApi([
+      {
+        path: "projects/A.md",
+        tasks: [{ text: "See [label](https://example.com) for details" }],
+      },
+    ]);
+    const { el } = render("mode: dashboard", dvApi);
+
+    // Allow async MarkdownRenderer.render calls to settle before asserting
+    await flushPromises();
+
+    const textSpan = el.querySelector(".pm-task-text");
+    expect(textSpan).not.toBeNull();
+    // MarkdownRenderer.render sets innerHTML — not textContent
+    expect(textSpan?.innerHTML).toContain("See [label](https://example.com) for details");
+    // textContent confirms the content was set by MarkdownRenderer.render (not plain text)
+    expect(textSpan?.textContent).toContain("See [label](https://example.com) for details");
+  });
+
   it("renders a 'Recurring Meeting' context-type checkbox alongside 'Meeting'", () => {
     const { el } = render("mode: dashboard");
     const labels = [...el.querySelectorAll(".pm-checkbox-group .pm-checkbox-label")];
