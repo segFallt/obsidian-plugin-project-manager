@@ -19,7 +19,7 @@ The plugin organises vault data around 8 entity types arranged in a strict paren
 
 ### 3.1 Entity Types
 
-The plugin defines exactly 8 entity types:
+The plugin defines exactly 9 entity types:
 
 | Entity | Folder (default) | Required tag |
 |--------|-----------------|--------------|
@@ -31,6 +31,7 @@ The plugin defines exactly 8 entity types:
 | Inbox Note | `inbox/` | *(none)* |
 | Single Meeting | `meetings/single/` | *(none)* |
 | Recurring Meeting | `meetings/recurring/` | *(none)* |
+| Recurring Meeting Event | `meetings/recurring-events/` | *(none)* |
 
 ### 3.2 Frontmatter Schemas
 
@@ -110,6 +111,14 @@ default-attendees:
   - "[[Person Name]]"
 ```
 
+**Recurring Meeting Event** (`meetings/recurring-events/<MeetingName>/<Date>.md`)
+```yaml
+recurring-meeting: "[[Recurring Meeting Name]]"
+date: YYYY-MM-DDTHH:mm:ss
+attendees:
+  - "[[Person Name]]"
+```
+
 ### 3.3 Wikilink Convention
 
 Fields that hold wikilinks (`engagement`, `client`, `convertedFrom`, `convertedTo`, `relatedProject`, `reports-to`, `attendees`, `default-attendees`) are **never** baked into template strings. They are always written via `processFrontMatter` after file creation to avoid YAML parsing issues caused by unquoted `[[...]]` sequences in raw template text.
@@ -126,9 +135,10 @@ The plugin resolves client/engagement context for tasks by walking these chains:
 ```
 Project Note → relatedProject → Project → engagement → Engagement → client → Client
 Single Meeting → engagement → Engagement → client → Client
+Recurring Meeting Event → recurring-meeting → Recurring Meeting → engagement → Engagement → client → Client
 ```
 
-This allows the task dashboard's context filters to group project-note tasks under their ancestor client and engagement.
+This allows the task dashboard's context filters to group tasks from project notes, single meetings, and recurring meeting events under their ancestor client and engagement.
 
 ---
 
@@ -184,6 +194,7 @@ No direct UI — the data model is displayed and edited through the `pm-properti
 - [ ] Wikilink fields in frontmatter are always written via `processFrontMatter`, never as raw template strings.
 - [ ] Priority values 1–5 are used consistently across projects and task emoji rendering.
 - [ ] Relationship traversal correctly resolves `Project Note → ... → Client` for task dashboard context grouping.
+- [ ] Relationship traversal correctly resolves `Recurring Meeting Event → ... → Client` for task dashboard context grouping.
 - [ ] The `notesDirectory` field on a project is set to `projects/notes/<snake_case_name>` at creation.
 - [ ] When an inbox note is converted to a project: `status` → `Inactive`, `convertedTo` is set on the inbox note; `convertedFrom` is set on the new project.
 
@@ -191,7 +202,6 @@ No direct UI — the data model is displayed and edited through the `pm-properti
 
 ## 8. Out of Scope
 
-- Recurring Meeting Event entity (a sub-entity of Recurring Meeting, covered implicitly by `pm-recurring-events` — see PRD-006).
 - Cross-vault or multi-vault linking.
 - Custom entity types beyond the 8 defined here.
 - Renaming or moving entity files after creation.

@@ -1,9 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { TaskFilterService } from "../../src/services/task-filter-service";
+import { TaskFilterService } from "@/services/task-filter-service";
 import { createMockTask, createMockDataviewApi, createMockPage } from "../mocks/dataview-mock";
-import type { DashboardFilters, DueDateFilter } from "../../src/types";
-import { DEFAULT_FOLDERS } from "../../src/constants";
-import type { FolderSettings } from "../../src/settings";
+import type { DashboardFilters, DueDateFilter } from "@/types";
+import { DEFAULT_FOLDERS } from "@/constants";
+import type { FolderSettings } from "@/settings";
 
 const defaultFolders = DEFAULT_FOLDERS as unknown as FolderSettings;
 
@@ -35,10 +35,14 @@ function makeFilters(overrides: Partial<DashboardFilters> = {}): DashboardFilter
 }
 
 // Minimal QueryService mock
-function makeQueryService(overrides: Partial<{ getClientFromEngagementLink: (link: unknown) => string | null }> = {}) {
+function makeQueryService(overrides: Partial<{
+  getClientFromEngagementLink: (link: unknown) => string | null;
+  getEngagementNameForPath: (path: string) => string | null;
+}> = {}) {
   return {
     getClientFromEngagementLink: overrides.getClientFromEngagementLink ?? (() => null),
-  } as unknown as import("../../src/services/query-service").QueryService;
+    getEngagementNameForPath: overrides.getEngagementNameForPath ?? (() => null),
+  } as unknown as import("@/services/query-service").QueryService;
 }
 
 const service = new TaskFilterService(defaultFolders);
@@ -444,42 +448,71 @@ describe("TaskFilterService.matchesClientFilter", () => {
 
 describe("TaskFilterService.matchesEngagementFilter", () => {
   it("returns true when filter is empty and includeUnassigned is false", () => {
-    const dv = createMockDataviewApi([{ path: "inbox/t.md" }]);
     const task = createMockTask({ path: "inbox/t.md" });
-    expect(service.matchesEngagementFilter(task, [], false, dv)).toBe(true);
+    expect(service.matchesEngagementFilter(task, [], false, makeQueryService())).toBe(true);
   });
 
   it("matches task with direct engagement frontmatter", () => {
-    const dv = createMockDataviewApi([
-      {
-        path: "projects/Foo.md",
-        frontmatter: { engagement: { path: "engagements/Eng1.md" } },
-      },
-    ]);
     const task = createMockTask({ path: "projects/Foo.md" });
-    expect(service.matchesEngagementFilter(task, ["Eng1"], false, dv)).toBe(true);
-    expect(service.matchesEngagementFilter(task, ["Other"], false, dv)).toBe(false);
+    const qs = makeQueryService({ getEngagementNameForPath: () => "Eng1" });
+    expect(service.matchesEngagementFilter(task, ["Eng1"], false, qs)).toBe(true);
+    expect(service.matchesEngagementFilter(task, ["Other"], false, qs)).toBe(false);
   });
 
   it("includes unassigned tasks when includeUnassigned is true", () => {
-    const dv = createMockDataviewApi([{ path: "inbox/t.md" }]);
     const task = createMockTask({ path: "inbox/t.md" });
-    expect(service.matchesEngagementFilter(task, [], true, dv)).toBe(true);
+    expect(service.matchesEngagementFilter(task, [], true, makeQueryService())).toBe(true);
   });
 
   it("traverses parent project chain for project notes", () => {
-    const dv = createMockDataviewApi([
-      {
-        path: "projects/notes/foo/Note.md",
-        frontmatter: { relatedProject: "Foo" },
-      },
-      {
-        path: "projects/Foo.md",
-        frontmatter: { engagement: { path: "engagements/Eng1.md" } },
-      },
-    ]);
     const task = createMockTask({ path: "projects/notes/foo/Note.md" });
-    expect(service.matchesEngagementFilter(task, ["Eng1"], false, dv)).toBe(true);
+    const qs = makeQueryService({ getEngagementNameForPath: () => "Eng1" });
+    expect(service.matchesEngagementFilter(task, ["Eng1"], false, qs)).toBe(true);
+  });
+});
+
+// ─── matchesClientFilter / matchesEngagementFilter — recurring meeting events ─
+
+describe("TaskFilterService — recurring meeting event traversal", () => {
+  it("engagement filter: matches via recurring-meeting → parent meeting engagement (happy path)", () => {
+    const task = createMockTask({ path: "meetings/recurring-events/StandUp/2024-03-01.md" });
+    const qs = makeQueryService({ getEngagementNameForPath: () => "Acme Q1" });
+    expect(service.matchesEngagementFilter(task, ["Acme Q1"], false, qs)).toBe(true);
+  });
+
+  it("client filter: matches via recurring-meeting → parent meeting engagement → client (happy path)", () => {
+    const dv = createMockDataviewApi([
+      { path: "meetings/recurring-events/StandUp/2024-03-01.md", frontmatter: { "recurring-meeting": "StandUp" } },
+    ]);
+    const task = createMockTask({ path: "meetings/recurring-events/StandUp/2024-03-01.md" });
+    const qs = makeQueryService({
+      getEngagementNameForPath: () => "Acme Q1",
+      getClientFromEngagementLink: () => "Acme Corp",
+    });
+    expect(service.matchesClientFilter(task, ["Acme Corp"], false, dv, qs)).toBe(true);
+  });
+
+  it("engagement filter: returns false when parent meeting has a different engagement", () => {
+    const task = createMockTask({ path: "meetings/recurring-events/StandUp/2024-03-01.md" });
+    const qs = makeQueryService({ getEngagementNameForPath: () => "Other Q1" });
+    expect(service.matchesEngagementFilter(task, ["Acme Q1"], false, qs)).toBe(false);
+  });
+
+  it("engagement filter: treats event as unassigned when queryService resolves no engagement", () => {
+    const task = createMockTask({ path: "meetings/recurring-events/StandUp/2024-03-01.md" });
+    // getEngagementNameForPath returns null → treated as unassigned
+    expect(service.matchesEngagementFilter(task, [], true, makeQueryService())).toBe(true);
+    expect(service.matchesEngagementFilter(task, ["Acme Q1"], false, makeQueryService())).toBe(false);
+  });
+
+  it("client filter: treats event as unassigned when queryService resolves no engagement", () => {
+    const dv = createMockDataviewApi([
+      { path: "meetings/recurring-events/StandUp/2024-03-01.md", frontmatter: { "recurring-meeting": "StandUp" } },
+    ]);
+    const task = createMockTask({ path: "meetings/recurring-events/StandUp/2024-03-01.md" });
+    // Both methods return null → unassigned
+    expect(service.matchesClientFilter(task, [], true, dv, makeQueryService())).toBe(true);
+    expect(service.matchesClientFilter(task, ["Acme Corp"], false, dv, makeQueryService())).toBe(false);
   });
 });
 

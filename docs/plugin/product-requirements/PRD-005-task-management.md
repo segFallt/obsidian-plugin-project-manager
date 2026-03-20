@@ -142,7 +142,7 @@ The `TaskParser` (regex-based, Tasks plugin emoji format, no Tasks plugin API de
 - `TaskParser` parses task lines using the Tasks plugin emoji format (due dates, priority emojis, completion markers).
 - `TaskFilterService` applies multi-stage filtering; `TaskSortService` handles sorting.
 - Both services are injected via `TaskProcessorServices` (wired in `main.ts`).
-- Relationship context (project → engagement → client) is resolved using the traversal chains in PRD-001.
+- Relationship context (project → engagement → client, recurring meeting event → meeting → engagement → client) is resolved using the traversal chains in PRD-001.
 
 ---
 
@@ -168,6 +168,7 @@ The `TaskParser` (regex-based, Tasks plugin emoji format, no Tasks plugin API de
 - [ ] Dashboard mode displays tasks from all vault files except those in `utility/`.
 - [ ] All four view modes (context, date, priority, tag) render tasks in the correct groups.
 - [ ] Context view nests project-note tasks under their parent project.
+- [ ] Client/engagement filters correctly resolve tasks in recurring meeting event files via their parent recurring meeting's engagement.
 - [ ] Due date presets filter correctly; multiple presets use OR logic; empty selection shows all.
 - [ ] Entering a date range switches to range mode and clears presets.
 - [ ] Priority filter buttons show/hide tasks by priority level.

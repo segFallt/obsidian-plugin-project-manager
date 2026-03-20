@@ -115,6 +115,20 @@ default-attendees:
   - "[[Person Name]]"
 ```
 
+## Recurring Meeting Event
+
+**File location**: `meetings/recurring-events/<MeetingName>/<Date>.md`
+**Folder**: configured via Settings → Folder Paths → Recurring meeting events folder
+
+```yaml
+recurring-meeting: "[[Recurring Meeting Name]]"
+date: YYYY-MM-DDTHH:mm:ss
+attendees:
+  - "[[Person Name]]"
+```
+
+The `recurring-meeting` wikilink is set via `processFrontMatter` after file creation.
+
 ## Priority Scale
 
 | Value | Label | Tasks emoji |
@@ -132,6 +146,7 @@ The plugin walks the following chains to resolve client/engagement context for t
 ```
 Project Note → relatedProject → Project → engagement → Engagement → client → Client
 Single Meeting → engagement → Engagement → client → Client
+Recurring Meeting Event → recurring-meeting → Recurring Meeting → engagement → Engagement → client → Client
 ```
 
-This enables the task dashboard's client/engagement filters to correctly group tasks from project notes under their parent project's client.
+This enables the task dashboard's client/engagement filters to correctly group tasks from project notes, single meetings, and recurring meeting events under their ancestor client and engagement.
