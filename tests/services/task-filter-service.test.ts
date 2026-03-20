@@ -557,6 +557,38 @@ describe("TaskFilterService.applyContextSpecificFilters", () => {
     expect(result).toHaveLength(1);
     expect(result[0].path).toBe("meetings/single/Today.md");
   });
+
+  it("filters recurring-event meeting tasks by meeting date", () => {
+    const today = new Date().toISOString().split("T")[0];
+    const dv = createMockDataviewApi([
+      { path: "meetings/recurring-events/StandUp/2024-01-15.md", frontmatter: { date: today } },
+      { path: "meetings/recurring-events/StandUp/OldEvent.md", frontmatter: { date: "2020-01-01" } },
+      { path: "meetings/recurring-events/StandUp/NoDate.md", frontmatter: {} },
+    ]);
+    const tasks = [
+      createMockTask({ path: "meetings/recurring-events/StandUp/2024-01-15.md" }),
+      createMockTask({ path: "meetings/recurring-events/StandUp/OldEvent.md" }),
+      createMockTask({ path: "meetings/recurring-events/StandUp/NoDate.md" }),
+    ];
+
+    // meetingDateFilter: "Today" — only the today-dated event passes
+    const resultToday = service.applyContextSpecificFilters(
+      tasks,
+      { projectStatusFilter: [], inboxStatusFilter: "All", meetingDateFilter: "Today" },
+      dv
+    );
+    expect(resultToday).toHaveLength(1);
+    expect(resultToday[0].path).toBe("meetings/recurring-events/StandUp/2024-01-15.md");
+
+    // meetingDateFilter: "All" — recurring-event file with no date frontmatter passes through
+    const resultAll = service.applyContextSpecificFilters(
+      [createMockTask({ path: "meetings/recurring-events/StandUp/NoDate.md" })],
+      { projectStatusFilter: [], inboxStatusFilter: "All", meetingDateFilter: "All" },
+      dv
+    );
+    expect(resultAll).toHaveLength(1);
+    expect(resultAll[0].path).toBe("meetings/recurring-events/StandUp/NoDate.md");
+  });
 });
 
 // ─── matchesTagFilter ─────────────────────────────────────────────────────

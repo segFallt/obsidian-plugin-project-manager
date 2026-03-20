@@ -1,0 +1,225 @@
+# GitLab CI/CD Pipeline
+#
+# Mirrors the two GitHub Actions workflows:
+#   - pr-validation.yml  →  mr-validate job
+#   - release.yml        →  lint / test / prepare / build / publish jobs
+#
+# Notable differences from GitHub Actions:
+#   - Release assets are uploaded to the GitLab Generic Package Registry and
+#     linked to the release (GitLab has no equivalent of GitHub artifact uploads
+#     directly attached to releases).
+#   - GitLab Releases have no "pre-release" flag; a pre-release version is
+#     indicated by appending " (pre-release)" to the release name.
+#   - Release notes are not auto-generated (no equivalent of
+#     generate_release_notes: true); the description defaults to "Release <v>".
+#   - make_latest has no direct equivalent; GitLab determines the latest
+#     release by tag date automatically.
+#   - Tag push uses the CI_JOB_TOKEN URL; ensure "CI_JOB_TOKEN allowed to
+#     push to protected branches" is enabled under Settings → CI/CD → Token Access.
+
+stages:
+  - validate
+  - build
+  - release
+
+default:
+  image: node:20
+  cache:
+    key:
+      files:
+        - package-lock.json
+    paths:
+      - node_modules/
+
+workflow:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+    - if: $CI_COMMIT_BRANCH == 'main' && $CI_PIPELINE_SOURCE == 'push'
+    - if: $CI_PIPELINE_SOURCE == 'web' # manual trigger
+
+# ─────────────────────────────────────────────────────────────────────────────
+# MR Validation
+# Runs on every merge request targeting main: lint → test → build.
+# ─────────────────────────────────────────────────────────────────────────────
+
+mr-validate:
+  stage: validate
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event' && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == 'main'
+  script:
+    - npm ci
+    - npm run lint
+    - npm run test:coverage
+    - npm run build
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Release Pipeline
+# ─────────────────────────────────────────────────────────────────────────────
+
+.main:
+  rules:
+    - if: $CI_COMMIT_BRANCH == 'main' && $CI_PIPELINE_SOURCE == 'push'
+    - if: $CI_PIPELINE_SOURCE == 'web'
+
+# Quality gate — fail before any release work if code is broken
+lint:
+  extends: .main
+  stage: validate
+  script:
+    - npm ci
+    - npm run lint
+
+test:
+  extends: .main
+  stage: validate
+  script:
+    - npm ci
+    - npm run test:coverage
+
+# Extract version from manifest.json (source of truth) and probe release state.
+# Results are exported as a dotenv artifact and consumed by downstream jobs.
+# GIT_DEPTH: 0 is scoped here because only this job inspects local tags.
+prepare:
+  extends: .main
+  stage: validate
+  variables:
+    GIT_DEPTH: 0
+  script:
+    - |
+      set -euo pipefail
+      VERSION=$(node -p "require('./manifest.json').version")
+      echo "VERSION=$VERSION" >> release.env
+
+      if [[ "$VERSION" == *-* ]]; then
+        echo "IS_PRERELEASE=true"  >> release.env
+        echo "Detected pre-release version: $VERSION"
+      else
+        echo "IS_PRERELEASE=false" >> release.env
+        echo "Detected stable version: $VERSION"
+      fi
+
+      if git rev-parse "refs/tags/$VERSION" > /dev/null 2>&1; then
+        echo "TAG_EXISTS=true"  >> release.env
+        echo "Tag $VERSION already exists."
+      else
+        echo "TAG_EXISTS=false" >> release.env
+        echo "Tag $VERSION does not exist."
+      fi
+
+      HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+        --max-time 30 --retry 3 \
+        --header "JOB-TOKEN: $CI_JOB_TOKEN" \
+        "$CI_API_V4_URL/projects/$CI_PROJECT_ID/releases/$VERSION")
+      if [ "$HTTP_CODE" = "200" ]; then
+        echo "RELEASE_EXISTS=true"  >> release.env
+        echo "Release $VERSION already exists."
+      elif [ "$HTTP_CODE" = "404" ]; then
+        echo "RELEASE_EXISTS=false" >> release.env
+        echo "Release $VERSION does not exist."
+      else
+        echo "Unexpected HTTP $HTTP_CODE checking release existence — aborting."
+        exit 1
+      fi
+
+      cat release.env
+  artifacts:
+    reports:
+      dotenv: release.env
+
+# Build only when a release will actually be published.
+# Waits for lint and test so build artifacts are never produced for broken code.
+build:
+  extends: .main
+  stage: build
+  needs: [lint, test, prepare]
+  script:
+    - |
+      set -euo pipefail
+      if [ "$TAG_EXISTS" = "true" ] && [ "$RELEASE_EXISTS" = "true" ]; then
+        echo "Tag and release already exist — skipping build."
+        # main.js is gitignored and absent from the checkout. Create a stub so
+        # artifact collection does not fail. publish also exits early on this
+        # same condition so this stub is never uploaded to the registry.
+        touch main.js
+        exit 0
+      fi
+      npm ci
+      npm run build
+  artifacts:
+    paths:
+      - main.js
+      - manifest.json
+      - styles.css
+    when: on_success
+    expire_in: 1 hour
+
+# Three-state logic (mirrors the GitHub release workflow):
+#   no tag / no release  → upload assets, create annotated tag, create release
+#   tag only             → upload assets, skip tag creation, create release
+#   tag + release        → print skip notice, exit cleanly
+#
+# All logic is in a single shell block so that `exit 0` in the skip path
+# actually terminates the job (each `- |` entry is a separate shell invocation).
+publish:
+  extends: .main
+  stage: release
+  needs: [lint, test, prepare, build]
+  script:
+    - |
+      set -euo pipefail
+      if [ "$TAG_EXISTS" = "true" ] && [ "$RELEASE_EXISTS" = "true" ]; then
+        echo "Tag $VERSION and its GitLab Release already exist."
+        echo "No release action needed. Bump the version in manifest.json to trigger a new release."
+        exit 0
+      fi
+
+      # Upload build artefacts to the Generic Package Registry
+      BASE_PKG_URL="$CI_API_V4_URL/projects/$CI_PROJECT_ID/packages/generic/release/$VERSION"
+      for FILE in main.js manifest.json styles.css; do
+        echo "Uploading $FILE …"
+        curl --fail --max-time 30 --retry 3 --request PUT \
+          --header "JOB-TOKEN: $CI_JOB_TOKEN" \
+          --upload-file "$FILE" \
+          "$BASE_PKG_URL/$FILE"
+      done
+
+      # Create an annotated tag when neither the tag nor the release exist yet
+      if [ "$TAG_EXISTS" = "false" ]; then
+        echo "Creating annotated tag $VERSION …"
+        git config user.name  "gitlab-ci[bot]"
+        git config user.email "gitlab-ci[bot]@users.noreply.gitlab.com"
+        git tag -a "$VERSION" -m "Release $VERSION"
+        git push "https://gitlab-ci-token:${CI_JOB_TOKEN}@${CI_SERVER_HOST}/${CI_PROJECT_PATH}.git" "$VERSION"
+      fi
+
+      # Build the release payload and POST it to the GitLab Releases API.
+      # Pre-release versions (containing a hyphen) are flagged in the name
+      # because GitLab Releases have no dedicated pre-release field.
+      node -e "
+        const version  = process.env.VERSION;
+        const isPrerel = process.env.IS_PRERELEASE === 'true';
+        const base     = process.env.CI_API_V4_URL
+                       + '/projects/' + process.env.CI_PROJECT_ID
+                       + '/packages/generic/release/' + version;
+
+        const payload = {
+          tag_name:    version,
+          name:        isPrerel ? version + ' (pre-release)' : version,
+          description: 'Release ' + version,
+          assets: {
+            links: [
+              { name: 'main.js',       url: base + '/main.js',       link_type: 'package' },
+              { name: 'manifest.json', url: base + '/manifest.json', link_type: 'package' },
+              { name: 'styles.css',    url: base + '/styles.css',    link_type: 'package' },
+            ]
+          }
+        };
+        process.stdout.write(JSON.stringify(payload));
+      " > release_payload.json
+
+      echo "Creating GitLab Release $VERSION …"
+      curl --fail --max-time 30 --retry 3 --request POST \
+        --header "JOB-TOKEN: $CI_JOB_TOKEN" \
+        --header "Content-Type: application/json" \
+        --data @release_payload.json \
+        "$CI_API_V4_URL/projects/$CI_PROJECT_ID/releases"
