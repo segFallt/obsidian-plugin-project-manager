@@ -89,3 +89,18 @@ HTMLElement.prototype.createSpan = function (opts?: ObsidianElOpts) {
 HTMLElement.prototype.setText = function (text: string) {
   this.textContent = text;
 };
+
+// ─── Async test utilities ─────────────────────────────────────────────────────
+
+/**
+ * Flushes pending microtasks and macrotasks so that async rendering
+ * (e.g. MarkdownRenderer.render) has settled before asserting the DOM.
+ *
+ * Usage: `await flushPromises()` instead of `await new Promise(r => setTimeout(r, N))`.
+ */
+declare global {
+  function flushPromises(): Promise<void>;
+}
+
+(globalThis as unknown as Record<string, unknown>).flushPromises =
+  (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));

@@ -12,7 +12,7 @@ export class TagViewRenderer {
     private readonly renderer: TaskListRenderer
   ) {}
 
-  render(container: HTMLElement, tasks: DataviewTask[], f: DashboardFilters): void {
+  async render(container: HTMLElement, tasks: DataviewTask[], f: DashboardFilters): Promise<void> {
     const tagMap: Record<string, DataviewTask[]> = {};
     const untagged: DataviewTask[] = [];
 
@@ -30,12 +30,12 @@ export class TagViewRenderer {
 
     for (const tag of Object.keys(tagMap).sort()) {
       container.createEl("h2", { text: tag });
-      this.renderer.renderTaskList(container, this.sortService.sortTasks(tagMap[tag], f.sortBy));
+      await this.renderer.renderTaskList(container, this.sortService.sortTasks(tagMap[tag], f.sortBy));
     }
 
     if (untagged.length > 0) {
       container.createEl("h2", { text: "📌 Untagged" });
-      this.renderer.renderTaskList(container, this.sortService.sortTasks(untagged, f.sortBy));
+      await this.renderer.renderTaskList(container, this.sortService.sortTasks(untagged, f.sortBy));
     }
   }
 }

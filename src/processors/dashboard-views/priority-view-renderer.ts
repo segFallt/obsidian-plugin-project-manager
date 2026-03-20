@@ -14,12 +14,12 @@ export class PriorityViewRenderer {
     private readonly renderer: TaskListRenderer
   ) {}
 
-  render(container: HTMLElement, tasks: DataviewTask[], f: DashboardFilters): void {
+  async render(container: HTMLElement, tasks: DataviewTask[], f: DashboardFilters): Promise<void> {
     for (let priority = 1; priority <= 5; priority++) {
       const priTasks = tasks.filter((t) => getTaskPriority(t) === priority);
       if (priTasks.length === 0) continue;
       container.createEl("h2", { text: PRIORITY_DISPLAY[priority] });
-      this.renderer.renderTaskList(container, this.sortService.sortTasks(priTasks, f.sortBy));
+      await this.renderer.renderTaskList(container, this.sortService.sortTasks(priTasks, f.sortBy));
     }
   }
 }

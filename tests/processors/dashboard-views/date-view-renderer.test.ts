@@ -38,25 +38,25 @@ function createRenderer() {
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
 describe("DateViewRenderer", () => {
-  it("renders nothing when there are no tasks", () => {
+  it("renders nothing when there are no tasks", async () => {
     const { dateRenderer } = createRenderer();
     const el = document.createElement("div");
-    dateRenderer.render(el, [], makeFilters());
+    await dateRenderer.render(el, [], makeFilters());
     expect(el.innerHTML).toBe("");
   });
 
-  it("renders 'No Due Date' section for tasks without due dates", () => {
+  it("renders 'No Due Date' section for tasks without due dates", async () => {
     const { dateRenderer } = createRenderer();
     const el = document.createElement("div");
-    dateRenderer.render(el, [createMockTask({ path: "projects/Alpha.md" })], makeFilters());
+    await dateRenderer.render(el, [createMockTask({ path: "projects/Alpha.md" })], makeFilters());
     const headings = [...el.querySelectorAll("h2")].map((h) => h.textContent);
     expect(headings).toContain("📝 No Due Date");
   });
 
-  it("renders 'Overdue' section for tasks past due", () => {
+  it("renders 'Overdue' section for tasks past due", async () => {
     const { dateRenderer } = createRenderer();
     const el = document.createElement("div");
-    dateRenderer.render(
+    await dateRenderer.render(
       el,
       [createMockTask({ path: "projects/Alpha.md", due: "2020-01-01" })],
       makeFilters()
@@ -65,10 +65,10 @@ describe("DateViewRenderer", () => {
     expect(headings).toContain("⚠️ Overdue");
   });
 
-  it("renders 'Upcoming' section for tasks far in the future", () => {
+  it("renders 'Upcoming' section for tasks far in the future", async () => {
     const { dateRenderer } = createRenderer();
     const el = document.createElement("div");
-    dateRenderer.render(
+    await dateRenderer.render(
       el,
       [createMockTask({ path: "projects/Alpha.md", due: "2099-12-31" })],
       makeFilters()
@@ -77,10 +77,10 @@ describe("DateViewRenderer", () => {
     expect(headings).toContain("🔮 Upcoming");
   });
 
-  it("calls renderTaskList once per non-empty bucket", () => {
+  it("calls renderTaskList once per non-empty bucket", async () => {
     const { dateRenderer, renderTaskList } = createRenderer();
     const el = document.createElement("div");
-    dateRenderer.render(
+    await dateRenderer.render(
       el,
       [
         createMockTask({ path: "p.md", due: "2020-01-01" }), // overdue

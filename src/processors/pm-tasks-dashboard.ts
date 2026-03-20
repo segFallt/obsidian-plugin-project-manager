@@ -62,11 +62,11 @@ export class DashboardView {
     const controlsEl = root.createDiv({ cls: "pm-tasks-dashboard__controls" });
     this.renderControls(controlsEl);
     this.outputEl = root.createDiv({ cls: "pm-tasks-dashboard__output" });
-    this.refreshDashboardOutput(this.outputEl);
+    void this.refreshDashboardOutput(this.outputEl);
   }
 
   refreshOutput(): void {
-    if (this.outputEl) this.refreshDashboardOutput(this.outputEl);
+    if (this.outputEl) void this.refreshDashboardOutput(this.outputEl);
   }
 
   // ─── Filter initialisation ────────────────────────────────────────────────
@@ -259,7 +259,7 @@ export class DashboardView {
         const newControlsEl = dashboardRoot.createDiv({ cls: "pm-tasks-dashboard__controls" });
         this.renderControls(newControlsEl);
         this.outputEl = dashboardRoot.createDiv({ cls: "pm-tasks-dashboard__output" });
-        this.refreshDashboardOutput(this.outputEl);
+        void this.refreshDashboardOutput(this.outputEl);
       }
     });
   }
@@ -549,7 +549,7 @@ export class DashboardView {
 
   // ─── Output rendering ─────────────────────────────────────────────────────
 
-  private refreshDashboardOutput(outputEl: HTMLElement): void {
+  private async refreshDashboardOutput(outputEl: HTMLElement): Promise<void> {
     outputEl.empty();
 
     const dv = this.services.queryService.dv();
@@ -576,16 +576,16 @@ export class DashboardView {
 
       switch (f.viewMode) {
         case "context":
-          this.contextRenderer.render(outputEl, allTasks, f, dv);
+          await this.contextRenderer.render(outputEl, allTasks, f, dv);
           break;
         case "date":
-          this.dateRenderer.render(outputEl, allTasks, f);
+          await this.dateRenderer.render(outputEl, allTasks, f);
           break;
         case "priority":
-          this.priorityRenderer.render(outputEl, allTasks, f);
+          await this.priorityRenderer.render(outputEl, allTasks, f);
           break;
         case "tag":
-          this.tagRenderer.render(outputEl, allTasks, f);
+          await this.tagRenderer.render(outputEl, allTasks, f);
           break;
       }
     } catch (err) {
@@ -626,7 +626,7 @@ export class DashboardView {
       const dashboard = controlsEl.closest(".pm-tasks-dashboard");
       if (!dashboard) return;
       const outputEl = dashboard.querySelector(".pm-tasks-dashboard__output");
-      if (outputEl instanceof HTMLElement) this.refreshDashboardOutput(outputEl);
+      if (outputEl instanceof HTMLElement) void this.refreshDashboardOutput(outputEl);
     }, DEBOUNCE_MS.SEARCH);
   }
 
