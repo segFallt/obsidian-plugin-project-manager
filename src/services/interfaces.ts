@@ -33,6 +33,7 @@ export interface IQueryService {
   getEngagementForEntity(file: TFile): DataviewPage | null;
   getClientForEntity(file: TFile): DataviewPage | null;
   getParentProject(file: TFile): DataviewPage | null;
+  getEngagementNameForPath(path: string): string | null;
   getClientFromEngagementLink(engagementLink: unknown): string | null;
   getPage(path: string): DataviewPage | null;
   getActiveRecurringMeetings(): DataviewPage[];
@@ -116,7 +117,7 @@ export interface ITaskFilterService {
     task: DataviewTask,
     engagementFilter: string[],
     includeUnassigned: boolean,
-    dv: DataviewApi
+    queryService: IQueryService
   ): boolean;
   matchesInboxStatusFilter(pageStatus: unknown, filter: InboxStatusFilter): boolean;
 }

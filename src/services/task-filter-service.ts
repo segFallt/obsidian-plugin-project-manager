@@ -64,7 +64,7 @@ export class TaskFilterService implements ITaskFilterService {
 
     if (f.engagementFilter.length > 0 || f.includeUnassignedEngagements) {
       filtered = filtered.filter((t) =>
-        this.matchesEngagementFilter(t, f.engagementFilter, f.includeUnassignedEngagements, dv)
+        this.matchesEngagementFilter(t, f.engagementFilter, f.includeUnassignedEngagements, queryService)
       );
     }
 
@@ -202,6 +202,14 @@ export class TaskFilterService implements ITaskFilterService {
       }
     }
 
+    // Try parent recurring meeting chain
+    if (!taskClient && page["recurring-meeting"]) {
+      const meetingEngagement = queryService.getEngagementNameForPath(task.path);
+      if (meetingEngagement) {
+        taskClient = queryService.getClientFromEngagementLink(meetingEngagement);
+      }
+    }
+
     if (includeUnassigned && !taskClient) return true;
     if (clientFilter.length === 0) return includeUnassigned ? !taskClient : false;
     return taskClient !== null && clientFilter.includes(taskClient);
@@ -209,31 +217,18 @@ export class TaskFilterService implements ITaskFilterService {
 
   /**
    * Returns true if a task belongs to one of the specified engagements.
-   * Traverses the project → engagement chain when the file has no direct engagement.
+   * Delegates all traversal (direct engagement, project note, recurring meeting
+   * event) to queryService.getEngagementNameForPath.
    */
   matchesEngagementFilter(
     task: DataviewTask,
     engagementFilter: string[],
     includeUnassigned: boolean,
-    dv: DataviewApi
+    queryService: IQueryService
   ): boolean {
     if (engagementFilter.length === 0 && !includeUnassigned) return true;
 
-    const page = dv.page(task.path);
-    if (!page) return false;
-
-    let taskEngagement = normalizeToName(page.engagement);
-
-    // Try parent project chain
-    if (!taskEngagement && page.relatedProject) {
-      const parentProjectName = normalizeToName(page.relatedProject);
-      if (parentProjectName) {
-        const parentProject = dv.page(`${this.folders.projects}/${parentProjectName}`);
-        if (parentProject) {
-          taskEngagement = normalizeToName(parentProject.engagement);
-        }
-      }
-    }
+    const taskEngagement = queryService.getEngagementNameForPath(task.path);
 
     if (includeUnassigned && !taskEngagement) return true;
     if (engagementFilter.length === 0) return includeUnassigned ? !taskEngagement : false;
