@@ -126,31 +126,17 @@ export class QueryService implements IQueryService {
 
   /**
    * Walks the frontmatter chain to find the engagement linked to a file.
-   * Supports: file.engagement or (for project notes) file.relatedProject → project.engagement
+   * Supports: file.engagement, (for project notes) file.relatedProject → project.engagement,
+   *           or (for recurring meeting events) file["recurring-meeting"] → meeting.engagement
    */
   getEngagementForEntity(file: TFile): DataviewPage | null {
     const dv = this.dv();
     if (!dv) return null;
 
-    const page = dv.page(file.path);
-    if (!page) return null;
+    const engName = this.getEngagementNameForPath(file.path);
+    if (!engName) return null;
 
-    // Direct engagement link
-    if (page.engagement) {
-      const engName = normalizeToName(page.engagement);
-      if (engName) return dv.page(`${this.folders.engagements}/${engName}`);
-    }
-
-    // For project notes: resolve via parent project
-    if (page.relatedProject) {
-      const parentProject = this.getParentProject(file);
-      if (parentProject?.engagement) {
-        const engName = normalizeToName(parentProject.engagement);
-        if (engName) return dv.page(`${this.folders.engagements}/${engName}`);
-      }
-    }
-
-    return null;
+    return dv.page(`${this.folders.engagements}/${engName}`) ?? null;
   }
 
   /**
@@ -195,6 +181,49 @@ export class QueryService implements IQueryService {
     if (!projectName) return null;
 
     return dv.page(`${this.folders.projects}/${projectName}`);
+  }
+
+  /**
+   * Returns the engagement name for any entity file by path.
+   * Walks the same traversal chains as getEngagementForEntity but accepts a
+   * path string and returns the name rather than the full page — suitable for
+   * use in task filter methods that only have a path available.
+   *
+   * Chains: direct engagement, relatedProject → project.engagement,
+   *         recurring-meeting → recurring meeting.engagement
+   */
+  getEngagementNameForPath(path: string): string | null {
+    const dv = this.dv();
+    if (!dv) return null;
+
+    const page = dv.page(path);
+    if (!page) return null;
+
+    // Direct engagement link
+    const direct = normalizeToName(page.engagement);
+    if (direct) return direct;
+
+    // For project notes: resolve via parent project
+    if (page.relatedProject) {
+      const projectName = normalizeToName(page.relatedProject);
+      if (projectName) {
+        const project = dv.page(`${this.folders.projects}/${projectName}`);
+        const engName = project ? normalizeToName(project.engagement) : null;
+        if (engName) return engName;
+      }
+    }
+
+    // For recurring meeting events: resolve via parent recurring meeting
+    if (page["recurring-meeting"]) {
+      const meetingName = normalizeToName(page["recurring-meeting"]);
+      if (meetingName) {
+        const meeting = dv.page(`${this.folders.meetingsRecurring}/${meetingName}`);
+        const engName = meeting ? normalizeToName(meeting.engagement) : null;
+        if (engName) return engName;
+      }
+    }
+
+    return null;
   }
 
   /**

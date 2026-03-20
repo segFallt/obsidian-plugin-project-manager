@@ -1,10 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { QueryService } from "../../src/services/query-service";
+import { QueryService } from "@/services/query-service";
 import { createMockDataviewApi } from "../mocks/dataview-mock";
 import { createMockApp, TFile } from "../mocks/app-mock";
 import type { MockPageData } from "../mocks/dataview-mock";
-import { DEFAULT_FOLDERS } from "../../src/constants";
-import type { FolderSettings } from "../../src/settings";
+import { DEFAULT_FOLDERS } from "@/constants";
+import type { FolderSettings } from "@/settings";
 
 const defaultFolders = DEFAULT_FOLDERS as unknown as FolderSettings;
 
@@ -201,6 +201,40 @@ describe("QueryService", () => {
       const qs = new QueryService(app as unknown as import("obsidian").App, () => null);
       const file = new TFile("projects/Foo.md");
       expect(qs.getEngagementForEntity(file as unknown as import("obsidian").TFile)).toBeNull();
+    });
+
+    it("returns engagement via recurring meeting event chain", () => {
+      const file = new TFile("meetings/recurring-events/StandUp/2024-03-01.md");
+      const { qs } = createQueryService([
+        {
+          path: "meetings/recurring-events/StandUp/2024-03-01.md",
+          frontmatter: { "recurring-meeting": "[[StandUp]]" },
+        },
+        {
+          path: "meetings/recurring/StandUp.md",
+          frontmatter: { engagement: "Eng1" },
+        },
+        {
+          path: "engagements/Eng1.md",
+          frontmatter: { status: "Active" },
+        },
+      ]);
+      const result = qs.getEngagementForEntity(file as unknown as import("obsidian").TFile);
+      expect(result).not.toBeNull();
+      expect(result?.file.name).toBe("Eng1");
+    });
+
+    it("returns null when recurring meeting event has no resolvable parent meeting", () => {
+      const file = new TFile("meetings/recurring-events/StandUp/2024-03-01.md");
+      const { qs } = createQueryService([
+        {
+          path: "meetings/recurring-events/StandUp/2024-03-01.md",
+          frontmatter: { "recurring-meeting": "[[StandUp]]" },
+        },
+        // No StandUp recurring meeting page
+      ]);
+      const result = qs.getEngagementForEntity(file as unknown as import("obsidian").TFile);
+      expect(result).toBeNull();
     });
   });
 
@@ -466,6 +500,67 @@ describe("QueryService", () => {
       expect(qs.getRecurringMeetingEvents("Weekly Standup")).toHaveLength(1);
       // Should not find this event with a different name
       expect(qs.getRecurringMeetingEvents("Other Meeting")).toHaveLength(0);
+    });
+  });
+
+  describe("getEngagementNameForPath", () => {
+    it("returns engagement name via direct link", () => {
+      const { qs } = createQueryService([
+        {
+          path: "projects/Foo.md",
+          frontmatter: { engagement: { path: "engagements/Eng1.md" } },
+        },
+        { path: "engagements/Eng1.md" },
+      ]);
+      expect(qs.getEngagementNameForPath("projects/Foo.md")).toBe("Eng1");
+    });
+
+    it("returns engagement name via relatedProject chain", () => {
+      const { qs } = createQueryService([
+        {
+          path: "projects/notes/foo/Note.md",
+          frontmatter: { relatedProject: "Foo" },
+        },
+        {
+          path: "projects/Foo.md",
+          frontmatter: { engagement: "Eng1" },
+        },
+        { path: "engagements/Eng1.md" },
+      ]);
+      expect(qs.getEngagementNameForPath("projects/notes/foo/Note.md")).toBe("Eng1");
+    });
+
+    it("returns engagement name via recurring-meeting chain", () => {
+      const { qs } = createQueryService([
+        {
+          path: "meetings/recurring-events/StandUp/2024-03-01.md",
+          frontmatter: { "recurring-meeting": "[[StandUp]]" },
+        },
+        {
+          path: "meetings/recurring/StandUp.md",
+          frontmatter: { engagement: "Eng1" },
+        },
+        { path: "engagements/Eng1.md" },
+      ]);
+      expect(qs.getEngagementNameForPath("meetings/recurring-events/StandUp/2024-03-01.md")).toBe("Eng1");
+    });
+
+    it("returns null when page has no engagement chain", () => {
+      const { qs } = createQueryService([
+        { path: "inbox/Task.md", frontmatter: {} },
+      ]);
+      expect(qs.getEngagementNameForPath("inbox/Task.md")).toBeNull();
+    });
+
+    it("returns null for unknown path", () => {
+      const { qs } = createQueryService([]);
+      expect(qs.getEngagementNameForPath("nonexistent.md")).toBeNull();
+    });
+
+    it("returns null when Dataview unavailable", () => {
+      const app = createMockApp();
+      const qs = new QueryService(app as unknown as import("obsidian").App, () => null);
+      expect(qs.getEngagementNameForPath("projects/Foo.md")).toBeNull();
     });
   });
 });

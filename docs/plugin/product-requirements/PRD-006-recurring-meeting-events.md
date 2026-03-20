@@ -85,8 +85,9 @@ Events are sorted **newest-first** by their `date` frontmatter field (ISO 8601 d
 
 ## 6. Dependencies & Cross-References
 
-- **PRD-001** — Recurring Meeting Event entity schema (`date`, `attendees`, `recurringMeeting` fields).
+- **PRD-001** — Recurring Meeting Event entity schema (`date`, `attendees`, `recurring-meeting` fields).
 - **PRD-002** — `PM: Create Recurring Meeting Event` command creates the event files rendered here.
+- **PRD-005** — Task dashboard traverses the `recurring-meeting` frontmatter field to include event tasks in client and engagement filter results.
 - **PRD-007** — Dataview graceful degradation; recurring meeting events folder path from Settings.
 
 ---
@@ -102,6 +103,7 @@ Events are sorted **newest-first** by their `date` frontmatter field (ISO 8601 d
 - [ ] Markdown in the Notes section is rendered (bold, italic, lists, wikilinks, etc.).
 - [ ] The component re-renders within 1 second of any vault file being modified.
 - [ ] If Dataview is unavailable, a "Dataview is not available" message is shown instead of the grid.
+- [ ] Tasks in recurring meeting event files are visible in the `pm-tasks` dashboard and correctly matched when filtering by the parent recurring meeting's client or engagement.
 
 ---
 
