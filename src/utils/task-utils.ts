@@ -11,7 +11,11 @@ export function getTaskContext(task: DataviewTask, folders: FolderSettings): Tas
   const path = task.path;
   if (path.startsWith(folders.projects + "/") || path.startsWith(folders.projectNotes + "/")) return CONTEXT.PROJECT;
   if (path.startsWith(folders.people + "/")) return CONTEXT.PERSON;
-  if (path.startsWith(folders.meetingsSingle + "/") || path.startsWith(folders.meetingsRecurring + "/")) return CONTEXT.MEETING;
+  if (
+    path.startsWith(folders.meetingsSingle + "/") ||
+    path.startsWith(folders.meetingsRecurring + "/") ||
+    path.startsWith(folders.meetingsRecurringEvents + "/")
+  ) return CONTEXT.MEETING;
   if (path.startsWith(folders.inbox + "/")) return CONTEXT.INBOX;
   if (path.startsWith(folders.dailyNotes + "/")) return CONTEXT.DAILY_NOTES;
   return CONTEXT.OTHER;
