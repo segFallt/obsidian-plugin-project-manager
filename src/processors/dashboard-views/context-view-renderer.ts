@@ -17,12 +17,12 @@ export class ContextViewRenderer {
     private readonly renderer: TaskListRenderer
   ) {}
 
-  render(
+  async render(
     container: HTMLElement,
     tasks: DataviewTask[],
     f: DashboardFilters,
     dv: DataviewApi
-  ): void {
+  ): Promise<void> {
     for (const context of TASK_CONTEXTS) {
       const ctxTasks = tasks.filter(
         (t) => getTaskContext(t, this.services.settings.folders) === context
@@ -89,7 +89,7 @@ export class ContextViewRenderer {
         if (context === CONTEXT.PROJECT && projectNoteMapping[filePath]) {
           const directTasks = fileTasks.filter((t) => t.link.path === filePath);
           if (directTasks.length > 0) {
-            this.renderer.renderTaskList(
+            await this.renderer.renderTaskList(
               container,
               this.sortService.sortTasks(directTasks, f.sortBy)
             );
@@ -99,7 +99,7 @@ export class ContextViewRenderer {
             const noteName = notePage?.file.name ?? notePath;
             container.createEl("h4").innerHTML =
               `<a class="${CSS_CLS.INTERNAL_LINK}" data-href="${notePath}" href="${notePath}">${noteName}</a>`;
-            this.renderer.renderTaskList(
+            await this.renderer.renderTaskList(
               container,
               this.sortService.sortTasks(noteTasks, f.sortBy)
             );
@@ -110,13 +110,13 @@ export class ContextViewRenderer {
             const eventName = eventPage?.file.name ?? eventPath;
             container.createEl("h4").innerHTML =
               `<a class="${CSS_CLS.INTERNAL_LINK}" data-href="${eventPath}" href="${eventPath}">${eventName}</a>`;
-            this.renderer.renderTaskList(
+            await this.renderer.renderTaskList(
               container,
               this.sortService.sortTasks(eventTasks, f.sortBy)
             );
           }
         } else {
-          this.renderer.renderTaskList(
+          await this.renderer.renderTaskList(
             container,
             this.sortService.sortTasks(fileTasks, f.sortBy)
           );

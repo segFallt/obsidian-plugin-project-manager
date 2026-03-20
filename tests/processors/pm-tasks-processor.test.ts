@@ -286,7 +286,7 @@ describe("pm-tasks processor", () => {
       expect(checkboxes.length).toBeGreaterThan(0);
     });
 
-    it("renders due date badge on tasks with due dates", () => {
+    it("renders due date badge on tasks with due dates", async () => {
       const dvApi = createMockDataviewApi([
         {
           path: "projects/Beta.md",
@@ -294,6 +294,8 @@ describe("pm-tasks processor", () => {
         },
       ]);
       const { el } = render("mode: dashboard\nviewMode: context", { dvApi });
+      // Due date badge is created after async MarkdownRenderer.render — wait for it to settle
+      await flushPromises();
       const badges = el.querySelectorAll(".pm-task-due");
       expect(badges.length).toBeGreaterThan(0);
     });

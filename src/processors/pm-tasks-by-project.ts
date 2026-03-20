@@ -38,11 +38,11 @@ export class ByProjectView {
     const controlsEl = root.createDiv({ cls: "pm-tasks-by-project__controls" });
     this.renderControls(controlsEl);
     this.outputEl = root.createDiv({ cls: "pm-tasks-by-project__output" });
-    this.refreshByProjectOutput(this.outputEl);
+    void this.refreshByProjectOutput(this.outputEl);
   }
 
   refreshOutput(): void {
-    if (this.outputEl) this.refreshByProjectOutput(this.outputEl);
+    if (this.outputEl) void this.refreshByProjectOutput(this.outputEl);
   }
 
   // ─── Filter initialisation ────────────────────────────────────────────────
@@ -177,7 +177,7 @@ export class ByProjectView {
 
   // ─── Output rendering ─────────────────────────────────────────────────────
 
-  private refreshByProjectOutput(outputEl: HTMLElement): void {
+  private async refreshByProjectOutput(outputEl: HTMLElement): Promise<void> {
     outputEl.empty();
 
     const dv = this.services.queryService.dv();
@@ -226,7 +226,7 @@ export class ByProjectView {
       }
 
       for (const project of projects) {
-        this.renderProjectTaskGroup(outputEl, project, f);
+        await this.renderProjectTaskGroup(outputEl, project, f);
       }
     } catch (err) {
       this.services.loggerService.error(String(err), "pm-tasks-by-project", err);
@@ -243,11 +243,11 @@ export class ByProjectView {
     this.chipSelects = [];
   }
 
-  private renderProjectTaskGroup(
+  private async renderProjectTaskGroup(
     container: HTMLElement,
     project: import("../types").DataviewPage,
     f: ByProjectFilters
-  ): void {
+  ): Promise<void> {
     const projectTasks = [...project.file.tasks];
     const incompleteTasks = projectTasks.filter((t) => !t.completed);
     const completedTasks = projectTasks.filter((t) => t.completed);
@@ -276,14 +276,14 @@ export class ByProjectView {
     }).innerHTML = `<a class="${CSS_CLS.INTERNAL_LINK}" data-href="${project.file.path}" href="${project.file.path}">${project.file.name}</a>`;
 
     if (incompleteTasks.length > 0) {
-      this.renderer.renderTaskList(projectEl, incompleteTasks);
+      await this.renderer.renderTaskList(projectEl, incompleteTasks);
     }
 
     for (const note of projectNotes) {
       const noteTasks = [...note.file.tasks].filter((t) => !t.completed);
       if (noteTasks.length > 0) {
         projectEl.createEl("h3").innerHTML = `<a class="${CSS_CLS.INTERNAL_LINK}" data-href="${note.file.path}" href="${note.file.path}">${note.file.name}</a>`;
-        this.renderer.renderTaskList(projectEl, noteTasks);
+        await this.renderer.renderTaskList(projectEl, noteTasks);
       }
     }
 
@@ -293,7 +293,7 @@ export class ByProjectView {
       summary.createEl("summary", {
         text: `Completed (${allComplete.length})`,
       });
-      this.renderer.renderTaskList(summary, allComplete);
+      await this.renderer.renderTaskList(summary, allComplete);
     }
   }
 
@@ -303,7 +303,7 @@ export class ByProjectView {
       const root = controlsEl.closest(".pm-tasks-by-project");
       if (!root) return;
       const outputEl = root.querySelector(".pm-tasks-by-project__output");
-      if (outputEl instanceof HTMLElement) this.refreshByProjectOutput(outputEl);
+      if (outputEl instanceof HTMLElement) void this.refreshByProjectOutput(outputEl);
     }, DEBOUNCE_MS.SEARCH);
   }
 }

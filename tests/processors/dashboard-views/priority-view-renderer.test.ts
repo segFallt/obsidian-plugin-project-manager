@@ -39,17 +39,17 @@ function createRenderer() {
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
 describe("PriorityViewRenderer", () => {
-  it("renders nothing when there are no tasks", () => {
+  it("renders nothing when there are no tasks", async () => {
     const { priorityRenderer } = createRenderer();
     const el = document.createElement("div");
-    priorityRenderer.render(el, [], makeFilters());
+    await priorityRenderer.render(el, [], makeFilters());
     expect(el.innerHTML).toBe("");
   });
 
-  it("renders h2 with correct priority display label for urgent task (⏫)", () => {
+  it("renders h2 with correct priority display label for urgent task (⏫)", async () => {
     const { priorityRenderer } = createRenderer();
     const el = document.createElement("div");
-    priorityRenderer.render(
+    await priorityRenderer.render(
       el,
       [createMockTask({ path: "p.md", text: "Urgent task ⏫" })],
       makeFilters()
@@ -58,10 +58,10 @@ describe("PriorityViewRenderer", () => {
     expect(headings).toContain(PRIORITY_DISPLAY[1]);
   });
 
-  it("renders h2 for medium priority by default (no emoji = priority 3)", () => {
+  it("renders h2 for medium priority by default (no emoji = priority 3)", async () => {
     const { priorityRenderer } = createRenderer();
     const el = document.createElement("div");
-    priorityRenderer.render(
+    await priorityRenderer.render(
       el,
       [createMockTask({ path: "p.md", text: "No priority emoji" })],
       makeFilters()
@@ -70,10 +70,10 @@ describe("PriorityViewRenderer", () => {
     expect(headings).toContain(PRIORITY_DISPLAY[3]);
   });
 
-  it("renders one section per distinct priority level present", () => {
+  it("renders one section per distinct priority level present", async () => {
     const { priorityRenderer, renderTaskList } = createRenderer();
     const el = document.createElement("div");
-    priorityRenderer.render(
+    await priorityRenderer.render(
       el,
       [
         createMockTask({ path: "p.md", text: "Urgent ⏫" }),
@@ -84,10 +84,10 @@ describe("PriorityViewRenderer", () => {
     expect(renderTaskList).toHaveBeenCalledTimes(2);
   });
 
-  it("does not render sections for priority levels with no tasks", () => {
+  it("does not render sections for priority levels with no tasks", async () => {
     const { priorityRenderer } = createRenderer();
     const el = document.createElement("div");
-    priorityRenderer.render(
+    await priorityRenderer.render(
       el,
       [createMockTask({ path: "p.md", text: "Urgent ⏫" })],
       makeFilters()

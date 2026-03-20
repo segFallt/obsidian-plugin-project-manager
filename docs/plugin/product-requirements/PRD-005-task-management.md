@@ -169,6 +169,7 @@ The `TaskParser` (regex-based, Tasks plugin emoji format, no Tasks plugin API de
 - Task groups should have clear headings.
 - The "Include untagged" checkbox should be co-located with tag buttons.
 - Checkbox toggle must provide immediate visual feedback (checkbox state changes before the file write completes).
+- Task text renders inline markdown: wikilinks (`[[Note]]`) navigate to the referenced note; external markdown links (`[label](url)`) open in the browser. Links are not displayed as raw plain text.
 
 ---
 
@@ -198,6 +199,7 @@ The `TaskParser` (regex-based, Tasks plugin emoji format, no Tasks plugin API de
 - [ ] Selecting "Recurring Meeting" in the context-type filter shows only recurring meeting event tasks; selecting "Meeting" shows only single-meeting and recurring-meeting-definition tasks.
 - [ ] Saved `contextFilter` values containing "Meeting" are automatically migrated to also include "Recurring Meeting" on first load, preserving the user's original intent.
 - [ ] By-project mode groups tasks by project and respects status and name filters.
+- [ ] Task text renders markdown links correctly: wikilinks and external markdown links in task text are clickable (not plain text) in all dashboard view modes and by-project mode.
 
 ---
 

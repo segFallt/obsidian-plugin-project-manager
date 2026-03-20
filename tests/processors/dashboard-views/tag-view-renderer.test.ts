@@ -38,17 +38,17 @@ function createRenderer() {
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
 describe("TagViewRenderer", () => {
-  it("renders nothing when there are no tasks", () => {
+  it("renders nothing when there are no tasks", async () => {
     const { tagRenderer } = createRenderer();
     const el = document.createElement("div");
-    tagRenderer.render(el, [], makeFilters());
+    await tagRenderer.render(el, [], makeFilters());
     expect(el.innerHTML).toBe("");
   });
 
-  it("renders 'Untagged' section for tasks with no tags", () => {
+  it("renders 'Untagged' section for tasks with no tags", async () => {
     const { tagRenderer } = createRenderer();
     const el = document.createElement("div");
-    tagRenderer.render(
+    await tagRenderer.render(
       el,
       [createMockTask({ path: "p.md", tags: [] })],
       makeFilters()
@@ -57,10 +57,10 @@ describe("TagViewRenderer", () => {
     expect(headings).toContain("📌 Untagged");
   });
 
-  it("renders a section per unique tag (sorted alphabetically)", () => {
+  it("renders a section per unique tag (sorted alphabetically)", async () => {
     const { tagRenderer } = createRenderer();
     const el = document.createElement("div");
-    tagRenderer.render(
+    await tagRenderer.render(
       el,
       [
         createMockTask({ path: "p.md", tags: ["#work"] }),
@@ -72,10 +72,10 @@ describe("TagViewRenderer", () => {
     expect(headings).toEqual(["#home", "#work"]);
   });
 
-  it("places Untagged after all tag sections", () => {
+  it("places Untagged after all tag sections", async () => {
     const { tagRenderer } = createRenderer();
     const el = document.createElement("div");
-    tagRenderer.render(
+    await tagRenderer.render(
       el,
       [
         createMockTask({ path: "p.md", tags: ["#work"] }),
@@ -87,10 +87,10 @@ describe("TagViewRenderer", () => {
     expect(headings[headings.length - 1]).toBe("📌 Untagged");
   });
 
-  it("calls renderTaskList once per non-empty section", () => {
+  it("calls renderTaskList once per non-empty section", async () => {
     const { tagRenderer, renderTaskList } = createRenderer();
     const el = document.createElement("div");
-    tagRenderer.render(
+    await tagRenderer.render(
       el,
       [
         createMockTask({ path: "p.md", tags: ["#work"] }),
@@ -101,10 +101,10 @@ describe("TagViewRenderer", () => {
     expect(renderTaskList).toHaveBeenCalledTimes(2);
   });
 
-  it("groups tasks sharing the same tag into one section", () => {
+  it("groups tasks sharing the same tag into one section", async () => {
     const { tagRenderer, renderTaskList } = createRenderer();
     const el = document.createElement("div");
-    tagRenderer.render(
+    await tagRenderer.render(
       el,
       [
         createMockTask({ path: "p.md", tags: ["#work"] }),

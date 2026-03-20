@@ -51,15 +51,15 @@ function createRenderer() {
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
 describe("ContextViewRenderer", () => {
-  it("renders nothing when there are no tasks", () => {
+  it("renders nothing when there are no tasks", async () => {
     const { contextRenderer } = createRenderer();
     const el = document.createElement("div");
     const dv = createMockDataviewApi([]);
-    contextRenderer.render(el, [], makeFilters(), dv);
+    await contextRenderer.render(el, [], makeFilters(), dv);
     expect(el.innerHTML).toBe("");
   });
 
-  it("creates an h2 heading for each non-empty context", () => {
+  it("creates an h2 heading for each non-empty context", async () => {
     const { contextRenderer } = createRenderer();
     const el = document.createElement("div");
     const tasks = [
@@ -70,24 +70,24 @@ describe("ContextViewRenderer", () => {
       { path: "projects/Alpha.md" },
       { path: "people/Alice.md" },
     ]);
-    contextRenderer.render(el, tasks, makeFilters(), dv);
+    await contextRenderer.render(el, tasks, makeFilters(), dv);
     const headings = [...el.querySelectorAll("h2")].map((h) => h.textContent);
     expect(headings).toContain("Project");
     expect(headings).toContain("Person");
   });
 
-  it("renders an h3 internal-link for each project file", () => {
+  it("renders an h3 internal-link for each project file", async () => {
     const { contextRenderer } = createRenderer();
     const el = document.createElement("div");
     const tasks = [createMockTask({ path: "projects/Alpha.md" })];
     const dv = createMockDataviewApi([{ path: "projects/Alpha.md" }]);
-    contextRenderer.render(el, tasks, makeFilters(), dv);
+    await contextRenderer.render(el, tasks, makeFilters(), dv);
     const link = el.querySelector("h3 a");
     expect(link).not.toBeNull();
     expect(link?.getAttribute("data-href")).toBe("projects/Alpha.md");
   });
 
-  it("calls renderTaskList for each file group", () => {
+  it("calls renderTaskList for each file group", async () => {
     const { contextRenderer, renderTaskList } = createRenderer();
     const el = document.createElement("div");
     const tasks = [
@@ -98,11 +98,11 @@ describe("ContextViewRenderer", () => {
       { path: "projects/Alpha.md" },
       { path: "projects/Beta.md" },
     ]);
-    contextRenderer.render(el, tasks, makeFilters(), dv);
+    await contextRenderer.render(el, tasks, makeFilters(), dv);
     expect(renderTaskList).toHaveBeenCalledTimes(2);
   });
 
-  it("nests project-note tasks under parent project with h4 heading", () => {
+  it("nests project-note tasks under parent project with h4 heading", async () => {
     const { contextRenderer, renderTaskList } = createRenderer();
     const el = document.createElement("div");
 
@@ -117,26 +117,26 @@ describe("ContextViewRenderer", () => {
       },
     ]);
 
-    contextRenderer.render(el, [noteTask], makeFilters(), dv);
+    await contextRenderer.render(el, [noteTask], makeFilters(), dv);
 
     const h4s = el.querySelectorAll("h4");
     expect(h4s.length).toBeGreaterThan(0);
     expect(renderTaskList).toHaveBeenCalled();
   });
 
-  it("does not create h2 for contexts with no tasks", () => {
+  it("does not create h2 for contexts with no tasks", async () => {
     const { contextRenderer } = createRenderer();
     const el = document.createElement("div");
     const tasks = [createMockTask({ path: "projects/Alpha.md" })];
     const dv = createMockDataviewApi([{ path: "projects/Alpha.md" }]);
-    contextRenderer.render(el, tasks, makeFilters(), dv);
+    await contextRenderer.render(el, tasks, makeFilters(), dv);
 
     const headings = [...el.querySelectorAll("h2")].map((h) => h.textContent);
     expect(headings).not.toContain("Person");
     expect(headings).not.toContain("Meeting");
   });
 
-  it("renders h2 'Recurring Meeting' (not 'Meeting') for tasks from meetings/recurring-events/", () => {
+  it("renders h2 'Recurring Meeting' (not 'Meeting') for tasks from meetings/recurring-events/", async () => {
     const { contextRenderer } = createRenderer();
     const el = document.createElement("div");
     const tasks = [
@@ -145,13 +145,13 @@ describe("ContextViewRenderer", () => {
     const dv = createMockDataviewApi([
       { path: "meetings/recurring-events/StandUp/2024-01-15.md" },
     ]);
-    contextRenderer.render(el, tasks, makeFilters(), dv);
+    await contextRenderer.render(el, tasks, makeFilters(), dv);
     const headings = [...el.querySelectorAll("h2")].map((h) => h.textContent);
     expect(headings).toContain("Recurring Meeting");
     expect(headings).not.toContain("Meeting");
   });
 
-  it("nests recurring meeting event tasks under parent recurring meeting with h3 and h4", () => {
+  it("nests recurring meeting event tasks under parent recurring meeting with h3 and h4", async () => {
     const { contextRenderer, renderTaskList } = createRenderer();
     const el = document.createElement("div");
 
@@ -167,7 +167,7 @@ describe("ContextViewRenderer", () => {
       },
     ]);
 
-    contextRenderer.render(el, [eventTask], makeFilters(), dv);
+    await contextRenderer.render(el, [eventTask], makeFilters(), dv);
 
     const h3s = el.querySelectorAll("h3");
     const h4s = el.querySelectorAll("h4");
@@ -180,7 +180,7 @@ describe("ContextViewRenderer", () => {
     expect(renderTaskList).toHaveBeenCalledTimes(1);
   });
 
-  it("renders one h3 with multiple h4s when multiple events share the same parent recurring meeting", () => {
+  it("renders one h3 with multiple h4s when multiple events share the same parent recurring meeting", async () => {
     const { contextRenderer, renderTaskList } = createRenderer();
     const el = document.createElement("div");
 
@@ -203,7 +203,7 @@ describe("ContextViewRenderer", () => {
       },
     ]);
 
-    contextRenderer.render(el, [event1Task, event2Task], makeFilters(), dv);
+    await contextRenderer.render(el, [event1Task, event2Task], makeFilters(), dv);
 
     const h3s = el.querySelectorAll("h3");
     const h4s = el.querySelectorAll("h4");
@@ -212,7 +212,7 @@ describe("ContextViewRenderer", () => {
     expect(renderTaskList).toHaveBeenCalledTimes(2);
   });
 
-  it("renders flat output (no h4) for orphan recurring meeting event with no recurring-meeting frontmatter", () => {
+  it("renders flat output (no h4) for orphan recurring meeting event with no recurring-meeting frontmatter", async () => {
     const { contextRenderer, renderTaskList } = createRenderer();
     const el = document.createElement("div");
 
@@ -224,7 +224,7 @@ describe("ContextViewRenderer", () => {
       { path: "meetings/recurring-events/StandUp/2024-01-15.md" },
     ]);
 
-    contextRenderer.render(el, [orphanTask], makeFilters(), dv);
+    await contextRenderer.render(el, [orphanTask], makeFilters(), dv);
 
     const h4s = el.querySelectorAll("h4");
     expect(h4s.length).toBe(0);

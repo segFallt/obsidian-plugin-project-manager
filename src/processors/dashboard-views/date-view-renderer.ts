@@ -15,7 +15,7 @@ export class DateViewRenderer {
     private readonly renderer: TaskListRenderer
   ) {}
 
-  render(container: HTMLElement, tasks: DataviewTask[], f: DashboardFilters): void {
+  async render(container: HTMLElement, tasks: DataviewTask[], f: DashboardFilters): Promise<void> {
     const today = todayISO();
     const tomorrow = addDays(today, 1);
     const weekEnd = addDays(today, WEEK_DAYS);
@@ -41,42 +41,42 @@ export class DateViewRenderer {
 
     if (overdue.length > 0) {
       container.createEl("h2", { text: "⚠️ Overdue" });
-      this.renderer.renderTaskList(
+      await this.renderer.renderTaskList(
         container,
         this.sortService.sortTasks(overdue, f.sortBy || "dueDate-asc")
       );
     }
     if (todayTasks.length > 0) {
       container.createEl("h2", { text: "📅 Today" });
-      this.renderer.renderTaskList(
+      await this.renderer.renderTaskList(
         container,
         this.sortService.sortTasks(todayTasks, f.sortBy || "priority-asc")
       );
     }
     if (tomorrowTasks.length > 0) {
       container.createEl("h2", { text: "📆 Tomorrow" });
-      this.renderer.renderTaskList(
+      await this.renderer.renderTaskList(
         container,
         this.sortService.sortTasks(tomorrowTasks, f.sortBy || "priority-asc")
       );
     }
     if (thisWeek.length > 0) {
       container.createEl("h2", { text: "📋 This Week" });
-      this.renderer.renderTaskList(
+      await this.renderer.renderTaskList(
         container,
         this.sortService.sortTasks(thisWeek, f.sortBy || "dueDate-asc")
       );
     }
     if (upcoming.length > 0) {
       container.createEl("h2", { text: "🔮 Upcoming" });
-      this.renderer.renderTaskList(
+      await this.renderer.renderTaskList(
         container,
         this.sortService.sortTasks(upcoming, f.sortBy || "dueDate-asc")
       );
     }
     if (noDue.length > 0) {
       container.createEl("h2", { text: "📝 No Due Date" });
-      this.renderer.renderTaskList(
+      await this.renderer.renderTaskList(
         container,
         this.sortService.sortTasks(noDue, f.sortBy || "priority-asc")
       );
