@@ -56,5 +56,7 @@ test('Project Manager commands are registered', async () => {
 
   expect(commands).toContain('project-manager:create-client');
   expect(commands).toContain('project-manager:create-project');
-  expect(commands).toContain('project-manager:set-up-vault-structure');
+  expect(commands).toContain('project-manager:scaffold-vault');
+  // 14 commands total — catches future renames or accidental removals
+  expect(commands.length).toBeGreaterThanOrEqual(14);
 });
