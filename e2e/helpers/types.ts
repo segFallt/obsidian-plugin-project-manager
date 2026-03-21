@@ -19,6 +19,23 @@ export interface ObsidianCommands {
   executeCommandById: (id: string) => boolean;
 }
 
+export interface ObsidianFile {
+  path: string;
+  basename: string;
+}
+
+export interface ObsidianWorkspace {
+  getActiveFile: () => ObsidianFile | null;
+}
+
+export interface ObsidianMetadataCache {
+  getFileCache: (file: ObsidianFile) => { frontmatter?: Record<string, unknown> } | null;
+}
+
+export interface ObsidianVault {
+  getAllLoadedFiles: () => ObsidianFile[];
+}
+
 /**
  * Augments `Window` with the Obsidian `app` object available in the renderer.
  * Cast `window` to this type inside page.evaluate() to access Obsidian internals.
@@ -27,5 +44,8 @@ export interface ObsidianWindow extends Window {
   app?: {
     plugins?: ObsidianPlugins;
     commands?: ObsidianCommands;
+    workspace?: ObsidianWorkspace;
+    metadataCache?: ObsidianMetadataCache;
+    vault?: ObsidianVault;
   };
 }
