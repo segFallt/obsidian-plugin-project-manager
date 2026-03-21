@@ -11,6 +11,8 @@ import {
 } from '../helpers/modal-helpers';
 import { Page } from '@playwright/test';
 import { ObsidianApp } from '../helpers/obsidian-app';
+import { waitForDataviewIndex } from '../helpers/dataview-helpers';
+import { ObsidianWindow } from '../helpers/types';
 
 let vaultPath: string;
 let app: ObsidianApp;
@@ -116,4 +118,55 @@ test('Scaffold Vault command creates expected folder structure', async () => {
     (p: string) => p.includes('clients') || p.includes('clients/'),
   );
   expect(hasClientsDir).toBe(true);
+});
+
+test('Relationship chain: parent links are written when parent entities are pre-seeded', async () => {
+  // 1. Wait for Dataview to index the pre-seeded #client entity
+  await waitForDataviewIndex(window, '#client');
+
+  // 2. Create an engagement with the seeded client as parent
+  await executeCommandById(window, 'project-manager:create-engagement');
+  await waitForModal(window);
+  await fillEntityCreationModal(window, { 'Engagement name': 'Chain Engagement' });
+  await window.waitForSelector('.modal select', { timeout: 5_000 });
+  await window.selectOption('.modal select', 'Seed Client');
+  await submitModal(window);
+  await window.waitForTimeout(1_000);
+
+  // 3. Assert the engagement frontmatter links to the seeded client
+  const engagementFrontmatter = await window.evaluate(() => {
+    const obsApp = (window as ObsidianWindow).app;
+    const file = obsApp.workspace.getActiveFile();
+    if (!file) return null;
+    return obsApp.metadataCache.getFileCache(file)?.frontmatter ?? null;
+  });
+
+  expect(engagementFrontmatter).not.toBeNull();
+  expect(engagementFrontmatter.client).toBe('[[Seed Client]]');
+
+  // 4. Wait for Dataview to index the pre-seeded #engagement entity.
+  //    minCount=1 is sufficient: Seed Engagement is in the fixture and indexed at startup.
+  //    The waitForSelector guard in step 5 provides the additional timing guarantee that
+  //    the <select> has rendered before selectOption fires.
+  await waitForDataviewIndex(window, '#engagement');
+
+  // 5. Create a project with the seeded engagement as parent
+  await executeCommandById(window, 'project-manager:create-project');
+  await waitForModal(window);
+  await fillEntityCreationModal(window, { 'Project name': 'Chain Project' });
+  await window.waitForSelector('.modal select', { timeout: 5_000 });
+  await window.selectOption('.modal select', 'Seed Engagement');
+  await submitModal(window);
+  await window.waitForTimeout(1_000);
+
+  // 6. Assert the project frontmatter links to the seeded engagement
+  const projectFrontmatter = await window.evaluate(() => {
+    const obsApp = (window as ObsidianWindow).app;
+    const file = obsApp.workspace.getActiveFile();
+    if (!file) return null;
+    return obsApp.metadataCache.getFileCache(file)?.frontmatter ?? null;
+  });
+
+  expect(projectFrontmatter).not.toBeNull();
+  expect(projectFrontmatter.engagement).toBe('[[Seed Engagement]]');
 });
