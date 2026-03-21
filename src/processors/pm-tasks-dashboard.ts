@@ -9,22 +9,25 @@ import type {
   DueDatePreset,
   MeetingDateFilter,
   InboxStatusFilter,
-  SortBy,
+  SortKey,
+  SortField,
+  SortDirection,
   ProjectStatus,
   TaskContext,
   TaskPriority,
 } from "../types";
-import { CONTEXT, ENTITY_TAGS, TASK_CONTEXTS, DEFAULT_TASK_VIEW_STATUSES, DUE_DATE_PRESETS, DEFAULT_DUE_DATE_FILTER, DEBOUNCE_MS, CSS_CLS, CSS_VAR, MSG } from "../constants";
+import { CONTEXT, ENTITY_TAGS, TASK_CONTEXTS, DUE_DATE_PRESETS, DEFAULT_DUE_DATE_FILTER, DEBOUNCE_MS, CSS_CLS, CSS_VAR, MSG } from "../constants";
 import type { ITaskFilterService } from "../services/interfaces";
 import type { ITaskSortService } from "../services/interfaces";
-import { createSelect, renderCollapsible } from "./dom-helpers";
 import { presetToDateRange } from "../utils/date-utils";
 import type { TaskListRenderer } from "./task-list-renderer";
 import { FilterChipSelect } from "../ui/components/filter-chip-select";
+import { SortKeyBuilder } from "../ui/components/sort-key-builder";
 import { ContextViewRenderer } from "./dashboard-views/context-view-renderer";
 import { DateViewRenderer } from "./dashboard-views/date-view-renderer";
 import { PriorityViewRenderer } from "./dashboard-views/priority-view-renderer";
 import { TagViewRenderer } from "./dashboard-views/tag-view-renderer";
+import { getTaskContext } from "../utils/task-utils";
 
 /**
  * Renders the full dashboard mode: filter controls and all four view renderers
@@ -35,6 +38,12 @@ export class DashboardView {
   private outputEl!: HTMLElement;
   private debounceTimer: ReturnType<typeof setTimeout> | null = null;
   private chipSelects: FilterChipSelect[] = [];
+  private isDrawerOpen = false;
+  private chipsBarEl: HTMLElement | null = null;
+  private drawerEl: HTMLElement | null = null;
+  private filtersBtnEl: HTMLButtonElement | null = null;
+  private filtersBadgeEl: HTMLElement | null = null;
+  private drawerComponents: Array<{ destroy(): void }> = [];
   private readonly contextRenderer: ContextViewRenderer;
   private readonly dateRenderer: DateViewRenderer;
   private readonly priorityRenderer: PriorityViewRenderer;
@@ -59,8 +68,7 @@ export class DashboardView {
   render(): void {
     this.initFilters();
     const root = this.containerEl.createDiv({ cls: "pm-tasks-dashboard" });
-    const controlsEl = root.createDiv({ cls: "pm-tasks-dashboard__controls" });
-    this.renderControls(controlsEl);
+    this.renderControls(root);
     this.outputEl = root.createDiv({ cls: "pm-tasks-dashboard__output" });
     void this.refreshDashboardOutput(this.outputEl);
   }
@@ -75,56 +83,84 @@ export class DashboardView {
     const cfg = this.config;
     const saved = this.savedFilters;
 
+    // Migrate legacy sortBy string → SortKey[]
+    const rawSortBy = saved?.sortBy ?? cfg.sortBy;
+    const sortBy: SortKey[] = this.migrateLegacySortBy(rawSortBy as unknown);
+
     // Backward-compat migration: legacy saved state may be a string, an old
-    // object with mode/presets fields, or the new rangeFrom/rangeTo/includeNoDate shape.
+    // object with mode/presets fields, the old rangeFrom/rangeTo/includeNoDate shape,
+    // or the new selectedPresets shape.
     const rawDueDate = saved?.dueDateFilter as unknown;
     let dueDateFilter: DueDateFilter;
+
     if (typeof rawDueDate === "string") {
-      // Legacy string format: "All", "Today", "Tomorrow", etc.
-      const validRangePresets: DueDatePreset[] = ["Today", "Tomorrow", "This Week", "Next Week", "Overdue"];
+      // Shape A: legacy string format — "No Date", known preset, or unknown
+      const validPresets: DueDatePreset[] = ["Today", "Tomorrow", "This Week", "Next Week", "Overdue"];
       if (rawDueDate === "No Date") {
-        dueDateFilter = { rangeFrom: null, rangeTo: null, includeNoDate: true };
-      } else if (validRangePresets.includes(rawDueDate as DueDatePreset)) {
-        const range = presetToDateRange(rawDueDate as Exclude<DueDatePreset, "No Date">);
-        dueDateFilter = { rangeFrom: range.rangeFrom, rangeTo: range.rangeTo, includeNoDate: false };
+        dueDateFilter = { selectedPresets: ["No Date"], rangeFrom: null, rangeTo: null };
+      } else if (validPresets.includes(rawDueDate as DueDatePreset)) {
+        dueDateFilter = { selectedPresets: [rawDueDate as DueDatePreset], rangeFrom: null, rangeTo: null };
       } else {
         dueDateFilter = { ...DEFAULT_DUE_DATE_FILTER };
       }
     } else if (rawDueDate !== null && typeof rawDueDate === "object" && "mode" in rawDueDate) {
-      // Legacy object format with mode/presets fields
+      // Shape B: legacy object format with mode/presets fields
       const legacy = rawDueDate as Record<string, unknown>;
       if (legacy["mode"] === "range") {
         dueDateFilter = {
+          selectedPresets: [],
           rangeFrom: (legacy["rangeFrom"] as string | null) ?? null,
           rangeTo: (legacy["rangeTo"] as string | null) ?? null,
-          includeNoDate: false,
         };
       } else if (legacy["mode"] === "presets") {
-        const presets = Array.isArray(legacy["presets"]) ? (legacy["presets"] as DueDatePreset[]) : [];
-        if (presets.length === 1) {
-          const p = presets[0];
-          if (p === "No Date") {
-            dueDateFilter = { rangeFrom: null, rangeTo: null, includeNoDate: true };
-          } else {
-            const range = presetToDateRange(p);
-            dueDateFilter = { rangeFrom: range.rangeFrom, rangeTo: range.rangeTo, includeNoDate: false };
-          }
-        } else {
-          dueDateFilter = { ...DEFAULT_DUE_DATE_FILTER };
-        }
+        dueDateFilter = {
+          selectedPresets: Array.isArray(legacy["presets"]) ? (legacy["presets"] as DueDatePreset[]) : [],
+          rangeFrom: null,
+          rangeTo: null,
+        };
       } else {
         dueDateFilter = { ...DEFAULT_DUE_DATE_FILTER };
       }
     } else if (
       rawDueDate !== null &&
       typeof rawDueDate === "object" &&
-      "rangeFrom" in rawDueDate &&
-      "rangeTo" in rawDueDate &&
-      "includeNoDate" in rawDueDate
+      "includeNoDate" in rawDueDate &&
+      !("selectedPresets" in rawDueDate)
     ) {
-      // New format: use directly
-      const newFormat = rawDueDate as DueDateFilter;
-      dueDateFilter = { rangeFrom: newFormat.rangeFrom, rangeTo: newFormat.rangeTo, includeNoDate: newFormat.includeNoDate };
+      // Shape C: old format with includeNoDate (no selectedPresets yet)
+      const old = rawDueDate as Record<string, unknown>;
+      const rangeFromRaw = (old["rangeFrom"] as string | null) ?? null;
+      const rangeToRaw = (old["rangeTo"] as string | null) ?? null;
+      const includeNoDate = Boolean(old["includeNoDate"]);
+      const selectedPresets: DueDatePreset[] = [];
+
+      if (includeNoDate) selectedPresets.push("No Date");
+
+      // Check if rangeFrom/rangeTo match a known preset — if so, convert to preset
+      let resolvedRangeFrom = rangeFromRaw;
+      let resolvedRangeTo = rangeToRaw;
+      if (rangeFromRaw !== null || rangeToRaw !== null) {
+        const rangePresets: Exclude<DueDatePreset, "No Date">[] = ["Today", "Tomorrow", "This Week", "Next Week", "Overdue"];
+        for (const p of rangePresets) {
+          const r = presetToDateRange(p);
+          if (r.rangeFrom === rangeFromRaw && r.rangeTo === rangeToRaw) {
+            selectedPresets.push(p);
+            resolvedRangeFrom = null;
+            resolvedRangeTo = null;
+            break;
+          }
+        }
+      }
+
+      dueDateFilter = { selectedPresets, rangeFrom: resolvedRangeFrom, rangeTo: resolvedRangeTo };
+    } else if (
+      rawDueDate !== null &&
+      typeof rawDueDate === "object" &&
+      "selectedPresets" in rawDueDate
+    ) {
+      // Shape D: current format — use directly
+      const current = rawDueDate as DueDateFilter;
+      dueDateFilter = { selectedPresets: current.selectedPresets, rangeFrom: current.rangeFrom, rangeTo: current.rangeTo };
     } else {
       // No saved filter; fall back to config default or the empty default
       dueDateFilter = cfg.dueDateFilter ? { ...cfg.dueDateFilter } : { ...DEFAULT_DUE_DATE_FILTER };
@@ -132,13 +168,14 @@ export class DashboardView {
 
     this.filters = {
       viewMode: saved?.viewMode ?? cfg.viewMode ?? this.services.settings.ui.defaultTaskViewMode,
-      sortBy: saved?.sortBy ?? cfg.sortBy ?? "none",
+      sortBy,
       showCompleted: saved?.showCompleted ?? cfg.showCompleted ?? this.services.settings.ui.showCompletedByDefault,
       contextFilter: saved?.contextFilter ?? cfg.contextFilter ?? [],
       dueDateFilter,
       priorityFilter: saved?.priorityFilter ?? cfg.priorityFilter ?? [],
       projectStatusFilter: saved?.projectStatusFilter ?? cfg.projectStatusFilter ?? [],
-      inboxStatusFilter: saved?.inboxStatusFilter ?? cfg.inboxStatusFilter ?? "All",
+      // Backward-compat: "Inactive" was the saved value before the filter was renamed to "Complete".
+      inboxStatusFilter: ((saved?.inboxStatusFilter as unknown) === "Inactive" ? "Complete" : saved?.inboxStatusFilter) ?? cfg.inboxStatusFilter ?? "All",
       meetingDateFilter: saved?.meetingDateFilter ?? cfg.meetingDateFilter ?? "All",
       clientFilter: saved?.clientFilter ?? [],
       engagementFilter: saved?.engagementFilter ?? [],
@@ -159,391 +196,471 @@ export class DashboardView {
     }
   }
 
+  private migrateLegacySortBy(raw: unknown): SortKey[] {
+    if (!raw) return [];
+    if (Array.isArray(raw)) return raw as SortKey[];
+    if (typeof raw === "string") {
+      switch (raw) {
+        case "dueDate-asc": return [{ field: "dueDate" as SortField, direction: "asc" as SortDirection }];
+        case "dueDate-desc": return [{ field: "dueDate" as SortField, direction: "desc" as SortDirection }];
+        case "priority-asc": return [{ field: "priority" as SortField, direction: "asc" as SortDirection }];
+        case "priority-desc": return [{ field: "priority" as SortField, direction: "desc" as SortDirection }];
+        default: return [];
+      }
+    }
+    return [];
+  }
+
   // ─── Controls rendering ───────────────────────────────────────────────────
 
-  private renderControls(container: HTMLElement): void {
+  private renderControls(root: HTMLElement): void {
     const f = this.filters;
-
-    // View mode selector
-    const viewRow = container.createDiv({ cls: "pm-tasks-control-row" });
-    viewRow.createEl("label", { text: "View:", cls: "pm-tasks-control-row__label" });
-    const viewSelect = createSelect(viewRow, ["context", "date", "priority", "tag"], {
-      context: "Context",
-      date: "Due Date",
-      priority: "Priority",
-      tag: "Tag",
-    });
-    viewSelect.value = f.viewMode;
-    viewSelect.setAttribute("aria-label", "View mode");
-    viewSelect.addEventListener("change", () => {
-      f.viewMode = viewSelect.value as typeof f.viewMode;
+    const onChange = () => {
+      this.updateChipsBar();
+      this.updateFiltersBadge();
       this.persistFilters();
-      this.debouncedRefresh(container);
-    });
+      this.debouncedRefresh(root);
+    };
 
-    // Sort selector
-    const sortRow = container.createDiv({ cls: "pm-tasks-control-row" });
-    sortRow.createEl("label", { text: "Sort:", cls: "pm-tasks-control-row__label" });
-    const sortSelect = createSelect(sortRow, ["none", "dueDate-asc", "dueDate-desc", "priority-asc", "priority-desc"], {
-      none: "None",
-      "dueDate-asc": "Due Date ↑",
-      "dueDate-desc": "Due Date ↓",
-      "priority-asc": "Priority ↑",
-      "priority-desc": "Priority ↓",
-    });
-    sortSelect.value = f.sortBy;
-    sortSelect.setAttribute("aria-label", "Sort order");
-    sortSelect.addEventListener("change", () => {
-      f.sortBy = sortSelect.value as SortBy;
-      this.persistFilters();
-      this.debouncedRefresh(container);
-    });
+    // === TOOLBAR ===
+    const toolbar = root.createDiv({ cls: "pm-tasks-toolbar" });
 
-    // Show completed toggle
-    const completedRow = container.createDiv({ cls: "pm-tasks-control-row" });
-    completedRow.createEl("label", { text: "Show Completed:", cls: "pm-tasks-control-row__label" });
-    const completedToggle = completedRow.createEl("input", { type: "checkbox" });
-    completedToggle.checked = f.showCompleted;
-    completedToggle.setAttribute("aria-label", "Show completed tasks");
-    completedToggle.addEventListener("change", () => {
-      f.showCompleted = completedToggle.checked;
-      this.persistFilters();
-      this.debouncedRefresh(container);
-    });
+    // View mode tabs
+    const tabsEl = toolbar.createDiv({ cls: "pm-tasks-toolbar__view-tabs" });
+    const viewModes: Array<{ value: typeof f.viewMode; label: string }> = [
+      { value: "context", label: "Context" },
+      { value: "date", label: "Date" },
+      { value: "priority", label: "Priority" },
+      { value: "tag", label: "Tag" },
+    ];
+    for (const { value, label } of viewModes) {
+      const tab = tabsEl.createEl("button", {
+        cls: value === f.viewMode ? "pm-tasks-toolbar__tab pm-tasks-toolbar__tab--active" : "pm-tasks-toolbar__tab",
+        text: label,
+      });
+      tab.addEventListener("click", () => {
+        f.viewMode = value;
+        tabsEl.querySelectorAll(".pm-tasks-toolbar__tab").forEach((t) => {
+          t.classList.toggle("pm-tasks-toolbar__tab--active", t === tab);
+        });
+        this.persistFilters();
+        this.debouncedRefresh(root);
+      });
+    }
 
-    // Search
-    const searchRow = container.createDiv({ cls: "pm-tasks-control-row" });
-    searchRow.createEl("label", { text: "Search:", cls: "pm-tasks-control-row__label" });
-    const searchInput = searchRow.createEl("input", {
+    // Search input (flex-grows)
+    const searchInput = toolbar.createEl("input", {
       type: "text",
-      placeholder: "Filter tasks…",
-      cls: "pm-tasks-search",
+      placeholder: "Search tasks…",
+      cls: "pm-tasks-toolbar__search",
     });
     searchInput.setAttribute("aria-label", "Search tasks");
+    searchInput.value = f.searchText;
     searchInput.addEventListener("input", () => {
       f.searchText = searchInput.value.toLowerCase();
-      this.debouncedRefresh(container);
+      this.debouncedRefresh(root);
     });
 
-    // Collapsible filter sections
-    renderCollapsible(container, "Context Filters", (innerEl) => {
-      this.renderContextFilters(innerEl, f, () => { this.persistFilters(); this.debouncedRefresh(container); });
+    // Filters button
+    this.filtersBtnEl = toolbar.createEl("button", {
+      cls: "pm-tasks-toolbar__filters-btn",
     });
-    renderCollapsible(container, "Date Filters", (innerEl) => {
-      this.renderDateFilters(innerEl, f, () => { this.persistFilters(); this.debouncedRefresh(container); });
-    });
-    renderCollapsible(container, "Priority Filters", (innerEl) => {
-      this.renderPriorityFilters(innerEl, f, () => { this.persistFilters(); this.debouncedRefresh(container); });
-    });
-    renderCollapsible(container, "Tag Filters", (innerEl) => {
-      this.renderTagFilters(innerEl, f, () => { this.persistFilters(); this.debouncedRefresh(container); });
-    });
-
-    // Clear filters button
-    const clearBtn = container.createEl("button", {
-      text: "Clear Filters",
-      cls: "pm-tasks-clear-btn",
-    });
-    clearBtn.addEventListener("click", () => {
-      this.onSaveFilters?.(null);
-      this.destroyChipSelects();
-      this.initFilters();
-      // Explicitly reset fields that may have been loaded from saved state
-      const f = this.filters;
-      f.tagFilter = [];
-      f.includeUntagged = false;
-      f.dueDateFilter = { ...DEFAULT_DUE_DATE_FILTER };
-      const dashboardRoot = container.parentElement;
-      if (dashboardRoot) {
-        dashboardRoot.empty();
-        const newControlsEl = dashboardRoot.createDiv({ cls: "pm-tasks-dashboard__controls" });
-        this.renderControls(newControlsEl);
-        this.outputEl = dashboardRoot.createDiv({ cls: "pm-tasks-dashboard__output" });
-        void this.refreshDashboardOutput(this.outputEl);
+    this.filtersBtnEl.createSpan({ text: "⚙ Filters " });
+    this.filtersBadgeEl = this.filtersBtnEl.createSpan({ cls: "pm-tasks-filter-badge" });
+    this.filtersBtnEl.addEventListener("click", () => {
+      this.isDrawerOpen = !this.isDrawerOpen;
+      if (this.drawerEl) {
+        this.drawerEl.style.display = this.isDrawerOpen ? "" : "none";
       }
     });
+
+    // === CHIPS BAR (placeholder — filled by updateChipsBar) ===
+    this.chipsBarEl = root.createDiv({ cls: "pm-tasks-chips-bar" });
+    this.chipsBarEl.style.display = "none";
+
+    // === DRAWER ===
+    this.drawerEl = root.createDiv({ cls: "pm-tasks-drawer" });
+    this.drawerEl.style.display = this.isDrawerOpen ? "" : "none";
+    this.renderDrawer(this.drawerEl, f, onChange, root);
+
+    // Initial badge and chips update
+    this.updateFiltersBadge();
+    this.updateChipsBar();
   }
 
-  private renderContextFilters(
-    container: HTMLElement,
-    f: DashboardFilters,
-    onChange: () => void
-  ): void {
-    // Context type multi-select
-    container.createEl("label", { text: "Context Type:" });
-    const contexts: TaskContext[] = [...TASK_CONTEXTS];
-    const ctxGroup = container.createDiv({ cls: "pm-checkbox-group" });
-    for (const ctx of contexts) {
-      const label = ctxGroup.createEl("label", { cls: "pm-checkbox-label" });
-      const cb = label.createEl("input", { type: "checkbox" });
-      cb.checked = f.contextFilter.includes(ctx);
-      cb.setAttribute("aria-label", `Filter by context: ${ctx}`);
-      label.createSpan({ text: ctx });
-      cb.addEventListener("change", () => {
-        if (cb.checked) f.contextFilter.push(ctx);
-        else f.contextFilter = f.contextFilter.filter((c) => c !== ctx);
+  // ─── Drawer rendering ─────────────────────────────────────────────────────
+
+  private renderDrawer(drawerEl: HTMLElement, f: DashboardFilters, onChange: () => void, root: HTMLElement): void {
+    // Sort Order section
+    const sortSection = drawerEl.createDiv({ cls: "pm-tasks-drawer__section" });
+    sortSection.createDiv({ cls: "pm-tasks-drawer__section-label", text: "↕ SORT ORDER" });
+    const sortContainer = sortSection.createDiv();
+    const sortBuilder = new SortKeyBuilder(sortContainer, {
+      keys: [...f.sortBy],
+      onChange: (keys) => { f.sortBy = keys; onChange(); },
+    });
+    this.drawerComponents.push(sortBuilder);
+    this.chipSelects = []; // reset — chipSelects are a subset of drawerComponents
+
+    drawerEl.createEl("hr", { cls: "pm-tasks-drawer__divider" });
+
+    // Completed + Due Date (2-col grid)
+    const completedDueGrid = drawerEl.createDiv({ cls: "pm-tasks-drawer__grid" });
+
+    // Completed (left)
+    const completedSection = completedDueGrid.createDiv({ cls: "pm-tasks-drawer__section" });
+    completedSection.createDiv({ cls: "pm-tasks-drawer__section-label", text: "✓ COMPLETED TASKS" });
+    const completedToggle = completedSection.createDiv({ cls: "pm-tasks-toggle-row" });
+    const track = completedToggle.createDiv({
+      cls: f.showCompleted ? "pm-tasks-toggle-track pm-tasks-toggle-track--on" : "pm-tasks-toggle-track",
+    });
+    track.createDiv({ cls: "pm-tasks-toggle-thumb" });
+    completedToggle.createSpan({ text: "Show completed" });
+    completedToggle.addEventListener("click", () => {
+      f.showCompleted = !f.showCompleted;
+      track.classList.toggle("pm-tasks-toggle-track--on", f.showCompleted);
+      onChange();
+    });
+
+    // Due Date (right)
+    const dueDateSection = completedDueGrid.createDiv({ cls: "pm-tasks-drawer__section" });
+    dueDateSection.createDiv({ cls: "pm-tasks-drawer__section-label", text: "📅 DUE DATE" });
+    this.renderDrawerDueDateSection(dueDateSection, f, onChange);
+
+    drawerEl.createEl("hr", { cls: "pm-tasks-drawer__divider" });
+
+    // Priority + Context (2-col grid)
+    const priCtxGrid = drawerEl.createDiv({ cls: "pm-tasks-drawer__grid" });
+    const prioritySection = priCtxGrid.createDiv({ cls: "pm-tasks-drawer__section" });
+    prioritySection.createDiv({ cls: "pm-tasks-drawer__section-label", text: "⚡ PRIORITY" });
+    this.renderPillGroup(prioritySection, [
+      { value: 1, label: "🔴 Urgent" },
+      { value: 2, label: "🟠 High" },
+      { value: 3, label: "🟡 Medium" },
+      { value: 4, label: "🔵 Low" },
+    ], f.priorityFilter, (val) => {
+      const v = val as TaskPriority;
+      if (f.priorityFilter.includes(v)) f.priorityFilter = f.priorityFilter.filter((p) => p !== v);
+      else f.priorityFilter = [...f.priorityFilter, v];
+      onChange();
+    });
+
+    const contextSection = priCtxGrid.createDiv({ cls: "pm-tasks-drawer__section" });
+    contextSection.createDiv({ cls: "pm-tasks-drawer__section-label", text: "📁 CONTEXT TYPE" });
+    this.renderPillGroup(contextSection, TASK_CONTEXTS.map((c) => ({ value: c, label: c })),
+      f.contextFilter, (val) => {
+        const v = val as TaskContext;
+        if (f.contextFilter.includes(v)) f.contextFilter = f.contextFilter.filter((c) => c !== v);
+        else f.contextFilter = [...f.contextFilter, v];
         onChange();
       });
-    }
 
-    // Client filter (multi-select chip select)
+    drawerEl.createEl("hr", { cls: "pm-tasks-drawer__divider" });
+
+    // Client + Engagement (2-col grid)
+    const clientEngGrid = drawerEl.createDiv({ cls: "pm-tasks-drawer__grid" });
+    const clientSection = clientEngGrid.createDiv({ cls: "pm-tasks-drawer__section" });
+    clientSection.createDiv({ cls: "pm-tasks-drawer__section-label", text: "🏢 CLIENT" });
     const activeClients = this.services.queryService.getActiveEntitiesByTag(ENTITY_TAGS.client);
-    if (activeClients.length > 0) {
-      container.createEl("label", { text: "Client:", cls: "pm-filter-label" });
-      const clientChipSelect = new FilterChipSelect(
-        container,
-        this.services.app,
-        {
-          options: activeClients.map((p) => ({ value: p.file.name, displayText: p.file.name })),
-          selectedValues: [...f.clientFilter],
-          placeholder: "Add client filter…",
-          ariaLabel: "Filter by client",
-          includeUnassigned: f.includeUnassignedClients,
-          unassignedLabel: "Include unassigned clients",
-          onChange: (values, includeUnassigned) => {
-            f.clientFilter = values;
-            f.includeUnassignedClients = includeUnassigned;
-            onChange();
-          },
-        }
-      );
-      this.chipSelects.push(clientChipSelect);
-    }
+    const clientChipSelect = new FilterChipSelect(clientSection, this.services.app, {
+      options: activeClients.map((p) => ({ value: p.file.name, displayText: p.file.name })),
+      selectedValues: [...f.clientFilter],
+      placeholder: "type…",
+      ariaLabel: "Filter by client",
+      includeUnassigned: f.includeUnassignedClients,
+      unassignedLabel: "Include unassigned",
+      onChange: (values, incl) => { f.clientFilter = values; f.includeUnassignedClients = incl; onChange(); },
+    });
+    this.chipSelects.push(clientChipSelect);
+    this.drawerComponents.push(clientChipSelect);
 
-    // Engagement filter (multi-select chip select)
+    const engSection = clientEngGrid.createDiv({ cls: "pm-tasks-drawer__section" });
+    engSection.createDiv({ cls: "pm-tasks-drawer__section-label", text: "📎 ENGAGEMENT" });
     const activeEngagements = this.services.queryService.getActiveEntitiesByTag(ENTITY_TAGS.engagement);
-    if (activeEngagements.length > 0) {
-      container.createEl("label", { text: "Engagement:", cls: "pm-filter-label" });
-      const engChipSelect = new FilterChipSelect(
-        container,
-        this.services.app,
-        {
-          options: activeEngagements.map((p) => ({ value: p.file.name, displayText: p.file.name })),
-          selectedValues: [...f.engagementFilter],
-          placeholder: "Add engagement filter…",
-          ariaLabel: "Filter by engagement",
-          includeUnassigned: f.includeUnassignedEngagements,
-          unassignedLabel: "Include unassigned engagements",
-          onChange: (values, includeUnassigned) => {
-            f.engagementFilter = values;
-            f.includeUnassignedEngagements = includeUnassigned;
-            onChange();
-          },
-        }
-      );
-      this.chipSelects.push(engChipSelect);
+    const engChipSelect = new FilterChipSelect(engSection, this.services.app, {
+      options: activeEngagements.map((p) => ({ value: p.file.name, displayText: p.file.name })),
+      selectedValues: [...f.engagementFilter],
+      placeholder: "type…",
+      ariaLabel: "Filter by engagement",
+      includeUnassigned: f.includeUnassignedEngagements,
+      unassignedLabel: "Include unassigned",
+      onChange: (values, incl) => { f.engagementFilter = values; f.includeUnassignedEngagements = incl; onChange(); },
+    });
+    this.chipSelects.push(engChipSelect);
+    this.drawerComponents.push(engChipSelect);
+
+    drawerEl.createEl("hr", { cls: "pm-tasks-drawer__divider" });
+
+    // Context-specific filters
+    const ctxSpecSection = drawerEl.createDiv({ cls: "pm-tasks-drawer__section" });
+    ctxSpecSection.createDiv({ cls: "pm-tasks-drawer__section-label", text: "⚙ CONTEXT-SPECIFIC FILTERS" });
+    const ctxSpecGrid = ctxSpecSection.createDiv({ cls: "pm-tasks-drawer__grid" });
+
+    const projStatusSection = ctxSpecGrid.createDiv({ cls: "pm-tasks-drawer__section" });
+    projStatusSection.createEl("span", { text: "Project Status:", cls: "pm-tasks-drawer__section-label" });
+    this.renderPillGroup(projStatusSection, (["New", "Active", "On Hold", "Complete"] as ProjectStatus[]).map((s) => ({ value: s, label: s })),
+      f.projectStatusFilter, (val) => {
+        const v = val as ProjectStatus;
+        if (f.projectStatusFilter.includes(v)) f.projectStatusFilter = f.projectStatusFilter.filter((s) => s !== v);
+        else f.projectStatusFilter = [...f.projectStatusFilter, v];
+        onChange();
+      });
+
+    const inboxStatusSection = ctxSpecGrid.createDiv({ cls: "pm-tasks-drawer__section" });
+    inboxStatusSection.createEl("span", { text: "Inbox Status:", cls: "pm-tasks-drawer__section-label" });
+    this.renderPillGroup(inboxStatusSection, (["All", "Active", "Complete"] as InboxStatusFilter[]).map((s) => ({ value: s, label: s })),
+      [f.inboxStatusFilter], (val) => {
+        f.inboxStatusFilter = val as InboxStatusFilter;
+        onChange();
+      }, true /* single select */);
+
+    const meetingDateSection = ctxSpecGrid.createDiv({ cls: "pm-tasks-drawer__section" });
+    meetingDateSection.createEl("span", { text: "Meeting Date:", cls: "pm-tasks-drawer__section-label" });
+    this.renderPillGroup(meetingDateSection, (["All", "Today", "This Week", "Past"] as MeetingDateFilter[]).map((s) => ({ value: s, label: s })),
+      [f.meetingDateFilter], (val) => {
+        f.meetingDateFilter = val as MeetingDateFilter;
+        onChange();
+      }, true /* single select */);
+
+    drawerEl.createEl("hr", { cls: "pm-tasks-drawer__divider" });
+
+    // Tags
+    const tagsSection = drawerEl.createDiv({ cls: "pm-tasks-drawer__section" });
+    tagsSection.createDiv({ cls: "pm-tasks-drawer__section-label", text: "🏷 TAGS" });
+    const dv = this.services.queryService.dv();
+    if (dv) {
+      const allTasks = this.getAllTasks(dv);
+      const allTags = [...new Set(allTasks.flatMap((t) => t.tags ?? []))].sort();
+      if (allTags.length > 0) {
+        const tagChipSelect = new FilterChipSelect(tagsSection, this.services.app, {
+          options: allTags.map((tag) => ({ value: tag, displayText: tag })),
+          selectedValues: [...f.tagFilter],
+          placeholder: "type…",
+          ariaLabel: "Filter by tag",
+          includeUnassigned: f.includeUntagged,
+          unassignedLabel: "Include untagged",
+          onChange: (values, incl) => { f.tagFilter = values; f.includeUntagged = incl; onChange(); },
+        });
+        this.chipSelects.push(tagChipSelect);
+        this.drawerComponents.push(tagChipSelect);
+      }
     }
 
-    // Project status filter
-    container.createEl("label", { text: "Project Status:", cls: "pm-filter-label" });
-    const projectStatuses: ProjectStatus[] = [...DEFAULT_TASK_VIEW_STATUSES] as ProjectStatus[];
-    const psGroup = container.createDiv({ cls: "pm-checkbox-group" });
-    for (const status of projectStatuses) {
-      const label = psGroup.createEl("label", { cls: "pm-checkbox-label" });
-      const cb = label.createEl("input", { type: "checkbox" });
-      cb.checked = f.projectStatusFilter.includes(status);
-      label.createSpan({ text: status });
-      cb.addEventListener("change", () => {
-        if (cb.checked) f.projectStatusFilter.push(status);
-        else f.projectStatusFilter = f.projectStatusFilter.filter((s) => s !== status);
+    // Clear Filters button at bottom of drawer
+    const clearBtnRow = drawerEl.createDiv({ cls: "pm-tasks-drawer__section" });
+    clearBtnRow.createEl("button", { text: "✕ Clear All Filters", cls: "pm-tasks-toolbar__clear-btn" })
+      .addEventListener("click", () => {
+        this.onSaveFilters?.(null);
+        this.destroyDrawerComponents();
+        this.isDrawerOpen = false;
+        // Re-render entire dashboard from scratch
+        const dashboard = root.closest(".pm-tasks-dashboard") ?? root;
+        dashboard.empty();
+        this.initFilters();
+        this.renderControls(dashboard as HTMLElement);
+        this.outputEl = (dashboard as HTMLElement).createDiv({ cls: "pm-tasks-dashboard__output" });
+        void this.refreshDashboardOutput(this.outputEl);
+      });
+  }
+
+  private renderDrawerDueDateSection(container: HTMLElement, f: DashboardFilters, onChange: () => void): void {
+    // Preset pills
+    const pillGroup = container.createDiv({ cls: "pm-tasks-pill-group" });
+    const presets: DueDatePreset[] = [...DUE_DATE_PRESETS];
+    for (const preset of presets) {
+      const isActive = f.dueDateFilter.selectedPresets.includes(preset);
+      const isOverdue = preset === "Overdue";
+      const cls = isActive
+        ? (isOverdue ? "pm-tasks-pill pm-tasks-pill--warn" : "pm-tasks-pill pm-tasks-pill--active")
+        : "pm-tasks-pill";
+      const pill = pillGroup.createEl("button", { cls, text: preset });
+      pill.addEventListener("click", () => {
+        const currentPresets = f.dueDateFilter.selectedPresets;
+        if (currentPresets.includes(preset)) {
+          f.dueDateFilter = { ...f.dueDateFilter, selectedPresets: currentPresets.filter((p) => p !== preset) };
+        } else {
+          // Adding a preset clears the custom range
+          f.dueDateFilter = { selectedPresets: [...currentPresets, preset], rangeFrom: null, rangeTo: null };
+          fromInput.value = "";
+          toInput.value = "";
+        }
+        pill.className = f.dueDateFilter.selectedPresets.includes(preset)
+          ? (preset === "Overdue" ? "pm-tasks-pill pm-tasks-pill--warn" : "pm-tasks-pill pm-tasks-pill--active")
+          : "pm-tasks-pill";
         onChange();
       });
     }
 
-    // Inbox status
-    container.createEl("label", { text: "Inbox Status:", cls: "pm-filter-label" });
-    const inboxSelect = createSelect(container, ["All", "Active", "Inactive"], {});
-    inboxSelect.value = f.inboxStatusFilter;
-    inboxSelect.addEventListener("change", () => {
-      f.inboxStatusFilter = inboxSelect.value as InboxStatusFilter;
-      onChange();
-    });
-
-    // Meeting date
-    container.createEl("label", { text: "Meeting Date:", cls: "pm-filter-label" });
-    const meetingSelect = createSelect(container, ["All", "Today", "This Week", "Past"], {});
-    meetingSelect.value = f.meetingDateFilter;
-    meetingSelect.addEventListener("change", () => {
-      f.meetingDateFilter = meetingSelect.value as MeetingDateFilter;
-      onChange();
-    });
-  }
-
-  private renderDateFilters(
-    container: HTMLElement,
-    f: DashboardFilters,
-    onChange: () => void
-  ): void {
-    const section = container.createEl("div", { cls: "pm-filter-group" });
-    section.createEl("span", { cls: "pm-filter-label", text: "Due:" });
-
-    // Derive the initial active preset from the current filter state.
-    // "No Date" is tracked via includeNoDate, not activePreset.
-    const rangePresets: Exclude<DueDatePreset, "No Date">[] = ["Today", "Tomorrow", "This Week", "Next Week", "Overdue"];
-    let activePreset: Exclude<DueDatePreset, "No Date"> | null = null;
-    for (const p of rangePresets) {
-      const r = presetToDateRange(p);
-      if (r.rangeFrom === f.dueDateFilter.rangeFrom && r.rangeTo === f.dueDateFilter.rangeTo) {
-        activePreset = p;
-        break;
-      }
-    }
-
-    // Preset buttons container
-    const presetsContainer = section.createEl("div", { cls: "pm-date-presets" });
-    const presetButtons = new Map<DueDatePreset, HTMLElement>();
-
-    // Range inputs are declared before the preset button loop so their
-    // references are fully initialised when the preset click handlers close
-    // over them (avoids a TDZ hazard).
-    const rangeContainer = section.createEl("div", { cls: "pm-date-range" });
-    rangeContainer.createEl("span", { text: "From:" });
-    const fromInput = rangeContainer.createEl("input", { type: "date", cls: "pm-date-range-input" });
+    // Custom range
+    const rangeRow = container.createDiv({ cls: "pm-date-range" });
+    rangeRow.createSpan({ text: "From:" });
+    const fromInput = rangeRow.createEl("input", { type: "date", cls: "pm-date-range-input" });
     fromInput.value = f.dueDateFilter.rangeFrom ?? "";
     fromInput.setAttribute("aria-label", "Filter from date");
-    rangeContainer.createEl("span", { text: "To:" });
-    const toInput = rangeContainer.createEl("input", { type: "date", cls: "pm-date-range-input" });
+    rangeRow.createSpan({ text: "→" });
+    const toInput = rangeRow.createEl("input", { type: "date", cls: "pm-date-range-input" });
     toInput.value = f.dueDateFilter.rangeTo ?? "";
     toInput.setAttribute("aria-label", "Filter to date");
 
-    // Helper: sync CSS active class on all preset buttons from current state.
-    function updatePresetHighlights(): void {
-      for (const [preset, btn] of presetButtons) {
-        if (preset === "No Date") {
-          btn.classList.toggle("--active", f.dueDateFilter.includeNoDate);
-        } else {
-          btn.classList.toggle("--active", preset === activePreset);
-        }
-      }
-    }
-
-    for (const preset of DUE_DATE_PRESETS) {
-      const btn = presetsContainer.createEl("button", {
-        cls: "pm-date-preset-btn",
-        text: preset,
-      });
-      presetButtons.set(preset, btn);
-
-      if (preset === "No Date") {
-        btn.addEventListener("click", () => {
-          f.dueDateFilter.includeNoDate = !f.dueDateFilter.includeNoDate;
-          // Do NOT touch rangeFrom/rangeTo or activePreset
-          updatePresetHighlights();
-          onChange();
-        });
-      } else {
-        btn.addEventListener("click", () => {
-          if (activePreset === preset) {
-            // Toggle off: clear the range
-            f.dueDateFilter.rangeFrom = null;
-            f.dueDateFilter.rangeTo = null;
-            activePreset = null;
-            fromInput.value = "";
-            toInput.value = "";
-          } else {
-            const range = presetToDateRange(preset);
-            f.dueDateFilter.rangeFrom = range.rangeFrom;
-            f.dueDateFilter.rangeTo = range.rangeTo;
-            activePreset = preset;
-            fromInput.value = range.rangeFrom ?? "";
-            toInput.value = range.rangeTo ?? "";
-          }
-          // Do NOT touch includeNoDate
-          updatePresetHighlights();
-          onChange();
-        });
-      }
-    }
-
     fromInput.addEventListener("change", () => {
-      f.dueDateFilter.rangeFrom = fromInput.value || null;
-      activePreset = null; // manual edit clears preset highlight
-      updatePresetHighlights();
+      f.dueDateFilter = {
+        selectedPresets: [],
+        rangeFrom: fromInput.value || null,
+        rangeTo: f.dueDateFilter.rangeTo,
+      };
       onChange();
     });
     toInput.addEventListener("change", () => {
-      f.dueDateFilter.rangeTo = toInput.value || null;
-      activePreset = null; // manual edit clears preset highlight
-      updatePresetHighlights();
+      f.dueDateFilter = {
+        selectedPresets: [],
+        rangeFrom: f.dueDateFilter.rangeFrom,
+        rangeTo: toInput.value || null,
+      };
       onChange();
     });
-
-    // Set initial highlight state
-    updatePresetHighlights();
   }
 
-  private renderPriorityFilters(
+  private renderPillGroup(
     container: HTMLElement,
-    f: DashboardFilters,
-    onChange: () => void
+    options: Array<{ value: string | number; label: string }>,
+    activeValues: Array<string | number>,
+    onToggle: (value: string | number) => void,
+    singleSelect = false
   ): void {
-    container.createEl("label", { text: "Priority:" });
-    const priGroup = container.createDiv({ cls: "pm-checkbox-group" });
-    const priorities: Array<{ value: TaskPriority; label: string }> = [
-      { value: 1, label: "Urgent" },
-      { value: 2, label: "High" },
-      { value: 3, label: "Medium" },
-      { value: 4, label: "Low" },
-      { value: 5, label: "Someday" },
-    ];
-    for (const { value, label } of priorities) {
-      const labelEl = priGroup.createEl("label", { cls: "pm-checkbox-label" });
-      const cb = labelEl.createEl("input", { type: "checkbox" });
-      cb.checked = f.priorityFilter.includes(value);
-      cb.setAttribute("aria-label", `Filter by priority: ${label}`);
-      labelEl.createSpan({ text: label });
-      cb.addEventListener("change", () => {
-        if (cb.checked) f.priorityFilter.push(value);
-        else f.priorityFilter = f.priorityFilter.filter((p) => p !== value);
-        onChange();
+    const group = container.createDiv({ cls: "pm-tasks-pill-group" });
+    for (const opt of options) {
+      const isActive = activeValues.includes(opt.value);
+      const pill = group.createEl("button", {
+        cls: isActive ? "pm-tasks-pill pm-tasks-pill--active" : "pm-tasks-pill",
+        text: String(opt.label),
+      });
+      pill.addEventListener("click", () => {
+        onToggle(opt.value);
+        if (singleSelect) {
+          group.querySelectorAll(".pm-tasks-pill").forEach((p, i) => {
+            p.className = options[i].value === opt.value ? "pm-tasks-pill pm-tasks-pill--active" : "pm-tasks-pill";
+          });
+        } else {
+          pill.classList.toggle("pm-tasks-pill--active");
+        }
       });
     }
   }
 
-  private renderTagFilters(
-    container: HTMLElement,
-    f: DashboardFilters,
-    onChange: () => void
-  ): void {
-    // Collect unique tags from all tasks currently in the vault
-    const dv = this.services.queryService.dv();
-    if (!dv) {
-      container.createEl("div", {
-        cls: "pm-filter-group",
-        text: "Tag filters unavailable (Dataview not loaded)",
-      });
+  // ─── Chips bar ────────────────────────────────────────────────────────────
+
+  private updateChipsBar(): void {
+    if (!this.chipsBarEl) return;
+    this.chipsBarEl.empty();
+    const chips = this.getActiveChips();
+    if (chips.length === 0) {
+      this.chipsBarEl.style.display = "none";
       return;
     }
-    const allTasks = this.getAllTasks(dv);
-    const allTags = [...new Set(allTasks.flatMap(t => t.tags ?? []))].sort();
-
-    if (allTags.length === 0) return;
-
-    container.createEl("label", { text: "Tags:", cls: "pm-filter-label" });
-    const tagChipSelect = new FilterChipSelect(
-      container,
-      this.services.app,
-      {
-        options: allTags.map((tag) => ({ value: tag, displayText: tag })),
-        selectedValues: [...f.tagFilter],
-        placeholder: "Add tag filter...",
-        ariaLabel: "Filter by tag",
-        includeUnassigned: f.includeUntagged,
-        unassignedLabel: "Include untagged",
-        onChange: (values, includeUnassigned) => {
-          f.tagFilter = values;
-          f.includeUntagged = includeUnassigned;
-          onChange();
-        },
-      }
-    );
-    this.chipSelects.push(tagChipSelect);
+    this.chipsBarEl.style.display = "";
+    const label = this.chipsBarEl.createEl("span");
+    label.style.cssText = "font-size:var(--font-smaller);color:var(--text-muted);text-transform:uppercase;letter-spacing:0.06em;";
+    label.textContent = "Filters:";
+    for (const { label: chipLabel, onRemove } of chips) {
+      const chip = this.chipsBarEl.createSpan({ cls: "pm-tasks-filter-chip" });
+      chip.createSpan({ text: chipLabel });
+      const removeBtn = chip.createSpan({ cls: "pm-tasks-filter-chip__remove", text: "×" });
+      removeBtn.addEventListener("click", () => { onRemove(); });
+    }
   }
 
-  // ─── Chip select cleanup ─────────────────────────────────────────────────
+  private getActiveChips(): Array<{ label: string; onRemove: () => void }> {
+    const f = this.filters;
+    const chips: Array<{ label: string; onRemove: () => void }> = [];
+    const rerender = () => {
+      this.updateChipsBar();
+      this.updateFiltersBadge();
+      this.persistFilters();
+      if (this.outputEl) void this.refreshDashboardOutput(this.outputEl);
+    };
 
-  private destroyChipSelects(): void {
-    for (const cs of this.chipSelects) cs.destroy();
+    for (const preset of f.dueDateFilter.selectedPresets) {
+      chips.push({ label: `📅 ${preset}`, onRemove: () => {
+        f.dueDateFilter = { ...f.dueDateFilter, selectedPresets: f.dueDateFilter.selectedPresets.filter((p) => p !== preset) };
+        rerender();
+      }});
+    }
+    if (f.dueDateFilter.rangeFrom || f.dueDateFilter.rangeTo) {
+      const rangeLabel = `📅 ${f.dueDateFilter.rangeFrom ?? "…"} → ${f.dueDateFilter.rangeTo ?? "…"}`;
+      chips.push({ label: rangeLabel, onRemove: () => {
+        f.dueDateFilter = { ...f.dueDateFilter, rangeFrom: null, rangeTo: null };
+        rerender();
+      }});
+    }
+    for (const p of f.priorityFilter) {
+      const labels: Record<number, string> = { 1: "🔴 Urgent", 2: "🟠 High", 3: "🟡 Medium", 4: "🔵 Low" };
+      chips.push({ label: `⚡ ${labels[p] ?? String(p)}`, onRemove: () => {
+        f.priorityFilter = f.priorityFilter.filter((v) => v !== p);
+        rerender();
+      }});
+    }
+    for (const ctx of f.contextFilter) {
+      chips.push({ label: `📁 ${ctx}`, onRemove: () => {
+        f.contextFilter = f.contextFilter.filter((c) => c !== ctx);
+        rerender();
+      }});
+    }
+    for (const client of f.clientFilter) {
+      chips.push({ label: `🏢 ${client}`, onRemove: () => {
+        f.clientFilter = f.clientFilter.filter((c) => c !== client);
+        rerender();
+      }});
+    }
+    for (const eng of f.engagementFilter) {
+      chips.push({ label: `📎 ${eng}`, onRemove: () => {
+        f.engagementFilter = f.engagementFilter.filter((e) => e !== eng);
+        rerender();
+      }});
+    }
+    for (const tag of f.tagFilter) {
+      chips.push({ label: `🏷 ${tag}`, onRemove: () => {
+        f.tagFilter = f.tagFilter.filter((t) => t !== tag);
+        rerender();
+      }});
+    }
+    if (f.showCompleted) {
+      chips.push({ label: "✓ Completed", onRemove: () => { f.showCompleted = false; rerender(); }});
+    }
+    return chips;
+  }
+
+  // ─── Filters badge ────────────────────────────────────────────────────────
+
+  private updateFiltersBadge(): void {
+    if (!this.filtersBtnEl || !this.filtersBadgeEl) return;
+    const count = this.getActiveFilterCount();
+    this.filtersBadgeEl.textContent = count > 0 ? String(count) : "";
+    this.filtersBadgeEl.style.display = count > 0 ? "" : "none";
+    this.filtersBtnEl.classList.toggle("pm-tasks-toolbar__filters-btn--active", count > 0);
+  }
+
+  private getActiveFilterCount(): number {
+    const f = this.filters;
+    let count = 0;
+    if (f.sortBy.length > 0) count++;
+    if (f.showCompleted) count++;
+    if (f.dueDateFilter.selectedPresets.length > 0 || f.dueDateFilter.rangeFrom !== null || f.dueDateFilter.rangeTo !== null) count++;
+    if (f.priorityFilter.length > 0) count++;
+    if (f.contextFilter.length > 0) count++;
+    if (f.clientFilter.length > 0 || f.includeUnassignedClients) count++;
+    if (f.engagementFilter.length > 0 || f.includeUnassignedEngagements) count++;
+    if (f.projectStatusFilter.length > 0) count++;
+    if (f.inboxStatusFilter !== "All") count++;
+    if (f.meetingDateFilter !== "All") count++;
+    if (f.tagFilter.length > 0 || f.includeUntagged) count++;
+    return count;
+  }
+
+  // ─── Drawer component cleanup ─────────────────────────────────────────────
+
+  private destroyDrawerComponents(): void {
+    for (const c of this.drawerComponents) c.destroy();
+    this.drawerComponents = [];
     this.chipSelects = [];
   }
 
@@ -574,18 +691,23 @@ export class DashboardView {
         return;
       }
 
+      // Pre-compute maps for new sort fields
+      const folders = this.services.settings.folders;
+      const contextMap = new Map(allTasks.map((t) => [t.path, getTaskContext(t, folders)]));
+      const mtimeMap = new Map(allTasks.map((t) => [t.path, dv.page(t.path)?.file.mtime.valueOf() ?? 0]));
+
       switch (f.viewMode) {
         case "context":
-          await this.contextRenderer.render(outputEl, allTasks, f, dv);
+          await this.contextRenderer.render(outputEl, allTasks, f, dv, contextMap, mtimeMap);
           break;
         case "date":
-          await this.dateRenderer.render(outputEl, allTasks, f);
+          await this.dateRenderer.render(outputEl, allTasks, f, contextMap, mtimeMap);
           break;
         case "priority":
-          await this.priorityRenderer.render(outputEl, allTasks, f);
+          await this.priorityRenderer.render(outputEl, allTasks, f, contextMap, mtimeMap);
           break;
         case "tag":
-          await this.tagRenderer.render(outputEl, allTasks, f);
+          await this.tagRenderer.render(outputEl, allTasks, f, contextMap, mtimeMap);
           break;
       }
     } catch (err) {

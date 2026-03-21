@@ -8,7 +8,7 @@ import { InputModal } from "../ui/modals/input-modal";
  * Prompts for a project name (defaults to the inbox note name), then:
  * - Creates a project with notesDirectory and inherited engagement
  * - Links the inbox note back to the project (bidirectional)
- * - Sets inbox status to Inactive
+ * - Sets inbox status to Complete
  */
 export function registerConvertInboxCommand(services: CommandServices, addCommand: AddCommandFn): void {
   addCommand({

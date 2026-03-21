@@ -9,16 +9,17 @@ import {
   fillModalInput,
   submitModal,
 } from '../helpers/modal-helpers';
-import { ElectronApplication, Page } from 'playwright';
+import { Page } from '@playwright/test';
+import { ObsidianApp } from '../helpers/obsidian-app';
 
 let vaultPath: string;
-let app: ElectronApplication;
+let app: ObsidianApp;
 let window: Page;
 
 test.beforeAll(async () => {
   vaultPath = createTempVault();
-  const launched = await launchObsidian(vaultPath);
-  app = launched.app;
+  const launched = await launchObsidian();
+  app = launched;
   window = launched.window;
   await dismissFirstLaunchDialogs(window);
   await window.waitForSelector('.workspace', { timeout: 30_000 });
@@ -29,7 +30,7 @@ test.afterAll(async () => {
   if (vaultPath) removeTempVault(vaultPath);
 });
 
-test('EntityCreationModal renders input fields', async () => {
+test('InputModal (create-client) renders input fields', async () => {
   await executeCommandById(window, 'project-manager:create-client');
   await waitForModal(window);
 
@@ -39,11 +40,11 @@ test('EntityCreationModal renders input fields', async () => {
   await closeModal(window);
 });
 
-test('EntityCreationModal can be filled and submitted', async () => {
+test('InputModal (create-client) can be filled and submitted', async () => {
   await executeCommandById(window, 'project-manager:create-client');
   await waitForModal(window);
 
-  await fillModalInput(window, 'Name', 'Modal Test Client');
+  await fillModalInput(window, 'e.g. Acme Corp', 'Modal Test Client');
   await submitModal(window);
 
   await window.waitForTimeout(500);
@@ -52,7 +53,7 @@ test('EntityCreationModal can be filled and submitted', async () => {
   expect(modal).toBeNull();
 });
 
-test('EntityCreationModal closes on Escape', async () => {
+test('EntityCreationModal (create-engagement) closes on Escape', async () => {
   await executeCommandById(window, 'project-manager:create-engagement');
   await waitForModal(window);
 

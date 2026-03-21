@@ -1,4 +1,4 @@
-import { Page } from 'playwright';
+import { Page } from '@playwright/test';
 
 /**
  * Wait for a modal to appear and return its root element's selector string.
@@ -88,14 +88,21 @@ export async function submitModal(window: Page): Promise<void> {
 }
 
 /**
- * Fill the EntityCreationModal fields.
- * The modal uses labelled inputs — selectors should be verified during the spike.
+ * Fill the EntityCreationModal name input fields.
+ * Matches each key against the input's `placeholder` attribute (via `input[placeholder="..."]`),
+ * NOT by label text. Use the exact placeholder strings defined in the modal source
+ * (e.g. "Engagement name", "Project name").
+ *
+ * Caller must invoke `waitForModal` before calling this function.
+ *
+ * NOTE: The optional parent `<select>` element is NOT handled here. To select a parent entity,
+ * call `page.selectOption('.modal select', parentName)` separately before submitting.
+ * The select only renders when Dataview has indexed parent entities — it is absent in a fresh vault.
  */
 export async function fillEntityCreationModal(
   window: Page,
   fields: Record<string, string>,
 ): Promise<void> {
-  await waitForModal(window);
   for (const [placeholder, value] of Object.entries(fields)) {
     await fillModalInput(window, placeholder, value);
   }

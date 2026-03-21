@@ -9,7 +9,7 @@ export type ClientStatus = "Active" | "Inactive";
 export type EngagementStatus = "Active" | "Inactive";
 export type ProjectStatus = "New" | "Active" | "On Hold" | "Complete";
 export type TaskContext = "Project" | "Person" | "Meeting" | "Recurring Meeting" | "Inbox" | "Daily Notes" | "Other";
-export type TaskPriority = 1 | 2 | 3 | 4 | 5;
+export type TaskPriority = 1 | 2 | 3 | 4;
 export type EntityType =
   | "client"
   | "engagement"
@@ -80,26 +80,28 @@ export interface PmActionsConfig {
 export type TaskViewMode = "dashboard" | "by-project";
 export type DueDatePreset = "Today" | "Tomorrow" | "This Week" | "Next Week" | "Overdue" | "No Date";
 export interface DueDateFilter {
+  /** Active preset buttons (OR logic). */
+  selectedPresets: DueDatePreset[];
   /** ISO date "YYYY-MM-DD", or null */
   rangeFrom: string | null;
   /** ISO date "YYYY-MM-DD", or null */
   rangeTo: string | null;
-  includeNoDate: boolean;
 }
 export type MeetingDateFilter = "All" | "Today" | "This Week" | "Past";
-export type InboxStatusFilter = "All" | "Active" | "Inactive";
-export type SortBy =
-  | "none"
-  | "dueDate-asc"
-  | "dueDate-desc"
-  | "priority-asc"
-  | "priority-desc";
+export type InboxStatusFilter = "All" | "Active" | "Complete";
+
+export type SortField = "dueDate" | "priority" | "alphabetical" | "context" | "createdDate";
+export type SortDirection = "asc" | "desc";
+export interface SortKey {
+  field: SortField;
+  direction: SortDirection;
+}
 
 export interface PmTasksConfig {
   mode: TaskViewMode;
   // Dashboard-specific defaults
   viewMode?: "context" | "date" | "priority" | "tag";
-  sortBy?: SortBy;
+  sortBy?: SortKey[];
   showCompleted?: boolean;
   // Filtering defaults
   contextFilter?: TaskContext[];
@@ -201,7 +203,7 @@ export interface DataviewDate {
 /** Filter/display state for the dashboard task view. */
 export interface DashboardFilters {
   viewMode: "context" | "date" | "priority" | "tag";
-  sortBy: SortBy;
+  sortBy: SortKey[];
   showCompleted: boolean;
   contextFilter: TaskContext[];
   dueDateFilter: DueDateFilter;
