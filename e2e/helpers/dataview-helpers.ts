@@ -13,7 +13,7 @@ export async function waitForDataviewIndex(
 ): Promise<void> {
   await page.waitForFunction(
     (args: { tag: string; minCount: number }) => {
-      const obsApp = (window as ObsidianWindow).app;
+      const obsApp = (window as unknown as ObsidianWindow).app;
       const dv = (
         obsApp?.plugins as unknown as {
           plugins?: {

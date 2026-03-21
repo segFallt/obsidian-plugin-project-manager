@@ -52,7 +52,7 @@ export async function dismissFirstLaunchDialogs(window: Page): Promise<void> {
   // globally — it does not enable individual plugins. We must call the API directly.
   try {
     await window.evaluate(async () => {
-      const obsApp = (window as ObsidianWindow).app;
+      const obsApp = (window as unknown as ObsidianWindow).app;
       if (obsApp?.plugins) {
         // setEnable() is synchronous — it writes the enabled flag in memory.
         // loadPlugin() is async — it runs onload() and registers commands.
@@ -71,7 +71,7 @@ export async function dismissFirstLaunchDialogs(window: Page): Promise<void> {
   // Wait until the plugin's commands are registered — confirms onload() completed.
   await window.waitForFunction(
     () =>
-      !!(window as ObsidianWindow).app?.commands?.commands?.[
+      !!(window as unknown as ObsidianWindow).app?.commands?.commands?.[
         'project-manager:create-client'
       ],
     { timeout: 15_000 },

@@ -53,6 +53,34 @@ mr-validate:
     - npm run build
 
 # ─────────────────────────────────────────────────────────────────────────────
+# E2E Static Validation
+# Validates e2e TypeScript, fixture JSON, Dataview cache, and Playwright config.
+# Runs only when e2e-related files change (or on manual trigger).
+# ─────────────────────────────────────────────────────────────────────────────
+
+e2e-validate:
+  stage: validate
+  script:
+    - npm ci
+    - npx tsc --noEmit --project e2e/tsconfig.json
+    - node scripts/validate-e2e-fixtures.js
+    - npx playwright test --list --config e2e/playwright.config.ts
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event' && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == 'main'
+      changes:
+        - e2e/**/*
+        - scripts/validate-e2e-fixtures.js
+        - package.json
+        - package-lock.json
+    - if: $CI_COMMIT_BRANCH == 'main' && $CI_PIPELINE_SOURCE == 'push'
+      changes:
+        - e2e/**/*
+        - scripts/validate-e2e-fixtures.js
+        - package.json
+        - package-lock.json
+    - if: $CI_PIPELINE_SOURCE == 'web'
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Release Pipeline
 # ─────────────────────────────────────────────────────────────────────────────
 
