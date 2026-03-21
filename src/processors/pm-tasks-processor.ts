@@ -95,6 +95,7 @@ class PmTasksRenderChild extends MarkdownRenderChild {
       return;
     }
 
+    this.services.loggerService.debug(`pm-tasks rendering, mode: "${this.config.mode}", source: "${this.sourcePath}"`, 'pm-tasks');
     const filterService = this.services.filterService;
     const sortService = this.services.sortService;
     const renderer = new TaskListRenderer(this.services, this);

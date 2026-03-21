@@ -39,6 +39,7 @@ export function registerCreateProjectNoteCommand(services: CommandServices, addC
         return;
       }
 
+      services.loggerService.debug(`create-project-note invoked: "${noteName}", dir: "${notesDir}"`, 'create-project-note');
       try {
         await services.entityService.createProjectNote(activeFile, noteName);
       } catch (err) {

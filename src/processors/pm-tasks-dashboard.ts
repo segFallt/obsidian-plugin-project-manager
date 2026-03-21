@@ -66,6 +66,7 @@ export class DashboardView {
   }
 
   render(): void {
+    this.services.loggerService.debug(`pm-tasks-dashboard rendering, mode: "${this.config.mode}"`, 'pm-tasks-dashboard');
     this.initFilters();
     const root = this.containerEl.createDiv({ cls: "pm-tasks-dashboard" });
     this.renderControls(root);

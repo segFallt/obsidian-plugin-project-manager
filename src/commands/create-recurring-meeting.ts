@@ -30,6 +30,7 @@ export function registerCreateRecurringMeetingCommand(services: CommandServices,
         return;
       }
 
+      services.loggerService.debug(`create-recurring-meeting invoked: "${result.name}", engagement: "${result.parentName ?? 'none'}"`, 'create-recurring-meeting');
       try {
         await services.entityService.createRecurringMeeting(
           result.name,

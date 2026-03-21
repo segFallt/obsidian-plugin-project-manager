@@ -40,6 +40,7 @@ function createMockServices(sourcePath = "clients/Acme.md") {
       error: vi.fn(),
       warn: vi.fn(),
       info: vi.fn(),
+      debug: vi.fn(),
     },
   } as unknown as PluginServices;
 

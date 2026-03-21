@@ -57,6 +57,7 @@ function createMockServices(dvApi: DataviewApi | null = null) {
       error: vi.fn(),
       warn: vi.fn(),
       info: vi.fn(),
+      debug: vi.fn(),
     },
     filterService: new TaskFilterService(DEFAULT_FOLDERS),
     sortService: new TaskSortService(),

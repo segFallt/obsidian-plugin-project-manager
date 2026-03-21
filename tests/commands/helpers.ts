@@ -59,6 +59,7 @@ export function createMockPlugin(overrides: {
     error: vi.fn(),
     warn: vi.fn(),
     info: vi.fn(),
+    debug: vi.fn(),
   };
 
   const actionContext = new ActionContextManager();

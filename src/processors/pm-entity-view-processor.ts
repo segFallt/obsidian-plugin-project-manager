@@ -86,6 +86,8 @@ class PmEntityViewRenderChild extends MarkdownRenderChild {
       return;
     }
 
+    this.services.loggerService.debug(`pm-entity-view rendering, entity: "${config.entity}", section: "${config.section}", source: "${this.sourcePath}"`, 'pm-entity-view');
+
     if (sectionDef.heading) {
       this.containerEl.createEl("h2", { text: sectionDef.heading });
     }

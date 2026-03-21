@@ -43,6 +43,7 @@ export function registerConvertInboxCommand(services: CommandServices, addComman
         return;
       }
 
+      services.loggerService.debug(`convert-inbox-to-project invoked: "${activeFile.basename}" -> "${projectName}"`, 'convert-inbox-to-project');
       try {
         await services.entityService.convertInboxToProject(activeFile, projectName);
       } catch (err) {
