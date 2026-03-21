@@ -39,6 +39,6 @@ export async function executeCommandById(
   commandId: string,
 ): Promise<void> {
   await window.evaluate((id: string) => {
-    (window as ObsidianWindow).app?.commands?.executeCommandById(id);
+    (window as unknown as ObsidianWindow).app?.commands?.executeCommandById(id);
   }, commandId);
 }

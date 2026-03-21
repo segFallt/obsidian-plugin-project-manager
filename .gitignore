@@ -1,5 +1,6 @@
 node_modules/
 main.js
+!e2e/fixtures/.dataview-cache/main.js
 *.js.map
 .DS_Store
 dist/

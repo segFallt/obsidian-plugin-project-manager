@@ -135,14 +135,15 @@ test('Relationship chain: parent links are written when parent entities are pre-
 
   // 3. Assert the engagement frontmatter links to the seeded client
   const engagementFrontmatter = await window.evaluate(() => {
-    const obsApp = (window as ObsidianWindow).app;
+    const obsApp = (window as unknown as ObsidianWindow).app;
+    if (!obsApp?.workspace || !obsApp?.metadataCache) return null;
     const file = obsApp.workspace.getActiveFile();
     if (!file) return null;
     return obsApp.metadataCache.getFileCache(file)?.frontmatter ?? null;
   });
 
   expect(engagementFrontmatter).not.toBeNull();
-  expect(engagementFrontmatter.client).toBe('[[Seed Client]]');
+  expect(engagementFrontmatter!.client).toBe('[[Seed Client]]');
 
   // 4. Wait for Dataview to index the pre-seeded #engagement entity.
   //    minCount=1 is sufficient: Seed Engagement is in the fixture and indexed at startup.
@@ -161,12 +162,13 @@ test('Relationship chain: parent links are written when parent entities are pre-
 
   // 6. Assert the project frontmatter links to the seeded engagement
   const projectFrontmatter = await window.evaluate(() => {
-    const obsApp = (window as ObsidianWindow).app;
+    const obsApp = (window as unknown as ObsidianWindow).app;
+    if (!obsApp?.workspace || !obsApp?.metadataCache) return null;
     const file = obsApp.workspace.getActiveFile();
     if (!file) return null;
     return obsApp.metadataCache.getFileCache(file)?.frontmatter ?? null;
   });
 
   expect(projectFrontmatter).not.toBeNull();
-  expect(projectFrontmatter.engagement).toBe('[[Seed Engagement]]');
+  expect(projectFrontmatter!.engagement).toBe('[[Seed Engagement]]');
 });
