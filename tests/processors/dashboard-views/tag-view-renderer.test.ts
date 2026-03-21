@@ -4,16 +4,17 @@ import { createMockTask } from "../../mocks/dataview-mock";
 import type { ITaskSortService } from "../../../src/services/interfaces";
 import type { TaskListRenderer } from "../../../src/processors/task-list-renderer";
 import type { DashboardFilters } from "../../../src/types";
+import { DEFAULT_DUE_DATE_FILTER } from "../../../src/constants";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function makeFilters(overrides: Partial<DashboardFilters> = {}): DashboardFilters {
   return {
     viewMode: "tag",
-    sortBy: "none",
+    sortBy: [],
     showCompleted: false,
     contextFilter: [],
-    dueDateFilter: "All",
+    dueDateFilter: DEFAULT_DUE_DATE_FILTER,
     priorityFilter: [],
     projectStatusFilter: [],
     inboxStatusFilter: "All",
@@ -22,6 +23,8 @@ function makeFilters(overrides: Partial<DashboardFilters> = {}): DashboardFilter
     engagementFilter: [],
     includeUnassignedClients: false,
     includeUnassignedEngagements: false,
+    tagFilter: [],
+    includeUntagged: false,
     searchText: "",
     ...overrides,
   };

@@ -1,4 +1,4 @@
-import type { DataviewTask, SortBy } from "../types";
+import type { DataviewTask, SortKey } from "../types";
 import { getTaskPriority } from "../utils/task-utils";
 import { SORT_SENTINEL, ISO_DATE_LENGTH } from "../constants";
 import type { ITaskSortService } from "./interfaces";
@@ -11,61 +11,102 @@ import type { ITaskSortService } from "./interfaces";
  */
 export class TaskSortService implements ITaskSortService {
   /**
-   * Sorts an array of tasks by the given sort key.
-   * Returns the original array reference if sortBy is "none".
+   * Sorts an array of tasks by an ordered list of sort keys (multi-key sort).
+   * Returns a shallow copy with no sort applied when keys is empty.
+   * JS Array.sort is stable in V8, so key order is honoured correctly.
    */
-  sortTasks(tasks: DataviewTask[], sortBy: SortBy): DataviewTask[] {
-    if (sortBy === "none") return tasks;
-    const isDesc = sortBy.endsWith("-desc");
+  sortTasks(
+    tasks: DataviewTask[],
+    keys: SortKey[],
+    contextMap?: Map<string, string>,
+    mtimeMap?: Map<string, number>
+  ): DataviewTask[] {
+    if (keys.length === 0) return [...tasks];
 
-    if (sortBy.startsWith("dueDate")) {
-      return [...tasks].sort((a, b) => {
-        const aDate = a.due
-          ? String(a.due).substring(0, ISO_DATE_LENGTH)
-          : isDesc ? SORT_SENTINEL.MIN : SORT_SENTINEL.MAX;
-        const bDate = b.due
-          ? String(b.due).substring(0, ISO_DATE_LENGTH)
-          : isDesc ? SORT_SENTINEL.MIN : SORT_SENTINEL.MAX;
-        return isDesc ? bDate.localeCompare(aDate) : aDate.localeCompare(bDate);
-      });
-    }
-
-    if (sortBy.startsWith("priority")) {
-      return [...tasks].sort((a, b) => {
-        const ap = getTaskPriority(a);
-        const bp = getTaskPriority(b);
-        return isDesc ? bp - ap : ap - bp;
-      });
-    }
-
-    return tasks;
+    return [...tasks].sort((a, b) => {
+      for (const key of keys) {
+        const result = compareByKey(a, b, key, contextMap, mtimeMap);
+        if (result !== 0) return result;
+      }
+      return 0;
+    });
   }
 
   /**
    * Compares two groups of tasks for use when sorting file groups.
+   * Sorts each group internally and compares their representative tasks.
    * Returns a negative/zero/positive value suitable for Array.sort().
    */
-  compareGroups(aTasks: DataviewTask[], bTasks: DataviewTask[], sortBy: SortBy): number {
-    if (sortBy === "none") return 0;
-    const isDesc = sortBy.endsWith("-desc");
+  compareGroups(
+    aTasks: DataviewTask[],
+    bTasks: DataviewTask[],
+    keys: SortKey[],
+    contextMap?: Map<string, string>,
+    mtimeMap?: Map<string, number>
+  ): number {
+    if (keys.length === 0) return 0;
 
-    if (sortBy.startsWith("dueDate")) {
-      const pick = isDesc ? "pop" : "shift";
-      const aDates = aTasks.filter((t) => t.due).map((t) => String(t.due).substring(0, ISO_DATE_LENGTH)).sort();
-      const bDates = bTasks.filter((t) => t.due).map((t) => String(t.due).substring(0, ISO_DATE_LENGTH)).sort();
-      const aBest = aDates[pick]?.();
-      const bBest = bDates[pick]?.();
-      const aKey = aBest ?? (isDesc ? SORT_SENTINEL.MIN : SORT_SENTINEL.MAX);
-      const bKey = bBest ?? (isDesc ? SORT_SENTINEL.MIN : SORT_SENTINEL.MAX);
-      return isDesc ? bKey.localeCompare(aKey) : aKey.localeCompare(bKey);
+    const aSorted = this.sortTasks(aTasks, keys, contextMap, mtimeMap);
+    const bSorted = this.sortTasks(bTasks, keys, contextMap, mtimeMap);
+
+    const aRep = aSorted[0];
+    const bRep = bSorted[0];
+
+    if (!aRep && !bRep) return 0;
+    if (!aRep) return 1;
+    if (!bRep) return -1;
+
+    for (const key of keys) {
+      const result = compareByKey(aRep, bRep, key, contextMap, mtimeMap);
+      if (result !== 0) return result;
     }
-
-    if (sortBy.startsWith("priority")) {
-      const aMin = Math.min(...aTasks.map((t) => getTaskPriority(t)));
-      const bMin = Math.min(...bTasks.map((t) => getTaskPriority(t)));
-      return isDesc ? bMin - aMin : aMin - bMin;
-    }
-
     return 0;
+  }
+}
+
+// ─── Comparator helpers ───────────────────────────────────────────────────
+
+/**
+ * Compares two tasks by a single SortKey.
+ * Returns negative if a < b, positive if a > b, zero if equal.
+ */
+function compareByKey(
+  a: DataviewTask,
+  b: DataviewTask,
+  key: SortKey,
+  contextMap?: Map<string, string>,
+  mtimeMap?: Map<string, number>
+): number {
+  const dir = key.direction === "desc" ? -1 : 1;
+
+  switch (key.field) {
+    case "dueDate": {
+      const sentinel = key.direction === "desc" ? SORT_SENTINEL.MIN : SORT_SENTINEL.MAX;
+      const aDate = a.due ? String(a.due).substring(0, ISO_DATE_LENGTH) : sentinel;
+      const bDate = b.due ? String(b.due).substring(0, ISO_DATE_LENGTH) : sentinel;
+      return dir * aDate.localeCompare(bDate);
+    }
+    case "priority": {
+      const ap = getTaskPriority(a);
+      const bp = getTaskPriority(b);
+      return dir * (ap - bp);
+    }
+    case "alphabetical": {
+      const aText = a.text.toLowerCase();
+      const bText = b.text.toLowerCase();
+      return dir * aText.localeCompare(bText);
+    }
+    case "context": {
+      const aCtx = contextMap?.get(a.path) ?? "";
+      const bCtx = contextMap?.get(b.path) ?? "";
+      return dir * aCtx.localeCompare(bCtx);
+    }
+    case "createdDate": {
+      const aMtime = mtimeMap?.get(a.path) ?? 0;
+      const bMtime = mtimeMap?.get(b.path) ?? 0;
+      return dir * (aMtime - bMtime);
+    }
+    default:
+      return 0;
   }
 }

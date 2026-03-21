@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { PriorityViewRenderer } from "../../../src/processors/dashboard-views/priority-view-renderer";
 import { createMockTask } from "../../mocks/dataview-mock";
-import { PRIORITY_DISPLAY } from "../../../src/constants";
+import { PRIORITY_DISPLAY, DEFAULT_DUE_DATE_FILTER } from "../../../src/constants";
 import type { ITaskSortService } from "../../../src/services/interfaces";
 import type { TaskListRenderer } from "../../../src/processors/task-list-renderer";
 import type { DashboardFilters } from "../../../src/types";
@@ -11,10 +11,10 @@ import type { DashboardFilters } from "../../../src/types";
 function makeFilters(overrides: Partial<DashboardFilters> = {}): DashboardFilters {
   return {
     viewMode: "priority",
-    sortBy: "none",
+    sortBy: [],
     showCompleted: false,
     contextFilter: [],
-    dueDateFilter: "All",
+    dueDateFilter: DEFAULT_DUE_DATE_FILTER,
     priorityFilter: [],
     projectStatusFilter: [],
     inboxStatusFilter: "All",
@@ -23,6 +23,8 @@ function makeFilters(overrides: Partial<DashboardFilters> = {}): DashboardFilter
     engagementFilter: [],
     includeUnassignedClients: false,
     includeUnassignedEngagements: false,
+    tagFilter: [],
+    includeUntagged: false,
     searchText: "",
     ...overrides,
   };
@@ -93,6 +95,7 @@ describe("PriorityViewRenderer", () => {
       makeFilters()
     );
     const headings = [...el.querySelectorAll("h2")].map((h) => h.textContent);
-    expect(headings).not.toContain(PRIORITY_DISPLAY[5]);
+    // Only 4 priorities exist now (1-4); low priority (4) should not render if no low-priority tasks
+    expect(headings).not.toContain(PRIORITY_DISPLAY[4]);
   });
 });

@@ -136,7 +136,7 @@ Filter state is a plain JS object local to the render child — no frontmatter w
 
 - `ContextViewRenderer` — groups by context (Project / Person / Meeting / Inbox / etc.)
 - `DateViewRenderer` — groups into Overdue / Today / Tomorrow / This Week / Upcoming / No Date
-- `PriorityViewRenderer` — groups by priority level 1–5
+- `PriorityViewRenderer` — groups by priority level 1–4 (Urgent → Low)
 - `TagViewRenderer` — groups by tag, Untagged last
 
 Checkbox toggle reads the source file, updates the task line, and writes back via `vault.modify()`.

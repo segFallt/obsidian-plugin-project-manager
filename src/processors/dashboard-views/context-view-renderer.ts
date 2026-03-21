@@ -21,7 +21,9 @@ export class ContextViewRenderer {
     container: HTMLElement,
     tasks: DataviewTask[],
     f: DashboardFilters,
-    dv: DataviewApi
+    dv: DataviewApi,
+    contextMap?: Map<string, string>,
+    mtimeMap?: Map<string, number>
   ): Promise<void> {
     for (const context of TASK_CONTEXTS) {
       const ctxTasks = tasks.filter(
@@ -78,7 +80,7 @@ export class ContextViewRenderer {
 
       const fileGroups = Object.entries(byFile)
         .map(([fp, ts]) => ({ filePath: fp, tasks: ts }))
-        .sort((a, b) => this.sortService.compareGroups(a.tasks, b.tasks, f.sortBy));
+        .sort((a, b) => this.sortService.compareGroups(a.tasks, b.tasks, f.sortBy, contextMap, mtimeMap));
 
       for (const { filePath, tasks: fileTasks } of fileGroups) {
         const page = dv.page(filePath);
@@ -91,7 +93,7 @@ export class ContextViewRenderer {
           if (directTasks.length > 0) {
             await this.renderer.renderTaskList(
               container,
-              this.sortService.sortTasks(directTasks, f.sortBy)
+              this.sortService.sortTasks(directTasks, f.sortBy, contextMap, mtimeMap)
             );
           }
           for (const [notePath, noteTasks] of Object.entries(projectNoteMapping[filePath])) {
@@ -101,7 +103,7 @@ export class ContextViewRenderer {
               `<a class="${CSS_CLS.INTERNAL_LINK}" data-href="${notePath}" href="${notePath}">${noteName}</a>`;
             await this.renderer.renderTaskList(
               container,
-              this.sortService.sortTasks(noteTasks, f.sortBy)
+              this.sortService.sortTasks(noteTasks, f.sortBy, contextMap, mtimeMap)
             );
           }
         } else if (context === CONTEXT.RECURRING_MEETING && recurringMeetingMapping[filePath]) {
@@ -112,13 +114,13 @@ export class ContextViewRenderer {
               `<a class="${CSS_CLS.INTERNAL_LINK}" data-href="${eventPath}" href="${eventPath}">${eventName}</a>`;
             await this.renderer.renderTaskList(
               container,
-              this.sortService.sortTasks(eventTasks, f.sortBy)
+              this.sortService.sortTasks(eventTasks, f.sortBy, contextMap, mtimeMap)
             );
           }
         } else {
           await this.renderer.renderTaskList(
             container,
-            this.sortService.sortTasks(fileTasks, f.sortBy)
+            this.sortService.sortTasks(fileTasks, f.sortBy, contextMap, mtimeMap)
           );
         }
       }

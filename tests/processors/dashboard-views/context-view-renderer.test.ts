@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { ContextViewRenderer } from "../../../src/processors/dashboard-views/context-view-renderer";
 import { createMockTask, createMockDataviewApi } from "../../mocks/dataview-mock";
-import { DEFAULT_FOLDERS } from "../../../src/constants";
+import { DEFAULT_FOLDERS, DEFAULT_DUE_DATE_FILTER } from "../../../src/constants";
 import type { TaskProcessorServices } from "../../../src/plugin-context";
 import type { ITaskSortService } from "../../../src/services/interfaces";
 import type { TaskListRenderer } from "../../../src/processors/task-list-renderer";
@@ -12,10 +12,10 @@ import type { DashboardFilters } from "../../../src/types";
 function makeFilters(overrides: Partial<DashboardFilters> = {}): DashboardFilters {
   return {
     viewMode: "context",
-    sortBy: "none",
+    sortBy: [],
     showCompleted: false,
     contextFilter: [],
-    dueDateFilter: "All",
+    dueDateFilter: DEFAULT_DUE_DATE_FILTER,
     priorityFilter: [],
     projectStatusFilter: [],
     inboxStatusFilter: "All",
@@ -24,6 +24,8 @@ function makeFilters(overrides: Partial<DashboardFilters> = {}): DashboardFilter
     engagementFilter: [],
     includeUnassignedClients: false,
     includeUnassignedEngagements: false,
+    tagFilter: [],
+    includeUntagged: false,
     searchText: "",
     ...overrides,
   };

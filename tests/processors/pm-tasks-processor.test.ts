@@ -176,36 +176,36 @@ describe("pm-tasks processor", () => {
   // ─── Dashboard mode ───────────────────────────────────────────────────────
 
   describe("dashboard mode", () => {
-    it("renders dashboard container and controls", () => {
+    it("renders dashboard container and toolbar", () => {
       const { el } = render("mode: dashboard");
       expect(el.querySelector(".pm-tasks-dashboard")).not.toBeNull();
-      expect(el.querySelector(".pm-tasks-dashboard__controls")).not.toBeNull();
+      expect(el.querySelector(".pm-tasks-toolbar")).not.toBeNull();
       expect(el.querySelector(".pm-tasks-dashboard__output")).not.toBeNull();
     });
 
-    it("renders view-mode and sort selects in controls", () => {
+    it("renders view-mode tabs in toolbar", () => {
       const { el } = render("mode: dashboard");
-      const selects = el.querySelectorAll("select");
-      // At minimum: view, sort, inbox status, meeting date, and filter selects
-      expect(selects.length).toBeGreaterThan(0);
+      const tabs = el.querySelectorAll(".pm-tasks-toolbar__tab");
+      // At minimum: context, date, priority, tag
+      expect(tabs.length).toBeGreaterThanOrEqual(4);
     });
 
-    it("renders show-completed checkbox in controls", () => {
+    it("renders search input in toolbar", () => {
       const { el } = render("mode: dashboard");
-      const checkboxes = el.querySelectorAll("input[type='checkbox']");
-      expect(checkboxes.length).toBeGreaterThan(0);
+      const search = el.querySelector(".pm-tasks-toolbar__search");
+      expect(search).not.toBeNull();
     });
 
-    it("renders collapsible filter sections", () => {
+    it("renders filters drawer with filter controls", () => {
       const { el } = render("mode: dashboard");
-      const details = el.querySelectorAll("details");
-      expect(details.length).toBeGreaterThanOrEqual(3); // Context, Date, Priority
+      const drawer = el.querySelector(".pm-tasks-drawer");
+      expect(drawer).not.toBeNull();
     });
 
-    it("renders Clear Filters button", () => {
+    it("renders Clear All Filters button in drawer", () => {
       const { el } = render("mode: dashboard");
       const buttons = [...el.querySelectorAll("button")];
-      expect(buttons.some((b) => b.textContent === "Clear Filters")).toBe(true);
+      expect(buttons.some((b) => b.textContent === "✕ Clear All Filters")).toBe(true);
     });
 
     it("shows Dataview-not-available message when dv() returns null", () => {
@@ -458,12 +458,12 @@ describe("pm-tasks processor", () => {
       const { el } = render("mode: dashboard", {
         frontmatter: { "pm-tasks-filters": savedFilters },
       });
-      // The view-mode select should reflect the saved viewMode
-      const viewSelect = el.querySelector<HTMLSelectElement>(
-        "select[aria-label='View mode']"
+      // The active tab should reflect the saved viewMode
+      const activeTab = el.querySelector<HTMLButtonElement>(
+        ".pm-tasks-toolbar__tab--active"
       );
-      expect(viewSelect).not.toBeNull();
-      expect(viewSelect!.value).toBe("priority");
+      expect(activeTab).not.toBeNull();
+      expect(activeTab!.textContent).toBe("Priority");
     });
 
     it("persistFilters writes to processFrontMatter after debounce", async () => {
@@ -474,13 +474,11 @@ describe("pm-tasks processor", () => {
         frontmatter: {},
       });
 
-      // Trigger a filter change via the view-mode select
-      const viewSelect = el.querySelector<HTMLSelectElement>(
-        "select[aria-label='View mode']"
-      );
-      expect(viewSelect).not.toBeNull();
-      viewSelect!.value = "priority";
-      viewSelect!.dispatchEvent(new Event("change"));
+      // Trigger a filter change via a tab click
+      const tabs = [...el.querySelectorAll<HTMLButtonElement>(".pm-tasks-toolbar__tab")];
+      const priorityTab = tabs.find((t) => t.textContent === "Priority");
+      expect(priorityTab).not.toBeUndefined();
+      priorityTab!.click();
 
       expect(processFrontMatter).not.toHaveBeenCalled();
 
@@ -525,11 +523,9 @@ describe("pm-tasks processor", () => {
       const vaultModifyCallback = mock.vaultOn.mock.calls[0][1] as () => void;
 
       // Trigger a filter change to kick off debounced persist
-      const viewSelect = el.querySelector<HTMLSelectElement>(
-        "select[aria-label='View mode']"
-      );
-      viewSelect!.value = "priority";
-      viewSelect!.dispatchEvent(new Event("change"));
+      const tabs = [...el.querySelectorAll<HTMLButtonElement>(".pm-tasks-toolbar__tab")];
+      const priorityTab = tabs.find((t) => t.textContent === "Priority");
+      priorityTab!.click();
 
       // Advance timers so persistFilters starts (sets isUpdating = true)
       await vi.runAllTimersAsync();

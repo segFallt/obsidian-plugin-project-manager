@@ -10,7 +10,7 @@ import type {
   ParsedTask,
   EntityType,
   CreateFileResult,
-  SortBy,
+  SortKey,
 } from "../types";
 
 /**
@@ -123,8 +123,8 @@ export interface ITaskFilterService {
 }
 
 export interface ITaskSortService {
-  sortTasks(tasks: DataviewTask[], sortBy: SortBy): DataviewTask[];
-  compareGroups(aTasks: DataviewTask[], bTasks: DataviewTask[], sortBy: SortBy): number;
+  sortTasks(tasks: DataviewTask[], keys: SortKey[], contextMap?: Map<string, string>, mtimeMap?: Map<string, number>): DataviewTask[];
+  compareGroups(aTasks: DataviewTask[], bTasks: DataviewTask[], keys: SortKey[], contextMap?: Map<string, string>, mtimeMap?: Map<string, number>): number;
 }
 
 export interface ILoggerService {

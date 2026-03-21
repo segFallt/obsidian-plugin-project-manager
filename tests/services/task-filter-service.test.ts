@@ -2,20 +2,20 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { TaskFilterService } from "@/services/task-filter-service";
 import { createMockTask, createMockDataviewApi, createMockPage } from "../mocks/dataview-mock";
 import type { DashboardFilters, DueDateFilter } from "@/types";
-import { DEFAULT_FOLDERS } from "@/constants";
+import { DEFAULT_FOLDERS, DEFAULT_DUE_DATE_FILTER } from "@/constants";
 import type { FolderSettings } from "@/settings";
 
 const defaultFolders = DEFAULT_FOLDERS as unknown as FolderSettings;
 
 // ─── Test helpers ─────────────────────────────────────────────────────────
 
-/** Default DueDateFilter that shows all tasks (no range, no includeNoDate). */
-const ALL_DUE_DATE_FILTER: DueDateFilter = { rangeFrom: null, rangeTo: null, includeNoDate: false };
+/** Default DueDateFilter that shows all tasks (no presets, no range). */
+const ALL_DUE_DATE_FILTER: DueDateFilter = { selectedPresets: [], rangeFrom: null, rangeTo: null };
 
 function makeFilters(overrides: Partial<DashboardFilters> = {}): DashboardFilters {
   return {
     viewMode: "context",
-    sortBy: "none",
+    sortBy: [],
     showCompleted: true,
     contextFilter: [],
     dueDateFilter: ALL_DUE_DATE_FILTER,
@@ -119,7 +119,7 @@ describe("TaskFilterService.applyDashboardFilters", () => {
     ];
     const result = service.applyDashboardFilters(
       tasks,
-      makeFilters({ dueDateFilter: { rangeFrom: today, rangeTo: today, includeNoDate: false } }),
+      makeFilters({ dueDateFilter: { selectedPresets: ["Today"], rangeFrom: null, rangeTo: null } }),
       dv,
       makeQueryService()
     );
@@ -155,20 +155,20 @@ function offsetDate(days: number): string {
 }
 
 describe("TaskFilterService.matchesDueDateFilter — inactive filter", () => {
-  it("filter not active (all null, includeNoDate=false) — shows all tasks", () => {
+  it("filter not active (no presets, all null) — shows all tasks", () => {
     const task = createMockTask({ path: "t.md" });
     const noDate = createMockTask({ path: "t.md" });
-    const filter: DueDateFilter = { rangeFrom: null, rangeTo: null, includeNoDate: false };
+    const filter: DueDateFilter = { selectedPresets: [], rangeFrom: null, rangeTo: null };
     expect(service.matchesDueDateFilter(task, filter)).toBe(true);
     expect(service.matchesDueDateFilter(noDate, filter)).toBe(true);
   });
 });
 
-describe("TaskFilterService.matchesDueDateFilter — range mode", () => {
+describe("TaskFilterService.matchesDueDateFilter — range mode (custom rangeFrom/rangeTo)", () => {
   const today = new Date().toISOString().split("T")[0];
 
-  it("Today range — matches only today's date", () => {
-    const filter: DueDateFilter = { rangeFrom: today, rangeTo: today, includeNoDate: false };
+  it("custom range today→today — matches only today's date", () => {
+    const filter: DueDateFilter = { selectedPresets: [], rangeFrom: today, rangeTo: today };
     const taskToday = createMockTask({ path: "t.md", due: today });
     expect(service.matchesDueDateFilter(taskToday, filter)).toBe(true);
 
@@ -176,9 +176,9 @@ describe("TaskFilterService.matchesDueDateFilter — range mode", () => {
     expect(service.matchesDueDateFilter(taskOld, filter)).toBe(false);
   });
 
-  it("Tomorrow range — matches only tomorrow's date", () => {
+  it("custom range tomorrow→tomorrow — matches only tomorrow's date", () => {
     const tomorrow = offsetDate(1);
-    const filter: DueDateFilter = { rangeFrom: tomorrow, rangeTo: tomorrow, includeNoDate: false };
+    const filter: DueDateFilter = { selectedPresets: [], rangeFrom: tomorrow, rangeTo: tomorrow };
     const taskTomorrow = createMockTask({ path: "t.md", due: tomorrow });
     expect(service.matchesDueDateFilter(taskTomorrow, filter)).toBe(true);
 
@@ -186,8 +186,8 @@ describe("TaskFilterService.matchesDueDateFilter — range mode", () => {
     expect(service.matchesDueDateFilter(taskToday, filter)).toBe(false);
   });
 
-  it("This Week range — matches tasks due today through +7 days (inclusive)", () => {
-    const filter: DueDateFilter = { rangeFrom: today, rangeTo: offsetDate(7), includeNoDate: false };
+  it("custom range today→+7 — matches tasks due today through +7 days (inclusive)", () => {
+    const filter: DueDateFilter = { selectedPresets: [], rangeFrom: today, rangeTo: offsetDate(7) };
     const taskToday = createMockTask({ path: "t.md", due: today });
     const taskPlus3 = createMockTask({ path: "t.md", due: offsetDate(3) });
     const taskPlus7 = createMockTask({ path: "t.md", due: offsetDate(7) });
@@ -201,14 +201,14 @@ describe("TaskFilterService.matchesDueDateFilter — range mode", () => {
     expect(service.matchesDueDateFilter(taskPast, filter)).toBe(false);
   });
 
-  it("This Week — exact boundaries (today and today+7) are included", () => {
-    const filter: DueDateFilter = { rangeFrom: today, rangeTo: offsetDate(7), includeNoDate: false };
+  it("custom range — exact boundaries (rangeFrom and rangeTo) are included", () => {
+    const filter: DueDateFilter = { selectedPresets: [], rangeFrom: today, rangeTo: offsetDate(7) };
     expect(service.matchesDueDateFilter(createMockTask({ path: "t.md", due: today }), filter)).toBe(true);
     expect(service.matchesDueDateFilter(createMockTask({ path: "t.md", due: offsetDate(7) }), filter)).toBe(true);
   });
 
-  it("Next Week range — matches tasks due +8 through +14 days", () => {
-    const filter: DueDateFilter = { rangeFrom: offsetDate(8), rangeTo: offsetDate(14), includeNoDate: false };
+  it("custom range +8→+14 — matches tasks due +8 through +14 days", () => {
+    const filter: DueDateFilter = { selectedPresets: [], rangeFrom: offsetDate(8), rangeTo: offsetDate(14) };
     const taskPlus7 = createMockTask({ path: "t.md", due: offsetDate(7) });
     const taskPlus8 = createMockTask({ path: "t.md", due: offsetDate(8) });
     const taskPlus14 = createMockTask({ path: "t.md", due: offsetDate(14) });
@@ -220,8 +220,8 @@ describe("TaskFilterService.matchesDueDateFilter — range mode", () => {
     expect(service.matchesDueDateFilter(taskPlus15, filter)).toBe(false);
   });
 
-  it("Overdue range — matches dates strictly before today", () => {
-    const filter: DueDateFilter = { rangeFrom: null, rangeTo: offsetDate(-1), includeNoDate: false };
+  it("custom range null→yesterday — matches dates strictly before today", () => {
+    const filter: DueDateFilter = { selectedPresets: [], rangeFrom: null, rangeTo: offsetDate(-1) };
     const overdueTask = createMockTask({ path: "t.md", due: "2020-01-01" });
     expect(service.matchesDueDateFilter(overdueTask, filter)).toBe(true);
 
@@ -233,79 +233,115 @@ describe("TaskFilterService.matchesDueDateFilter — range mode", () => {
   });
 
   it("range from-only: tasks on/after rangeFrom pass, before fail", () => {
-    const filter: DueDateFilter = { rangeFrom: "2025-06-01", rangeTo: null, includeNoDate: false };
+    const filter: DueDateFilter = { selectedPresets: [], rangeFrom: "2025-06-01", rangeTo: null };
     expect(service.matchesDueDateFilter(createMockTask({ path: "t.md", due: "2025-06-01" }), filter)).toBe(true);
     expect(service.matchesDueDateFilter(createMockTask({ path: "t.md", due: "2025-07-15" }), filter)).toBe(true);
     expect(service.matchesDueDateFilter(createMockTask({ path: "t.md", due: "2025-05-31" }), filter)).toBe(false);
   });
 
   it("range to-only: tasks on/before rangeTo pass, after fail", () => {
-    const filter: DueDateFilter = { rangeFrom: null, rangeTo: "2025-06-30", includeNoDate: false };
+    const filter: DueDateFilter = { selectedPresets: [], rangeFrom: null, rangeTo: "2025-06-30" };
     expect(service.matchesDueDateFilter(createMockTask({ path: "t.md", due: "2025-06-30" }), filter)).toBe(true);
     expect(service.matchesDueDateFilter(createMockTask({ path: "t.md", due: "2025-01-01" }), filter)).toBe(true);
     expect(service.matchesDueDateFilter(createMockTask({ path: "t.md", due: "2025-07-01" }), filter)).toBe(false);
   });
 
   it("range from+to: tasks within range pass, outside fail", () => {
-    const filter: DueDateFilter = { rangeFrom: "2025-06-01", rangeTo: "2025-06-30", includeNoDate: false };
+    const filter: DueDateFilter = { selectedPresets: [], rangeFrom: "2025-06-01", rangeTo: "2025-06-30" };
     expect(service.matchesDueDateFilter(createMockTask({ path: "t.md", due: "2025-06-15" }), filter)).toBe(true);
     expect(service.matchesDueDateFilter(createMockTask({ path: "t.md", due: "2025-05-31" }), filter)).toBe(false);
     expect(service.matchesDueDateFilter(createMockTask({ path: "t.md", due: "2025-07-01" }), filter)).toBe(false);
   });
 
   it("range boundaries are inclusive (exact rangeFrom and rangeTo dates pass)", () => {
-    const filter: DueDateFilter = { rangeFrom: "2025-06-01", rangeTo: "2025-06-30", includeNoDate: false };
+    const filter: DueDateFilter = { selectedPresets: [], rangeFrom: "2025-06-01", rangeTo: "2025-06-30" };
     expect(service.matchesDueDateFilter(createMockTask({ path: "t.md", due: "2025-06-01" }), filter)).toBe(true);
     expect(service.matchesDueDateFilter(createMockTask({ path: "t.md", due: "2025-06-30" }), filter)).toBe(true);
   });
 
-  it("no-date task is excluded when includeNoDate is false", () => {
-    const filter: DueDateFilter = { rangeFrom: "2025-06-01", rangeTo: "2025-06-30", includeNoDate: false };
+  it("no-date task is excluded when no 'No Date' preset and a range is active", () => {
+    const filter: DueDateFilter = { selectedPresets: [], rangeFrom: "2025-06-01", rangeTo: "2025-06-30" };
     expect(service.matchesDueDateFilter(createMockTask({ path: "t.md" }), filter)).toBe(false);
   });
 });
 
-describe("TaskFilterService.matchesDueDateFilter — includeNoDate", () => {
-  it("task with no due date returns true when includeNoDate=true and range is null", () => {
-    const filter: DueDateFilter = { rangeFrom: null, rangeTo: null, includeNoDate: true };
+describe("TaskFilterService.matchesDueDateFilter — selectedPresets", () => {
+  it("task with no due date returns true when 'No Date' preset is selected and no range", () => {
+    const filter: DueDateFilter = { selectedPresets: ["No Date"], rangeFrom: null, rangeTo: null };
     const noDate = createMockTask({ path: "t.md" });
     expect(service.matchesDueDateFilter(noDate, filter)).toBe(true);
   });
 
-  it("task with no due date returns false when includeNoDate=false and range is null (filter inactive, returns true)", () => {
-    // When all fields are null/false, filter is inactive — everything passes
-    const filter: DueDateFilter = { rangeFrom: null, rangeTo: null, includeNoDate: false };
+  it("task with no due date returns true when filter is inactive (no presets, no range)", () => {
+    // When all fields are empty/null, filter is inactive — everything passes
+    const filter: DueDateFilter = { selectedPresets: [], rangeFrom: null, rangeTo: null };
     const noDate = createMockTask({ path: "t.md" });
     expect(service.matchesDueDateFilter(noDate, filter)).toBe(true);
   });
 
-  it("task with no due date returns false when includeNoDate=false but a range is active", () => {
-    const filter: DueDateFilter = { rangeFrom: "2025-06-01", rangeTo: "2025-06-30", includeNoDate: false };
+  it("task with no due date returns false when a range is active but no 'No Date' preset", () => {
+    const filter: DueDateFilter = { selectedPresets: [], rangeFrom: "2025-06-01", rangeTo: "2025-06-30" };
     const noDate = createMockTask({ path: "t.md" });
     expect(service.matchesDueDateFilter(noDate, filter)).toBe(false);
   });
 
-  it("task with no due date returns true when includeNoDate=true alongside a date range", () => {
-    const filter: DueDateFilter = { rangeFrom: "2025-06-01", rangeTo: "2025-06-30", includeNoDate: true };
+  it("task with no due date returns true when 'No Date' preset is selected alongside a date range", () => {
+    const filter: DueDateFilter = { selectedPresets: ["No Date"], rangeFrom: "2025-06-01", rangeTo: "2025-06-30" };
     const noDate = createMockTask({ path: "t.md" });
     expect(service.matchesDueDateFilter(noDate, filter)).toBe(true);
   });
 
-  it("No Date — matches tasks with no due date", () => {
-    const filter: DueDateFilter = { rangeFrom: null, rangeTo: null, includeNoDate: true };
+  it("'No Date' preset — matches tasks with no due date, excludes tasks with due dates", () => {
+    const filter: DueDateFilter = { selectedPresets: ["No Date"], rangeFrom: null, rangeTo: null };
     const noDate = createMockTask({ path: "t.md" });
     expect(service.matchesDueDateFilter(noDate, filter)).toBe(true);
 
     const today = new Date().toISOString().split("T")[0];
     const withDate = createMockTask({ path: "t.md", due: today });
-    // With includeNoDate=true and no range, tasks with a date still pass (filter active but date not null, range is null/null so passes range check)
-    expect(service.matchesDueDateFilter(withDate, filter)).toBe(true);
+    // A task with a due date does NOT match "No Date" preset alone
+    expect(service.matchesDueDateFilter(withDate, filter)).toBe(false);
+  });
+
+  it("'Today' preset — matches tasks due today", () => {
+    const today = new Date().toISOString().split("T")[0];
+    const filter: DueDateFilter = { selectedPresets: ["Today"], rangeFrom: null, rangeTo: null };
+    expect(service.matchesDueDateFilter(createMockTask({ path: "t.md", due: today }), filter)).toBe(true);
+    expect(service.matchesDueDateFilter(createMockTask({ path: "t.md", due: "2020-01-01" }), filter)).toBe(false);
+  });
+
+  it("'Overdue' preset — matches tasks due before today", () => {
+    const filter: DueDateFilter = { selectedPresets: ["Overdue"], rangeFrom: null, rangeTo: null };
+    expect(service.matchesDueDateFilter(createMockTask({ path: "t.md", due: "2020-01-01" }), filter)).toBe(true);
+    const today = new Date().toISOString().split("T")[0];
+    expect(service.matchesDueDateFilter(createMockTask({ path: "t.md", due: today }), filter)).toBe(false);
+  });
+
+  it("OR logic: two presets active — task matches if it satisfies either", () => {
+    const today = new Date().toISOString().split("T")[0];
+    const filter: DueDateFilter = { selectedPresets: ["Today", "Overdue"], rangeFrom: null, rangeTo: null };
+    const overdueTask = createMockTask({ path: "t.md", due: "2020-01-01" });
+    const todayTask = createMockTask({ path: "t.md", due: today });
+    const futureTask = createMockTask({ path: "t.md", due: "2099-12-31" });
+    expect(service.matchesDueDateFilter(overdueTask, filter)).toBe(true);
+    expect(service.matchesDueDateFilter(todayTask, filter)).toBe(true);
+    expect(service.matchesDueDateFilter(futureTask, filter)).toBe(false);
+  });
+
+  it("OR logic: 'No Date' and 'Today' both active — no-date task and today-dated task both pass", () => {
+    const today = new Date().toISOString().split("T")[0];
+    const filter: DueDateFilter = { selectedPresets: ["No Date", "Today"], rangeFrom: null, rangeTo: null };
+    const noDate = createMockTask({ path: "t.md" });
+    const todayTask = createMockTask({ path: "t.md", due: today });
+    const futureTask = createMockTask({ path: "t.md", due: "2099-12-31" });
+    expect(service.matchesDueDateFilter(noDate, filter)).toBe(true);
+    expect(service.matchesDueDateFilter(todayTask, filter)).toBe(true);
+    expect(service.matchesDueDateFilter(futureTask, filter)).toBe(false);
   });
 });
 
 describe("TaskFilterService.isDueDateFilterActive (via matchesDueDateFilter)", () => {
-  it("filter is inactive when rangeFrom=null, rangeTo=null, includeNoDate=false", () => {
-    const filter: DueDateFilter = { rangeFrom: null, rangeTo: null, includeNoDate: false };
+  it("filter is inactive when selectedPresets=[], rangeFrom=null, rangeTo=null", () => {
+    const filter: DueDateFilter = { selectedPresets: [], rangeFrom: null, rangeTo: null };
     // Inactive filter passes all tasks
     const task = createMockTask({ path: "t.md", due: "2020-01-01" });
     const noDate = createMockTask({ path: "t.md" });
@@ -314,20 +350,20 @@ describe("TaskFilterService.isDueDateFilterActive (via matchesDueDateFilter)", (
   });
 
   it("filter is active when rangeFrom is set", () => {
-    const filter: DueDateFilter = { rangeFrom: "2025-01-01", rangeTo: null, includeNoDate: false };
+    const filter: DueDateFilter = { selectedPresets: [], rangeFrom: "2025-01-01", rangeTo: null };
     const beforeRange = createMockTask({ path: "t.md", due: "2024-12-31" });
     expect(service.matchesDueDateFilter(beforeRange, filter)).toBe(false);
   });
 
   it("filter is active when rangeTo is set", () => {
-    const filter: DueDateFilter = { rangeFrom: null, rangeTo: "2025-01-01", includeNoDate: false };
+    const filter: DueDateFilter = { selectedPresets: [], rangeFrom: null, rangeTo: "2025-01-01" };
     const afterRange = createMockTask({ path: "t.md", due: "2025-01-02" });
     expect(service.matchesDueDateFilter(afterRange, filter)).toBe(false);
   });
 
-  it("filter is active when includeNoDate is true", () => {
-    const filter: DueDateFilter = { rangeFrom: null, rangeTo: null, includeNoDate: true };
-    // Active: tasks with no date should pass, tasks with a date should also pass (no range restriction)
+  it("filter is active when 'No Date' preset is selected", () => {
+    const filter: DueDateFilter = { selectedPresets: ["No Date"], rangeFrom: null, rangeTo: null };
+    // Active: tasks with no date should pass
     const noDate = createMockTask({ path: "t.md" });
     expect(service.matchesDueDateFilter(noDate, filter)).toBe(true);
   });

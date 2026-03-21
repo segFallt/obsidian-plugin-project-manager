@@ -1,4 +1,4 @@
-import type { DataviewTask, DashboardFilters } from "../../types";
+import type { DataviewTask, DashboardFilters, SortField, SortDirection } from "../../types";
 import { ISO_DATE_LENGTH, WEEK_DAYS } from "../../constants";
 import { addDays } from "../../utils/task-utils";
 import { todayISO } from "../../utils/date-utils";
@@ -15,7 +15,13 @@ export class DateViewRenderer {
     private readonly renderer: TaskListRenderer
   ) {}
 
-  async render(container: HTMLElement, tasks: DataviewTask[], f: DashboardFilters): Promise<void> {
+  async render(
+    container: HTMLElement,
+    tasks: DataviewTask[],
+    f: DashboardFilters,
+    contextMap?: Map<string, string>,
+    mtimeMap?: Map<string, number>
+  ): Promise<void> {
     const today = todayISO();
     const tomorrow = addDays(today, 1);
     const weekEnd = addDays(today, WEEK_DAYS);
@@ -39,46 +45,49 @@ export class DateViewRenderer {
     );
     const noDue = tasks.filter((t) => !t.due);
 
+    const dueDateAsc = f.sortBy.length > 0 ? f.sortBy : [{ field: "dueDate" as SortField, direction: "asc" as SortDirection }];
+    const priorityAsc = f.sortBy.length > 0 ? f.sortBy : [{ field: "priority" as SortField, direction: "asc" as SortDirection }];
+
     if (overdue.length > 0) {
       container.createEl("h2", { text: "⚠️ Overdue" });
       await this.renderer.renderTaskList(
         container,
-        this.sortService.sortTasks(overdue, f.sortBy || "dueDate-asc")
+        this.sortService.sortTasks(overdue, dueDateAsc, contextMap, mtimeMap)
       );
     }
     if (todayTasks.length > 0) {
       container.createEl("h2", { text: "📅 Today" });
       await this.renderer.renderTaskList(
         container,
-        this.sortService.sortTasks(todayTasks, f.sortBy || "priority-asc")
+        this.sortService.sortTasks(todayTasks, priorityAsc, contextMap, mtimeMap)
       );
     }
     if (tomorrowTasks.length > 0) {
       container.createEl("h2", { text: "📆 Tomorrow" });
       await this.renderer.renderTaskList(
         container,
-        this.sortService.sortTasks(tomorrowTasks, f.sortBy || "priority-asc")
+        this.sortService.sortTasks(tomorrowTasks, priorityAsc, contextMap, mtimeMap)
       );
     }
     if (thisWeek.length > 0) {
       container.createEl("h2", { text: "📋 This Week" });
       await this.renderer.renderTaskList(
         container,
-        this.sortService.sortTasks(thisWeek, f.sortBy || "dueDate-asc")
+        this.sortService.sortTasks(thisWeek, dueDateAsc, contextMap, mtimeMap)
       );
     }
     if (upcoming.length > 0) {
       container.createEl("h2", { text: "🔮 Upcoming" });
       await this.renderer.renderTaskList(
         container,
-        this.sortService.sortTasks(upcoming, f.sortBy || "dueDate-asc")
+        this.sortService.sortTasks(upcoming, dueDateAsc, contextMap, mtimeMap)
       );
     }
     if (noDue.length > 0) {
       container.createEl("h2", { text: "📝 No Due Date" });
       await this.renderer.renderTaskList(
         container,
-        this.sortService.sortTasks(noDue, f.sortBy || "priority-asc")
+        this.sortService.sortTasks(noDue, priorityAsc, contextMap, mtimeMap)
       );
     }
   }
