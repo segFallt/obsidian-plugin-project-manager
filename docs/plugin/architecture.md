@@ -26,7 +26,7 @@ main.ts (Plugin)
   ├── commandExecutor: CommandExecutor(app)
   ├── testDataService: TestDataService(app, settings, templateService, loggerService)
   ├── commands/*   → CommandServices (narrow subset of services)
-  └── processors/* → TaskProcessorServices | PropertyProcessorServices | ActionProcessorServices
+  └── processors/* → TaskProcessorServices | PropertyProcessorServices | ActionProcessorServices | RaidProcessorServices
 ```
 
 ## Narrow Interface Pattern
@@ -40,6 +40,7 @@ Consumers declare only the services they actually need:
 | Property processors   | `PropertyProcessorServices` | app, settings, queryService, loggerService          |
 | Action processors     | `ActionProcessorServices`   | app, settings, commandExecutor, actionContext        |
 | Scaffold commands     | `ScaffoldCommandServices`   | scaffoldService, loggerService                      |
+| RAID processors       | `RaidProcessorServices`     | app, settings, queryService, loggerService          |
 
 `PluginServices` (the superset) is used only in `main.ts` for wiring and in test helpers.
 
@@ -140,6 +141,15 @@ Filter state is a plain JS object local to the render child — no frontmatter w
 
 Checkbox toggle reads the source file, updates the task line, and writes back via `vault.modify()`.
 
+### `pm-raid-references`
+Placed in each RAID item note. Uses `dv.pages("[[" + currentFile.basename + "]]")` to find all vault files that link to the current RAID item. For each backlink file, reads raw content via `vault.read()` and scans for lines containing the `{raid:(positive|negative|neutral)}[[ItemName]]` annotation pattern. Renders a grouped list of tagged lines with directional badges and source note links.
+
+### `pm-raid-dashboard`
+Renders a Likelihood × Impact heat-map matrix summary plus RAID items grouped by type (Risk / Assumption / Issue / Decision). Filter state is a plain JS object local to the render child — no frontmatter writes. Queries all `#raid` tagged pages via `QueryService`. Supports filtering by RAID type, status, client, engagement, and matrix cell selection.
+
+### `MarkdownPostProcessor` — RAID Badge Renderer
+Registered via `registerMarkdownPostProcessor` (not a code block processor). Scans rendered HTML for `{raid:(positive|negative|neutral)}` text nodes adjacent to internal wikilinks, resolves the linked RAID item's type from `metadataCache`, and replaces the pair with a styled `<span class="raid-badge">` + preserved link. Direction is mapped to a type-specific label (e.g. `positive` + Risk → "Mitigates").
+
 ## Architecture Decision Notes
 
 ### Why a facade for `EntityService`?
@@ -168,9 +178,10 @@ inbox/
 meetings/
   single/          ← single meeting notes
   recurring/       ← recurring meeting notes
+raid/              ← RAID item notes (#raid tag)
 daily notes/
 utility/
-views/             ← scaffolded view files
+views/             ← scaffolded view files (includes views/RAID.md)
 ```
 
 The scaffold service also creates `.base` files (Obsidian Bases) alongside `.md` view files. `.base` file content is defined in `src/services/scaffold-constants.ts`. `.md` view files embed these via `![[Base File.base#view_name]]` and include `pm-actions` buttons for entity creation. Obsidian Bases is a dependency for the entity list views.

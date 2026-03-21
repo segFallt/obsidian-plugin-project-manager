@@ -1,4 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
+import { INBOX_STATUSES } from "../../src/constants";
 import { EntityConversionService } from "../../src/services/entity-conversion-service";
 import { EntityCreationService } from "../../src/services/entity-creation-service";
 import { NavigationService } from "../../src/services/navigation-service";
@@ -33,7 +34,7 @@ describe("EntityConversionService", () => {
       expect(paths.some((p) => p.startsWith("projects/"))).toBe(true);
     });
 
-    it("marks inbox as Inactive with convertedTo link", async () => {
+    it("marks inbox as Complete with convertedTo link", async () => {
       const inboxFile = new TFile("inbox/Task.md");
       const { svc, app } = createSvc([{
         path: "inbox/Task.md",
@@ -49,7 +50,7 @@ describe("EntityConversionService", () => {
         inboxFile as unknown as import("obsidian").TFile,
         "New Project"
       );
-      expect(mutations["inbox/Task.md"]?.status).toBe("Inactive");
+      expect(mutations["inbox/Task.md"]?.status).toBe("Complete");
       expect(String(mutations["inbox/Task.md"]?.convertedTo ?? "")).toContain("New Project");
     });
 
@@ -101,6 +102,27 @@ describe("EntityConversionService", () => {
         "New Project"
       );
       expect(String(mutations["projects/New Project.md"]?.engagement ?? "")).toContain("My Eng");
+    });
+
+    it("sets inbox status to a value within INBOX_STATUSES after conversion", async () => {
+      const inboxFile = new TFile("inbox/Task.md");
+      const { svc, app } = createSvc([{
+        path: "inbox/Task.md",
+        frontmatter: { status: "Active" },
+      }]);
+      const mutations: Record<string, Record<string, unknown>> = {};
+      app.fileManager.processFrontMatter = async (f, fn) => {
+        const fm: Record<string, unknown> = {};
+        fn(fm);
+        mutations[f.path] = { ...(mutations[f.path] ?? {}), ...fm };
+      };
+      await svc.convertInboxToProject(
+        inboxFile as unknown as import("obsidian").TFile,
+        "New Project"
+      );
+      // Asserts against the authoritative INBOX_STATUSES list — guards against
+      // setting any invalid status (e.g. STATUS.INACTIVE) on conversion.
+      expect(INBOX_STATUSES).toContain(mutations["inbox/Task.md"]?.status);
     });
   });
 

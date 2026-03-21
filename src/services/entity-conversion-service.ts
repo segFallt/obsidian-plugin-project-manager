@@ -27,7 +27,7 @@ export class EntityConversionService implements IEntityConversionService {
    * - Engagement inherited from the inbox note
    *
    * Updates the inbox note's frontmatter:
-   * - `status` → "Inactive"
+   * - `status` → "Complete"
    * - `convertedTo` → link to the new project
    */
   async convertInboxToProject(inboxFile: TFile, projectName?: string): Promise<TFile> {
@@ -42,7 +42,7 @@ export class EntityConversionService implements IEntityConversionService {
     });
 
     await this.app.fileManager.processFrontMatter(inboxFile, (ifm: Record<string, unknown>) => {
-      ifm[FM_KEY.STATUS] = STATUS.INACTIVE;
+      ifm[FM_KEY.STATUS] = STATUS.COMPLETE;
       ifm[FM_KEY.CONVERTED_TO] = toWikilink(
         `${this.settings.folders.projects}/${projectFile.basename}`
       );
