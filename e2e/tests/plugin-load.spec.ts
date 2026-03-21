@@ -36,7 +36,7 @@ test('Project Manager plugin is loaded', async () => {
 
   // Verify plugin is registered via Obsidian's internal API
   const pluginLoaded = await window.evaluate(() => {
-    const obsApp = (window as ObsidianWindow).app;
+    const obsApp = (window as unknown as ObsidianWindow).app;
     return (
       obsApp?.plugins?.enabledPlugins?.has('project-manager') ?? false
     );
@@ -49,7 +49,7 @@ test('Project Manager commands are registered', async () => {
   const window = app.window;
 
   const commands = await window.evaluate(() => {
-    const obsApp = (window as ObsidianWindow).app;
+    const obsApp = (window as unknown as ObsidianWindow).app;
     const allCommands: string[] = Object.keys(obsApp?.commands?.commands ?? {});
     return allCommands.filter((id) => id.startsWith('project-manager:'));
   });
