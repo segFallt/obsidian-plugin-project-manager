@@ -1,4 +1,5 @@
-import { Page } from 'playwright';
+import { Page } from '@playwright/test';
+import { ObsidianWindow } from './types';
 
 /**
  * Dismiss any first-launch dialogs Obsidian may show:
@@ -45,6 +46,36 @@ export async function dismissFirstLaunchDialogs(window: Page): Promise<void> {
   if (hasModal) {
     await window.keyboard.press('Escape');
   }
+
+  // Enable and initialize the project-manager plugin programmatically.
+  // Clicking the community plugins trust dialog only enables community plugins
+  // globally — it does not enable individual plugins. We must call the API directly.
+  try {
+    await window.evaluate(async () => {
+      const obsApp = (window as ObsidianWindow).app;
+      if (obsApp?.plugins) {
+        // setEnable() is synchronous — it writes the enabled flag in memory.
+        // loadPlugin() is async — it runs onload() and registers commands.
+        obsApp.plugins.setEnable('project-manager', true);
+        await obsApp.plugins.loadPlugin('project-manager');
+      }
+    });
+  } catch (err) {
+    throw new Error(
+      `[first-launch] Failed to load project-manager plugin via Obsidian API. ` +
+        `This usually means the plugin's onload() threw an error or the Obsidian app object is not ready. ` +
+        `Original error: ${err instanceof Error ? err.message : String(err)}`,
+    );
+  }
+
+  // Wait until the plugin's commands are registered — confirms onload() completed.
+  await window.waitForFunction(
+    () =>
+      !!(window as ObsidianWindow).app?.commands?.commands?.[
+        'project-manager:create-client'
+      ],
+    { timeout: 15_000 },
+  );
 }
 
 async function dismissIfPresent(

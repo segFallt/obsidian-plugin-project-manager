@@ -15,6 +15,9 @@ import https from 'https';
 const PROJECT_ROOT = resolve(__dirname, '..', '..');
 const FIXTURE_VAULT = resolve(__dirname, '..', 'fixtures', 'test-vault');
 
+/** XDG_CONFIG_HOME directory used for test runs — shared with obsidian-app.ts. */
+export const OBSIDIAN_CONFIG_DIR = '/tmp/test-obsidian-config';
+
 /**
  * Copy the template test vault to a temp directory, inject the freshly built
  * main.js, and write the Obsidian config so Obsidian opens this vault on launch.
@@ -25,10 +28,14 @@ export function createTempVault(): string {
   const tempDir = mkdtempSync(resolve(tmpdir(), 'obsidian-e2e-vault-'));
   cpSync(FIXTURE_VAULT, tempDir, { recursive: true });
 
-  // Inject freshly built plugin main.js
+  // Inject freshly built plugin artefacts.
+  // manifest.json is copied from PROJECT_ROOT (the build source of truth) and
+  // intentionally overwrites the fixture copy under .obsidian/plugins/project-manager/
+  // so the loaded plugin version always matches the freshly built main.js.
   const pluginDir = resolve(tempDir, '.obsidian', 'plugins', 'project-manager');
   mkdirSync(pluginDir, { recursive: true });
   cpSync(resolve(PROJECT_ROOT, 'main.js'), resolve(pluginDir, 'main.js'));
+  cpSync(resolve(PROJECT_ROOT, 'manifest.json'), resolve(pluginDir, 'manifest.json'));
 
   // Copy cached Dataview into vault
   const dataviewCache = resolve(
@@ -57,7 +64,7 @@ export function createTempVault(): string {
  * vault on next launch.
  */
 export function writeObsidianConfig(vaultPath: string): void {
-  const configDir = '/tmp/test-obsidian-config';
+  const configDir = OBSIDIAN_CONFIG_DIR;
   mkdirSync(resolve(configDir, 'obsidian'), { recursive: true });
   writeFileSync(
     resolve(configDir, 'obsidian', 'obsidian.json'),
