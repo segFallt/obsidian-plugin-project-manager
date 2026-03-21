@@ -29,7 +29,7 @@ test.afterAll(async () => {
   if (vaultPath) removeTempVault(vaultPath);
 });
 
-test('EntityCreationModal renders input fields', async () => {
+test('InputModal (create-client) renders input fields', async () => {
   await executeCommandById(window, 'project-manager:create-client');
   await waitForModal(window);
 
@@ -39,11 +39,11 @@ test('EntityCreationModal renders input fields', async () => {
   await closeModal(window);
 });
 
-test('EntityCreationModal can be filled and submitted', async () => {
+test('InputModal (create-client) can be filled and submitted', async () => {
   await executeCommandById(window, 'project-manager:create-client');
   await waitForModal(window);
 
-  await fillModalInput(window, 'Name', 'Modal Test Client');
+  await fillModalInput(window, 'e.g. Acme Corp', 'Modal Test Client');
   await submitModal(window);
 
   await window.waitForTimeout(500);
@@ -52,7 +52,7 @@ test('EntityCreationModal can be filled and submitted', async () => {
   expect(modal).toBeNull();
 });
 
-test('EntityCreationModal closes on Escape', async () => {
+test('EntityCreationModal (create-engagement) closes on Escape', async () => {
   await executeCommandById(window, 'project-manager:create-engagement');
   await waitForModal(window);
 

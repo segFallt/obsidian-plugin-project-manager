@@ -5,9 +5,8 @@ import { dismissFirstLaunchDialogs } from '../helpers/first-launch';
 import { executeCommandById, selectCommand } from '../helpers/command-palette';
 import {
   waitForModal,
-  fillEntityCreationModal,
+  fillModalInput,
   submitModal,
-  selectFromSuggester,
   closeModal,
 } from '../helpers/modal-helpers';
 import { ElectronApplication, Page } from 'playwright';
@@ -44,9 +43,7 @@ test('Create Client via command palette creates a note', async () => {
   await selectCommand(window, 'Create Client');
   await waitForModal(window);
 
-  await fillEntityCreationModal(window, {
-    Name: 'Test Client E2E',
-  });
+  await fillModalInput(window, 'e.g. Acme Corp', 'Test Client E2E');
   await submitModal(window);
 
   // Verify note was created — the active file should reference the client
