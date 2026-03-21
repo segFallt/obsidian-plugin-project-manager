@@ -35,6 +35,7 @@ export function registerCreateProjectCommand(services: CommandServices, addComma
         return;
       }
 
+      services.loggerService.debug(`create-project invoked: "${result.name}", engagement: "${result.parentName ?? 'none'}"`, 'create-project');
       try {
         await services.entityService.createProject(
           result.name,

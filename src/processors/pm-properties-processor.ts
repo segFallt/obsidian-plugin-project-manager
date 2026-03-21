@@ -138,6 +138,7 @@ class PmPropertiesRenderChild extends MarkdownRenderChild {
     // Reset retry counter once we have a real cache entry (even if frontmatter is empty).
     this.cacheRetryCount = 0;
 
+    this.services.loggerService.debug(`pm-properties rendering, entity: "${config.entity}", source: "${this.sourcePath}"`, 'pm-properties');
     const form = this.containerEl.createDiv({ cls: "pm-properties" });
 
     for (const field of fields) {

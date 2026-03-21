@@ -61,6 +61,7 @@ class PmTableRenderChild extends MarkdownRenderChild {
       return;
     }
 
+    this.services.loggerService.debug(`pm-table rendering, type: "${config.type}", source: "${this.sourcePath}"`, 'pm-table');
     try {
       renderEntityTable(this.containerEl, config.type, this.sourcePath, this.services);
     } catch (err) {

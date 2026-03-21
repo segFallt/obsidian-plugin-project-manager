@@ -30,6 +30,7 @@ export function registerCreateSingleMeetingCommand(services: CommandServices, ad
         return;
       }
 
+      services.loggerService.debug(`create-single-meeting invoked: "${result.name}", engagement: "${result.parentName ?? 'none'}"`, 'create-single-meeting');
       try {
         await services.entityService.createSingleMeeting(
           result.name,

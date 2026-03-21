@@ -45,6 +45,7 @@ function createMockServices(
       error: vi.fn(),
       warn: vi.fn(),
       info: vi.fn(),
+      debug: vi.fn(),
     },
   } as unknown as PluginServices;
 

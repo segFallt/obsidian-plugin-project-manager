@@ -47,6 +47,7 @@ export function registerCreateRecurringMeetingEventCommand(
         meetingName = selected.file.name;
       }
 
+      services.loggerService.debug(`create-recurring-meeting-event invoked: "${meetingName}"`, 'create-recurring-meeting-event');
       try {
         await services.entityService.createRecurringMeetingEvent(meetingName);
       } catch (err) {

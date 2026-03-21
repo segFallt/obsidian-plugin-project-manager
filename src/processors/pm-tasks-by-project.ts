@@ -33,6 +33,7 @@ export class ByProjectView {
   ) {}
 
   render(): void {
+    this.services.loggerService.debug(`pm-tasks-by-project rendering, mode: "${this.config.mode}"`, 'pm-tasks-by-project');
     this.initFilters();
     const root = this.containerEl.createDiv({ cls: "pm-tasks-by-project" });
     const controlsEl = root.createDiv({ cls: "pm-tasks-by-project__controls" });

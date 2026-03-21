@@ -30,6 +30,7 @@ export function registerCreateInboxCommand(services: CommandServices, addCommand
         return;
       }
 
+      services.loggerService.debug(`create-inbox invoked: "${result.name}", engagement: "${result.parentName ?? 'none'}"`, 'create-inbox');
       try {
         await services.entityService.createInboxNote(
           result.name,

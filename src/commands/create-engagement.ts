@@ -32,6 +32,7 @@ export function registerCreateEngagementCommand(services: CommandServices, addCo
         return;
       }
 
+      services.loggerService.debug(`create-engagement invoked: "${result.name}", client: "${result.parentName ?? 'none'}"`, 'create-engagement');
       try {
         await services.entityService.createEngagement(result.name, result.parentName ?? undefined);
       } catch (err) {
