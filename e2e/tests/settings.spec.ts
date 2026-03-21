@@ -2,16 +2,17 @@ import { test, expect } from '@playwright/test';
 import { launchObsidian, closeObsidian } from '../helpers/obsidian-app';
 import { createTempVault, removeTempVault } from '../helpers/vault-manager';
 import { dismissFirstLaunchDialogs } from '../helpers/first-launch';
-import { ElectronApplication, Page } from 'playwright';
+import { Page } from '@playwright/test';
+import { ObsidianApp } from '../helpers/obsidian-app';
 
 let vaultPath: string;
-let app: ElectronApplication;
+let app: ObsidianApp;
 let window: Page;
 
 test.beforeAll(async () => {
   vaultPath = createTempVault();
-  const launched = await launchObsidian(vaultPath);
-  app = launched.app;
+  const launched = await launchObsidian();
+  app = launched;
   window = launched.window;
   await dismissFirstLaunchDialogs(window);
   await window.waitForSelector('.workspace', { timeout: 30_000 });

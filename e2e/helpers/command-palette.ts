@@ -1,8 +1,5 @@
-import { Page } from 'playwright';
-
-interface ObsidianWindow extends Window {
-  app?: { commands?: { executeCommandById: (id: string) => boolean } };
-}
+import { Page } from '@playwright/test';
+import { ObsidianWindow } from './types';
 
 /**
  * Open the command palette, type a query, and select the first matching result.
