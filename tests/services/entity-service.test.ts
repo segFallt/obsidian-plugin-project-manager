@@ -399,9 +399,9 @@ describe("EntityService", () => {
         "My Project"
       );
 
-      // Inbox should be marked inactive with convertedTo link
+      // Inbox should be marked complete with convertedTo link
       const inboxMutations = mutations["inbox/Some Task.md"];
-      expect(inboxMutations?.status).toBe("Inactive");
+      expect(inboxMutations?.status).toBe("Complete");
       expect(String(inboxMutations?.convertedTo ?? "")).toContain("My Project");
     });
 

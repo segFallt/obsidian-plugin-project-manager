@@ -87,7 +87,7 @@ export interface DueDateFilter {
   includeNoDate: boolean;
 }
 export type MeetingDateFilter = "All" | "Today" | "This Week" | "Past";
-export type InboxStatusFilter = "All" | "Active" | "Inactive";
+export type InboxStatusFilter = "All" | "Active" | "Complete";
 export type SortBy =
   | "none"
   | "dueDate-asc"

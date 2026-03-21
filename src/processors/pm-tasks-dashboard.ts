@@ -138,7 +138,8 @@ export class DashboardView {
       dueDateFilter,
       priorityFilter: saved?.priorityFilter ?? cfg.priorityFilter ?? [],
       projectStatusFilter: saved?.projectStatusFilter ?? cfg.projectStatusFilter ?? [],
-      inboxStatusFilter: saved?.inboxStatusFilter ?? cfg.inboxStatusFilter ?? "All",
+      // Backward-compat: "Inactive" was the saved value before the filter was renamed to "Complete".
+      inboxStatusFilter: ((saved?.inboxStatusFilter as unknown) === "Inactive" ? "Complete" : saved?.inboxStatusFilter) ?? cfg.inboxStatusFilter ?? "All",
       meetingDateFilter: saved?.meetingDateFilter ?? cfg.meetingDateFilter ?? "All",
       clientFilter: saved?.clientFilter ?? [],
       engagementFilter: saved?.engagementFilter ?? [],
@@ -352,7 +353,7 @@ export class DashboardView {
 
     // Inbox status
     container.createEl("label", { text: "Inbox Status:", cls: "pm-filter-label" });
-    const inboxSelect = createSelect(container, ["All", "Active", "Inactive"], {});
+    const inboxSelect = createSelect(container, ["All", "Active", "Complete"], {});
     inboxSelect.value = f.inboxStatusFilter;
     inboxSelect.addEventListener("change", () => {
       f.inboxStatusFilter = inboxSelect.value as InboxStatusFilter;
