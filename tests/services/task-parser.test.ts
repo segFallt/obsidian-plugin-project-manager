@@ -43,9 +43,9 @@ describe("TaskParser", () => {
       expect(result?.priority).toBe(4);
     });
 
-    it("extracts priority from ⏬ (Someday)", () => {
+    it("extracts priority from ⏬ (Someday — unmapped, falls back to DEFAULT_PRIORITY)", () => {
       const result = parser.parseTaskLine("- [ ] Someday ⏬", "foo.md", 0);
-      expect(result?.priority).toBe(5);
+      expect(result?.priority).toBe(3); // DEFAULT_PRIORITY fallback
     });
 
     it("defaults to medium priority (3) when no emoji", () => {

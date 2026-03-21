@@ -121,20 +121,63 @@ export class TaskFilterService implements ITaskFilterService {
     return filtered;
   }
 
-  /** Returns true if the task's due date matches the given filter. */
+  /** Returns true if the task's due date matches the given filter (OR logic across presets). */
   matchesDueDateFilter(task: DataviewTask, filter: DueDateFilter): boolean {
     if (!this.isDueDateFilterActive(filter)) return true;
 
     const due = task.due ? String(task.due).substring(0, ISO_DATE_LENGTH) : null;
 
-    if (due === null) return filter.includeNoDate;
-    if (filter.rangeFrom && due < filter.rangeFrom) return false;
-    if (filter.rangeTo && due > filter.rangeTo) return false;
-    return true;
+    // Tasks with no due date
+    if (due === null) {
+      return filter.selectedPresets.includes("No Date");
+    }
+
+    // Custom range check
+    if (filter.rangeFrom !== null || filter.rangeTo !== null) {
+      const inRange =
+        (filter.rangeFrom === null || due >= filter.rangeFrom) &&
+        (filter.rangeTo === null || due <= filter.rangeTo);
+      if (inRange) return true;
+    }
+
+    // Preset OR logic — check each selected preset
+    if (filter.selectedPresets.length > 0) {
+      // Compute date boundaries once outside the loop (constant for this render cycle)
+      const today = todayISO();
+      const tomorrow = addDays(today, 1);
+      const weekEnd = addDays(today, WEEK_DAYS);
+      const nextWeekStart = addDays(today, WEEK_DAYS + 1);
+      const nextWeekEnd = addDays(today, WEEK_DAYS * 2);
+
+      for (const preset of filter.selectedPresets) {
+        if (preset === "No Date") continue; // handled above
+        let matches = false;
+        switch (preset) {
+          case "Today":
+            matches = due === today;
+            break;
+          case "Tomorrow":
+            matches = due === tomorrow;
+            break;
+          case "This Week":
+            matches = due >= today && due <= weekEnd;
+            break;
+          case "Next Week":
+            matches = due >= nextWeekStart && due <= nextWeekEnd;
+            break;
+          case "Overdue":
+            matches = due < today;
+            break;
+        }
+        if (matches) return true;
+      }
+    }
+
+    return false;
   }
 
   private isDueDateFilterActive(filter: DueDateFilter): boolean {
-    return filter.rangeFrom !== null || filter.rangeTo !== null || filter.includeNoDate;
+    return filter.selectedPresets.length > 0 || filter.rangeFrom !== null || filter.rangeTo !== null;
   }
 
   /** Returns true if the task matches the tag filter. */

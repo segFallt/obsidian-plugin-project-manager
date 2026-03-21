@@ -137,14 +137,15 @@ Renders task views with interactive filtering.
 mode: dashboard | by-project
 # Optional defaults:
 viewMode: context | date | priority | tag
-sortBy: none | dueDate-asc | dueDate-desc | priority-asc | priority-desc
+sortBy:                          # array of sort keys (empty = no sort)
+  - field: dueDate               # dueDate | priority | alphabetical | context | createdDate
+    direction: asc               # asc | desc
 showCompleted: false
-# Due date filter (presets or range)
+# Due date filter
 dueDateFilter:
-  mode: presets | range
-  presets: [Today, Tomorrow, This Week, Next Week, Overdue, "No Date"]
-  rangeFrom: "2026-03-15"  # ISO date "YYYY-MM-DD", or null
-  rangeTo: "2026-04-15"    # ISO date "YYYY-MM-DD", or null
+  selectedPresets: [Today]       # any of: Today, Tomorrow, This Week, Next Week, Overdue, No Date
+  rangeFrom: "2026-03-15"        # ISO date (custom range; clears selectedPresets when used)
+  rangeTo: "2026-04-15"
 # Tag filter
 tagFilter: [tag1, tag2]
 includeUntagged: false
@@ -153,16 +154,19 @@ includeUntagged: false
 
 ### Dashboard mode (`mode: dashboard`)
 
-Displays all vault tasks (excluding the `utility/` folder) with these filter panels:
+Displays all vault tasks (excluding the `utility/` folder) with a compact **toolbar + filter drawer** layout:
 
-- **View Mode**: Context, Due Date, Priority, Tag
-- **Sort**: None, Due Date ↑/↓, Priority ↑/↓
-- **Show Completed**: toggle
-- **Search**: text filter
-- **Context Filters**: context type, client, engagement, project status, inbox status, meeting date
-- **Date Filters**: preset buttons (Today, Tomorrow, This Week, Next Week, Overdue, No Date) + custom date range
-- **Priority Filters**: Urgent / High / Medium / Low / Someday
-- **Tag Filters**: dynamic tag buttons (when tasks have tags) + "Include untagged" checkbox
+- **Toolbar**: View mode tabs (Context / Date / Priority / Tag), search input, ⚙ Filters button (with active-count badge), ✕ Clear All Filters button (shown when any filter is active)
+- **Active filter chips bar**: removable chips for each active filter criterion
+- **Filter drawer** (toggled by ⚙ Filters): contains all filter sections:
+  - **Sort Order**: multi-key sort builder (up to 3 keys); fields: Due Date, Priority, Alphabetical, Context, Created Date; per-key direction toggle (↑/↓); up/down reorder
+  - **Completed Tasks**: toggle "Show completed"
+  - **Due Date**: preset pills (Today, Tomorrow, This Week, Next Week, Overdue, No Date) with OR logic (multiple can be active simultaneously) + custom date range
+  - **Priority**: Urgent / High / Medium / Low
+  - **Context Type**: Project, Meeting, Recurring Meeting, Inbox, Daily Notes, Person, Other
+  - **Client / Engagement**: type-ahead chip selects with "Include unassigned" toggle
+  - **Context-Specific** (Context view only): Project Status, Inbox Status, Meeting Date
+  - **Tags**: type-ahead chip select + "Include untagged" toggle
 
 Context view groups tasks hierarchically:
 

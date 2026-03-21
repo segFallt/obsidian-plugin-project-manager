@@ -5,7 +5,7 @@ import type { ITaskSortService } from "../../services/interfaces";
 import type { TaskListRenderer } from "../task-list-renderer";
 
 /**
- * Renders tasks grouped by priority level (1 = Urgent → 5 = Someday).
+ * Renders tasks grouped by priority level (1 = Urgent → 4 = Low).
  * Groups with no tasks are omitted.
  */
 export class PriorityViewRenderer {
@@ -14,12 +14,18 @@ export class PriorityViewRenderer {
     private readonly renderer: TaskListRenderer
   ) {}
 
-  async render(container: HTMLElement, tasks: DataviewTask[], f: DashboardFilters): Promise<void> {
-    for (let priority = 1; priority <= 5; priority++) {
+  async render(
+    container: HTMLElement,
+    tasks: DataviewTask[],
+    f: DashboardFilters,
+    contextMap?: Map<string, string>,
+    mtimeMap?: Map<string, number>
+  ): Promise<void> {
+    for (let priority = 1; priority <= 4; priority++) {
       const priTasks = tasks.filter((t) => getTaskPriority(t) === priority);
       if (priTasks.length === 0) continue;
       container.createEl("h2", { text: PRIORITY_DISPLAY[priority] });
-      await this.renderer.renderTaskList(container, this.sortService.sortTasks(priTasks, f.sortBy));
+      await this.renderer.renderTaskList(container, this.sortService.sortTasks(priTasks, f.sortBy, contextMap, mtimeMap));
     }
   }
 }

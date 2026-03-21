@@ -103,9 +103,9 @@ describe("getTaskPriority", () => {
     expect(getTaskPriority(task)).toBe(4);
   });
 
-  it("returns 5 (Someday) for ⏬ emoji", () => {
+  it("returns 3 (DEFAULT_PRIORITY fallback) for ⏬ emoji (unmapped since priority 5 removed)", () => {
     const task = createMockTask({ path: "inbox/t.md", text: "Someday task ⏬" });
-    expect(getTaskPriority(task)).toBe(5);
+    expect(getTaskPriority(task)).toBe(3);
   });
 
   it("defaults to 3 (Medium) when no priority emoji present", () => {
