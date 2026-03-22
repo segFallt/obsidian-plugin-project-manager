@@ -76,7 +76,7 @@ For all create commands, `EntityCreationService`:
 1. Presents a modal to select the inbox note to convert.
 2. Creates a new project note with the same name and the inbox note's `engagement` value.
 3. Sets `convertedFrom` on the new project to `[[inbox/<InboxName>]]`.
-4. Sets `status: Inactive` and `convertedTo: [[projects/<ProjectName>]]` on the inbox note.
+4. Sets `status: Complete` and `convertedTo: [[projects/<ProjectName>]]` on the inbox note.
 
 ### 3.7 Convert: Single Meeting to Recurring
 
@@ -130,7 +130,7 @@ For all create commands, `EntityCreationService`:
 - [ ] The created file is opened immediately after creation.
 - [ ] Autocomplete suggesters in modals filter by case-insensitive substring and display enriched `"Name (Client)"` labels for engagements and people.
 - [ ] `ActionContextManager.consume()` pre-populates the modal field when a context is set by a `pm-actions` button.
-- [ ] Convert Inbox to Project sets `status: Inactive` and `convertedTo` on the inbox note, and `convertedFrom` on the new project.
+- [ ] Convert Inbox to Project sets `status: Complete` and `convertedTo` on the inbox note, and `convertedFrom` on the new project.
 - [ ] Scaffold vault creates folders and view files without overwriting existing content.
 
 ---
