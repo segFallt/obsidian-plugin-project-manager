@@ -12,6 +12,8 @@ import {
   TEMPLATE_RECURRING_MEETING_EVENT,
   TEMPLATE_PROJECT_NOTE,
   RAID_ITEM_TEMPLATE,
+  TEMPLATE_REFERENCE,
+  TEMPLATE_REFERENCE_TOPIC,
 } from "./template-constants";
 
 /**
@@ -35,6 +37,8 @@ export class TemplateService implements ITemplateService {
     "recurring-meeting-event": TEMPLATE_RECURRING_MEETING_EVENT,
     "project-note": TEMPLATE_PROJECT_NOTE,
     "raid-item": RAID_ITEM_TEMPLATE,
+    "reference": TEMPLATE_REFERENCE,
+    "reference-topic": TEMPLATE_REFERENCE_TOPIC,
   };
 
   /**

@@ -22,6 +22,8 @@ export interface FolderSettings {
   dailyNotes: string;
   utility: string;
   raid: string;
+  references: string;
+  referenceTopics: string;
 }
 
 export interface DefaultValueSettings {
@@ -58,6 +60,8 @@ export const DEFAULT_SETTINGS: ProjectManagerSettings = {
     dailyNotes: DEFAULT_FOLDERS.dailyNotes,
     utility: DEFAULT_FOLDERS.utility,
     raid: DEFAULT_FOLDERS.raid,
+    references: DEFAULT_FOLDERS.references,
+    referenceTopics: DEFAULT_FOLDERS.referenceTopics,
   },
   defaults: {
     clientStatus: "Active",
@@ -140,6 +144,8 @@ export class ProjectManagerSettingTab extends PluginSettingTab {
       { key: "dailyNotes", name: "Daily notes folder", desc: "Folder for daily notes" },
       { key: "utility", name: "Utility folder", desc: "Folder containing utility files" },
       { key: "raid", name: "RAID folder", desc: "Folder for RAID item notes" },
+      { key: "references", name: "References folder", desc: "Folder for reference notes" },
+      { key: "referenceTopics", name: "Reference Topics folder", desc: "Folder for reference topic notes" },
     ];
 
     for (const field of folderFields) {

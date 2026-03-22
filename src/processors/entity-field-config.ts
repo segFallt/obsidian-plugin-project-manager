@@ -21,6 +21,7 @@ export interface FieldDescriptor {
   options?: string[];
   /** For suggester fields: the Dataview tag to query */
   entityTag?: string;
+  enriched?: boolean;
 }
 
 // ─── Entity field configuration ───────────────────────────────────────────
@@ -89,5 +90,11 @@ export const ENTITY_FIELDS: Record<EntityType, FieldDescriptor[]> = {
     { key: "raised-date", label: "Raised Date", type: "date" },
     { key: "closed-date", label: "Closed Date", type: "date" },
     { key: FM_KEY.DESCRIPTION, label: "Description", type: "textarea" },
+  ],
+  "reference-topic": [],
+  "reference": [
+    { key: FM_KEY.TOPICS,     label: "Topics",     type: "list-suggester", entityTag: ENTITY_TAGS.referenceTopic },
+    { key: FM_KEY.CLIENT,     label: "Client",     type: "suggester",      entityTag: ENTITY_TAGS.client },
+    { key: FM_KEY.ENGAGEMENT, label: "Engagement", type: "suggester",      entityTag: ENTITY_TAGS.engagement, enriched: true },
   ],
 };

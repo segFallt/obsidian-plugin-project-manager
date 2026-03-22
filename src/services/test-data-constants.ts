@@ -130,6 +130,36 @@ export const TASK_DESCRIPTIONS = [
   "Escalate blocker to project sponsor",
 ] as const;
 
+export const REFERENCE_TOPIC_NAMES = [
+  `${TEST_PREFIX}Architecture`,
+  `${TEST_PREFIX}Security`,
+  `${TEST_PREFIX}Compliance`,
+  `${TEST_PREFIX}Performance`,
+  `${TEST_PREFIX}Integration`,
+  `${TEST_PREFIX}UX Research`,
+  `${TEST_PREFIX}Data Governance`,
+  `${TEST_PREFIX}API Design`,
+  `${TEST_PREFIX}Testing Strategy`,
+  `${TEST_PREFIX}Observability`,
+  `${TEST_PREFIX}Cost Optimisation`,
+  `${TEST_PREFIX}Accessibility`,
+];
+
+export const REFERENCE_NAMES = [
+  `${TEST_PREFIX}RFC-001 Auth Flow`,
+  `${TEST_PREFIX}RFC-002 Rate Limiting`,
+  `${TEST_PREFIX}ADR-001 Database Choice`,
+  `${TEST_PREFIX}ADR-002 API Versioning`,
+  `${TEST_PREFIX}Runbook: Deploy Process`,
+  `${TEST_PREFIX}Runbook: Incident Response`,
+  `${TEST_PREFIX}Spec: Data Model v2`,
+  `${TEST_PREFIX}Spec: Event Schema`,
+  `${TEST_PREFIX}Guide: Onboarding`,
+  `${TEST_PREFIX}Guide: Security Checklist`,
+  `${TEST_PREFIX}Template: Post-Mortem`,
+  `${TEST_PREFIX}Template: Design Review`,
+];
+
 /** Priority emojis in Tasks plugin order (index 2 = medium = no emoji). */
 export const PRIORITY_EMOJIS = ["⏫", "🔼", "", "🔽", "⏬"] as const;
 

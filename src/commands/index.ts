@@ -13,6 +13,8 @@ import { registerConvertSingleToRecurringCommand } from "./convert-single-to-rec
 import { registerScaffoldVaultCommand } from "./scaffold-vault";
 import { registerCreateRaidItemCommand } from "./create-raid-item";
 import { registerTagRaidReferenceCommand } from "./tag-raid-reference";
+import { registerCreateReferenceTopicCommand } from "./create-reference-topic";
+import { registerCreateReferenceCommand } from "./create-reference";
 
 /**
  * Registers all plugin commands with the Obsidian command palette.
@@ -37,4 +39,6 @@ export function registerAllCommands(plugin: ProjectManagerPlugin): void {
   registerScaffoldVaultCommand(plugin, addCommand);
   registerCreateRaidItemCommand(plugin, addCommand);
   registerTagRaidReferenceCommand(plugin, addCommand);
+  registerCreateReferenceTopicCommand(plugin, addCommand);
+  registerCreateReferenceCommand(plugin, addCommand);
 }
