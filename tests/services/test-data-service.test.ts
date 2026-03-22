@@ -89,6 +89,16 @@ describe("TestDataService", () => {
       expect(result.errors).toHaveLength(0);
     });
 
+    it("all created file names are free of Windows-invalid characters (no colons, asterisks, etc.)", async () => {
+      const { svc, createdPaths } = createService();
+      await svc.generateTestData();
+      const invalidCharsPattern = /[*"\\/<>:|?]/;
+      for (const filePath of createdPaths) {
+        const basename = filePath.split("/").pop() ?? "";
+        expect(basename, `File "${basename}" contains an invalid character`).not.toMatch(invalidCharsPattern);
+      }
+    });
+
     it("all created file names include TEST - prefix (except recurring event date files)", async () => {
       const { svc, createdPaths } = createService();
       await svc.generateTestData();

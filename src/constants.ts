@@ -137,6 +137,7 @@ export const LOG_CONTEXT = {
   TASKS_DASHBOARD: "pm-tasks-dashboard",
   TASKS_BY_PROJECT: "pm-tasks-by-project",
   ENTITY_VIEW: "pm-entity-view",
+  CREATE_RAID_ITEM: "create-raid-item",
 } as const;
 
 /** Sentinel date strings for sort stability (tasks with no due date). */

@@ -3,7 +3,7 @@ import type { CommandServices, AddCommandFn } from "../plugin-context";
 import { InputModal } from "../ui/modals/input-modal";
 import { SuggesterModal } from "../ui/modals/suggester-modal";
 import type { DataviewPage, RaidType } from "../types";
-import { MSG } from "../constants";
+import { MSG, LOG_CONTEXT } from "../constants";
 
 const RAID_TYPES: RaidType[] = ["Risk", "Assumption", "Issue", "Decision"];
 
@@ -26,14 +26,17 @@ export function registerCreateRaidItemCommand(
     name: "PM: Create RAID Item",
     callback: async () => {
       services.actionContext.consume();
+      services.loggerService.debug("create-raid-item: command started", LOG_CONTEXT.CREATE_RAID_ITEM);
 
       // Step 1: Name
       const nameModal = new InputModal(services.app, "RAID item name", "e.g. Risk of scope creep");
       const name = await nameModal.prompt();
       if (!name) {
+        services.loggerService.warn("create-raid-item: cancelled at step 1 (no name provided)", LOG_CONTEXT.CREATE_RAID_ITEM);
         new Notice(MSG.NO_NAME);
         return;
       }
+      services.loggerService.debug(`create-raid-item: step 1 complete — name: "${name}"`, LOG_CONTEXT.CREATE_RAID_ITEM);
 
       // Step 2: RAID Type
       const typeModal = new SuggesterModal<RaidType>(
@@ -44,9 +47,11 @@ export function registerCreateRaidItemCommand(
       );
       const raidType = await typeModal.choose();
       if (!raidType) {
+        services.loggerService.warn("create-raid-item: cancelled at step 2 (RAID type selection dismissed)", LOG_CONTEXT.CREATE_RAID_ITEM);
         new Notice('RAID item creation cancelled.');
         return;
       }
+      services.loggerService.debug(`create-raid-item: step 2 complete — type: "${raidType}"`, LOG_CONTEXT.CREATE_RAID_ITEM);
 
       // Step 3: Engagement (optional)
       const NONE_SENTINEL = "(None)";
@@ -63,6 +68,7 @@ export function registerCreateRaidItemCommand(
       );
       const selectedEngagement = await engagementModal.choose();
       if (selectedEngagement === null) {
+        services.loggerService.warn("create-raid-item: cancelled at step 3 (engagement selection dismissed)", LOG_CONTEXT.CREATE_RAID_ITEM);
         new Notice('RAID item creation cancelled.');
         return;
       }
@@ -70,6 +76,7 @@ export function registerCreateRaidItemCommand(
         selectedEngagement === NONE_SENTINEL
           ? undefined
           : selectedEngagement.file.name;
+      services.loggerService.debug(`create-raid-item: step 3 complete — engagement: "${engagementName ?? "none"}"`, LOG_CONTEXT.CREATE_RAID_ITEM);
 
       // Step 4: Owner (optional)
       const activePeople = services.queryService.getActiveEntitiesByTag("#person");
@@ -85,6 +92,7 @@ export function registerCreateRaidItemCommand(
       );
       const selectedOwner = await ownerModal.choose();
       if (selectedOwner === null) {
+        services.loggerService.warn("create-raid-item: cancelled at step 4 (owner selection dismissed)", LOG_CONTEXT.CREATE_RAID_ITEM);
         new Notice('RAID item creation cancelled.');
         return;
       }
@@ -92,15 +100,16 @@ export function registerCreateRaidItemCommand(
         selectedOwner === NONE_SENTINEL
           ? undefined
           : selectedOwner.file.name;
+      services.loggerService.debug(`create-raid-item: step 4 complete — owner: "${ownerName ?? "none"}"`, LOG_CONTEXT.CREATE_RAID_ITEM);
 
       services.loggerService.debug(
         `create-raid-item invoked: "${name}", type: "${raidType}", engagement: "${engagementName ?? "none"}", owner: "${ownerName ?? "none"}"`,
-        "create-raid-item"
+        LOG_CONTEXT.CREATE_RAID_ITEM
       );
       try {
         await services.entityService.createRaidItem(name, raidType, engagementName, ownerName);
       } catch (err) {
-        services.loggerService.error(String(err), "create-raid-item", err);
+        services.loggerService.error(String(err), LOG_CONTEXT.CREATE_RAID_ITEM, err);
         new Notice(`Error creating RAID item: ${String(err)}`);
       }
     },

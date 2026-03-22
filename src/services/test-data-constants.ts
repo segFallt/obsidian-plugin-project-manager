@@ -150,14 +150,14 @@ export const REFERENCE_NAMES = [
   `${TEST_PREFIX}RFC-002 Rate Limiting`,
   `${TEST_PREFIX}ADR-001 Database Choice`,
   `${TEST_PREFIX}ADR-002 API Versioning`,
-  `${TEST_PREFIX}Runbook: Deploy Process`,
-  `${TEST_PREFIX}Runbook: Incident Response`,
-  `${TEST_PREFIX}Spec: Data Model v2`,
-  `${TEST_PREFIX}Spec: Event Schema`,
-  `${TEST_PREFIX}Guide: Onboarding`,
-  `${TEST_PREFIX}Guide: Security Checklist`,
-  `${TEST_PREFIX}Template: Post-Mortem`,
-  `${TEST_PREFIX}Template: Design Review`,
+  `${TEST_PREFIX}Runbook - Deploy Process`,
+  `${TEST_PREFIX}Runbook - Incident Response`,
+  `${TEST_PREFIX}Spec - Data Model v2`,
+  `${TEST_PREFIX}Spec - Event Schema`,
+  `${TEST_PREFIX}Guide - Onboarding`,
+  `${TEST_PREFIX}Guide - Security Checklist`,
+  `${TEST_PREFIX}Template - Post-Mortem`,
+  `${TEST_PREFIX}Template - Design Review`,
 ];
 
 /** Priority emojis in Tasks plugin order (index 2 = medium = no emoji). */

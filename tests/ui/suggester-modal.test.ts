@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import { SuggesterModal, StringSuggesterModal } from "../../src/ui/modals/suggester-modal";
 import { App } from "../mocks/obsidian-mock";
 
@@ -12,6 +12,10 @@ function createSuggester<T>(items: T[], displayFn?: (item: T) => string) {
 }
 
 describe("SuggesterModal", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it("getItems() returns the provided items", () => {
     const modal = createSuggester(["apple", "banana", "cherry"]);
     expect(modal.getItems()).toEqual(["apple", "banana", "cherry"]);
@@ -47,6 +51,21 @@ describe("SuggesterModal", () => {
     modal.onClose(); // Should be a no-op since already resolved
     const result = await promise;
     expect(result).toBe("a");
+  });
+
+  it("choose() defers open() to avoid event bleed-through from a preceding modal", () => {
+    vi.useFakeTimers();
+    const modal = createSuggester(["a", "b"]);
+    const openSpy = vi.spyOn(modal, "open").mockImplementation(() => {});
+
+    modal.choose();
+
+    // open() must NOT be called synchronously — a stale Enter keydown from
+    // the preceding InputModal would otherwise immediately close this modal.
+    expect(openSpy).not.toHaveBeenCalled();
+
+    vi.runAllTimers();
+    expect(openSpy).toHaveBeenCalledOnce();
   });
 });
 

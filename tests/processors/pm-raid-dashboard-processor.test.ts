@@ -14,6 +14,8 @@ function makeMockItem(overrides: Partial<{
   impact: string;
   owner: string;
   raisedDate: string;
+  client: unknown;
+  engagement: unknown;
 }>): DataviewPage {
   const name = overrides.name ?? "Test Risk";
   const path = overrides.path ?? `raid/${name}.md`;
@@ -33,6 +35,8 @@ function makeMockItem(overrides: Partial<{
     impact: overrides.impact ?? "High",
     owner: overrides.owner ?? "",
     "raised-date": overrides.raisedDate ?? "2025-01-01",
+    client: overrides.client ?? undefined,
+    engagement: overrides.engagement ?? undefined,
   } as unknown as DataviewPage;
 }
 
@@ -225,6 +229,89 @@ describe("pm-raid-dashboard processor", () => {
     // No item tables should be present
     const tables = el.querySelectorAll(".raid-item-table");
     expect(tables.length).toBe(0);
+  });
+
+  it("clientFilter matches items whose client is a DataviewLink object", () => {
+    const items = [
+      makeMockItem({ name: "Acme Risk", client: { path: "clients/Acme Corp.md" } }),
+      makeMockItem({ name: "Beta Risk", client: { path: "clients/Beta Ltd.md" } }),
+    ];
+
+    // Apply clientFilter: ["Acme Corp"] via code block config
+    const { el } = render(items, "clientFilter:\n  - Acme Corp");
+
+    const tables = el.querySelectorAll(".raid-item-table");
+    expect(tables.length).toBe(1);
+    const rows = el.querySelectorAll(".raid-item-row");
+    expect(rows.length).toBe(1);
+    expect(rows[0].querySelector("td")?.textContent).toBe("Acme Risk");
+  });
+
+  it("clientFilter excludes items that do not match the active filter", () => {
+    const items = [
+      makeMockItem({ name: "Acme Risk", client: { path: "clients/Acme Corp.md" } }),
+      makeMockItem({ name: "Beta Risk", client: { path: "clients/Beta Ltd.md" } }),
+    ];
+
+    // Only "Beta Ltd" is active — "Acme Risk" should be excluded
+    const { el } = render(items, "clientFilter:\n  - Beta Ltd");
+
+    const rows = el.querySelectorAll(".raid-item-row");
+    expect(rows.length).toBe(1);
+    expect(rows[0].querySelector("td")?.textContent).toBe("Beta Risk");
+  });
+
+  it("engagementFilter matches items whose engagement is a DataviewLink object", () => {
+    const items = [
+      makeMockItem({ name: "Alpha Issue", engagement: { path: "engagements/Alpha Project.md" } }),
+      makeMockItem({ name: "Gamma Issue", engagement: { path: "engagements/Gamma Project.md" } }),
+    ];
+
+    const { el } = render(items, "engagementFilter:\n  - Alpha Project");
+
+    const rows = el.querySelectorAll(".raid-item-row");
+    expect(rows.length).toBe(1);
+    expect(rows[0].querySelector("td")?.textContent).toBe("Alpha Issue");
+  });
+
+  it("engagementFilter excludes items that do not match the active filter", () => {
+    const items = [
+      makeMockItem({ name: "Alpha Issue", engagement: { path: "engagements/Alpha Project.md" } }),
+      makeMockItem({ name: "Gamma Issue", engagement: { path: "engagements/Gamma Project.md" } }),
+    ];
+
+    const { el } = render(items, "engagementFilter:\n  - Gamma Project");
+
+    const rows = el.querySelectorAll(".raid-item-row");
+    expect(rows.length).toBe(1);
+    expect(rows[0].querySelector("td")?.textContent).toBe("Gamma Issue");
+  });
+
+  it("age badge is omitted when raised-date is an invalid string", () => {
+    const items = [makeMockItem({ raisedDate: "not-a-date" })];
+    const { el } = render(items);
+
+    const agePills = el.querySelectorAll(".raid-age-pill");
+    expect(agePills.length).toBe(0);
+    expect(el.textContent).not.toContain("NaNd");
+  });
+
+  it("age badge is omitted when raised-date is empty", () => {
+    const items = [makeMockItem({ raisedDate: "" })];
+    const { el } = render(items);
+
+    const agePills = el.querySelectorAll(".raid-age-pill");
+    expect(agePills.length).toBe(0);
+  });
+
+  it("age badge renders correctly when raised-date is a Dataview DateTime object", () => {
+    const fiveDaysAgo = Date.now() - 5 * 86400000;
+    const items = [makeMockItem({ raisedDate: { ts: fiveDaysAgo } as unknown as string })];
+    const { el } = render(items);
+
+    const agePills = el.querySelectorAll(".raid-age-pill");
+    expect(agePills.length).toBe(1);
+    expect(agePills[0].textContent).toBe("5d");
   });
 
   it("auto-refresh is registered on vault modify in onload()", () => {
