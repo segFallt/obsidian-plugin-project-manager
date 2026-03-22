@@ -220,6 +220,7 @@ export const TEMPLATE_REFERENCE_TOPIC = `---
 obsidianUIMode: preview
 tags:
   - "#reference-topic"
+status: Active
 ---
 # References
 
