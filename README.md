@@ -2,7 +2,7 @@
 
 A first-class Obsidian plugin implementing a **Client → Engagement → Project** hierarchy for consulting and contracting project management.
 
-Replaces QuickAdd, Templater, and Meta Bind with native plugin code while retaining Dataview as a query dependency.
+A native Obsidian plugin for consulting and contracting project management, with Dataview as a query dependency.
 
 ---
 
@@ -43,7 +43,7 @@ Replaces QuickAdd, Templater, and Meta Bind with native plugin code while retain
 
 #### `pm-properties` — Interactive frontmatter editor
 
-Renders form fields bound to the current note's frontmatter. Replaces Meta Bind embed blocks.
+Renders form fields bound to the current note's frontmatter.
 
 ````markdown
 ```pm-properties
@@ -55,7 +55,7 @@ Supported entities: `client`, `engagement`, `project`, `person`, `inbox`, `singl
 
 #### `pm-table` — Entity relationship tables
 
-Renders contextual tables of linked entities. Replaces `dv.view()` calls.
+Renders contextual tables of linked entities.
 
 ````markdown
 ```pm-table
@@ -73,7 +73,7 @@ type: client-engagements
 
 #### `pm-actions` — Action buttons
 
-Renders styled buttons that execute plugin commands. Replaces Meta Bind button blocks.
+Renders styled buttons that execute plugin commands.
 
 ````markdown
 ```pm-actions
@@ -91,7 +91,7 @@ Available `type` values match command IDs: `create-client`, `create-engagement`,
 
 #### `pm-tasks` — Task dashboard and by-project views
 
-Full-featured task views with interactive filtering. Replaces `tasks-dashboard.js` and `tasks-by-project.js`.
+Full-featured task views with interactive filtering.
 
 ````markdown
 ```pm-tasks
@@ -115,15 +115,9 @@ All filter state is component-local — no frontmatter writes on filter change.
 
 ## Installation
 
-### From the Obsidian Community Plugins browser
-
-1. Open **Settings → Community Plugins → Browse**
-2. Search for "Project Manager"
-3. Install and enable
-
 ### Manual installation
 
-1. Download `main.js`, `manifest.json`, and `styles.css` from the latest [GitHub release](https://github.com/your-repo/obsidian-project-manager/releases)
+1. Download `main.js`, `manifest.json`, and `styles.css` from the latest [GitHub release](https://github.com/segFallt/obsidian-plugin-project-manager/releases)
 2. Copy to `<vault>/.obsidian/plugins/project-manager/`
 3. Enable in **Settings → Community Plugins**
 
@@ -152,21 +146,6 @@ meetings/         ← Meeting notes
 daily notes/      ← Daily notes
 views/            ← Dashboard views created by scaffold command
 ```
-
----
-
-## Migrating from the Template Vault
-
-See [`docs/migration-guide.md`](docs/migration-guide.md) for a complete table of block replacements.
-
-**Quick reference:**
-
-| Old block                                                                          | New block                                                                                                        |
-| ---------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| ` ```meta-bind-embed\n[[project-properties]]\n``` `                                | ` ```pm-properties\nentity: project\n``` `                                                                       |
-| ` ```meta-bind-embed\n[[project-actions]]\n``` `                                   | ` ```pm-actions\nactions:\n  - type: create-project-note\n    label: New Project Note\n    style: primary\n``` ` |
-| ` ```dataviewjs\nawait dv.view("scripts/dataview/client-engagements-table")\n``` ` | ` ```pm-table\ntype: client-engagements\n``` `                                                                   |
-| `Task Dashboard.md` (Meta Bind + dataviewjs)                                       | ` ```pm-tasks\nmode: dashboard\n``` `                                                                            |
 
 ---
 
@@ -203,7 +182,7 @@ npm test
 npm run test:coverage
 ```
 
-See [`docs/architecture.md`](docs/architecture.md) for a full architectural overview.
+See [`docs/plugin/architecture.md`](docs/plugin/architecture.md) for a full architectural overview.
 
 ---
 
