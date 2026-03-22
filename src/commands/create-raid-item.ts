@@ -43,7 +43,10 @@ export function registerCreateRaidItemCommand(
         "Select RAID type"
       );
       const raidType = await typeModal.choose();
-      if (!raidType) return;
+      if (!raidType) {
+        new Notice('RAID item creation cancelled.');
+        return;
+      }
 
       // Step 3: Engagement (optional)
       const NONE_SENTINEL = "(None)";
@@ -59,7 +62,10 @@ export function registerCreateRaidItemCommand(
         "Select engagement (optional)"
       );
       const selectedEngagement = await engagementModal.choose();
-      if (selectedEngagement === null) return;
+      if (selectedEngagement === null) {
+        new Notice('RAID item creation cancelled.');
+        return;
+      }
       const engagementName =
         selectedEngagement === NONE_SENTINEL
           ? undefined
@@ -78,7 +84,10 @@ export function registerCreateRaidItemCommand(
         "Select owner (optional)"
       );
       const selectedOwner = await ownerModal.choose();
-      if (selectedOwner === null) return;
+      if (selectedOwner === null) {
+        new Notice('RAID item creation cancelled.');
+        return;
+      }
       const ownerName =
         selectedOwner === NONE_SENTINEL
           ? undefined

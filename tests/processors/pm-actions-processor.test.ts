@@ -121,6 +121,14 @@ describe("pm-actions processor", () => {
     expect(commandExecutorFn).toHaveBeenCalledWith("project-manager:create-client");
   });
 
+  it('executes create-raid-item command when button is clicked', () => {
+    const source = 'actions:\n  - type: create-raid-item';
+    const { el, commandExecutorFn } = render(source);
+    const button = el.querySelector('button');
+    button!.click();
+    expect(commandExecutorFn).toHaveBeenCalledWith('project-manager:create-raid-item');
+  });
+
   it("executes custom commandId when provided", () => {
     const source = `actions:
   - type: custom
