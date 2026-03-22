@@ -359,10 +359,17 @@ class PmRaidDashboardRenderChild extends MarkdownRenderChild {
 
     // Age (days since raised-date)
     const ageCell = row.createEl("td");
-    const raisedDate = String(item["raised-date"] ?? "");
-    if (raisedDate) {
-      const days = Math.floor((Date.now() - new Date(raisedDate).getTime()) / 86400000);
-      ageCell.createEl("span", { cls: "raid-age-pill", text: `${days}d` });
+    const raisedRaw = item["raised-date"];
+    if (raisedRaw) {
+      // Dataview may return a Luxon DateTime object with a .ts millisecond timestamp
+      const raisedMs =
+        typeof raisedRaw === "object" && raisedRaw !== null && "ts" in raisedRaw
+          ? (raisedRaw as { ts: number }).ts
+          : new Date(String(raisedRaw)).getTime();
+      const days = Math.floor((Date.now() - raisedMs) / 86400000);
+      if (!isNaN(days)) {
+        ageCell.createEl("span", { cls: "raid-age-pill", text: `${days}d` });
+      }
     }
 
     // Owner initials avatar

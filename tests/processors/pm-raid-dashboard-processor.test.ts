@@ -287,6 +287,33 @@ describe("pm-raid-dashboard processor", () => {
     expect(rows[0].querySelector("td")?.textContent).toBe("Gamma Issue");
   });
 
+  it("age badge is omitted when raised-date is an invalid string", () => {
+    const items = [makeMockItem({ raisedDate: "not-a-date" })];
+    const { el } = render(items);
+
+    const agePills = el.querySelectorAll(".raid-age-pill");
+    expect(agePills.length).toBe(0);
+    expect(el.textContent).not.toContain("NaNd");
+  });
+
+  it("age badge is omitted when raised-date is empty", () => {
+    const items = [makeMockItem({ raisedDate: "" })];
+    const { el } = render(items);
+
+    const agePills = el.querySelectorAll(".raid-age-pill");
+    expect(agePills.length).toBe(0);
+  });
+
+  it("age badge renders correctly when raised-date is a Dataview DateTime object", () => {
+    const fiveDaysAgo = Date.now() - 5 * 86400000;
+    const items = [makeMockItem({ raisedDate: { ts: fiveDaysAgo } as unknown as string })];
+    const { el } = render(items);
+
+    const agePills = el.querySelectorAll(".raid-age-pill");
+    expect(agePills.length).toBe(1);
+    expect(agePills[0].textContent).toBe("5d");
+  });
+
   it("auto-refresh is registered on vault modify in onload()", () => {
     const { services, mockPlugin, getHandler, vaultOn } = createMockServices([]);
     registerPmRaidDashboardProcessor(
