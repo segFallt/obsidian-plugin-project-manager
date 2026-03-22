@@ -374,10 +374,8 @@ class PmRaidDashboardRenderChild extends MarkdownRenderChild {
 
     // Owner initials avatar
     const ownerCell = row.createEl("td");
-    const owner = String(item.owner ?? "");
-    if (owner) {
-      // Extract initials from owner name (strip [[]] if present)
-      const ownerName = owner.replace(/^\[\[|\]\]$/g, "").replace(/^[^/]+\//, "");
+    const ownerName = normalizeToName(item.owner) ?? "";
+    if (ownerName) {
       const initials = ownerName
         .split(/\s+/)
         .map((w) => w.charAt(0).toUpperCase())
