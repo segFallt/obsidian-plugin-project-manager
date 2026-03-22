@@ -83,6 +83,25 @@ export const DEFAULT_SETTINGS: ProjectManagerSettings = {
 };
 
 /**
+ * Merge saved settings with defaults, performing a two-level deep merge so that
+ * sub-objects (folders, defaults, ui, logging) are merged key-by-key rather than
+ * replaced wholesale. Missing keys in `saved` fall back to `defaults`.
+ */
+export function mergeSettings(
+  defaults: ProjectManagerSettings,
+  saved: Partial<ProjectManagerSettings>
+): ProjectManagerSettings {
+  return {
+    ...defaults,
+    ...saved,
+    folders:  { ...defaults.folders,  ...(saved.folders  ?? {}) },
+    defaults: { ...defaults.defaults, ...(saved.defaults ?? {}) },
+    ui:       { ...defaults.ui,       ...(saved.ui       ?? {}) },
+    logging:  { ...defaults.logging,  ...(saved.logging  ?? {}) },
+  };
+}
+
+/**
  * Settings tab UI. Registered in main.ts via addSettingTab().
  * Folder paths, default values, UI preferences, and vault management.
  */
