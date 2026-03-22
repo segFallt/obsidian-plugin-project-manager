@@ -1,17 +1,12 @@
 import { describe, it, expect, vi } from "vitest";
-import {
-  renderActionButtons,
-  renderEntityTable,
-  buildTable,
-  fileLink,
-  statusBadge,
-} from "../../src/processors/shared-renderers";
+import { renderActionButtons } from "@/processors/action-renderers";
+import { renderEntityTable, buildTable, fileLink, statusBadge } from "@/processors/table-renderers";
 import { createMockPage } from "../mocks/dataview-mock";
 import { TFile } from "../mocks/obsidian-mock";
-import type { ActionProcessorServices, PropertyProcessorServices } from "../../src/plugin-context";
-import type { PmActionConfig } from "../../src/types";
-import { DEFAULT_FOLDERS } from "../../src/constants";
-import { ActionContextManager } from "../../src/services/action-context-manager";
+import type { ActionProcessorServices, PropertyProcessorServices } from "@/plugin-context";
+import type { PmActionConfig } from "@/types";
+import { DEFAULT_FOLDERS } from "@/constants";
+import { ActionContextManager } from "@/services/action-context-manager";
 
 // ─── Mock factory ────────────────────────────────────────────────────────────
 

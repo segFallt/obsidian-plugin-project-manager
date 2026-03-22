@@ -10,7 +10,7 @@ import type {
 import { normalizeToName } from "../utils/link-utils";
 import { todayISO } from "../utils/date-utils";
 import { getTaskContext, getTaskPriority, addDays } from "../utils/task-utils";
-import { CONTEXT, STATUS, WEEK_DAYS, ISO_DATE_LENGTH } from "../constants";
+import { CONTEXT, STATUS, WEEK_DAYS, ISO_DATE_LENGTH, VIEW_MODE, TOMORROW_OFFSET, NEXT_WEEK_START_OFFSET, NEXT_WEEK_END_OFFSET } from "../constants";
 import type { FolderSettings } from "../settings";
 import type { IQueryService, ITaskFilterService } from "./interfaces";
 
@@ -72,7 +72,7 @@ export class TaskFilterService implements ITaskFilterService {
       filtered = filtered.filter((t) => this.matchesTagFilter(t, f.tagFilter ?? [], f.includeUntagged ?? false));
     }
 
-    if (f.viewMode === "context") {
+    if (f.viewMode === VIEW_MODE.CONTEXT) {
       filtered = this.applyContextSpecificFilters(filtered, f, dv);
     }
 
@@ -144,32 +144,22 @@ export class TaskFilterService implements ITaskFilterService {
     if (filter.selectedPresets.length > 0) {
       // Compute date boundaries once outside the loop (constant for this render cycle)
       const today = todayISO();
-      const tomorrow = addDays(today, 1);
+      const tomorrow = addDays(today, TOMORROW_OFFSET);
       const weekEnd = addDays(today, WEEK_DAYS);
-      const nextWeekStart = addDays(today, WEEK_DAYS + 1);
-      const nextWeekEnd = addDays(today, WEEK_DAYS * 2);
+      const nextWeekStart = addDays(today, NEXT_WEEK_START_OFFSET);
+      const nextWeekEnd = addDays(today, NEXT_WEEK_END_OFFSET);
+
+      const presetMatchers: Partial<Record<string, (d: string) => boolean>> = {
+        "Today": (d) => d === today,
+        "Tomorrow": (d) => d === tomorrow,
+        "This Week": (d) => d >= today && d <= weekEnd,
+        "Next Week": (d) => d >= nextWeekStart && d <= nextWeekEnd,
+        "Overdue": (d) => d < today,
+      };
 
       for (const preset of filter.selectedPresets) {
         if (preset === "No Date") continue; // handled above
-        let matches = false;
-        switch (preset) {
-          case "Today":
-            matches = due === today;
-            break;
-          case "Tomorrow":
-            matches = due === tomorrow;
-            break;
-          case "This Week":
-            matches = due >= today && due <= weekEnd;
-            break;
-          case "Next Week":
-            matches = due >= nextWeekStart && due <= nextWeekEnd;
-            break;
-          case "Overdue":
-            matches = due < today;
-            break;
-        }
-        if (matches) return true;
+        if (presetMatchers[preset]?.(due)) return true;
       }
     }
 
@@ -197,16 +187,13 @@ export class TaskFilterService implements ITaskFilterService {
     const weekEnd = addDays(today, WEEK_DAYS);
     const d = dateStr.substring(0, ISO_DATE_LENGTH);
 
-    switch (filter) {
-      case "Today":
-        return d === today;
-      case "This Week":
-        return d >= today && d <= weekEnd;
-      case "Past":
-        return d < today;
-      default:
-        return true;
-    }
+    const meetingMatchers: Partial<Record<MeetingDateFilter, (s: string) => boolean>> = {
+      "Today": (s) => s === today,
+      "This Week": (s) => s >= today && s <= weekEnd,
+      "Past": (s) => s < today,
+    };
+
+    return meetingMatchers[filter]?.(d) ?? true;
   }
 
   /**

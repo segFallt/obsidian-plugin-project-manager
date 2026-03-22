@@ -2,7 +2,8 @@ import { MarkdownRenderChild, TFile, TAbstractFile, parseYaml } from "obsidian";
 import type { MarkdownPostProcessorContext } from "obsidian";
 import type { PropertyProcessorServices, RegisterProcessorFn } from "../plugin-context";
 import type { PmPropertiesConfig } from "../types";
-import { DEBOUNCE_MS, CODEBLOCK, CSS_CLS, CSS_VAR } from "../constants";
+import { DEBOUNCE_MS, CODEBLOCK, LOG_CONTEXT, CACHE_RETRY_MAX, CSS_CLS } from "../constants";
+import { renderError } from "./dom-helpers";
 
 import { ENTITY_FIELDS } from "./entity-field-config";
 import { renderField } from "./property-field-renderers";
@@ -31,7 +32,6 @@ export function registerPmPropertiesProcessor(
 
 // ─── Render child ──────────────────────────────────────────────────────────
 
-const MAX_CACHE_RETRIES = 3;
 
 class PmPropertiesRenderChild extends MarkdownRenderChild {
   private debounceTimer: ReturnType<typeof setTimeout> | null = null;
@@ -86,31 +86,31 @@ class PmPropertiesRenderChild extends MarkdownRenderChild {
       config = parseYaml(this.source) as PmPropertiesConfig;
     } catch {
       const msg = "Invalid pm-properties config.";
-      this.services.loggerService.warn(msg, "pm-properties");
-      this.renderError(msg);
+      this.services.loggerService.warn(msg, LOG_CONTEXT.PROPERTIES_PROCESSOR);
+      renderError(this.containerEl, msg);
       return;
     }
 
     if (!config?.entity) {
       const msg = "pm-properties requires an `entity` field.";
-      this.services.loggerService.warn(msg, "pm-properties");
-      this.renderError(msg);
+      this.services.loggerService.warn(msg, LOG_CONTEXT.PROPERTIES_PROCESSOR);
+      renderError(this.containerEl, msg);
       return;
     }
 
     const fields = ENTITY_FIELDS[config.entity];
     if (!fields) {
       const msg = `Unknown entity type: ${config.entity}`;
-      this.services.loggerService.warn(msg, "pm-properties");
-      this.renderError(msg);
+      this.services.loggerService.warn(msg, LOG_CONTEXT.PROPERTIES_PROCESSOR);
+      renderError(this.containerEl, msg);
       return;
     }
 
     const file = this.services.app.vault.getAbstractFileByPath(this.sourcePath);
     if (!(file instanceof TFile)) {
       const msg = "Could not resolve current file.";
-      this.services.loggerService.warn(msg, "pm-properties");
-      this.renderError(msg);
+      this.services.loggerService.warn(msg, LOG_CONTEXT.PROPERTIES_PROCESSOR);
+      renderError(this.containerEl, msg);
       return;
     }
 
@@ -123,7 +123,7 @@ class PmPropertiesRenderChild extends MarkdownRenderChild {
     // If the cache has no frontmatter entry at all for the file, it may still be
     // indexing after a freshly created entity. Register a one-shot "resolved"
     // listener to re-render once the cache catches up.
-    if (cachedFrontmatter == null && this.cacheRetryCount < MAX_CACHE_RETRIES) {
+    if (cachedFrontmatter == null && this.cacheRetryCount < CACHE_RETRY_MAX) {
       this.cacheRetryCount++;
       const cache = this.services.app.metadataCache as unknown as {
         on(event: "resolved", cb: () => void): unknown;
@@ -138,8 +138,8 @@ class PmPropertiesRenderChild extends MarkdownRenderChild {
     // Reset retry counter once we have a real cache entry (even if frontmatter is empty).
     this.cacheRetryCount = 0;
 
-    this.services.loggerService.debug(`pm-properties rendering, entity: "${config.entity}", source: "${this.sourcePath}"`, 'pm-properties');
-    const form = this.containerEl.createDiv({ cls: "pm-properties" });
+    this.services.loggerService.debug(`pm-properties rendering, entity: "${config.entity}", source: "${this.sourcePath}"`, LOG_CONTEXT.PROPERTIES_PROCESSOR);
+    const form = this.containerEl.createDiv({ cls: CSS_CLS.PROPERTIES_FORM });
 
     for (const field of fields) {
       renderField(form, field, fm, file, {
@@ -185,9 +185,5 @@ class PmPropertiesRenderChild extends MarkdownRenderChild {
     }
   }
 
-  private renderError(message: string): void {
-    const div = this.containerEl.createDiv({ cls: CSS_CLS.PM_ERROR });
-    div.style.color = CSS_VAR.TEXT_ERROR;
-    div.textContent = message;
-  }
 }
+

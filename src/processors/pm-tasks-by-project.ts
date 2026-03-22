@@ -7,7 +7,8 @@ import type {
   SavedByProjectFilters,
   ProjectStatus,
 } from "../types";
-import { DEFAULT_TASK_VIEW_STATUSES, PRIORITY_FALLBACK, DEBOUNCE_MS, ENTITY_TAGS, CSS_CLS, CSS_VAR, MSG } from "../constants";
+import { DEFAULT_TASK_VIEW_STATUSES, PRIORITY_FALLBACK, DEBOUNCE_MS, ENTITY_TAGS, CSS_CLS, MSG, LOG_CONTEXT } from "../constants";
+import { renderError } from "./dom-helpers";
 import { normalizeToName } from "../utils/link-utils";
 import type { ITaskSortService } from "../services/interfaces";
 import type { TaskListRenderer } from "./task-list-renderer";
@@ -33,7 +34,7 @@ export class ByProjectView {
   ) {}
 
   render(): void {
-    this.services.loggerService.debug(`pm-tasks-by-project rendering, mode: "${this.config.mode}"`, 'pm-tasks-by-project');
+    this.services.loggerService.debug(`pm-tasks-by-project rendering, mode: "${this.config.mode}"`, LOG_CONTEXT.TASKS_BY_PROJECT);
     this.initFilters();
     const root = this.containerEl.createDiv({ cls: "pm-tasks-by-project" });
     const controlsEl = root.createDiv({ cls: "pm-tasks-by-project__controls" });
@@ -230,11 +231,9 @@ export class ByProjectView {
         await this.renderProjectTaskGroup(outputEl, project, f);
       }
     } catch (err) {
-      this.services.loggerService.error(String(err), "pm-tasks-by-project", err);
+      this.services.loggerService.error(String(err), LOG_CONTEXT.TASKS_BY_PROJECT, err);
       outputEl.empty();
-      const errEl = outputEl.createDiv({ cls: CSS_CLS.PM_ERROR });
-      errEl.style.color = CSS_VAR.TEXT_ERROR;
-      errEl.textContent = `pm-tasks error: ${String(err)}`;
+      renderError(outputEl, `pm-tasks error: ${String(err)}`);
     }
   }
 
