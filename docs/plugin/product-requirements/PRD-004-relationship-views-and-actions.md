@@ -52,7 +52,7 @@ actions:
 ```
 ```
 
-**Built-in action types (10):**
+**Built-in action types (13):**
 
 | `type` | Command triggered |
 |--------|-------------------|
@@ -63,8 +63,11 @@ actions:
 | `create-inbox` | PM: Create Inbox Note |
 | `create-single-meeting` | PM: Create Single Meeting |
 | `create-recurring-meeting` | PM: Create Recurring Meeting |
+| `create-recurring-meeting-event` | PM: Create Recurring Meeting Event |
 | `create-project-note` | PM: Create Project Note |
 | `convert-inbox` | PM: Convert Inbox to Project |
+| `convert-single-to-recurring` | PM: Convert Single Meeting to Recurring |
+| `create-raid-item` | Opens RAID item creation flow |
 | `scaffold-vault` | PM: Set Up Vault Structure |
 
 **Custom command support:** Any action can use `commandId: <full-obsidian-command-id>` instead of `type` to invoke an arbitrary registered command.
