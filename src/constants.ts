@@ -91,6 +91,12 @@ export const PROJECT_STATUS_ORDER: Record<string, number> = {
 export const DEFAULT_PRIORITY = 3;
 /** Number of days in a week. */
 export const WEEK_DAYS = 7;
+/** Day offset for tomorrow (relative to today). */
+export const TOMORROW_OFFSET = 1;
+/** Day offset for the start of next week (relative to today). */
+export const NEXT_WEEK_START_OFFSET = WEEK_DAYS + 1;
+/** Day offset for the end of next week (relative to today). */
+export const NEXT_WEEK_END_OFFSET = WEEK_DAYS * 2;
 /** Length of an ISO date string (YYYY-MM-DD). */
 export const ISO_DATE_LENGTH = 10;
 /** Length of an ISO datetime string (YYYY-MM-DDTHH:mm:ss). */
@@ -123,11 +129,28 @@ export const LOG_FLUSH_INTERVAL_MS = 5000;
 /** Suffix appended to log file names (e.g. "2026-03-09-pm.log"). */
 export const LOG_FILE_SUFFIX = "-pm.log";
 
+/** Logger context tag strings for each processor / view. */
+export const LOG_CONTEXT = {
+  PROPERTIES_PROCESSOR: "pm-properties",
+  TABLE_PROCESSOR: "pm-table",
+  TASKS_PROCESSOR: "pm-tasks-processor",
+  TASKS_DASHBOARD: "pm-tasks-dashboard",
+  TASKS_BY_PROJECT: "pm-tasks-by-project",
+  ENTITY_VIEW: "pm-entity-view",
+} as const;
+
 /** Sentinel date strings for sort stability (tasks with no due date). */
 export const SORT_SENTINEL = {
   MIN: "0000-00-00",
   MAX: "9999-99-99",
 } as const;
+
+/** Opacity applied to disabled action buttons. */
+export const BUTTON_OPACITY_DISABLED = 0.5;
+/** Maximum number of retries when the Dataview cache is unavailable. */
+export const CACHE_RETRY_MAX = 3;
+/** Padding applied to inline error containers. */
+export const ERROR_PADDING = "8px";
 
 // ─── Folder paths (defaults, overrideable via settings) ───────────────────
 
@@ -143,6 +166,7 @@ export const DEFAULT_FOLDERS = {
   meetingsRecurringEvents: "meetings/recurring-events",
   dailyNotes: "daily notes",
   utility: "utility",
+  raid: "raid",
 } as const;
 
 // ─── Tags ──────────────────────────────────────────────────────────────────
@@ -180,6 +204,7 @@ export const FM_KEY = {
   REPORTS_TO: "reports-to",
   PRIORITY: "priority",
   DESCRIPTION: "description",
+  TASKS_FILTERS: "pm-tasks-filters", // Persisted to vault frontmatter — do NOT change this value without a migration
 } as const;
 
 // ─── CSS classes ──────────────────────────────────────────────────────────
@@ -188,6 +213,38 @@ export const FM_KEY = {
 export const CSS_CLS = {
   PM_ERROR: "pm-error",
   INTERNAL_LINK: "internal-link",
+  PROPERTIES_FORM: "pm-properties",
+  // Action processor classes
+  ACTIONS_WRAPPER: "pm-actions",
+  ACTIONS_BUTTON: "pm-actions__button",
+  MOD_CTA: "mod-cta",
+  MOD_DESTRUCTIVE: "mod-destructive",
+  // Status badge
+  STATUS_BADGE: "pm-status-badge",
+  STATUS_BADGE_PREFIX: "pm-status-badge--",
+  // Property renderer
+  PROPERTIES_ROW: "pm-properties__row",
+  PROPERTIES_LABEL: "pm-properties__label",
+  PROPERTIES_INPUT: "pm-properties__input",
+  PROPERTIES_TEXTAREA: "pm-properties__textarea",
+  PROPERTIES_SELECT: "pm-properties__select",
+  // DOM helpers / filter UI
+  TASKS_FILTER_SELECT: "pm-tasks-filter-select",
+  FILTER_SECTION: "pm-filter-section",
+  FILTER_SECTION_TITLE: "pm-filter-section__title",
+  FILTER_SECTION_CONTENT: "pm-filter-section__content",
+  // Task list
+  TASK_LIST: "pm-task-list",
+  TASK_TEXT: "pm-task-text",
+  TASK_DUE: "pm-task-due",
+  TASK_DUE_OVERDUE: "pm-task-due--overdue",
+  TASK_PRIORITY: "pm-task-priority",
+  TASK_SOURCE: "pm-task-source",
+  // List suggester chips
+  PROPERTIES_LIST_SUGGESTER: "pm-properties__list-suggester",
+  PROPERTIES_CHIPS: "pm-properties__chips",
+  PROPERTIES_CHIP: "pm-properties__chip",
+  PROPERTIES_CHIP_REMOVE: "pm-properties__chip-remove",
 } as const;
 
 // ─── Codeblock identifiers ────────────────────────────────────────────────
@@ -200,6 +257,27 @@ export const CODEBLOCK = {
   PM_TABLE: "pm-table",
   PM_ENTITY_VIEW: "pm-entity-view",
   PM_RECURRING_EVENTS: "pm-recurring-events",
+  PM_RAID_REFERENCES: "pm-raid-references",
+  PM_RAID_DASHBOARD: "pm-raid-dashboard",
+} as const;
+
+// ─── Processor & view identifiers ─────────────────────────────────────────
+
+/** View mode strings used by the task dashboard grouping selector. */
+export const VIEW_MODE = {
+  CONTEXT: "context",
+  DATE: "date",
+  PRIORITY: "priority",
+  TAG: "tag",
+} as const;
+
+/** Type values for the pm-table codeblock. */
+export const TABLE_TYPE = {
+  CLIENT_ENGAGEMENTS: "client-engagements",
+  CLIENT_PEOPLE: "client-people",
+  ENGAGEMENT_PROJECTS: "engagement-projects",
+  RELATED_PROJECT_NOTES: "related-project-notes",
+  MENTIONS: "mentions",
 } as const;
 
 // ─── User-facing messages ─────────────────────────────────────────────────

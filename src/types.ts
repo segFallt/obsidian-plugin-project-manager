@@ -19,7 +19,25 @@ export type EntityType =
   | "single-meeting"
   | "recurring-meeting"
   | "recurring-meeting-event"
-  | "project-note";
+  | "project-note"
+  | "raid-item";
+
+// ─── RAID Types ────────────────────────────────────────────────────────────
+
+export type RaidType = "Risk" | "Assumption" | "Issue" | "Decision";
+export type RaidStatus = "Open" | "In Progress" | "Resolved" | "Closed";
+export type RaidLikelihood = "High" | "Medium" | "Low";
+export type RaidImpact = "High" | "Medium" | "Low";
+export type RaidDirection = "positive" | "negative" | "neutral";
+
+export interface RaidDashboardFilters {
+  raidTypes: RaidType[];
+  statusFilter: RaidStatus[];
+  clientFilter: string[];
+  engagementFilter: string[];
+  searchText: string;
+  matrixCell: { likelihood: RaidLikelihood; impact: RaidImpact } | null;
+}
 
 // ─── Parsed Task ───────────────────────────────────────────────────────────
 

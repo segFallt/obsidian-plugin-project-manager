@@ -563,4 +563,78 @@ describe("QueryService", () => {
       expect(qs.getEngagementNameForPath("projects/Foo.md")).toBeNull();
     });
   });
+
+  describe("getActiveRaidItems", () => {
+    it("returns items with Open or In Progress status", () => {
+      const { qs } = createQueryService([
+        { path: "raid/R1.md", tags: ["#raid"], frontmatter: { status: "Open", "raised-date": "2024-01-01" } },
+        { path: "raid/R2.md", tags: ["#raid"], frontmatter: { status: "In Progress", "raised-date": "2024-01-02" } },
+      ]);
+      const result = qs.getActiveRaidItems();
+      expect(result).toHaveLength(2);
+      expect(result.map((p) => p.file.name)).toEqual(expect.arrayContaining(["R1", "R2"]));
+    });
+
+    it("excludes items with Resolved or Closed status", () => {
+      const { qs } = createQueryService([
+        { path: "raid/Active.md",   tags: ["#raid"], frontmatter: { status: "Open" } },
+        { path: "raid/Resolved.md", tags: ["#raid"], frontmatter: { status: "Resolved" } },
+        { path: "raid/Closed.md",   tags: ["#raid"], frontmatter: { status: "Closed" } },
+      ]);
+      const result = qs.getActiveRaidItems();
+      expect(result).toHaveLength(1);
+      expect(result[0].file.name).toBe("Active");
+    });
+
+    it("returns empty array when Dataview is unavailable", () => {
+      const app = createMockApp();
+      const qs = new QueryService(app as unknown as import("obsidian").App, () => null, defaultFolders);
+      expect(qs.getActiveRaidItems()).toEqual([]);
+    });
+  });
+
+  describe("getRaidItemsForContext", () => {
+    it("returns all active items when no filters provided", () => {
+      const { qs } = createQueryService([
+        { path: "raid/R1.md", tags: ["#raid"], frontmatter: { status: "Open", client: "[[Acme]]" } },
+        { path: "raid/R2.md", tags: ["#raid"], frontmatter: { status: "Open", engagement: "[[Eng1]]" } },
+        { path: "raid/R3.md", tags: ["#raid"], frontmatter: { status: "Resolved" } },
+      ]);
+      const result = qs.getRaidItemsForContext();
+      expect(result).toHaveLength(2);
+    });
+
+    it("filters by clientName", () => {
+      const { qs } = createQueryService([
+        { path: "raid/R1.md", tags: ["#raid"], frontmatter: { status: "Open", client: "[[Acme]]" } },
+        { path: "raid/R2.md", tags: ["#raid"], frontmatter: { status: "Open", client: "[[OtherCo]]" } },
+      ]);
+      const result = qs.getRaidItemsForContext("Acme");
+      expect(result).toHaveLength(1);
+      expect(result[0].file.name).toBe("R1");
+    });
+
+    it("filters by engagementName", () => {
+      const { qs } = createQueryService([
+        { path: "raid/R1.md", tags: ["#raid"], frontmatter: { status: "Open", engagement: "[[Eng1]]" } },
+        { path: "raid/R2.md", tags: ["#raid"], frontmatter: { status: "Open", engagement: "[[Eng2]]" } },
+      ]);
+      const result = qs.getRaidItemsForContext(undefined, "Eng1");
+      expect(result).toHaveLength(1);
+      expect(result[0].file.name).toBe("R1");
+    });
+
+    it("excludes Resolved/Closed items even when context matches", () => {
+      const { qs } = createQueryService([
+        { path: "raid/R1.md", tags: ["#raid"], frontmatter: { status: "Resolved", client: "[[Acme]]" } },
+      ]);
+      expect(qs.getRaidItemsForContext("Acme")).toHaveLength(0);
+    });
+
+    it("returns empty array when Dataview is unavailable", () => {
+      const app = createMockApp();
+      const qs = new QueryService(app as unknown as import("obsidian").App, () => null, defaultFolders);
+      expect(qs.getRaidItemsForContext("Acme")).toEqual([]);
+    });
+  });
 });

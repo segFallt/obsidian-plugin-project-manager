@@ -46,6 +46,7 @@ export function registerConvertSingleToRecurringCommand(
         return;
       }
 
+      services.loggerService.debug(`convert-single-to-recurring invoked: "${activeFile.basename}" -> "${recurringName}"`, 'convert-single-to-recurring');
       try {
         await services.entityService.convertSingleToRecurring(activeFile, recurringName);
       } catch (err) {

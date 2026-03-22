@@ -2,7 +2,7 @@ import { MarkdownRenderChild, parseYaml } from "obsidian";
 import type { MarkdownPostProcessorContext } from "obsidian";
 import type { ActionProcessorServices, RegisterProcessorFn } from "../plugin-context";
 import type { PmActionsConfig } from "../types";
-import { renderActionButtons } from "./shared-renderers";
+import { renderActionButtons } from "./action-renderers";
 import { CODEBLOCK, CSS_CLS } from "../constants";
 
 /**

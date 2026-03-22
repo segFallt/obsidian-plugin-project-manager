@@ -12,6 +12,7 @@ import {
   SCAFFOLD_INBOX_MD,
   SCAFFOLD_SINGLE_MEETING_MD,
   SCAFFOLD_RECURRING_MEETING_MD,
+  SCAFFOLD_RAID_MD,
   scaffoldClientsBase,
   scaffoldEngagementsBase,
   scaffoldProjectsBase,
@@ -58,6 +59,7 @@ export class VaultScaffoldService implements IScaffoldService {
       folders.meetingsRecurring,
       folders.dailyNotes,
       folders.utility,
+      folders.raid,
     ];
 
     for (const path of paths) {
@@ -90,6 +92,7 @@ export class VaultScaffoldService implements IScaffoldService {
       { path: "views/Inbox.md", content: SCAFFOLD_INBOX_MD },
       { path: "views/Single Meeting.md", content: SCAFFOLD_SINGLE_MEETING_MD },
       { path: "views/Recurring Meeting.md", content: SCAFFOLD_RECURRING_MEETING_MD },
+      { path: "views/RAID.md", content: SCAFFOLD_RAID_MD },
     ];
 
     await ensureFolderExists(this.app, "views");

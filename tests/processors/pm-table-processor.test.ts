@@ -40,6 +40,7 @@ function createMockServices(pages: Parameters<typeof createMockDataviewApi>[0] =
       error: vi.fn(),
       warn: vi.fn(),
       info: vi.fn(),
+      debug: vi.fn(),
     },
   } as unknown as PluginServices;
 

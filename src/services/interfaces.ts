@@ -1,4 +1,4 @@
-import type { TFile } from "obsidian";
+import type { App, TFile } from "obsidian";
 import type {
   DataviewApi,
   DataviewPage,
@@ -38,6 +38,8 @@ export interface IQueryService {
   getPage(path: string): DataviewPage | null;
   getActiveRecurringMeetings(): DataviewPage[];
   getRecurringMeetingEvents(meetingName: string): DataviewPage[];
+  getActiveRaidItems(): DataviewPage[];
+  getRaidItemsForContext(clientName?: string, engagementName?: string): DataviewPage[];
 }
 
 export interface IEntityCreationService {
@@ -50,6 +52,7 @@ export interface IEntityCreationService {
   createRecurringMeeting(name: string, engagementName?: string): Promise<TFile>;
   createProjectNote(projectFile: TFile, noteName: string): Promise<TFile>;
   createRecurringMeetingEvent(meetingName: string, options?: { date?: string; attendees?: string[]; notesContent?: string; open?: boolean }): Promise<TFile>;
+  createRaidItem(name: string, raidType: string, engagement?: string, owner?: string): Promise<TFile>;
   validateResult(result: CreateFileResult): void;
 }
 
@@ -148,4 +151,11 @@ export interface ITestDataService {
   generateTestData(): Promise<TestDataResult>;
   /** Delete all files whose basename starts with [TEST]. Returns count deleted. */
   cleanTestData(): Promise<number>;
+}
+
+/** Narrow service bundle consumed by RAID processors. */
+export interface RaidProcessorServices {
+  app: App;
+  queryService: IQueryService;
+  loggerService: ILoggerService;
 }

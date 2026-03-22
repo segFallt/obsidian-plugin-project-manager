@@ -32,6 +32,7 @@ export function registerCreatePersonCommand(services: CommandServices, addComman
         return;
       }
 
+      services.loggerService.debug(`create-person invoked: "${result.name}", client: "${result.parentName ?? 'none'}"`, 'create-person');
       try {
         await services.entityService.createPerson(result.name, result.parentName ?? undefined);
       } catch (err) {

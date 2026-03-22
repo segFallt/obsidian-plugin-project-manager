@@ -6,7 +6,7 @@ import { TaskListRenderer } from "./task-list-renderer";
 import { DashboardView } from "./pm-tasks-dashboard";
 import { ByProjectView } from "./pm-tasks-by-project";
 import { renderError } from "./dom-helpers";
-import { DEBOUNCE_MS, CODEBLOCK } from "../constants";
+import { DEBOUNCE_MS, CODEBLOCK, FM_KEY, LOG_CONTEXT } from "../constants";
 
 /**
  * Renders the task dashboard and tasks-by-project views.
@@ -37,7 +37,6 @@ export function registerPmTasksProcessor(
 
 // ─── Render child ──────────────────────────────────────────────────────────
 
-const FILTER_FM_KEY = "pm-tasks-filters";
 
 class PmTasksRenderChild extends MarkdownRenderChild {
   private config!: PmTasksConfig;
@@ -83,18 +82,19 @@ class PmTasksRenderChild extends MarkdownRenderChild {
       this.config = parseYaml(this.source) as PmTasksConfig;
     } catch {
       const msg = "Invalid pm-tasks config.";
-      this.services.loggerService.warn(msg, "pm-tasks-processor");
+      this.services.loggerService.warn(msg, LOG_CONTEXT.TASKS_PROCESSOR);
       renderError(this.containerEl, msg);
       return;
     }
 
     if (!this.config?.mode) {
       const msg = "pm-tasks requires a `mode` field (dashboard or by-project).";
-      this.services.loggerService.warn(msg, "pm-tasks-processor");
+      this.services.loggerService.warn(msg, LOG_CONTEXT.TASKS_PROCESSOR);
       renderError(this.containerEl, msg);
       return;
     }
 
+    this.services.loggerService.debug(`pm-tasks rendering, mode: "${this.config.mode}", source: "${this.sourcePath}"`, LOG_CONTEXT.TASKS_PROCESSOR);
     const filterService = this.services.filterService;
     const sortService = this.services.sortService;
     const renderer = new TaskListRenderer(this.services, this);
@@ -125,7 +125,7 @@ class PmTasksRenderChild extends MarkdownRenderChild {
       this.activeView.render();
     } else {
       const msg = `Unknown pm-tasks mode: ${String(this.config.mode)}`;
-      this.services.loggerService.warn(msg, "pm-tasks-processor");
+      this.services.loggerService.warn(msg, LOG_CONTEXT.TASKS_PROCESSOR);
       renderError(this.containerEl, msg);
     }
   }
@@ -133,7 +133,7 @@ class PmTasksRenderChild extends MarkdownRenderChild {
   private loadSavedFilters(): unknown {
     const file = this.services.app.vault.getAbstractFileByPath(this.sourcePath);
     if (!(file instanceof TFile)) return null;
-    return this.services.app.metadataCache.getFileCache(file)?.frontmatter?.[FILTER_FM_KEY] ?? null;
+    return this.services.app.metadataCache.getFileCache(file)?.frontmatter?.[FM_KEY.TASKS_FILTERS] ?? null;
   }
 
   private debouncedSaveFilters(filters: SavedDashboardFilters | SavedByProjectFilters | null): void {
@@ -152,9 +152,9 @@ class PmTasksRenderChild extends MarkdownRenderChild {
         file,
         (fm: Record<string, unknown>) => {
           if (filters === null) {
-            delete fm[FILTER_FM_KEY];
+            delete fm[FM_KEY.TASKS_FILTERS];
           } else {
-            fm[FILTER_FM_KEY] = filters;
+            fm[FM_KEY.TASKS_FILTERS] = filters;
           }
         }
       );

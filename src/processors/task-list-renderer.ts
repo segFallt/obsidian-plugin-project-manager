@@ -1,7 +1,7 @@
 import { MarkdownRenderChild, MarkdownRenderer, TFile } from "obsidian";
 import type { TaskProcessorServices } from "../plugin-context";
 import type { DataviewTask } from "../types";
-import { DUE_DATE_EMOJI, PRIORITY_EMOJI, DEFAULT_PRIORITY, ARIA_LABEL_MAX_LENGTH } from "../constants";
+import { DUE_DATE_EMOJI, PRIORITY_EMOJI, DEFAULT_PRIORITY, ARIA_LABEL_MAX_LENGTH, CSS_CLS } from "../constants";
 import { todayISO } from "../utils/date-utils";
 import { cleanTaskText, extractEmojiDate, getTaskPriority } from "../utils/task-utils";
 
@@ -18,7 +18,7 @@ export class TaskListRenderer {
   ) {}
 
   async renderTaskList(container: HTMLElement, tasks: DataviewTask[]): Promise<void> {
-    const ul = container.createEl("ul", { cls: "pm-task-list contains-task-list" });
+    const ul = container.createEl("ul", { cls: `${CSS_CLS.TASK_LIST} contains-task-list` });
 
     for (const task of tasks) {
       const li = ul.createEl("li", { cls: "task-list-item" });
@@ -35,7 +35,7 @@ export class TaskListRenderer {
         void this.toggleTask(task, checkbox.checked);
       });
 
-      const textSpan = li.createSpan({ cls: "pm-task-text" });
+      const textSpan = li.createSpan({ cls: CSS_CLS.TASK_TEXT });
       await MarkdownRenderer.render(
         this.services.app,
         cleanTaskText(task.text),
@@ -47,9 +47,9 @@ export class TaskListRenderer {
       // Due date badge
       const dueDate = extractEmojiDate(task.text, DUE_DATE_EMOJI);
       if (dueDate) {
-        const badge = li.createSpan({ cls: "pm-task-due" });
+        const badge = li.createSpan({ cls: CSS_CLS.TASK_DUE });
         badge.textContent = `📅 ${dueDate}`;
-        if (dueDate < todayISO()) badge.classList.add("pm-task-due--overdue");
+        if (dueDate < todayISO()) badge.classList.add(CSS_CLS.TASK_DUE_OVERDUE);
       }
 
       // Priority badge
@@ -57,13 +57,13 @@ export class TaskListRenderer {
       if (priority !== DEFAULT_PRIORITY) {
         const priorityEmoji = Object.entries(PRIORITY_EMOJI).find(([, p]) => p === priority)?.[0];
         if (priorityEmoji) {
-          li.createSpan({ cls: "pm-task-priority", text: priorityEmoji });
+          li.createSpan({ cls: CSS_CLS.TASK_PRIORITY, text: priorityEmoji });
         }
       }
 
       // Source file link — compact "link" label maximises screen real-estate
       const sourceLink = li.createEl("a", {
-        cls: "pm-task-source internal-link",
+        cls: `${CSS_CLS.TASK_SOURCE} ${CSS_CLS.INTERNAL_LINK}`,
         href: task.link.path,
       });
       sourceLink.dataset.href = task.link.path;

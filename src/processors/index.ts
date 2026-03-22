@@ -5,6 +5,9 @@ import { registerPmActionsProcessor } from "./pm-actions-processor";
 import { registerPmTasksProcessor } from "./pm-tasks-processor";
 import { registerPmEntityViewProcessor } from "./pm-entity-view-processor";
 import { registerPmRecurringEventsProcessor } from "./pm-recurring-events-processor";
+import { registerPmRaidReferencesProcessor } from "./pm-raid-references-processor";
+import { registerPmRaidDashboardProcessor } from "./pm-raid-dashboard-processor";
+import { registerRaidBadgePostProcessor } from "./raid-badge-processor";
 
 /**
  * Registers all markdown code block processors.
@@ -22,4 +25,14 @@ export function registerAllProcessors(plugin: ProjectManagerPlugin): void {
   registerPmTasksProcessor(plugin, registerProcessor);
   registerPmEntityViewProcessor(plugin, registerProcessor);
   registerPmRecurringEventsProcessor(plugin, registerProcessor);
+
+  // RAID processors — consume the narrow RaidProcessorServices interface
+  const raidServices = {
+    app: plugin.app,
+    queryService: plugin.queryService,
+    loggerService: plugin.loggerService,
+  };
+  registerPmRaidReferencesProcessor(plugin, raidServices);
+  registerPmRaidDashboardProcessor(plugin, raidServices);
+  registerRaidBadgePostProcessor(plugin);
 }

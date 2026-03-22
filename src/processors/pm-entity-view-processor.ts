@@ -2,8 +2,10 @@ import { MarkdownRenderChild, parseYaml } from "obsidian";
 import type { MarkdownPostProcessorContext } from "obsidian";
 import type { PluginServices, RegisterProcessorFn } from "../plugin-context";
 import { ENTITY_VIEW_SECTIONS } from "./entity-view-registry";
-import { renderActionButtons, renderEntityTable } from "./shared-renderers";
-import { CODEBLOCK, CSS_CLS, CSS_VAR } from "../constants";
+import { renderActionButtons } from "./action-renderers";
+import { renderEntityTable } from "./table-renderers";
+import { CODEBLOCK, LOG_CONTEXT, ERROR_PADDING } from "../constants";
+import { renderError } from "./dom-helpers";
 
 interface PmEntityViewConfig {
   entity: string;
@@ -52,39 +54,41 @@ class PmEntityViewRenderChild extends MarkdownRenderChild {
       config = parseYaml(this.source) as PmEntityViewConfig;
     } catch {
       const msg = "Invalid pm-entity-view config: could not parse YAML.";
-      this.services.loggerService.warn(msg, "pm-entity-view");
-      this.renderError(msg);
+      this.services.loggerService.warn(msg, LOG_CONTEXT.ENTITY_VIEW);
+      renderError(this.containerEl, msg, ERROR_PADDING);
       return;
     }
 
     if (!config?.entity) {
       const msg = "pm-entity-view requires an `entity` field.";
-      this.services.loggerService.warn(msg, "pm-entity-view");
-      this.renderError(msg);
+      this.services.loggerService.warn(msg, LOG_CONTEXT.ENTITY_VIEW);
+      renderError(this.containerEl, msg, ERROR_PADDING);
       return;
     }
     if (!config?.section) {
       const msg = "pm-entity-view requires a `section` field.";
-      this.services.loggerService.warn(msg, "pm-entity-view");
-      this.renderError(msg);
+      this.services.loggerService.warn(msg, LOG_CONTEXT.ENTITY_VIEW);
+      renderError(this.containerEl, msg, ERROR_PADDING);
       return;
     }
 
     const entityDef = ENTITY_VIEW_SECTIONS[config.entity];
     if (!entityDef) {
       const msg = `Unknown entity type: "${config.entity}". Valid types: ${Object.keys(ENTITY_VIEW_SECTIONS).join(", ")}`;
-      this.services.loggerService.warn(msg, "pm-entity-view");
-      this.renderError(msg);
+      this.services.loggerService.warn(msg, LOG_CONTEXT.ENTITY_VIEW);
+      renderError(this.containerEl, msg, ERROR_PADDING);
       return;
     }
 
     const sectionDef = entityDef[config.section];
     if (!sectionDef) {
       const msg = `Unknown section "${config.section}" for entity "${config.entity}". Valid sections: ${Object.keys(entityDef).join(", ")}`;
-      this.services.loggerService.warn(msg, "pm-entity-view");
-      this.renderError(msg);
+      this.services.loggerService.warn(msg, LOG_CONTEXT.ENTITY_VIEW);
+      renderError(this.containerEl, msg, ERROR_PADDING);
       return;
     }
+
+    this.services.loggerService.debug(`pm-entity-view rendering, entity: "${config.entity}", section: "${config.section}", source: "${this.sourcePath}"`, LOG_CONTEXT.ENTITY_VIEW);
 
     if (sectionDef.heading) {
       this.containerEl.createEl("h2", { text: sectionDef.heading });
@@ -104,10 +108,4 @@ class PmEntityViewRenderChild extends MarkdownRenderChild {
     }
   }
 
-  private renderError(message: string): void {
-    const div = this.containerEl.createDiv({ cls: CSS_CLS.PM_ERROR });
-    div.style.color = CSS_VAR.TEXT_ERROR;
-    div.style.padding = "8px";
-    div.textContent = message;
-  }
 }

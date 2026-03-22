@@ -37,9 +37,13 @@ export function renderCollapsible(
 
 /**
  * Renders a styled error message into the given container.
+ * @param padding — Optional CSS padding value applied to the error element
  */
-export function renderError(container: HTMLElement, message: string): void {
+export function renderError(container: HTMLElement, message: string, padding?: string): void {
   const div = container.createDiv({ cls: CSS_CLS.PM_ERROR });
   div.style.color = CSS_VAR.TEXT_ERROR;
+  if (padding !== undefined) {
+    div.style.padding = padding;
+  }
   div.textContent = message;
 }

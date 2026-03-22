@@ -20,6 +20,7 @@ export function registerCreateClientCommand(services: CommandServices, addComman
         return;
       }
 
+      services.loggerService.debug(`create-client invoked: "${name}"`, 'create-client');
       try {
         await services.entityService.createClient(name);
       } catch (err) {

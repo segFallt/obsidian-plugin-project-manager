@@ -2,8 +2,9 @@ import { MarkdownRenderChild, parseYaml } from "obsidian";
 import type { MarkdownPostProcessorContext } from "obsidian";
 import type { PropertyProcessorServices, RegisterProcessorFn } from "../plugin-context";
 import type { PmTableConfig } from "../types";
-import { renderEntityTable } from "./shared-renderers";
-import { CODEBLOCK, CSS_CLS, CSS_VAR } from "../constants";
+import { renderEntityTable } from "./table-renderers";
+import { CODEBLOCK, LOG_CONTEXT, ERROR_PADDING } from "../constants";
+import { renderError } from "./dom-helpers";
 
 /**
  * Renders entity relationship tables in note context.
@@ -49,30 +50,24 @@ class PmTableRenderChild extends MarkdownRenderChild {
       config = parseYaml(this.source) as PmTableConfig;
     } catch {
       const msg = "Invalid pm-table config: could not parse YAML.";
-      this.services.loggerService.warn(msg, "pm-table");
-      this.renderError(msg);
+      this.services.loggerService.warn(msg, LOG_CONTEXT.TABLE_PROCESSOR);
+      renderError(this.containerEl, msg, ERROR_PADDING);
       return;
     }
 
     if (!config?.type) {
       const msg = "pm-table requires a `type` field.";
-      this.services.loggerService.warn(msg, "pm-table");
-      this.renderError(msg);
+      this.services.loggerService.warn(msg, LOG_CONTEXT.TABLE_PROCESSOR);
+      renderError(this.containerEl, msg, ERROR_PADDING);
       return;
     }
 
+    this.services.loggerService.debug(`pm-table rendering, type: "${config.type}", source: "${this.sourcePath}"`, LOG_CONTEXT.TABLE_PROCESSOR);
     try {
       renderEntityTable(this.containerEl, config.type, this.sourcePath, this.services);
     } catch (err) {
-      this.services.loggerService.error(String(err), "pm-table", err);
-      this.renderError(`pm-table error: ${String(err)}`);
+      this.services.loggerService.error(String(err), LOG_CONTEXT.TABLE_PROCESSOR, err);
+      renderError(this.containerEl, `pm-table error: ${String(err)}`, ERROR_PADDING);
     }
-  }
-
-  private renderError(message: string): void {
-    const div = this.containerEl.createDiv({ cls: CSS_CLS.PM_ERROR });
-    div.style.color = CSS_VAR.TEXT_ERROR;
-    div.style.padding = "8px";
-    div.textContent = message;
   }
 }

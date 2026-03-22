@@ -21,6 +21,7 @@ export interface FolderSettings {
   meetingsRecurringEvents: string;
   dailyNotes: string;
   utility: string;
+  raid: string;
 }
 
 export interface DefaultValueSettings {
@@ -56,6 +57,7 @@ export const DEFAULT_SETTINGS: ProjectManagerSettings = {
     meetingsRecurringEvents: DEFAULT_FOLDERS.meetingsRecurringEvents,
     dailyNotes: DEFAULT_FOLDERS.dailyNotes,
     utility: DEFAULT_FOLDERS.utility,
+    raid: DEFAULT_FOLDERS.raid,
   },
   defaults: {
     clientStatus: "Active",
@@ -137,6 +139,7 @@ export class ProjectManagerSettingTab extends PluginSettingTab {
       },
       { key: "dailyNotes", name: "Daily notes folder", desc: "Folder for daily notes" },
       { key: "utility", name: "Utility folder", desc: "Folder containing utility files" },
+      { key: "raid", name: "RAID folder", desc: "Folder for RAID item notes" },
     ];
 
     for (const field of folderFields) {

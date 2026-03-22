@@ -41,6 +41,7 @@ function createMockServices(): TaskProcessorServices {
       error: vi.fn(),
       warn: vi.fn(),
       info: vi.fn(),
+      debug: vi.fn(),
     },
     filterService: {
       applyDashboardFilters: vi.fn((tasks) => tasks),

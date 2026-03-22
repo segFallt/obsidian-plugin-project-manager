@@ -76,6 +76,25 @@ export class EntityCreationService implements IEntityCreationService {
     return file;
   }
 
+  async createRaidItem(name: string, raidType: string, engagement?: string, owner?: string): Promise<TFile> {
+    const file = await this.createEntity("raid-item", name, this.settings.folders.raid);
+    await this.app.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => {
+      fm["raid-type"] = raidType;
+      fm["raised-date"] = new Date().toISOString().split("T")[0];
+      fm["status"] = "Open";
+      fm["likelihood"] = "Medium";
+      fm["impact"] = "Medium";
+      if (engagement) {
+        fm[FM_KEY.ENGAGEMENT] = toWikilink(engagement);
+      }
+      if (owner) {
+        fm["owner"] = toWikilink(owner);
+      }
+    });
+    await this.navigation.openFile(file);
+    return file;
+  }
+
   async createInboxNote(name: string, engagementName?: string): Promise<TFile> {
     const file = await this.createEntity("inbox", name, this.settings.folders.inbox);
     if (engagementName) {

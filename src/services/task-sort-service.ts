@@ -1,4 +1,4 @@
-import type { DataviewTask, SortKey } from "../types";
+import type { DataviewTask, SortKey, SortField } from "../types";
 import { getTaskPriority } from "../utils/task-utils";
 import { SORT_SENTINEL, ISO_DATE_LENGTH } from "../constants";
 import type { ITaskSortService } from "./interfaces";
@@ -66,6 +66,45 @@ export class TaskSortService implements ITaskSortService {
 
 // ─── Comparator helpers ───────────────────────────────────────────────────
 
+type ComparatorFn = (
+  a: DataviewTask,
+  b: DataviewTask,
+  key: SortKey,
+  contextMap?: Map<string, string>,
+  mtimeMap?: Map<string, number>
+) => number;
+
+/** Registry of per-field comparators. satisfies ensures all SortField values are covered. */
+const SORT_COMPARATORS = {
+  dueDate: (a, b, key) => {
+    const dir = key.direction === "desc" ? -1 : 1;
+    const sentinel = key.direction === "desc" ? SORT_SENTINEL.MIN : SORT_SENTINEL.MAX;
+    const aDate = a.due ? String(a.due).substring(0, ISO_DATE_LENGTH) : sentinel;
+    const bDate = b.due ? String(b.due).substring(0, ISO_DATE_LENGTH) : sentinel;
+    return dir * aDate.localeCompare(bDate);
+  },
+  priority: (a, b, key) => {
+    const dir = key.direction === "desc" ? -1 : 1;
+    return dir * (getTaskPriority(a) - getTaskPriority(b));
+  },
+  alphabetical: (a, b, key) => {
+    const dir = key.direction === "desc" ? -1 : 1;
+    return dir * a.text.toLowerCase().localeCompare(b.text.toLowerCase());
+  },
+  context: (a, b, key, contextMap) => {
+    const dir = key.direction === "desc" ? -1 : 1;
+    const aCtx = contextMap?.get(a.path) ?? "";
+    const bCtx = contextMap?.get(b.path) ?? "";
+    return dir * aCtx.localeCompare(bCtx);
+  },
+  createdDate: (a, b, key, _contextMap, mtimeMap) => {
+    const dir = key.direction === "desc" ? -1 : 1;
+    const aMtime = mtimeMap?.get(a.path) ?? 0;
+    const bMtime = mtimeMap?.get(b.path) ?? 0;
+    return dir * (aMtime - bMtime);
+  },
+} satisfies Record<SortField, ComparatorFn>;
+
 /**
  * Compares two tasks by a single SortKey.
  * Returns negative if a < b, positive if a > b, zero if equal.
@@ -77,36 +116,5 @@ function compareByKey(
   contextMap?: Map<string, string>,
   mtimeMap?: Map<string, number>
 ): number {
-  const dir = key.direction === "desc" ? -1 : 1;
-
-  switch (key.field) {
-    case "dueDate": {
-      const sentinel = key.direction === "desc" ? SORT_SENTINEL.MIN : SORT_SENTINEL.MAX;
-      const aDate = a.due ? String(a.due).substring(0, ISO_DATE_LENGTH) : sentinel;
-      const bDate = b.due ? String(b.due).substring(0, ISO_DATE_LENGTH) : sentinel;
-      return dir * aDate.localeCompare(bDate);
-    }
-    case "priority": {
-      const ap = getTaskPriority(a);
-      const bp = getTaskPriority(b);
-      return dir * (ap - bp);
-    }
-    case "alphabetical": {
-      const aText = a.text.toLowerCase();
-      const bText = b.text.toLowerCase();
-      return dir * aText.localeCompare(bText);
-    }
-    case "context": {
-      const aCtx = contextMap?.get(a.path) ?? "";
-      const bCtx = contextMap?.get(b.path) ?? "";
-      return dir * aCtx.localeCompare(bCtx);
-    }
-    case "createdDate": {
-      const aMtime = mtimeMap?.get(a.path) ?? 0;
-      const bMtime = mtimeMap?.get(b.path) ?? 0;
-      return dir * (aMtime - bMtime);
-    }
-    default:
-      return 0;
-  }
+  return SORT_COMPARATORS[key.field]?.(a, b, key, contextMap, mtimeMap) ?? 0;
 }

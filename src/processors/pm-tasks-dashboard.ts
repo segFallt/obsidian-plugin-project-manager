@@ -16,7 +16,8 @@ import type {
   TaskContext,
   TaskPriority,
 } from "../types";
-import { CONTEXT, ENTITY_TAGS, TASK_CONTEXTS, DUE_DATE_PRESETS, DEFAULT_DUE_DATE_FILTER, DEBOUNCE_MS, CSS_CLS, CSS_VAR, MSG } from "../constants";
+import { CONTEXT, ENTITY_TAGS, TASK_CONTEXTS, DUE_DATE_PRESETS, DEFAULT_DUE_DATE_FILTER, DEBOUNCE_MS, MSG, LOG_CONTEXT, VIEW_MODE } from "../constants";
+import { renderError } from "./dom-helpers";
 import type { ITaskFilterService } from "../services/interfaces";
 import type { ITaskSortService } from "../services/interfaces";
 import { presetToDateRange } from "../utils/date-utils";
@@ -28,6 +29,16 @@ import { DateViewRenderer } from "./dashboard-views/date-view-renderer";
 import { PriorityViewRenderer } from "./dashboard-views/priority-view-renderer";
 import { TagViewRenderer } from "./dashboard-views/tag-view-renderer";
 import { getTaskContext } from "../utils/task-utils";
+
+// ─── Legacy sort migration map ────────────────────────────────────────────────
+
+/** Maps legacy sortBy string values to the current SortKey[] format. */
+const LEGACY_SORT_MAP: Record<string, SortKey[]> = {
+  "dueDate-asc": [{ field: "dueDate" as SortField, direction: "asc" as SortDirection }],
+  "dueDate-desc": [{ field: "dueDate" as SortField, direction: "desc" as SortDirection }],
+  "priority-asc": [{ field: "priority" as SortField, direction: "asc" as SortDirection }],
+  "priority-desc": [{ field: "priority" as SortField, direction: "desc" as SortDirection }],
+};
 
 /**
  * Renders the full dashboard mode: filter controls and all four view renderers
@@ -66,6 +77,7 @@ export class DashboardView {
   }
 
   render(): void {
+    this.services.loggerService.debug(`pm-tasks-dashboard rendering, mode: "${this.config.mode}"`, LOG_CONTEXT.TASKS_DASHBOARD);
     this.initFilters();
     const root = this.containerEl.createDiv({ cls: "pm-tasks-dashboard" });
     this.renderControls(root);
@@ -199,15 +211,7 @@ export class DashboardView {
   private migrateLegacySortBy(raw: unknown): SortKey[] {
     if (!raw) return [];
     if (Array.isArray(raw)) return raw as SortKey[];
-    if (typeof raw === "string") {
-      switch (raw) {
-        case "dueDate-asc": return [{ field: "dueDate" as SortField, direction: "asc" as SortDirection }];
-        case "dueDate-desc": return [{ field: "dueDate" as SortField, direction: "desc" as SortDirection }];
-        case "priority-asc": return [{ field: "priority" as SortField, direction: "asc" as SortDirection }];
-        case "priority-desc": return [{ field: "priority" as SortField, direction: "desc" as SortDirection }];
-        default: return [];
-      }
-    }
+    if (typeof raw === "string") return LEGACY_SORT_MAP[raw] ?? [];
     return [];
   }
 
@@ -228,10 +232,10 @@ export class DashboardView {
     // View mode tabs
     const tabsEl = toolbar.createDiv({ cls: "pm-tasks-toolbar__view-tabs" });
     const viewModes: Array<{ value: typeof f.viewMode; label: string }> = [
-      { value: "context", label: "Context" },
-      { value: "date", label: "Date" },
-      { value: "priority", label: "Priority" },
-      { value: "tag", label: "Tag" },
+      { value: VIEW_MODE.CONTEXT, label: "Context" },
+      { value: VIEW_MODE.DATE, label: "Date" },
+      { value: VIEW_MODE.PRIORITY, label: "Priority" },
+      { value: VIEW_MODE.TAG, label: "Tag" },
     ];
     for (const { value, label } of viewModes) {
       const tab = tabsEl.createEl("button", {
@@ -696,26 +700,22 @@ export class DashboardView {
       const contextMap = new Map(allTasks.map((t) => [t.path, getTaskContext(t, folders)]));
       const mtimeMap = new Map(allTasks.map((t) => [t.path, dv.page(t.path)?.file.mtime.valueOf() ?? 0]));
 
-      switch (f.viewMode) {
-        case "context":
-          await this.contextRenderer.render(outputEl, allTasks, f, dv, contextMap, mtimeMap);
-          break;
-        case "date":
-          await this.dateRenderer.render(outputEl, allTasks, f, contextMap, mtimeMap);
-          break;
-        case "priority":
-          await this.priorityRenderer.render(outputEl, allTasks, f, contextMap, mtimeMap);
-          break;
-        case "tag":
-          await this.tagRenderer.render(outputEl, allTasks, f, contextMap, mtimeMap);
-          break;
+      const viewRenderers: Record<string, () => Promise<void>> = {
+        [VIEW_MODE.CONTEXT]: () => this.contextRenderer.render(outputEl, allTasks, f, dv, contextMap, mtimeMap),
+        [VIEW_MODE.DATE]: () => this.dateRenderer.render(outputEl, allTasks, f, contextMap, mtimeMap),
+        [VIEW_MODE.PRIORITY]: () => this.priorityRenderer.render(outputEl, allTasks, f, contextMap, mtimeMap),
+        [VIEW_MODE.TAG]: () => this.tagRenderer.render(outputEl, allTasks, f, contextMap, mtimeMap),
+      };
+      const viewRenderer = viewRenderers[f.viewMode];
+      if (viewRenderer) {
+        await viewRenderer();
+      } else {
+        renderError(outputEl, `Unknown view mode: ${String(f.viewMode)}`);
       }
     } catch (err) {
-      this.services.loggerService.error(String(err), "pm-tasks-dashboard", err);
+      this.services.loggerService.error(String(err), LOG_CONTEXT.TASKS_DASHBOARD, err);
       outputEl.empty();
-      const errEl = outputEl.createDiv({ cls: CSS_CLS.PM_ERROR });
-      errEl.style.color = CSS_VAR.TEXT_ERROR;
-      errEl.textContent = `pm-tasks error: ${String(err)}`;
+      renderError(outputEl, `pm-tasks error: ${String(err)}`);
     }
   }
 
