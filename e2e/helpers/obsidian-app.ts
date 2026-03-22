@@ -93,12 +93,58 @@ export async function launchObsidian(): Promise<ObsidianApp> {
 
   const browser = await chromium.connectOverCDP(wsEndpoint);
 
-  // Retrieve the initial page — Obsidian opens one renderer window on launch.
-  // Attach the waitForEvent listener before checking pages() to avoid a race
-  // where the 'page' event fires between the empty-check and the listener attach.
-  const context = browser.contexts()[0];
-  const pagePromise = context.waitForEvent('page');
-  const page = context.pages()[0] ?? (await pagePromise);
+  // Give Obsidian's renderer time to complete its initial process replacement
+  // before we try to acquire a context. Without this, the context captured
+  // immediately after connectOverCDP may be destroyed milliseconds later.
+  await new Promise<void>(r => setTimeout(r, 800));
+
+  // Fail fast if Obsidian crashes while we are waiting for a page.
+  let obsidianExited = false;
+  let rejectOnExit: ((err: Error) => void) | null = null;
+  child.on('exit', (code) => {
+    obsidianExited = true;
+    rejectOnExit?.(new Error(`Obsidian process exited unexpectedly (code ${code}) during page acquisition`));
+  });
+
+  // Resilient retry loop: the CDP context may be briefly destroyed while
+  // Obsidian replaces its renderer process during vault initialisation.
+  let page: Page | null = null;
+  for (let attempt = 1; attempt <= 3 && !page; attempt++) {
+    if (obsidianExited) {
+      throw new Error('Obsidian process exited before a page could be acquired');
+    }
+    const contexts = browser.contexts();
+    if (contexts.length === 0) {
+      if (attempt < 3) {
+        await new Promise<void>(r => setTimeout(r, 1000));
+        continue;
+      }
+      throw new Error('No browser contexts available after 3 attempts');
+    }
+    const ctx = contexts[0];
+    try {
+      const pages = ctx.pages();
+      if (pages.length > 0 && !pages[0].isClosed()) {
+        page = pages[0];
+      } else {
+        page = await new Promise<Page>((resolve, reject) => {
+          rejectOnExit = reject;
+          ctx.waitForEvent('page', { timeout: 2000 }).then(resolve).catch(reject);
+        });
+        rejectOnExit = null;
+      }
+    } catch (err) {
+      rejectOnExit = null;
+      if (attempt < 3) {
+        await new Promise<void>(r => setTimeout(r, 1000));
+      } else {
+        throw new Error(`Failed to acquire Obsidian page after 3 attempts: ${(err as Error).message}`);
+      }
+    }
+  }
+  if (!page) {
+    throw new Error('Failed to acquire Obsidian page: exhausted all attempts');
+  }
   await page.waitForLoadState('domcontentloaded');
 
   return {
@@ -108,7 +154,18 @@ export async function launchObsidian(): Promise<ObsidianApp> {
     getVaultPage: async (): Promise<Page> => {
       const ctx = browser.contexts()[0];
       const pages = ctx.pages();
-      return pages[pages.length - 1];
+      const candidate = pages[pages.length - 1];
+      if (!candidate || candidate.isClosed()) {
+        // Wait briefly and retry once — renderer may be mid-navigation
+        await new Promise<void>(r => setTimeout(r, 500));
+        const refreshedPages = browser.contexts()[0]?.pages() ?? [];
+        const refreshed = refreshedPages[refreshedPages.length - 1];
+        if (!refreshed || refreshed.isClosed()) {
+          throw new Error('getVaultPage: no open page available');
+        }
+        return refreshed;
+      }
+      return candidate;
     },
   };
 }
