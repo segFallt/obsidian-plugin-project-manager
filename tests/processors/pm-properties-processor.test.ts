@@ -885,4 +885,89 @@ describe("pm-properties processor", () => {
       expect(input.value).toBe("Weekly Standup");
     });
   });
+
+  describe("raid-item — closed-date side-effect", () => {
+    function renderRaidItem(
+      frontmatter: Record<string, unknown>
+    ) {
+      const file = new TFile("raid/Risk of scope creep.md");
+      const { services, registerProcessor, getHandler } = createMockServices(file, frontmatter);
+      registerPmPropertiesProcessor(services, registerProcessor);
+      const el = document.createElement("div");
+      const ctx = { addChild: vi.fn(), sourcePath: file.path };
+      getHandler()("entity: raid-item", el, ctx);
+      return { el, services };
+    }
+
+    it("writes closed-date when status changes to Resolved", async () => {
+      const { el, services } = renderRaidItem({ status: "Open" });
+      const selects = el.querySelectorAll("select");
+      // Find the status select
+      const statusSelect = [...selects].find(
+        (s) => s.value === "Open"
+      ) as HTMLSelectElement;
+      expect(statusSelect).toBeDefined();
+
+      statusSelect.value = "Resolved";
+      statusSelect.dispatchEvent(new Event("change"));
+      await Promise.resolve();
+
+      expect(services.app.fileManager.processFrontMatter).toHaveBeenCalled();
+      const calls = (services.app.fileManager.processFrontMatter as ReturnType<typeof vi.fn>).mock.calls;
+      const fmUpdates = calls.map((c: unknown[]) => {
+        const cb = c[1] as (fm: Record<string, unknown>) => void;
+        const fm: Record<string, unknown> = {};
+        cb(fm);
+        return fm;
+      });
+      expect(fmUpdates.some((fm) => "closed-date" in fm)).toBe(true);
+    });
+
+    it("clears closed-date when status changes to Open", async () => {
+      const { el, services } = renderRaidItem({ status: "Resolved", "closed-date": "2024-01-10" });
+      const selects = el.querySelectorAll("select");
+      const statusSelect = [...selects].find(
+        (s) => s.value === "Resolved"
+      ) as HTMLSelectElement;
+      expect(statusSelect).toBeDefined();
+
+      statusSelect.value = "Open";
+      statusSelect.dispatchEvent(new Event("change"));
+      await Promise.resolve();
+
+      expect(services.app.fileManager.processFrontMatter).toHaveBeenCalled();
+      const calls = (services.app.fileManager.processFrontMatter as ReturnType<typeof vi.fn>).mock.calls;
+      const fmUpdates = calls.map((c: unknown[]) => {
+        const cb = c[1] as (fm: Record<string, unknown>) => void;
+        const fm: Record<string, unknown> = { "closed-date": "2024-01-10" };
+        cb(fm);
+        return fm;
+      });
+      expect(fmUpdates.some((fm) => fm["closed-date"] === undefined || fm["closed-date"] === null)).toBe(true);
+    });
+
+    it("does not overwrite closed-date if already set when resolving", async () => {
+      const existingDate = "2024-01-05";
+      const { el, services } = renderRaidItem({ status: "Open", "closed-date": existingDate });
+      const selects = el.querySelectorAll("select");
+      const statusSelect = [...selects].find(
+        (s) => s.value === "Open"
+      ) as HTMLSelectElement;
+      expect(statusSelect).toBeDefined();
+
+      statusSelect.value = "Resolved";
+      statusSelect.dispatchEvent(new Event("change"));
+      await Promise.resolve();
+
+      const calls = (services.app.fileManager.processFrontMatter as ReturnType<typeof vi.fn>).mock.calls;
+      // Either processFrontMatter was not called for closed-date, or it preserved the existing value
+      const fmUpdates = calls.map((c: unknown[]) => {
+        const cb = c[1] as (fm: Record<string, unknown>) => void;
+        const fm: Record<string, unknown> = { "closed-date": existingDate };
+        cb(fm);
+        return fm;
+      });
+      expect(fmUpdates.every((fm) => fm["closed-date"] === existingDate || fm["closed-date"] === undefined)).toBe(true);
+    });
+  });
 });

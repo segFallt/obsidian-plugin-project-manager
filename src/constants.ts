@@ -166,6 +166,7 @@ export const DEFAULT_FOLDERS = {
   meetingsRecurringEvents: "meetings/recurring-events",
   dailyNotes: "daily notes",
   utility: "utility",
+  raid: "raid",
 } as const;
 
 // ─── Tags ──────────────────────────────────────────────────────────────────
@@ -256,6 +257,8 @@ export const CODEBLOCK = {
   PM_TABLE: "pm-table",
   PM_ENTITY_VIEW: "pm-entity-view",
   PM_RECURRING_EVENTS: "pm-recurring-events",
+  PM_RAID_REFERENCES: "pm-raid-references",
+  PM_RAID_DASHBOARD: "pm-raid-dashboard",
 } as const;
 
 // ─── Processor & view identifiers ─────────────────────────────────────────

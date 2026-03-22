@@ -952,3 +952,281 @@ details[open] .pm-filter-section__title::before {
   font-size: var(--font-ui-small);
   color: var(--text-normal);
 }
+
+
+/* ─── RAID Direction Badges ──────────────────────────────────── */
+
+.raid-badge {
+  display: inline-flex;
+  align-items: center;
+  vertical-align: middle;
+  border-radius: 4px;
+  padding: 1px 7px;
+  font-size: 11px;
+  font-weight: 600;
+  font-family: sans-serif;
+  gap: 4px;
+  margin-right: 4px;
+}
+
+.raid-badge--positive { background: color-mix(in srgb, var(--color-green) 25%, transparent); color: var(--color-green); border: 1px solid color-mix(in srgb, var(--color-green) 38%, transparent); }
+.raid-badge--negative { background: color-mix(in srgb, var(--color-red)   25%, transparent); color: var(--color-red);   border: 1px solid color-mix(in srgb, var(--color-red)   38%, transparent); }
+.raid-badge--neutral  { background: color-mix(in srgb, var(--color-blue)  25%, transparent); color: var(--color-blue);  border: 1px solid color-mix(in srgb, var(--color-blue)  38%, transparent); }
+
+/* ─── RAID Type Badges ───────────────────────────────────────── */
+
+.raid-type-badge {
+  border-radius: 3px;
+  padding: 1px 6px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+}
+
+.raid-type--risk       { background: color-mix(in srgb, var(--color-red)    13%, transparent); color: var(--color-red);    border: 1px solid color-mix(in srgb, var(--color-red)    31%, transparent); }
+.raid-type--assumption { background: color-mix(in srgb, var(--color-orange) 13%, transparent); color: var(--color-orange); border: 1px solid color-mix(in srgb, var(--color-orange) 31%, transparent); }
+.raid-type--issue      { background: color-mix(in srgb, var(--color-yellow) 13%, transparent); color: var(--color-yellow); border: 1px solid color-mix(in srgb, var(--color-yellow) 31%, transparent); }
+.raid-type--decision   { background: color-mix(in srgb, var(--color-blue)   13%, transparent); color: var(--color-blue);   border: 1px solid color-mix(in srgb, var(--color-blue)   31%, transparent); }
+
+/* ─── RAID Status Badges ─────────────────────────────────────── */
+
+.raid-status-badge { border-radius: 3px; padding: 1px 6px; font-size: 10px; }
+.raid-status--open        { background: color-mix(in srgb, var(--color-green) 7%, transparent); color: var(--color-green); border: 1px solid color-mix(in srgb, var(--color-green) 31%, transparent); }
+.raid-status--in-progress { background: color-mix(in srgb, var(--color-blue)  7%, transparent); color: var(--color-blue);  border: 1px solid color-mix(in srgb, var(--color-blue)  31%, transparent); }
+.raid-status--resolved,
+.raid-status--closed { background: var(--background-secondary); color: var(--text-muted); border: 1px solid var(--background-modifier-border); }
+
+/* ─── RAID Filter Chips ──────────────────────────────────────── */
+
+.raid-chip { border-radius: 4px; padding: 2px 8px; font-size: 10px; cursor: pointer; background: var(--background-secondary); border: 1px solid var(--background-modifier-border); color: var(--text-normal); }
+.raid-chip.raid-chip--active { background: color-mix(in srgb, var(--color-blue) 19%, transparent); border: 1px solid var(--color-blue); color: var(--color-blue); }
+
+/* ─── RAID Dashboard ─────────────────────────────────────────── */
+
+.pm-raid-dashboard {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.pm-raid-dashboard__filters {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background-color: var(--background-secondary);
+  border-radius: var(--radius-m);
+  padding: 10px 14px;
+}
+
+.pm-raid-dashboard__filter-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.pm-raid-dashboard__filter-label {
+  font-size: var(--font-smaller);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  min-width: 52px;
+}
+
+.pm-raid-dashboard__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.pm-raid-dashboard__search {
+  flex: 1;
+  padding: 4px 8px;
+  border-radius: var(--radius-m);
+  border: 1px solid var(--background-modifier-border);
+  background-color: var(--background-primary);
+  color: var(--text-normal);
+  font-size: var(--font-ui-small);
+}
+
+.pm-raid-dashboard__counts {
+  font-size: var(--font-smaller);
+  color: var(--text-muted);
+  padding: 4px 0;
+}
+
+.pm-raid-dashboard__section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* ─── RAID Matrix ────────────────────────────────────────────── */
+
+.raid-matrix-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.raid-matrix {
+  display: grid;
+  grid-template-columns: auto repeat(3, 1fr);
+  gap: 3px;
+}
+
+.raid-matrix-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 8px;
+  border-radius: 4px;
+  font-size: var(--font-smaller);
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.1s ease, outline 0.1s ease;
+  min-width: 36px;
+  min-height: 36px;
+}
+
+.raid-matrix-cell--header {
+  background: transparent;
+  color: var(--text-muted);
+  cursor: default;
+  font-size: var(--font-smaller);
+}
+
+.raid-matrix-cell:not(.raid-matrix-cell--header):hover {
+  opacity: 0.8;
+}
+
+.raid-matrix-cell--selected {
+  outline: 2px solid var(--text-normal);
+  outline-offset: 1px;
+}
+
+/* Matrix severity colours */
+.raid-cell--hh { background: color-mix(in srgb, var(--color-red)    38%, transparent); color: var(--color-red);    }
+.raid-cell--hm { background: color-mix(in srgb, var(--color-orange) 19%, transparent); color: var(--color-orange); }
+.raid-cell--hl { background: color-mix(in srgb, var(--color-orange) 19%, transparent); color: var(--color-orange); }
+.raid-cell--mh { background: color-mix(in srgb, var(--color-orange) 19%, transparent); color: var(--color-orange); }
+.raid-cell--mm { background: color-mix(in srgb, var(--color-yellow) 19%, transparent); color: var(--color-yellow); }
+.raid-cell--ml { background: color-mix(in srgb, var(--color-yellow) 13%, transparent); color: var(--color-yellow); }
+.raid-cell--lh { background: color-mix(in srgb, var(--color-yellow) 13%, transparent); color: var(--color-yellow); }
+.raid-cell--lm { background: color-mix(in srgb, var(--color-yellow) 13%, transparent); color: var(--color-yellow); }
+.raid-cell--ll { background: color-mix(in srgb, var(--color-green)  19%, transparent); color: var(--color-green);  }
+
+/* ─── RAID Item Table ────────────────────────────────────────── */
+
+.raid-item-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-small);
+}
+
+.raid-item-table th {
+  text-align: left;
+  padding: 5px 10px;
+  background-color: var(--background-secondary);
+  border-bottom: 1px solid var(--background-modifier-border);
+  font-size: var(--font-smaller);
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.raid-item-table td {
+  padding: 5px 10px;
+  border-bottom: 1px solid var(--background-modifier-border-hover);
+  vertical-align: middle;
+}
+
+.raid-item-row:hover td {
+  background-color: var(--background-modifier-hover);
+}
+
+/* ─── RAID Section Header ────────────────────────────────────── */
+
+.raid-section-header {
+  font-size: var(--font-small);
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin: 0 0 4px;
+}
+
+/* ─── RAID L×I Dot ───────────────────────────────────────────── */
+
+.raid-lxi-dot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 4px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+}
+
+/* ─── RAID Age Pill ──────────────────────────────────────────── */
+
+.raid-age-pill {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 8px;
+  font-size: 10px;
+  font-weight: 600;
+  background-color: var(--background-secondary);
+  color: var(--text-muted);
+}
+
+/* ─── RAID Owner Avatar ──────────────────────────────────────── */
+
+.raid-owner-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background-color: var(--interactive-accent);
+  color: var(--text-on-accent);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+}
+
+/* ─── RAID References Processor ──────────────────────────────── */
+
+.pm-raid-references {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.pm-raid-references__list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.pm-raid-references__item {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-size: var(--font-small);
+  padding: 2px 0;
+}
+
+.raid-references-empty {
+  color: var(--text-muted);
+  font-style: italic;
+  padding: 8px 0;
+}

@@ -19,6 +19,7 @@ export const ACTION_COMMAND_MAP: Record<string, string> = {
   "convert-inbox": `${PLUGIN_ID}:convert-inbox`,
   "convert-single-to-recurring": `${PLUGIN_ID}:convert-single-to-recurring`,
   "scaffold-vault": `${PLUGIN_ID}:scaffold-vault`,
+  "create-raid-item": `${PLUGIN_ID}:create-raid-item`,
 };
 
 // ─── Action buttons ──────────────────────────────────────────────────────────

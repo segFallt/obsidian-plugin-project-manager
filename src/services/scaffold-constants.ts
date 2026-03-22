@@ -150,6 +150,21 @@ actions:
 ![[Recurring Meetings Base.base#meetings_past]]
 `;
 
+export const SCAFFOLD_RAID_MD = `---
+---
+
+\`\`\`pm-actions
+actions:
+  - type: create-raid-item
+    label: New RAID Item
+    style: primary
+\`\`\`
+
+\`\`\`pm-raid-dashboard
+statusFilter: [Open, In Progress]
+\`\`\`
+`;
+
 // ─── Parameterised .base file content ────────────────────────────────────
 
 export function scaffoldClientsBase(folder: string): string {
