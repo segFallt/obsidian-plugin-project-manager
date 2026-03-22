@@ -3,7 +3,7 @@ import type { MarkdownPostProcessorContext } from "obsidian";
 import type { PropertyProcessorServices, RegisterProcessorFn } from "../plugin-context";
 import type { DataviewPage } from "../types";
 import { normalizeToName } from "../utils/link-utils";
-import { DEBOUNCE_MS, CODEBLOCK, CSS_CLS, ISO_DATETIME_INPUT_LENGTH } from "../constants";
+import { DEBOUNCE_MS, CODEBLOCK, CSS_CLS, ISO_DATETIME_INPUT_LENGTH, NOTES_MARKER } from "../constants";
 
 /**
  * Renders recurring meeting events as a tile grid.
@@ -145,12 +145,11 @@ class PmRecurringEventsRenderChild extends MarkdownRenderChild {
     const content = await this.services.app.vault.read(abstractFile);
 
     // Extract content after the first "# Notes" heading
-    const notesMarker = "\n# Notes";
-    const notesIdx = content.indexOf(notesMarker);
+    const notesIdx = content.indexOf(NOTES_MARKER.PREFIX);
     const notesContent =
       notesIdx >= 0
         ? content
-            .slice(notesIdx + notesMarker.length)
+            .slice(notesIdx + NOTES_MARKER.PREFIX.length)
             .replace(/^\s*\n/, "")
             .trim()
         : "";

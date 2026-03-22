@@ -1,11 +1,11 @@
 import { TFile } from "obsidian";
 import type { PropertyProcessorServices } from "../plugin-context";
 import type { DataviewPage } from "../types";
-import { ENTITY_TAGS, TEXTAREA_ROWS, ISO_DATETIME_INPUT_LENGTH, ISO_DATE_LENGTH } from "../constants";
+import { ENTITY_TAGS, TEXTAREA_ROWS, ISO_DATETIME_INPUT_LENGTH, ISO_DATE_LENGTH, CSS_CLS } from "../constants";
 import { normalizeToName } from "../utils/link-utils";
 import { PropertySuggest } from "../ui/components/property-suggest";
 import type { AutocompleteOption } from "../ui/components/property-suggest";
-import type { FieldDescriptor } from "./entity-field-config";
+import type { FieldDescriptor, FieldType } from "./entity-field-config";
 
 // ─── Render context ───────────────────────────────────────────────────────
 
@@ -21,11 +21,41 @@ export interface FieldRenderContext {
   updateFm: (file: TFile, key: string, value: unknown) => void;
 }
 
+// ─── Field renderer registry ──────────────────────────────────────────────
+
+type FieldRenderer = (
+  row: HTMLElement,
+  field: FieldDescriptor,
+  rawValue: unknown,
+  file: TFile,
+  fieldId: string,
+  ctx: FieldRenderContext
+) => void;
+
+const FIELD_RENDERERS: Partial<Record<FieldType, FieldRenderer>> = {
+  "text": (row, field, rawValue, file, fieldId, ctx) =>
+    renderTextInput(row, field, String(rawValue ?? ""), file, fieldId, ctx),
+  "textarea": (row, field, rawValue, file, fieldId, ctx) =>
+    renderTextarea(row, field, String(rawValue ?? ""), file, fieldId, ctx),
+  "date": (row, field, rawValue, file, fieldId, ctx) =>
+    renderDateInput(row, field, String(rawValue ?? ""), file, fieldId, ctx),
+  "datetime": (row, field, rawValue, file, fieldId, ctx) =>
+    renderDateInput(row, field, String(rawValue ?? ""), file, fieldId, ctx),
+  "select": (row, field, rawValue, file, fieldId, ctx) =>
+    renderSelect(row, field, String(rawValue ?? ""), file, fieldId, ctx),
+  "suggester": (row, field, rawValue, file, fieldId, ctx) =>
+    renderSuggester(row, field, rawValue, file, fieldId, ctx),
+  "suggester-by-folder": (row, field, rawValue, file, fieldId, ctx) =>
+    renderSuggesterByFolder(row, field, rawValue, file, fieldId, ctx),
+  "list-suggester": (row, field, rawValue, file, fieldId, ctx) =>
+    renderListSuggester(row, field, rawValue, file, fieldId, ctx),
+};
+
 // ─── Public entry point ───────────────────────────────────────────────────
 
 /**
  * Renders a single frontmatter property field inside `container`.
- * Dispatches to the appropriate renderer based on `field.type`.
+ * Dispatches to the appropriate renderer via a registry map.
  */
 export function renderField(
   container: HTMLElement,
@@ -34,37 +64,13 @@ export function renderField(
   file: TFile,
   ctx: FieldRenderContext
 ): void {
-  const row = container.createDiv({ cls: "pm-properties__row" });
+  const row = container.createDiv({ cls: CSS_CLS.PROPERTIES_ROW });
   const fieldId = `pm-prop-${ctx.sourcePath.replace(/[^a-z0-9]/gi, "-")}-${field.key}`;
-  const label = row.createEl("label", { text: field.label, cls: "pm-properties__label" });
+  const label = row.createEl("label", { text: field.label, cls: CSS_CLS.PROPERTIES_LABEL });
   label.setAttribute("for", fieldId);
 
   const rawValue = fm[field.key];
-
-  switch (field.type) {
-    case "text":
-      renderTextInput(row, field, String(rawValue ?? ""), file, fieldId, ctx);
-      break;
-    case "textarea":
-      renderTextarea(row, field, String(rawValue ?? ""), file, fieldId, ctx);
-      break;
-    case "date":
-    case "datetime":
-      renderDateInput(row, field, String(rawValue ?? ""), file, fieldId, ctx);
-      break;
-    case "select":
-      renderSelect(row, field, String(rawValue ?? ""), file, fieldId, ctx);
-      break;
-    case "suggester":
-      renderSuggester(row, field, rawValue, file, fieldId, ctx);
-      break;
-    case "suggester-by-folder":
-      renderSuggesterByFolder(row, field, rawValue, file, fieldId, ctx);
-      break;
-    case "list-suggester":
-      renderListSuggester(row, field, rawValue, file, fieldId, ctx);
-      break;
-  }
+  FIELD_RENDERERS[field.type]?.(row, field, rawValue, file, fieldId, ctx);
 }
 
 // ─── Field type renderers ─────────────────────────────────────────────────
@@ -77,7 +83,7 @@ function renderTextInput(
   fieldId: string,
   ctx: FieldRenderContext
 ): void {
-  const input = row.createEl("input", { type: "text", value, cls: "pm-properties__input" });
+  const input = row.createEl("input", { type: "text", value, cls: CSS_CLS.PROPERTIES_INPUT });
   input.id = fieldId;
   input.addEventListener("change", () => {
     void ctx.updateFm(file, field.key, input.value.trim() || null);
@@ -92,7 +98,7 @@ function renderTextarea(
   fieldId: string,
   ctx: FieldRenderContext
 ): void {
-  const textarea = row.createEl("textarea", { cls: "pm-properties__textarea" });
+  const textarea = row.createEl("textarea", { cls: CSS_CLS.PROPERTIES_TEXTAREA });
   textarea.id = fieldId;
   textarea.value = value;
   textarea.rows = TEXTAREA_ROWS;
@@ -113,7 +119,7 @@ function renderDateInput(
   const input = row.createEl("input", {
     type: field.type === "datetime" ? "datetime-local" : "date",
     value: value.substring(0, field.type === "datetime" ? ISO_DATETIME_INPUT_LENGTH : ISO_DATE_LENGTH),
-    cls: "pm-properties__input",
+    cls: CSS_CLS.PROPERTIES_INPUT,
   });
   input.id = fieldId;
   input.addEventListener("change", () => {
@@ -129,7 +135,7 @@ function renderSelect(
   fieldId: string,
   ctx: FieldRenderContext
 ): void {
-  const select = row.createEl("select", { cls: "pm-properties__select dropdown" });
+  const select = row.createEl("select", { cls: `${CSS_CLS.PROPERTIES_SELECT} dropdown` });
   select.id = fieldId;
   for (const opt of field.options ?? []) {
     const option = select.createEl("option", { text: opt, value: opt });
@@ -218,15 +224,15 @@ function renderListSuggester(
   const pages = ctx.services.queryService.getActiveEntitiesByTag(entityTag);
   const currentItems = parseListValue(rawValue);
 
-  const wrapper = row.createDiv({ cls: "pm-properties__list-suggester" });
-  const chipsEl = wrapper.createDiv({ cls: "pm-properties__chips" });
+  const wrapper = row.createDiv({ cls: CSS_CLS.PROPERTIES_LIST_SUGGESTER });
+  const chipsEl = wrapper.createDiv({ cls: CSS_CLS.PROPERTIES_CHIPS });
 
   const renderChips = (items: string[]) => {
     chipsEl.empty();
     for (const item of items) {
-      const chip = chipsEl.createSpan({ cls: "pm-properties__chip" });
+      const chip = chipsEl.createSpan({ cls: CSS_CLS.PROPERTIES_CHIP });
       chip.createSpan({ text: getEnrichedDisplayForName(item, entityTag, ctx) });
-      const remove = chip.createSpan({ text: "×", cls: "pm-properties__chip-remove" });
+      const remove = chip.createSpan({ text: "×", cls: CSS_CLS.PROPERTIES_CHIP_REMOVE });
       remove.addEventListener("click", () => {
         const newItems = items.filter((i) => i !== item);
         void ctx.updateFm(file, field.key, newItems.map((i) => `[[${i}]]`));
