@@ -218,6 +218,52 @@ Filter state is persisted to the note's frontmatter under the `pm-tasks-filters`
 
 ---
 
+## `pm-references`
+
+Renders the references dashboard with interactive filtering and multiple view modes. Place this code block in any note to display a filterable, searchable view of all reference documents in the vault.
+
+```yaml
+```pm-references
+mode: dashboard
+# Optional defaults:
+viewMode: topic | client | engagement
+filter:
+  topics:
+    - "[[Topic Name]]"    # pre-select topic filter chips
+  client: "Client Name"
+  engagement: "Engagement Name"
+```
+```
+
+### Config options
+
+| Option | Values | Description |
+|--------|--------|-------------|
+| `mode` | `dashboard` | Display mode (currently only `dashboard` is supported) |
+| `viewMode` | `topic` \| `client` \| `engagement` | Default grouping for the output. Defaults to `topic`. |
+| `filter.topics` | `string[]` | Array of wikilinks to pre-select as active topic filters on load. |
+| `filter.client` | `string` | Client name to pre-select as an active client filter on load. |
+| `filter.engagement` | `string` | Engagement name to pre-select as an active engagement filter on load. |
+
+### View modes
+
+- **By Topic** (`viewMode: topic`) — groups references under each of their linked Reference Topics. References with no topics appear under an "Uncategorised" heading.
+- **By Client** (`viewMode: client`) — groups references by client (resolved via direct `client` frontmatter or via `engagement → engagement.client`). References with no resolvable client appear under "No Client".
+- **By Engagement** (`viewMode: engagement`) — groups references by their linked engagement.
+
+### Filtering
+
+- **View mode tabs** — switch between Topic / Client / Engagement grouping.
+- **Filters panel** (toggled by the "Filters" button) — contains chip selectors for Topics, Clients, and Engagements. Multiple chips can be active simultaneously; OR logic is applied within each dimension, AND logic across dimensions.
+- **Search input** — filters references by file name with a debounced text search (300 ms). Text search is applied after structural filters.
+- **Clear filters** button — resets all active chips and search text.
+
+### Filter state
+
+Filter state (active chips, search text, view mode) is persisted to the note's frontmatter under the `pm-references-filters` key and restored on page reload.
+
+---
+
 ## `pm-recurring-events`
 
 Renders a chronological tile grid of all event instances for a recurring meeting. Place this code block in a recurring meeting note — the parent meeting name is auto-detected from the file's basename.

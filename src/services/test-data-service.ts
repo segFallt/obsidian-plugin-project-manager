@@ -19,6 +19,8 @@ import {
   SINGLE_MEETING_NAMES,
   RECURRING_MEETING_NAMES,
   PROJECT_NOTE_NAMES,
+  REFERENCE_TOPIC_NAMES,
+  REFERENCE_NAMES,
   TASK_DESCRIPTIONS,
   PRIORITY_EMOJIS,
   TASKS_PER_ENTITY,
@@ -65,6 +67,8 @@ export class TestDataService implements ITestDataService {
     const recurringMeetingNames = await this.generateRecurringMeetings(errors, engagementNames);
     const projectNoteNames = await this.generateProjectNotes(errors, projectRecords);
     const eventNames = await this.generateRecurringMeetingEvents(errors, recurringMeetingNames);
+    const referenceTopicNames = await this.generateTestReferenceTopics(errors);
+    const referenceNames = await this.generateTestReferences(errors, referenceTopicNames, clientNames);
 
     const totalFiles =
       clientNames.length +
@@ -75,7 +79,9 @@ export class TestDataService implements ITestDataService {
       singleMeetingNames.length +
       recurringMeetingNames.length +
       projectNoteNames.length +
-      eventNames.length;
+      eventNames.length +
+      referenceTopicNames.length +
+      referenceNames.length;
 
     const totalTasks = totalFiles * TASKS_PER_ENTITY;
 
@@ -365,6 +371,58 @@ export class TestDataService implements ITestDataService {
           "TestDataService",
           err
         );
+      }
+    }
+    return names;
+  }
+
+  private async generateTestReferenceTopics(errors: string[]): Promise<string[]> {
+    const names: string[] = [];
+    for (const baseName of REFERENCE_TOPIC_NAMES) {
+      try {
+        await this.createEntityFile("reference-topic", baseName, this.settings.folders.referenceTopics);
+        names.push(baseName);
+      } catch (err) {
+        errors.push(`Reference topic "${baseName}": ${String(err)}`);
+        this.loggerService.error(`Failed to create reference topic: ${baseName}`, "TestDataService", err);
+      }
+    }
+    return names;
+  }
+
+  private async generateTestReferences(
+    errors: string[],
+    topicNames: string[],
+    clientNames: string[]
+  ): Promise<string[]> {
+    const names: string[] = [];
+    for (let i = 0; i < REFERENCE_NAMES.length; i++) {
+      const name = REFERENCE_NAMES[i];
+      // Link each reference to 1-2 topics (round-robin)
+      const topic1 = this.roundRobin(topicNames, i);
+      const topic2 = this.roundRobin(topicNames, i + 1);
+      const topics = topic1
+        ? topic2 && topic2 !== topic1
+          ? [toWikilink(topic1), toWikilink(topic2)]
+          : [toWikilink(topic1)]
+        : [];
+      // Optionally link to a client (every other reference)
+      const clientName = i % 2 === 0 ? this.roundRobin(clientNames, i) : undefined;
+      try {
+        await this.createEntityFile(
+          "reference",
+          name,
+          this.settings.folders.references,
+          {},
+          (fm) => {
+            fm[FM_KEY.TOPICS] = topics;
+            if (clientName) fm[FM_KEY.CLIENT] = toWikilink(clientName);
+          }
+        );
+        names.push(name);
+      } catch (err) {
+        errors.push(`Reference "${name}": ${String(err)}`);
+        this.loggerService.error(`Failed to create reference: ${name}`, "TestDataService", err);
       }
     }
     return names;

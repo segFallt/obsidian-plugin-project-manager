@@ -245,6 +245,28 @@ export class EntityCreationService implements IEntityCreationService {
     return file;
   }
 
+  async createReferenceTopic(name: string): Promise<TFile> {
+    const file = await this.createEntity("reference-topic", name, this.settings.folders.referenceTopics);
+    await this.navigation.openFile(file);
+    return file;
+  }
+
+  async createReference(
+    name: string,
+    topics: string[],
+    client?: string,
+    engagement?: string
+  ): Promise<TFile> {
+    const file = await this.createEntity("reference", name, this.settings.folders.references);
+    await this.app.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => {
+      fm[FM_KEY.TOPICS] = topics; // already wikilink-formatted: ["[[Topic A]]", ...]
+      if (client) fm[FM_KEY.CLIENT] = toWikilink(client);
+      if (engagement) fm[FM_KEY.ENGAGEMENT] = toWikilink(engagement);
+    });
+    await this.navigation.openFile(file);
+    return file;
+  }
+
   // ─── Generic creation ────────────────────────────────────────────────────
 
   async createEntity(
