@@ -5,6 +5,7 @@ import type { IQueryService, ILoggerService, RaidProcessorServices } from "../se
 import type { RaidDashboardFilters, RaidType, RaidStatus, RaidLikelihood, RaidImpact, DataviewPage } from "../types";
 import { CODEBLOCK, DEBOUNCE_MS, CSS_CLS } from "../constants";
 import { renderError } from "./dom-helpers";
+import { normalizeToName } from "../utils/link-utils";
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -217,12 +218,12 @@ class PmRaidDashboardRenderChild extends MarkdownRenderChild {
       if (this.filters.statusFilter.length > 0 && !this.filters.statusFilter.includes(status)) return false;
 
       if (this.filters.clientFilter.length > 0) {
-        const client = String(item.client ?? "");
-        if (!this.filters.clientFilter.some((c) => client.includes(c))) return false;
+        const client = normalizeToName(item.client) ?? "";
+        if (!this.filters.clientFilter.some((c) => client === c)) return false;
       }
       if (this.filters.engagementFilter.length > 0) {
-        const engagement = String(item.engagement ?? "");
-        if (!this.filters.engagementFilter.some((e) => engagement.includes(e))) return false;
+        const engagement = normalizeToName(item.engagement) ?? "";
+        if (!this.filters.engagementFilter.some((e) => engagement === e)) return false;
       }
 
       if (this.filters.searchText) {

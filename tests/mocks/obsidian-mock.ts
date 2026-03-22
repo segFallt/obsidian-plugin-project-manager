@@ -371,10 +371,15 @@ function getIndent(line: string): number {
 function parseArrayItem(lines: string[], start: number): { result: unknown; end: number } {
   const itemIndent = getIndent(lines[start]);
   const content = lines[start].trimStart().substring(2); // strip "- "
-  const obj: Record<string, unknown> = {};
 
   const colonIdx = content.indexOf(":");
-  if (colonIdx !== -1) {
+  // Plain scalar item (e.g. "- Acme Corp") — return the value directly
+  if (colonIdx === -1) {
+    return { result: parseScalar(content), end: start + 1 };
+  }
+
+  const obj: Record<string, unknown> = {};
+  {
     const k = content.substring(0, colonIdx).trim();
     const v = content.substring(colonIdx + 1).trim();
     if (v) obj[k] = parseScalar(v);
