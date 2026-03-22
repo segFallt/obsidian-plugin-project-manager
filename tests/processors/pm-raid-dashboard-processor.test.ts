@@ -12,7 +12,7 @@ function makeMockItem(overrides: Partial<{
   status: string;
   likelihood: string;
   impact: string;
-  owner: string;
+  owner: unknown;
   raisedDate: string;
   client: unknown;
   engagement: unknown;
@@ -312,6 +312,24 @@ describe("pm-raid-dashboard processor", () => {
     const agePills = el.querySelectorAll(".raid-age-pill");
     expect(agePills.length).toBe(1);
     expect(agePills[0].textContent).toBe("5d");
+  });
+
+  it("owner avatar renders correct initials when owner is a DataviewLink object", () => {
+    const items = [makeMockItem({ owner: { path: "people/John Smith.md" } })];
+    const { el } = render(items);
+
+    const avatar = el.querySelector(".raid-owner-avatar");
+    expect(avatar).not.toBeNull();
+    expect(avatar?.textContent).toBe("JS");
+    expect(avatar?.getAttribute("title")).toBe("John Smith");
+  });
+
+  it("owner avatar is omitted when owner is an empty string", () => {
+    const items = [makeMockItem({ owner: "" })];
+    const { el } = render(items);
+
+    const avatar = el.querySelector(".raid-owner-avatar");
+    expect(avatar).toBeNull();
   });
 
   it("auto-refresh is registered on vault modify in onload()", () => {
