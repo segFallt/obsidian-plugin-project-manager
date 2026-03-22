@@ -1,5 +1,5 @@
 import { Notice, Plugin } from "obsidian";
-import { ProjectManagerSettings, DEFAULT_SETTINGS, ProjectManagerSettingTab } from "./settings";
+import { ProjectManagerSettings, DEFAULT_SETTINGS, ProjectManagerSettingTab, mergeSettings } from "./settings";
 import { QueryService } from "./services/query-service";
 import { EntityService } from "./services/entity-service";
 import { EntityCreationService } from "./services/entity-creation-service";
@@ -80,7 +80,8 @@ export default class ProjectManagerPlugin extends Plugin {
 
   /** Load settings from disk, merging with defaults for any missing keys. */
   async loadSettings() {
-    this.settings = Object.assign({}, DEFAULT_SETTINGS, (await this.loadData()) as Partial<typeof DEFAULT_SETTINGS>);
+    const saved = ((await this.loadData()) as Partial<ProjectManagerSettings> | null) ?? {};
+    this.settings = mergeSettings(DEFAULT_SETTINGS, saved);
   }
 
   /** Persist current settings to disk. */

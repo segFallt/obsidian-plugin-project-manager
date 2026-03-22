@@ -113,6 +113,43 @@ describe("EntityService", () => {
     });
   });
 
+  describe("createRaidItem", () => {
+    it("creates a RAID item file in the raid folder", async () => {
+      const { svc, app } = createEntityService();
+      const createdFiles: string[] = [];
+      app.vault.create = async (path) => {
+        createdFiles.push(path);
+        return new TFile(path);
+      };
+      await svc.createRaidItem("Risk of scope creep", "Risk");
+      expect(createdFiles[0]).toBe("raid/Risk of scope creep.md");
+    });
+
+    it("sets engagement wikilink in frontmatter when engagement is provided", async () => {
+      const { svc, app } = createEntityService();
+      const mutations: Record<string, unknown> = {};
+      app.fileManager.processFrontMatter = async (file, fn) => {
+        const fm: Record<string, unknown> = {};
+        fn(fm);
+        Object.assign(mutations, fm);
+      };
+      await svc.createRaidItem("Risk A", "Risk", "My Engagement");
+      expect(String(mutations.engagement ?? "")).toContain("My Engagement");
+    });
+
+    it("sets owner wikilink in frontmatter when owner is provided", async () => {
+      const { svc, app } = createEntityService();
+      const mutations: Record<string, unknown> = {};
+      app.fileManager.processFrontMatter = async (file, fn) => {
+        const fm: Record<string, unknown> = {};
+        fn(fm);
+        Object.assign(mutations, fm);
+      };
+      await svc.createRaidItem("Risk A", "Risk", undefined, "Alice Smith");
+      expect(String(mutations.owner ?? "")).toContain("Alice Smith");
+    });
+  });
+
   describe("createInboxNote", () => {
     it("creates an inbox note in the inbox folder", async () => {
       const { svc, app } = createEntityService();

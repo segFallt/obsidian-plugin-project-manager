@@ -116,6 +116,60 @@ describe("EntityCreationService", () => {
     });
   });
 
+  describe("createRaidItem", () => {
+    it("creates file at raid/<name>.md", async () => {
+      const { svc, app } = createSvc();
+      const paths: string[] = [];
+      app.vault.create = async (p) => { paths.push(p); return new TFile(p); };
+      await svc.createRaidItem("Risk of scope creep", "Risk");
+      expect(paths[0]).toBe("raid/Risk of scope creep.md");
+    });
+
+    it("sets tags, raid-type, status, likelihood, impact, and raised-date via processFrontMatter", async () => {
+      const { svc, app } = createSvc();
+      const mutations: Record<string, unknown> = {};
+      app.fileManager.processFrontMatter = async (_f, fn) => { const fm = {}; fn(fm); Object.assign(mutations, fm); };
+      await svc.createRaidItem("Risk of scope creep", "Risk");
+      expect(mutations["raid-type"]).toBe("Risk");
+      expect(mutations["status"]).toBe("Open");
+      expect(mutations["likelihood"]).toBe("Medium");
+      expect(mutations["impact"]).toBe("Medium");
+      expect(mutations["raised-date"]).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    });
+
+    it("writes engagement as a wikilink when engagement is provided", async () => {
+      const { svc, app } = createSvc();
+      const mutations: Record<string, unknown> = {};
+      app.fileManager.processFrontMatter = async (_f, fn) => { const fm = {}; fn(fm); Object.assign(mutations, fm); };
+      await svc.createRaidItem("Risk A", "Risk", "My Engagement");
+      expect(String(mutations.engagement ?? "")).toContain("My Engagement");
+    });
+
+    it("writes owner as a wikilink when owner is provided", async () => {
+      const { svc, app } = createSvc();
+      const mutations: Record<string, unknown> = {};
+      app.fileManager.processFrontMatter = async (_f, fn) => { const fm = {}; fn(fm); Object.assign(mutations, fm); };
+      await svc.createRaidItem("Risk A", "Risk", undefined, "Alice Smith");
+      expect(String(mutations.owner ?? "")).toContain("Alice Smith");
+    });
+
+    it("does not set engagement field when engagement is not provided", async () => {
+      const { svc, app } = createSvc();
+      const mutations: Record<string, unknown> = {};
+      app.fileManager.processFrontMatter = async (_f, fn) => { const fm = {}; fn(fm); Object.assign(mutations, fm); };
+      await svc.createRaidItem("Risk A", "Risk");
+      expect(mutations.engagement).toBeUndefined();
+    });
+
+    it("does not set owner field when owner is not provided", async () => {
+      const { svc, app } = createSvc();
+      const mutations: Record<string, unknown> = {};
+      app.fileManager.processFrontMatter = async (_f, fn) => { const fm = {}; fn(fm); Object.assign(mutations, fm); };
+      await svc.createRaidItem("Risk A", "Risk");
+      expect(mutations.owner).toBeUndefined();
+    });
+  });
+
   describe("createRecurringMeetingEvent", () => {
     it("creates event file in meetingsRecurringEvents/<meeting>/ folder", async () => {
       const { svc, app } = createSvc([{

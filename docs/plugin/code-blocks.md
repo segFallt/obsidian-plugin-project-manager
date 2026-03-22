@@ -122,6 +122,9 @@ actions:
 | `create-recurring-meeting` | PM: Create Recurring Meeting |
 | `create-project-note` | PM: Create Project Note |
 | `convert-inbox` | PM: Convert Inbox to Project |
+| `convert-single-to-recurring` | PM: Convert Single Meeting to Recurring |
+| `create-recurring-meeting-event` | PM: Create Recurring Meeting Event |
+| `create-raid-item` | Open RAID item creation flow (name → type → engagement → owner) |
 | `scaffold-vault` | PM: Set Up Vault Structure |
 
 Custom command IDs can be used with `commandId: <full-command-id>`.
@@ -286,3 +289,79 @@ Notes support full markdown: `**bold**`, `*italic*`, `- lists`, `[[wikilinks]]`,
 
 - Events are sorted newest-first by their `date` frontmatter field.
 - The component auto-refreshes (1 second debounce) whenever any vault file is modified, allowing Dataview to re-index before re-querying.
+
+---
+
+## `pm-raid-references`
+
+Renders the list of notes that reference the current RAID item, grouped by source file. Place this code block in a RAID item note — the item name is auto-detected from the file's basename.
+
+References are annotated in other notes using the syntax `{raid:positive|negative|neutral}[[RAID Item Name]]`. The direction badge and label are derived from the RAID item's `raid-type` frontmatter field.
+
+```yaml
+```pm-raid-references
+```
+```
+
+This block takes no configuration. Requires the Dataview plugin to be installed and enabled.
+
+### Behaviour
+
+- Backlinks are resolved via Dataview; for each linking file the raw content is scanned for annotated references.
+- Each source file is rendered as an `<h4>` heading with an internal link, followed by a list of annotated reference entries.
+- Each entry shows a direction badge (`positive` / `negative` / `neutral`) with a human-readable label derived from the RAID type, the stripped line text, and a link back to the source file.
+- When no annotated references are found, a placeholder message is displayed.
+- The component auto-refreshes (500 ms debounce) when any vault file is modified.
+
+---
+
+## `pm-raid-dashboard`
+
+Renders an interactive RAID dashboard with a likelihood × impact risk matrix, count strip, and item tables grouped by RAID type. Place this code block in any note (e.g. an engagement or project dashboard note).
+
+```yaml
+```pm-raid-dashboard
+# All fields are optional
+raidTypes:
+  - Risk
+  - Assumption
+  - Issue
+  - Decision
+statusFilter:
+  - Open
+  - In Progress
+clientFilter: []
+engagementFilter: []
+```
+```
+
+### Config options
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `raidTypes` | `string[]` | All four types | RAID types shown in the dashboard on initial load. |
+| `statusFilter` | `string[]` | `["Open", "In Progress"]` | Statuses shown on initial load. |
+| `clientFilter` | `string[]` | `[]` | Client names to pre-filter by on initial load. |
+| `engagementFilter` | `string[]` | `[]` | Engagement names to pre-filter by on initial load. |
+
+### Filter panel
+
+The dashboard renders an interactive filter panel at the top:
+
+- **Type chips** — toggle individual RAID types (R / A / I / D) on/off.
+- **Status chips** — toggle statuses (`Open`, `In Progress`, `Resolved`, `Closed`) on/off.
+- **Search input** — live text filter on item names (debounced).
+
+### Risk matrix
+
+A likelihood × impact grid (High / Medium / Low × Low / Medium / High) shows a count of filtered items per cell. Clicking a cell applies a matrix-cell filter; clicking it again clears it. Cells are colour-coded by risk severity.
+
+### Item groups
+
+Below the matrix, items are grouped by RAID type and rendered as tables with columns: Title, Status, L×I, Age (days since `raised-date`), and Owner (initials avatar).
+
+### Behaviour
+
+- Queries all vault RAID items tagged `#raid` via `QueryService.getActiveRaidItems()`.
+- Filter state (type, status, matrix cell, search) is ephemeral and resets on page reload; use the YAML config to set persistent defaults.
+- The component auto-refreshes (500 ms debounce) when any vault file is modified, allowing Dataview to re-index before re-querying.

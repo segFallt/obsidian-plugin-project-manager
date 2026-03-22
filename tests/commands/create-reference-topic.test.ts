@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { registerCreateReferenceTopicCommand } from "@/commands/create-reference-topic";
+import { TEMPLATE_REFERENCE_TOPIC } from "@/services/template-constants";
 import { createMockPlugin, runCommand, Notice } from "./helpers";
 
 // Mock InputModal — default: user enters "Architecture"
@@ -8,6 +9,12 @@ vi.mock("../../src/ui/modals/input-modal", () => ({
     prompt: vi.fn().mockResolvedValue("Architecture"),
   })),
 }));
+
+describe("TEMPLATE_REFERENCE_TOPIC", () => {
+  it("includes status: Active so getActiveEntitiesByTag can find reference topic notes", () => {
+    expect(TEMPLATE_REFERENCE_TOPIC).toContain("status: Active");
+  });
+});
 
 describe("registerCreateReferenceTopicCommand", () => {
   beforeEach(() => {
