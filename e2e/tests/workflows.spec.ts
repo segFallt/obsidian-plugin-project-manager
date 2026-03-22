@@ -32,6 +32,10 @@ test.afterAll(async () => {
   if (vaultPath) removeTempVault(vaultPath);
 });
 
+test.beforeEach(async () => {
+  window = await app.getVaultPage();
+});
+
 /**
  * Verifies that the Client, Engagement, and Project creation commands each open
  * the correct modal and produce a note with valid frontmatter.

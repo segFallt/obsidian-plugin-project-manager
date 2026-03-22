@@ -54,6 +54,10 @@ test.afterAll(async () => {
   if (vaultPath) removeTempVault(vaultPath);
 });
 
+test.beforeEach(async () => {
+  window = await app.getVaultPage();
+});
+
 test('pm-table code block renders a container element', async () => {
   // The processor renders into a div — confirm something was rendered
   const rendered = await window.$(
