@@ -215,3 +215,28 @@ engagement:
 relatedProject: "[[{{relatedProject}}]]"
 ---
 `;
+
+export const RAID_ITEM_TEMPLATE = `---
+tags:
+  - "#raid"
+raid-type:
+client:
+engagement:
+status: Open
+likelihood: Medium
+impact: Medium
+owner:
+raised-date:
+closed-date:
+description:
+---
+
+# {{name}}
+
+\`\`\`pm-properties
+entity: raid-item
+\`\`\`
+
+\`\`\`pm-raid-references
+\`\`\`
+`;

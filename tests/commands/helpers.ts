@@ -44,11 +44,14 @@ export function createMockPlugin(overrides: {
     convertInboxToProject: vi.fn().mockResolvedValue({}),
     createRecurringMeetingEvent: vi.fn().mockResolvedValue({}),
     convertSingleToRecurring: vi.fn().mockResolvedValue({}),
+    createRaidItem: vi.fn().mockResolvedValue({}),
   };
 
   const queryService = {
     getActiveEntitiesByTag: vi.fn().mockReturnValue([]),
     getActiveRecurringMeetings: vi.fn().mockReturnValue([]),
+    getActiveRaidItems: vi.fn().mockReturnValue([]),
+    getRaidItemsForContext: vi.fn().mockReturnValue([]),
   };
 
   const scaffoldService = {
@@ -79,9 +82,19 @@ export function createMockPlugin(overrides: {
     sort: vi.fn().mockReturnValue([]),
   };
 
-  const commands: Array<{ id: string; name: string; callback: () => Promise<void> }> = [];
+  const commands: Array<{
+    id: string;
+    name: string;
+    callback?: () => Promise<void>;
+    editorCallback?: (editor: unknown, view: unknown) => Promise<void> | void;
+  }> = [];
 
-  const addCommandFn = (cmd: { id: string; name: string; callback: () => Promise<void> }) => {
+  const addCommandFn = (cmd: {
+    id: string;
+    name: string;
+    callback?: () => Promise<void>;
+    editorCallback?: (editor: unknown, view: unknown) => Promise<void> | void;
+  }) => {
     commands.push(cmd);
   };
 
@@ -119,12 +132,29 @@ export function createMockPlugin(overrides: {
 
 /** Extracts and calls the command callback, returning after it resolves. */
 export async function runCommand(
-  commands: Array<{ id: string; callback: () => Promise<void> }>,
+  commands: Array<{ id: string; callback?: () => Promise<void> }>,
   id: string
 ): Promise<void> {
   const cmd = commands.find((c) => c.id === id);
   if (!cmd) throw new Error(`Command "${id}" not registered`);
+  if (!cmd.callback) throw new Error(`Command "${id}" has no callback (it may be an editorCallback)`);
   await cmd.callback();
+}
+
+/**
+ * Extracts and calls an editorCallback command with a mock editor and view.
+ * The caller should pass in the mock editor/view objects they want the command to use.
+ */
+export async function runEditorCommand(
+  commands: Array<{ id: string; editorCallback?: (editor: unknown, view: unknown) => Promise<void> | void }>,
+  id: string,
+  editor: unknown,
+  view: unknown
+): Promise<void> {
+  const cmd = commands.find((c) => c.id === id);
+  if (!cmd) throw new Error(`Command "${id}" not registered`);
+  if (!cmd.editorCallback) throw new Error(`Command "${id}" has no editorCallback`);
+  await cmd.editorCallback(editor, view);
 }
 
 export { Notice };

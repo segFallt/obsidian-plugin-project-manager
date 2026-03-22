@@ -5,6 +5,9 @@ import { STATUS } from "../constants";
 import type { FolderSettings } from "../settings";
 import type { IQueryService } from "./interfaces";
 
+/** RAID item statuses considered inactive — excluded from active item queries. */
+const RAID_INACTIVE_STATUSES = new Set(["Resolved", "Closed"]);
+
 /**
  * Wraps the Dataview plugin API to provide typed entity queries.
  *
@@ -271,5 +274,42 @@ export class QueryService implements IQueryService {
         .pages(`"${this.folders.meetingsRecurringEvents}"`)
         .where((p) => normalizeToName(p["recurring-meeting"]) === meetingName),
     ];
+  }
+
+  /**
+   * Returns active RAID items (status not Resolved or Closed), sorted by raised-date descending.
+   */
+  getActiveRaidItems(): DataviewPage[] {
+    const dv = this.dv();
+    if (!dv) return [];
+    return [
+      ...dv
+        .pages("#raid")
+        .where((p: DataviewPage) => !RAID_INACTIVE_STATUSES.has(String(p.status ?? "")))
+        .sort((p: DataviewPage) => p["raised-date"], "desc"),
+    ];
+  }
+
+  /**
+   * Returns active RAID items (status not Resolved or Closed) optionally filtered
+   * by client or engagement name. If neither filter is provided, returns all active items.
+   */
+  getRaidItemsForContext(clientName?: string, engagementName?: string): DataviewPage[] {
+    const dv = this.dv();
+    if (!dv) return [];
+    const pages = [
+      ...dv
+        .pages("#raid")
+        .where((p: DataviewPage) => !RAID_INACTIVE_STATUSES.has(String(p.status ?? ""))),
+    ] as DataviewPage[];
+    if (!clientName && !engagementName) return pages;
+    return pages.filter((p: DataviewPage) => {
+      const client = p.client ? String(p.client) : "";
+      const engagement = p.engagement ? String(p.engagement) : "";
+      return (
+        (clientName && client.includes(clientName)) ||
+        (engagementName && engagement.includes(engagementName))
+      );
+    });
   }
 }

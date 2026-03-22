@@ -155,6 +155,9 @@ export class Plugin {
     _language: string,
     _handler: (source: string, el: HTMLElement, ctx: unknown) => void
   ) {}
+  registerMarkdownPostProcessor(
+    _handler: (el: HTMLElement, ctx: unknown) => void | Promise<void>
+  ) {}
   loadData(): Promise<unknown> {
     return Promise.resolve(null);
   }

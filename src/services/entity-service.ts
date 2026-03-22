@@ -60,6 +60,10 @@ export class EntityService implements IEntityService {
     return this.creation.createRecurringMeetingEvent(meetingName, options);
   }
 
+  createRaidItem(name: string, raidType: string, engagement?: string, owner?: string): Promise<TFile> {
+    return this.creation.createRaidItem(name, raidType, engagement, owner);
+  }
+
   validateResult(result: CreateFileResult): void {
     return this.creation.validateResult(result);
   }

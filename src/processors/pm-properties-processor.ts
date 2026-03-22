@@ -4,9 +4,13 @@ import type { PropertyProcessorServices, RegisterProcessorFn } from "../plugin-c
 import type { PmPropertiesConfig } from "../types";
 import { DEBOUNCE_MS, CODEBLOCK, LOG_CONTEXT, CACHE_RETRY_MAX, CSS_CLS } from "../constants";
 import { renderError } from "./dom-helpers";
-
 import { ENTITY_FIELDS } from "./entity-field-config";
 import { renderField } from "./property-field-renderers";
+
+// RAID statuses that trigger setting a closed-date
+const RAID_CLOSED_STATUSES = new Set(["Resolved", "Closed"]);
+// RAID statuses that trigger clearing a closed-date
+const RAID_OPEN_STATUSES = new Set(["Open", "In Progress"]);
 
 /**
  * Renders interactive frontmatter property editors.
@@ -146,7 +150,7 @@ class PmPropertiesRenderChild extends MarkdownRenderChild {
         services: this.services,
         sourcePath: this.sourcePath,
         onAutocomplete: (ac) => this.autocompletes.push(ac),
-        updateFm: (f, key, value) => { void this.updateFm(f, key, value); },
+        updateFm: (f, key, value) => { void this.updateFm(f, key, value, config.entity); },
       });
     }
 
@@ -166,7 +170,8 @@ class PmPropertiesRenderChild extends MarkdownRenderChild {
   private async updateFm(
     file: TFile,
     key: string,
-    value: unknown
+    value: unknown,
+    entityType?: string
   ): Promise<void> {
     this.isUpdating = true;
     try {
@@ -177,6 +182,16 @@ class PmPropertiesRenderChild extends MarkdownRenderChild {
             delete fm[key];
           } else {
             fm[key] = value;
+          }
+
+          // RAID item side-effect: auto-set or clear closed-date when status changes.
+          if (entityType === "raid-item" && key === "status") {
+            const statusValue = String(value ?? "");
+            if (RAID_CLOSED_STATUSES.has(statusValue) && !fm["closed-date"]) {
+              fm["closed-date"] = new Date().toISOString().slice(0, 10);
+            } else if (RAID_OPEN_STATUSES.has(statusValue)) {
+              delete fm["closed-date"];
+            }
           }
         }
       );

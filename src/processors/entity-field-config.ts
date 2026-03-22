@@ -78,4 +78,16 @@ export const ENTITY_FIELDS: Record<EntityType, FieldDescriptor[]> = {
     { key: FM_KEY.RELATED_PROJECT, label: "Related Project", type: "text" },
     { key: FM_KEY.ENGAGEMENT, label: "Engagement", type: "suggester", entityTag: ENTITY_TAGS.engagement },
   ],
+  "raid-item": [
+    { key: "raid-type", label: "RAID Type", type: "select", options: ["Risk", "Assumption", "Issue", "Decision"] },
+    { key: FM_KEY.STATUS, label: "Status", type: "select", options: ["Open", "In Progress", "Resolved", "Closed"] },
+    { key: "likelihood", label: "Likelihood", type: "select", options: ["High", "Medium", "Low"] },
+    { key: "impact", label: "Impact", type: "select", options: ["High", "Medium", "Low"] },
+    { key: FM_KEY.CLIENT, label: "Client", type: "suggester", entityTag: ENTITY_TAGS.client },
+    { key: FM_KEY.ENGAGEMENT, label: "Engagement", type: "suggester", entityTag: ENTITY_TAGS.engagement },
+    { key: "owner", label: "Owner", type: "suggester", entityTag: ENTITY_TAGS.person },
+    { key: "raised-date", label: "Raised Date", type: "date" },
+    { key: "closed-date", label: "Closed Date", type: "date" },
+    { key: FM_KEY.DESCRIPTION, label: "Description", type: "textarea" },
+  ],
 };
