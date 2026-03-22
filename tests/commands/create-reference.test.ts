@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { registerCreateReferenceCommand, DONE_PREFIX } from "@/commands/create-reference";
+import { ENTITY_TAGS } from "@/constants";
 import { createMockPlugin, runCommand, Notice } from "./helpers";
 
 // Mock InputModal — default: user enters "Clean Architecture"
@@ -44,6 +45,37 @@ describe("registerCreateReferenceCommand", () => {
     const { services, addCommand, commands } = createMockPlugin();
     registerCreateReferenceCommand(services, addCommand);
     expect(commands.find((c) => c.id === "create-reference")).toBeDefined();
+  });
+
+  it("queries getActiveEntitiesByTag with ENTITY_TAGS.referenceTopic to populate topic list", async () => {
+    const { InputModal } = await import("../../src/ui/modals/input-modal");
+    const { SuggesterModal } = await import("../../src/ui/modals/suggester-modal");
+
+    vi.mocked(InputModal).mockImplementation(() => ({
+      prompt: vi.fn().mockResolvedValue("Topic Query Test"),
+    }) as unknown as InstanceType<typeof InputModal>);
+
+    let callCount = 0;
+    vi.mocked(SuggesterModal).mockImplementation(() => {
+      const call = callCount++;
+      return {
+        choose: vi.fn().mockImplementation(() => {
+          if (call === 0) return Promise.resolve({ file: { name: "Architecture" } });
+          if (call === 1) return Promise.resolve(`${DONE_PREFIX} (1 selected)`);
+          if (call === 2) return Promise.resolve("(None)");
+          if (call === 3) return Promise.resolve("(None)");
+          return Promise.resolve(null);
+        }),
+      } as unknown as InstanceType<typeof SuggesterModal>;
+    });
+
+    const { services, addCommand, commands, queryService } = createMockPlugin();
+    queryService.getActiveEntitiesByTag.mockReturnValue([{ file: { name: "Architecture" } }]);
+
+    registerCreateReferenceCommand(services, addCommand);
+    await runCommand(commands, "create-reference");
+
+    expect(queryService.getActiveEntitiesByTag).toHaveBeenCalledWith(ENTITY_TAGS.referenceTopic);
   });
 
   it("calls entityService.createReference with one topic and no client/engagement", async () => {
