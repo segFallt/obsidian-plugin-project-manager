@@ -23,6 +23,10 @@ test.afterAll(async () => {
   if (vaultPath) removeTempVault(vaultPath);
 });
 
+test.beforeEach(async () => {
+  window = await app.getVaultPage();
+});
+
 async function openSettings(win: Page): Promise<void> {
   await win.evaluate(() => {
     (window as any).app.commands.executeCommandById('app:open-settings');
