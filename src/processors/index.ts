@@ -8,6 +8,8 @@ import { registerPmRecurringEventsProcessor } from "./pm-recurring-events-proces
 import { registerPmRaidReferencesProcessor } from "./pm-raid-references-processor";
 import { registerPmRaidDashboardProcessor } from "./pm-raid-dashboard-processor";
 import { registerRaidBadgePostProcessor } from "./raid-badge-processor";
+import { registerPmReferencesProcessor } from "./pm-references-processor";
+import type { ReferenceProcessorServices } from "../plugin-context";
 
 /**
  * Registers all markdown code block processors.
@@ -35,4 +37,13 @@ export function registerAllProcessors(plugin: ProjectManagerPlugin): void {
   registerPmRaidReferencesProcessor(plugin, raidServices);
   registerPmRaidDashboardProcessor(plugin, raidServices);
   registerRaidBadgePostProcessor(plugin);
+
+  // References processor — consume the narrow ReferenceProcessorServices interface
+  const referenceServices: ReferenceProcessorServices = {
+    app: plugin.app,
+    settings: plugin.settings,
+    queryService: plugin.queryService,
+    loggerService: plugin.loggerService,
+  };
+  registerPmReferencesProcessor(plugin, referenceServices);
 }

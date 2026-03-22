@@ -154,6 +154,36 @@ All wikilink fields (`client`, `engagement`, `owner`) are set via `processFrontM
 
 `closed-date` is automatically set (and cleared) by the `pm-properties` status field `onChange` handler in `pm-properties-processor.ts`.
 
+## Reference Topic
+
+**File location**: `reference-topics/<Name>.md`
+**Tag**: `#reference-topic`
+**Folder**: configured via Settings → Folder Paths → Reference Topics folder
+
+**Frontmatter**:
+```yaml
+tags:
+  - "#reference-topic"
+```
+
+---
+
+## Reference
+
+**File location**: `references/<Name>.md`
+**Tag**: `#reference`
+**Folder**: configured via Settings → Folder Paths → References folder
+
+**Frontmatter**:
+```yaml
+tags:
+  - "#reference"
+topics:
+  - "[[Topic Name]]"    # one or more Reference Topic wikilinks
+client: "[[Client Name]]"        # optional
+engagement: "[[Engagement Name]]"  # optional
+```
+
 ### Line Annotation Format
 
 When a line in any note is tagged to a RAID item via `PM: Tag Line as RAID Reference`, the following pattern is appended to the line:

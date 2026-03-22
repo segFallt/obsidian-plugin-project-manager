@@ -33,7 +33,7 @@ Configures the vault-relative folder path for each entity type. All 11 folder pa
 | `folders.inbox` | Inbox folder | `inbox` |
 | `folders.meetingsSingle` | Single meetings folder | `meetings/single` |
 | `folders.meetingsRecurring` | Recurring meetings folder | `meetings/recurring` |
-| `folders.meetingsRecurringEvents` | Recurring meeting events folder | `meetings/recurring/events` |
+| `folders.meetingsRecurringEvents` | Recurring meeting events folder | `meetings/recurring-events` |
 | `folders.dailyNotes` | Daily notes folder | `daily notes` |
 | `folders.utility` | Utility folder | `utility` |
 

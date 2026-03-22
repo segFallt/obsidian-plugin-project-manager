@@ -167,6 +167,8 @@ export const DEFAULT_FOLDERS = {
   dailyNotes: "daily notes",
   utility: "utility",
   raid: "raid",
+  references: "reference/references",
+  referenceTopics: "reference/reference-topics",
 } as const;
 
 // ─── Tags ──────────────────────────────────────────────────────────────────
@@ -176,6 +178,8 @@ export const ENTITY_TAGS = {
   engagement: "#engagement",
   project: "#project",
   person: "#person",
+  reference: "#reference",
+  referenceTopic: "#reference-topic",
 } as const;
 
 // ─── Frontmatter keys ─────────────────────────────────────────────────────
@@ -205,6 +209,8 @@ export const FM_KEY = {
   PRIORITY: "priority",
   DESCRIPTION: "description",
   TASKS_FILTERS: "pm-tasks-filters", // Persisted to vault frontmatter — do NOT change this value without a migration
+  TOPICS: "topics",
+  PM_REFERENCES_FILTERS: "pm-references-filters",
 } as const;
 
 // ─── CSS classes ──────────────────────────────────────────────────────────
@@ -259,6 +265,7 @@ export const CODEBLOCK = {
   PM_RECURRING_EVENTS: "pm-recurring-events",
   PM_RAID_REFERENCES: "pm-raid-references",
   PM_RAID_DASHBOARD: "pm-raid-dashboard",
+  PM_REFERENCES: "pm-references",
 } as const;
 
 // ─── Processor & view identifiers ─────────────────────────────────────────

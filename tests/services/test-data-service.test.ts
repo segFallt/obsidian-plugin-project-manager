@@ -4,10 +4,20 @@ import { TemplateService } from "../../src/services/template-service";
 import { createMockApp, TFile } from "../mocks/app-mock";
 import { DEFAULT_SETTINGS } from "../../src/settings";
 import type { ILoggerService } from "../../src/services/interfaces";
-import { TEST_PREFIX, TASKS_PER_ENTITY, ENTITIES_PER_TYPE } from "../../src/services/test-data-constants";
+import {
+  TEST_PREFIX,
+  TASKS_PER_ENTITY,
+  ENTITIES_PER_TYPE,
+  REFERENCE_TOPIC_NAMES,
+  REFERENCE_NAMES,
+} from "../../src/services/test-data-constants";
 
+// 9 entity types × 10 each, plus reference topics (12) and references (12)
 const ENTITY_TYPE_COUNT = 9;
-const TOTAL_FILES = ENTITY_TYPE_COUNT * ENTITIES_PER_TYPE;
+const TOTAL_FILES =
+  ENTITY_TYPE_COUNT * ENTITIES_PER_TYPE +
+  REFERENCE_TOPIC_NAMES.length +
+  REFERENCE_NAMES.length;
 const TOTAL_TASKS = TOTAL_FILES * TASKS_PER_ENTITY;
 
 function createMockLogger(): ILoggerService {
@@ -55,19 +65,19 @@ function createService() {
 
 describe("TestDataService", () => {
   describe("generateTestData", () => {
-    it("generates exactly 90 files total", async () => {
+    it(`generates exactly ${TOTAL_FILES} files total`, async () => {
       const { svc, createdPaths } = createService();
       await svc.generateTestData();
       expect(createdPaths).toHaveLength(TOTAL_FILES);
     });
 
-    it("returns totalFiles = 90", async () => {
+    it(`returns totalFiles = ${TOTAL_FILES}`, async () => {
       const { svc } = createService();
       const result = await svc.generateTestData();
       expect(result.totalFiles).toBe(TOTAL_FILES);
     });
 
-    it("returns totalTasks = 450", async () => {
+    it(`returns totalTasks = ${TOTAL_TASKS}`, async () => {
       const { svc } = createService();
       const result = await svc.generateTestData();
       expect(result.totalTasks).toBe(TOTAL_TASKS);
@@ -464,7 +474,7 @@ describe("TestDataService", () => {
       expect(deletedPaths).not.toContain("clients/Not A Test.md");
     });
 
-    it("re-running generateTestData after clean produces another 90 files", async () => {
+    it(`re-running generateTestData after clean produces another ${TOTAL_FILES} files`, async () => {
       const { svc, createdPaths } = createService();
 
       await svc.generateTestData();
@@ -477,7 +487,7 @@ describe("TestDataService", () => {
       await svc.generateTestData();
 
       expect(firstRun).toBe(TOTAL_FILES);
-      // Second run creates another 90 (with conflict-resolution suffixes)
+      // Second run creates another TOTAL_FILES (with conflict-resolution suffixes)
       expect(createdPaths).toHaveLength(TOTAL_FILES);
     });
   });

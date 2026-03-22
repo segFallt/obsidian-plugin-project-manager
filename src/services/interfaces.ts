@@ -40,6 +40,8 @@ export interface IQueryService {
   getRecurringMeetingEvents(meetingName: string): DataviewPage[];
   getActiveRaidItems(): DataviewPage[];
   getRaidItemsForContext(clientName?: string, engagementName?: string): DataviewPage[];
+  getReferencesByTopic(topicName: string): DataviewPage[];
+  getReferences(filters?: { topics?: string[]; clients?: string[]; engagements?: string[] }): DataviewPage[];
 }
 
 export interface IEntityCreationService {
@@ -53,6 +55,8 @@ export interface IEntityCreationService {
   createProjectNote(projectFile: TFile, noteName: string): Promise<TFile>;
   createRecurringMeetingEvent(meetingName: string, options?: { date?: string; attendees?: string[]; notesContent?: string; open?: boolean }): Promise<TFile>;
   createRaidItem(name: string, raidType: string, engagement?: string, owner?: string): Promise<TFile>;
+  createReferenceTopic(name: string): Promise<TFile>;
+  createReference(name: string, topics: string[], client?: string, engagement?: string): Promise<TFile>;
   validateResult(result: CreateFileResult): void;
 }
 

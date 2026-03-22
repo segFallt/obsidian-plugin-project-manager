@@ -426,6 +426,59 @@ views:
 `;
 }
 
+// ─── Reference view .md files ─────────────────────────────────────────────
+
+export const SCAFFOLD_REFERENCES_MD = `---
+obsidianUIMode: preview
+---
+\`\`\`pm-actions
+actions:
+  - type: create-reference
+    label: New Reference
+    style: primary
+  - type: create-reference-topic
+    label: New Topic
+    style: default
+\`\`\`
+
+\`\`\`pm-references
+mode: dashboard
+\`\`\`
+`;
+
+export const SCAFFOLD_REFERENCE_TOPICS_MD = `---
+obsidianUIMode: preview
+---
+\`\`\`pm-actions
+actions:
+  - type: create-reference-topic
+    label: New Topic
+    style: primary
+\`\`\`
+
+# Reference Topics
+![[Reference Topics Base.base#reference_topics]]
+`;
+
+export function scaffoldReferenceTopicsBase(folder: string): string {
+  return `properties:
+  file.link:
+    displayName: Topic
+views:
+  - type: table
+    name: reference_topics
+    filters:
+      and:
+        - file.inFolder("${folder}")
+        - file.hasTag("reference-topic")
+    order:
+      - file.link
+    sort:
+      - property: file.name
+        direction: ASC
+`;
+}
+
 export function scaffoldRecurringMeetingsBase(folder: string): string {
   return `properties:
   file.name:

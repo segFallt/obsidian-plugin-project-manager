@@ -13,6 +13,8 @@ import {
   SCAFFOLD_SINGLE_MEETING_MD,
   SCAFFOLD_RECURRING_MEETING_MD,
   SCAFFOLD_RAID_MD,
+  SCAFFOLD_REFERENCES_MD,
+  SCAFFOLD_REFERENCE_TOPICS_MD,
   scaffoldClientsBase,
   scaffoldEngagementsBase,
   scaffoldProjectsBase,
@@ -20,6 +22,7 @@ import {
   scaffoldInboxBase,
   scaffoldSingleMeetingsBase,
   scaffoldRecurringMeetingsBase,
+  scaffoldReferenceTopicsBase,
 } from "./scaffold-constants";
 
 /**
@@ -60,6 +63,8 @@ export class VaultScaffoldService implements IScaffoldService {
       folders.dailyNotes,
       folders.utility,
       folders.raid,
+      folders.references,
+      folders.referenceTopics,
     ];
 
     for (const path of paths) {
@@ -83,6 +88,11 @@ export class VaultScaffoldService implements IScaffoldService {
       { path: "views/Inbox Base.base", content: scaffoldInboxBase(f.inbox) },
       { path: "views/Single Meetings Base.base", content: scaffoldSingleMeetingsBase(f.meetingsSingle) },
       { path: "views/Recurring Meetings Base.base", content: scaffoldRecurringMeetingsBase(f.meetingsRecurring) },
+
+      // Reference view .md and .base files
+      { path: "views/References.md",              content: SCAFFOLD_REFERENCES_MD },
+      { path: "views/Reference Topics.md",        content: SCAFFOLD_REFERENCE_TOPICS_MD },
+      { path: "views/Reference Topics Base.base", content: scaffoldReferenceTopicsBase(f.referenceTopics) },
 
       // Entity view .md files
       { path: "views/Clients.md", content: SCAFFOLD_CLIENTS_MD },

@@ -30,6 +30,10 @@ test.afterAll(async () => {
   if (vaultPath) removeTempVault(vaultPath);
 });
 
+test.beforeEach(async () => {
+  window = await app.getVaultPage();
+});
+
 test('Create Client command opens EntityCreationModal', async () => {
   await executeCommandById(window, 'project-manager:create-client');
   await waitForModal(window);

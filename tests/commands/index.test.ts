@@ -14,10 +14,10 @@ vi.mock("../../src/ui/modals/suggester-modal", () => ({
 }));
 
 describe("registerAllCommands", () => {
-  it("registers exactly 14 commands", () => {
+  it("registers exactly 16 commands", () => {
     const { plugin, commands } = createMockPlugin();
     registerAllCommands(plugin);
-    expect(commands).toHaveLength(14);
+    expect(commands).toHaveLength(16);
   });
 
   it("registers the expected command IDs", () => {
@@ -38,5 +38,7 @@ describe("registerAllCommands", () => {
     expect(ids).toContain("scaffold-vault");
     expect(ids).toContain("create-raid-item");
     expect(ids).toContain("tag-raid-reference");
+    expect(ids).toContain("create-reference-topic");
+    expect(ids).toContain("create-reference");
   });
 });

@@ -20,7 +20,38 @@ export type EntityType =
   | "recurring-meeting"
   | "recurring-meeting-event"
   | "project-note"
-  | "raid-item";
+  | "raid-item"
+  | "reference"
+  | "reference-topic";
+
+// ─── Reference Types ───────────────────────────────────────────────────────
+
+export type ReferenceViewMode = "topic" | "client" | "engagement";
+
+export interface PmReferencesConfig {
+  mode?: string;
+  viewMode?: ReferenceViewMode;
+  filter?: {
+    topics?: string[];
+    client?: string;
+    engagement?: string;
+  };
+}
+
+export interface ReferenceFilters {
+  viewMode: ReferenceViewMode;
+  topics: string[];      // wikilink strings e.g. "[[Architecture]]"
+  clients: string[];     // display names
+  engagements: string[]; // display names
+  searchText: string;
+}
+
+export interface SavedReferenceFilters {
+  viewMode?: ReferenceViewMode;
+  topics?: string[];
+  clients?: string[];
+  engagements?: string[];
+}
 
 // ─── RAID Types ────────────────────────────────────────────────────────────
 

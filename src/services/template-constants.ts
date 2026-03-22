@@ -216,6 +216,46 @@ relatedProject: "[[{{relatedProject}}]]"
 ---
 `;
 
+export const TEMPLATE_REFERENCE_TOPIC = `---
+obsidianUIMode: preview
+tags:
+  - "#reference-topic"
+---
+# References
+
+\`\`\`pm-actions
+actions:
+  - type: create-reference
+    label: New Reference
+    style: primary
+    context:
+      field: topic
+\`\`\`
+
+\`\`\`pm-references
+filter:
+  topics:
+    - "[[{{name}}]]"
+\`\`\`
+`;
+
+export const TEMPLATE_REFERENCE = `---
+tags:
+  - "#reference"
+topics: []
+client:
+engagement:
+---
+# Properties
+
+\`\`\`pm-properties
+entity: reference
+\`\`\`
+
+# Notes
+
+`;
+
 export const RAID_ITEM_TEMPLATE = `---
 tags:
   - "#raid"

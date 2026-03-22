@@ -84,6 +84,13 @@ export interface PluginServices {
   testDataService: ITestDataService;
 }
 
+export interface ReferenceProcessorServices {
+  app: App;
+  settings: ProjectManagerSettings;
+  queryService: IQueryService;
+  loggerService: ILoggerService;
+}
+
 /** Bound version of Plugin.addCommand, passed from the wiring layer. */
 export type AddCommandFn = (cmd: Command) => void;
 

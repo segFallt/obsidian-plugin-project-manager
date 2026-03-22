@@ -1,7 +1,7 @@
 import { App, TFile } from "obsidian";
 import type { DataviewApi, DataviewPage } from "../types";
 import { normalizeToName } from "../utils/link-utils";
-import { STATUS } from "../constants";
+import { STATUS, ENTITY_TAGS } from "../constants";
 import type { FolderSettings } from "../settings";
 import type { IQueryService } from "./interfaces";
 
@@ -310,6 +310,60 @@ export class QueryService implements IQueryService {
         (clientName && client.includes(clientName)) ||
         (engagementName && engagement.includes(engagementName))
       );
+    });
+  }
+
+  /**
+   * Returns all Reference pages where topics[] contains [[topicName]].
+   */
+  getReferencesByTopic(topicName: string): DataviewPage[] {
+    const dv = this.dv();
+    if (!dv) return [];
+    return [
+      ...dv.pages(ENTITY_TAGS.reference).where((p: DataviewPage) => {
+        const topics = p.topics;
+        if (!Array.isArray(topics)) return false;
+        return topics.some((t) => normalizeToName(t) === topicName);
+      }),
+    ];
+  }
+
+  /**
+   * Returns Reference pages matching optional filters.
+   * topics/clients/engagements use OR logic within each dimension; AND across dimensions.
+   * Client resolves via direct reference.client OR reference.engagement → engagement.client.
+   */
+  getReferences(filters?: { topics?: string[]; clients?: string[]; engagements?: string[] }): DataviewPage[] {
+    const dv = this.dv();
+    if (!dv) return [];
+    const all = [...dv.pages(ENTITY_TAGS.reference)] as DataviewPage[];
+    if (!filters) return all;
+
+    return all.filter((p: DataviewPage) => {
+      // Topics filter (OR)
+      if (filters.topics && filters.topics.length > 0) {
+        const topics = Array.isArray(p.topics) ? p.topics : [];
+        const match = filters.topics.some((ft) =>
+          topics.some((t) => normalizeToName(t) === normalizeToName(ft))
+        );
+        if (!match) return false;
+      }
+
+      // Client filter (OR) — dual-path: direct client OR via engagement
+      if (filters.clients && filters.clients.length > 0) {
+        const directClient = normalizeToName(p.client) ?? "";
+        const viaEngagement = this.getClientFromEngagementLink(p.engagement) ?? "";
+        const resolvedClient = directClient || viaEngagement;
+        if (!filters.clients.includes(resolvedClient)) return false;
+      }
+
+      // Engagement filter (OR)
+      if (filters.engagements && filters.engagements.length > 0) {
+        const eng = normalizeToName(p.engagement) ?? "";
+        if (!filters.engagements.includes(eng)) return false;
+      }
+
+      return true;
     });
   }
 }
