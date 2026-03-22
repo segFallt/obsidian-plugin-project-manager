@@ -1,4 +1,5 @@
 import { App, FuzzySuggestModal } from "obsidian";
+import { FOCUS_DELAY_MS } from "../../constants";
 
 /**
  * A fuzzy-search suggestion modal for selecting from a list of items.
@@ -20,11 +21,15 @@ export class SuggesterModal<T> extends FuzzySuggestModal<T> {
     if (placeholder) this.setPlaceholder(placeholder);
   }
 
-  /** Opens the modal and returns a promise that resolves to the selected item. */
+  /** Opens the modal and returns a promise that resolves to the selected item.
+   * The open() call is deferred by FOCUS_DELAY_MS to allow any in-flight DOM
+   * events from a preceding modal (e.g. InputModal's Enter keydown) to be
+   * processed before this modal receives focus, preventing spurious closes.
+   */
   choose(): Promise<T | null> {
     return new Promise((resolve) => {
       this.resolvePromise = resolve;
-      this.open();
+      setTimeout(() => this.open(), FOCUS_DELAY_MS);
     });
   }
 
