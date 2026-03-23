@@ -239,20 +239,22 @@ All modals created by RAID commands use standard Obsidian modal styling. No cust
 
 Badge colours use Obsidian CSS variables (`var(--color-green)`, `var(--color-red)`, `var(--color-blue)`) to respect theme settings.
 
-### 5.4 pm-raid-references CSS (issue #38)
+### 5.4 pm-raid-references CSS (issue #38, updated issue #50)
 
 The `pm-raid-references` block uses the following CSS classes:
 
 | Class | Element |
 |-------|---------|
-| `.raid-references-empty` | Empty state placeholder |
-| `.raid-references-list` | Container for reference groups |
-| `.raid-ref-group` | One source-note group |
-| `.raid-ref-group__heading` | H4 heading with source note link |
-| `.raid-ref-group__items` | List of annotated lines within a group |
-| `.raid-ref-item` | Single annotated line row |
-| `.raid-ref-item__badge` | Direction badge within a row |
-| `.raid-ref-item__text` | Line text within a row |
+| `.raid-references-empty` | Empty state placeholder (`<p>`) |
+| `.pm-raid-references` | Outer flex container for all groups |
+| `.pm-raid-references__group` | Wrapper `<div>` for one source-note group (heading + list) |
+| `.pm-raid-references__group-heading` | `<h4>` heading with source note link |
+| `.pm-raid-references__list` | `<ul>` list of annotated lines within a group |
+| `.pm-raid-references__item` | `<li>` single annotated line row |
+| `.raid-badge` | Direction badge `<span>` (shared with badge renderer) |
+| `.raid-badge--positive` / `--negative` / `--neutral` | Direction-specific badge colour modifier |
+
+Groups are rendered in descending modification-date order (`TFile.stat.mtime`, newest first).
 
 ---
 

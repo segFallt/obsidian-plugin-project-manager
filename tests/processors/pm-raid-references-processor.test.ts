@@ -8,6 +8,7 @@ import type { RaidProcessorServices } from "@/services/interfaces";
 interface MockFile {
   path: string;
   content: string;
+  mtime?: number;
 }
 
 function createMockServices(
@@ -34,7 +35,12 @@ function createMockServices(
   const vaultOn = vi.fn(() => ({ id: "mock-event" }));
   // Include the source file itself in the file map (so getAbstractFileByPath resolves it)
   const sourceFile = new TFile(sourcePath);
-  const fileMap = new Map<string, TFile>([[sourcePath, sourceFile], ...backlinks.map((b) => [b.path, new TFile(b.path)] as [string, TFile])]);
+  const backlinkedFiles: [string, TFile][] = backlinks.map((b) => {
+    const file = new TFile(b.path);
+    if (b.mtime !== undefined) file.stat.mtime = b.mtime;
+    return [b.path, file];
+  });
+  const fileMap = new Map<string, TFile>([[sourcePath, sourceFile], ...backlinkedFiles]);
   const contentMap = new Map(backlinks.map((b) => [b.path, b.content]));
 
   // Mock Dataview pages — return backlinks as DataviewPage-shaped objects
@@ -279,5 +285,59 @@ describe("pm-raid-references processor", () => {
     // Should render an error element
     const errorEl = el.querySelector(".pm-error");
     expect(errorEl).not.toBeNull();
+  });
+
+  it("renders source groups sorted by modification date, newest first", async () => {
+    const raidItemName = "Sort Test Risk";
+    const now = Date.now();
+    const { el } = await render(
+      [
+        { path: "notes/Old Note.md", content: `{raid:positive}[[${raidItemName}]]`, mtime: now - 3000 },
+        { path: "notes/New Note.md", content: `{raid:negative}[[${raidItemName}]]`, mtime: now },
+        { path: "notes/Middle Note.md", content: `{raid:neutral}[[${raidItemName}]]`, mtime: now - 1000 },
+      ],
+      `raid/${raidItemName}.md`,
+      { "raid-type": "Risk" }
+    );
+
+    const groups = el.querySelectorAll(".pm-raid-references__group");
+    expect(groups).toHaveLength(3);
+
+    const headings = [...groups].map((g) => g.querySelector("h4 a")?.textContent ?? "");
+    expect(headings[0]).toContain("New Note");
+    expect(headings[1]).toContain("Middle Note");
+    expect(headings[2]).toContain("Old Note");
+  });
+
+  it("wraps each source group heading and list in a .pm-raid-references__group div", async () => {
+    const raidItemName = "Group Wrapper Risk";
+    const now = Date.now();
+    const { el } = await render(
+      [
+        { path: "notes/Note A.md", content: `{raid:positive}[[${raidItemName}]]`, mtime: now - 2000 },
+        { path: "notes/Note B.md", content: `{raid:negative}[[${raidItemName}]]`, mtime: now - 1000 },
+      ],
+      `raid/${raidItemName}.md`,
+      { "raid-type": "Risk" }
+    );
+
+    const groups = el.querySelectorAll(".pm-raid-references__group");
+    expect(groups).toHaveLength(2);
+
+    for (const group of groups) {
+      const heading = group.querySelector("h4.pm-raid-references__group-heading");
+      const list = group.querySelector("ul.pm-raid-references__list");
+      expect(heading).not.toBeNull();
+      expect(list).not.toBeNull();
+      // heading and list must be direct children of the group wrapper
+      expect(group.children[0]).toBe(heading);
+      expect(group.children[1]).toBe(list);
+    }
+
+    // h4 elements must NOT be direct children of the outer container
+    const container = el.querySelector(".pm-raid-references");
+    expect(container).not.toBeNull();
+    const directH4s = [...(container?.children ?? [])].filter((c) => c.tagName === "H4");
+    expect(directH4s).toHaveLength(0);
   });
 });
