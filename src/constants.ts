@@ -107,8 +107,12 @@ export const PRIORITY_FALLBACK = 99;
 export const NOTICE_DURATION_MS = 8000;
 /** Max length for ARIA label substrings. */
 export const ARIA_LABEL_MAX_LENGTH = 60;
-/** Delay (ms) before focusing a modal input. */
-export const FOCUS_DELAY_MS = 10;
+/** Delay (ms) before focusing a modal input or opening a subsequent modal.
+ * Must be long enough to let any in-flight DOM keyboard events (keydown/keyup)
+ * from the preceding modal clear the event queue before the next modal receives
+ * focus.  10 ms is less than one animation frame (~16.67 ms) and is too short;
+ * 150 ms gives the browser one or more full frames to flush pending events. */
+export const FOCUS_DELAY_MS = 150;
 /** Number of rows for textarea fields. */
 export const TEXTAREA_ROWS = 3;
 
