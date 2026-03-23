@@ -138,6 +138,8 @@ export const LOG_CONTEXT = {
   TASKS_BY_PROJECT: "pm-tasks-by-project",
   ENTITY_VIEW: "pm-entity-view",
   CREATE_RAID_ITEM: "create-raid-item",
+  CREATE_REFERENCE: "create-reference",
+  CREATE_REFERENCE_TOPIC: "create-reference-topic",
 } as const;
 
 /** Sentinel date strings for sort stability (tasks with no due date). */
@@ -293,6 +295,7 @@ export const TABLE_TYPE = {
 /** Repeated user-facing Notice and error message strings. */
 export const MSG = {
   NO_NAME: "No name provided.",
+  CANCELLED: "Creation cancelled.",
   DATAVIEW_UNAVAILABLE: "Dataview is not available. Install and enable the Dataview plugin.",
 } as const;
 

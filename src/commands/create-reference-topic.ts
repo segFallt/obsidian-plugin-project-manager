@@ -1,7 +1,7 @@
 import { Notice } from "obsidian";
 import type { CommandServices, AddCommandFn } from "../plugin-context";
 import { InputModal } from "../ui/modals/input-modal";
-import { MSG } from "../constants";
+import { MSG, LOG_CONTEXT } from "../constants";
 
 /**
  * PM: Create Reference Topic
@@ -21,11 +21,11 @@ export function registerCreateReferenceTopicCommand(
         new Notice(MSG.NO_NAME);
         return;
       }
-      services.loggerService.debug(`create-reference-topic invoked: "${name}"`, "create-reference-topic");
+      services.loggerService.debug(`create-reference-topic invoked: "${name}"`, LOG_CONTEXT.CREATE_REFERENCE_TOPIC);
       try {
         await services.entityService.createReferenceTopic(name);
       } catch (err) {
-        services.loggerService.error(String(err), "create-reference-topic", err);
+        services.loggerService.error(String(err), LOG_CONTEXT.CREATE_REFERENCE_TOPIC, err);
         new Notice(`Error: ${String(err)}`);
       }
     },
