@@ -228,7 +228,8 @@ describe("registerTagRaidReferenceCommand", () => {
     const riskPage = makePage("General Risk", "Risk");
     const contextPage = makePage("Client Risk", "Risk", "Acme Audit");
 
-    const { services, addCommand, commands, queryService } = createMockPlugin();
+    const { services, addCommand, commands, queryService, app } = createMockPlugin();
+    app.metadataCache.getFileCache = vi.fn().mockReturnValue({ frontmatter: { engagement: "Acme Audit" } });
     queryService.getActiveRaidItems.mockReturnValue([riskPage, contextPage]);
     queryService.getRaidItemsForContext.mockReturnValue([contextPage]);
 
@@ -250,7 +251,8 @@ describe("registerTagRaidReferenceCommand", () => {
     const riskPage = makePage("General Risk", "Risk");
     const contextPage = makePage("Client Risk", "Risk", "Acme Audit");
 
-    const { services, addCommand, commands, queryService } = createMockPlugin();
+    const { services, addCommand, commands, queryService, app } = createMockPlugin();
+    app.metadataCache.getFileCache = vi.fn().mockReturnValue({ frontmatter: { engagement: "Acme Audit" } });
     queryService.getActiveRaidItems.mockReturnValue([riskPage, contextPage]);
     queryService.getRaidItemsForContext.mockReturnValue([contextPage]);
 
@@ -326,6 +328,54 @@ describe("registerTagRaidReferenceCommand", () => {
     const label = displayFn(pageWithWikilink);
     expect(label).toBe("[R] Wikilink Risk (My Engagement)");
     expect(label).not.toContain("[[");
+  });
+
+  it("does not prefix any item with ★ when current note has no client or engagement frontmatter", async () => {
+    const { SuggesterModal } = await import("@/ui/modals/suggester-modal");
+    const page1 = makePage("Risk Alpha", "Risk");
+    const page2 = makePage("Issue Beta", "Issue");
+
+    const { services, addCommand, commands, queryService } = createMockPlugin();
+    queryService.getActiveRaidItems.mockReturnValue([page1, page2]);
+    // getRaidItemsForContext should not be called when there is no context;
+    // if it is called it would incorrectly return all items.
+    queryService.getRaidItemsForContext.mockReturnValue([page1, page2]);
+
+    registerTagRaidReferenceCommand(services, addCommand);
+    // Note without client or engagement frontmatter
+    await runEditorCommand(
+      commands, "tag-raid-reference", makeMockEditor("Line"),
+      makeMockView({}, {})
+    );
+
+    const displayFn = vi.mocked(SuggesterModal).mock.calls[0][2] as (item: unknown) => string;
+    const items = vi.mocked(SuggesterModal).mock.calls[0][1] as Array<{ file: { name: string; path: string }; "raid-type": string }>;
+    expect(displayFn(items[0])).not.toMatch(/^★/);
+    expect(displayFn(items[1])).not.toMatch(/^★/);
+    expect(queryService.getRaidItemsForContext).not.toHaveBeenCalled();
+  });
+
+  it("does not prefix any item with ★ when frontmatter keys exist but are empty strings", async () => {
+    const { SuggesterModal } = await import("@/ui/modals/suggester-modal");
+    const page1 = makePage("Risk Alpha", "Risk");
+    const page2 = makePage("Issue Beta", "Issue");
+
+    const { services, addCommand, commands, queryService } = createMockPlugin();
+    queryService.getActiveRaidItems.mockReturnValue([page1, page2]);
+    queryService.getRaidItemsForContext.mockReturnValue([page1, page2]);
+
+    registerTagRaidReferenceCommand(services, addCommand);
+    // Frontmatter keys are present but both are empty strings — still no meaningful context
+    await runEditorCommand(
+      commands, "tag-raid-reference", makeMockEditor("Line"),
+      makeMockView({ path: "notes/meeting.md" }, { client: "", engagement: "" })
+    );
+
+    const displayFn = vi.mocked(SuggesterModal).mock.calls[0][2] as (item: unknown) => string;
+    const items = vi.mocked(SuggesterModal).mock.calls[0][1] as Array<{ file: { name: string; path: string }; "raid-type": string }>;
+    expect(displayFn(items[0])).not.toMatch(/^★/);
+    expect(displayFn(items[1])).not.toMatch(/^★/);
+    expect(queryService.getRaidItemsForContext).not.toHaveBeenCalled();
   });
 
   it("emits a debug log on success", async () => {
