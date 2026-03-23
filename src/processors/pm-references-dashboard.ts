@@ -5,6 +5,8 @@ import { normalizeToName } from "../utils/link-utils";
 import { renderTopicView } from "./reference-views/topic-view-renderer";
 import { renderClientView } from "./reference-views/client-view-renderer";
 import { renderEngagementView } from "./reference-views/engagement-view-renderer";
+import { FilterChipSelect } from "../ui/components/filter-chip-select";
+import { buildEntityOptions } from "../utils/filter-utils";
 
 // ─── View mode tab definitions ────────────────────────────────────────────────
 
@@ -42,6 +44,7 @@ export class ReferenceDashboardView {
   private filtersExpanded = false;
   private searchDebounceTimer: ReturnType<typeof setTimeout> | null = null;
   private outputEl!: HTMLElement;
+  private chipSelects: FilterChipSelect[] = [];
 
   constructor(
     private readonly container: HTMLElement,
@@ -54,6 +57,8 @@ export class ReferenceDashboardView {
   }
 
   render(): void {
+    for (const cs of this.chipSelects) cs.destroy();
+    this.chipSelects = [];
     this.container.empty();
 
     const root = this.container.createDiv({ cls: "pm-references" });
@@ -154,49 +159,45 @@ export class ReferenceDashboardView {
       });
     }
 
-    // Client chips
+    // Client FilterChipSelect
     const clientRow = panel.createDiv({ cls: "pm-references__filter-row pm-references__filter-row--client" });
     clientRow.createSpan({ cls: "pm-references__filter-label", text: "Clients" });
-    const clientChips = clientRow.createDiv({ cls: "pm-references__chips" });
-    const allClients = this.services.queryService.getActiveEntitiesByTag(ENTITY_TAGS.client);
-    for (const clientPage of allClients) {
-      const name = clientPage.file.name;
-      const active = this.filters.clients.includes(name);
-      const chip = clientChips.createEl("button", {
-        cls: `pm-ref-filter-chip${active ? " pm-ref-filter-chip--active" : ""}`,
-        text: name,
-      });
-      chip.addEventListener("click", () => {
-        const next = active
-          ? this.filters.clients.filter((c) => c !== name)
-          : [...this.filters.clients, name];
-        this.filters = { ...this.filters, clients: next };
+    const clientOptions = buildEntityOptions(ENTITY_TAGS.client, this.services.queryService);
+    const clientChipSelect = new FilterChipSelect(clientRow, this.services.app, {
+      options: clientOptions,
+      selectedValues: this.filters.clients,
+      placeholder: "Filter by client…",
+      ariaLabel: "Filter by client",
+      includeUnassigned: false,
+      unassignedLabel: "Include unassigned",
+      showUnassignedCheckbox: false,
+      onChange: (selectedValues) => {
+        this.filters = { ...this.filters, clients: selectedValues };
         this.onFiltersChange(this.filters);
         this.render();
-      });
-    }
+      },
+    });
+    this.chipSelects.push(clientChipSelect);
 
-    // Engagement chips
+    // Engagement FilterChipSelect
     const engagementRow = panel.createDiv({ cls: "pm-references__filter-row pm-references__filter-row--engagement" });
     engagementRow.createSpan({ cls: "pm-references__filter-label", text: "Engagements" });
-    const engagementChips = engagementRow.createDiv({ cls: "pm-references__chips" });
-    const allEngagements = this.services.queryService.getActiveEntitiesByTag(ENTITY_TAGS.engagement);
-    for (const engagementPage of allEngagements) {
-      const name = engagementPage.file.name;
-      const active = this.filters.engagements.includes(name);
-      const chip = engagementChips.createEl("button", {
-        cls: `pm-ref-filter-chip${active ? " pm-ref-filter-chip--active" : ""}`,
-        text: name,
-      });
-      chip.addEventListener("click", () => {
-        const next = active
-          ? this.filters.engagements.filter((e) => e !== name)
-          : [...this.filters.engagements, name];
-        this.filters = { ...this.filters, engagements: next };
+    const engagementOptions = buildEntityOptions(ENTITY_TAGS.engagement, this.services.queryService);
+    const engagementChipSelect = new FilterChipSelect(engagementRow, this.services.app, {
+      options: engagementOptions,
+      selectedValues: this.filters.engagements,
+      placeholder: "Filter by engagement…",
+      ariaLabel: "Filter by engagement",
+      includeUnassigned: false,
+      unassignedLabel: "Include unassigned",
+      showUnassignedCheckbox: false,
+      onChange: (selectedValues) => {
+        this.filters = { ...this.filters, engagements: selectedValues };
         this.onFiltersChange(this.filters);
         this.render();
-      });
-    }
+      },
+    });
+    this.chipSelects.push(engagementChipSelect);
 
     // Clear filters button
     const clearBtn = panel.createEl("button", {
