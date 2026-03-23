@@ -284,7 +284,7 @@ export class QueryService implements IQueryService {
     if (!dv) return [];
     return [
       ...dv
-        .pages("#raid")
+        .pages(ENTITY_TAGS.raid)
         .where((p: DataviewPage) => !RAID_INACTIVE_STATUSES.has(String(p.status ?? "")))
         .sort((p: DataviewPage) => p["raised-date"], "desc"),
     ];
@@ -299,7 +299,7 @@ export class QueryService implements IQueryService {
     if (!dv) return [];
     const pages = [
       ...dv
-        .pages("#raid")
+        .pages(ENTITY_TAGS.raid)
         .where((p: DataviewPage) => !RAID_INACTIVE_STATUSES.has(String(p.status ?? ""))),
     ] as DataviewPage[];
     if (!clientName && !engagementName) return pages;
