@@ -1,12 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { registerCreateRaidItemCommand } from "@/commands/create-raid-item";
-import { LOG_CONTEXT } from "@/constants";
-import { createMockPlugin, runCommand, Notice } from "./helpers";
+import { MSG, LOG_CONTEXT, ENTITY_TAGS } from "@/constants";
+import { createMockPlugin, runCommand } from "./helpers";
 
 // Hoisted spy so vi.mock factory can reference it
 const noticeMock = vi.hoisted(() => vi.fn());
 
-// Override the obsidian Notice export with a spy-backed constructor
 vi.mock("obsidian", async (importOriginal) => {
   const original = await importOriginal<typeof import("../../tests/mocks/obsidian-mock")>();
   return {
@@ -15,35 +14,31 @@ vi.mock("obsidian", async (importOriginal) => {
   };
 });
 
-// Mock InputModal — default: user enters "My RAID Item"
-vi.mock("@/ui/modals/input-modal", () => ({
-  InputModal: vi.fn().mockImplementation(() => ({
-    prompt: vi.fn().mockResolvedValue("My RAID Item"),
+// Hoisted prompt spy — default: happy path result
+const promptMock = vi.hoisted(() =>
+  vi.fn().mockResolvedValue({
+    name: "Default Risk",
+    raidType: "Risk",
+    engagementName: undefined,
+    ownerName: undefined,
+  })
+);
+
+vi.mock("@/ui/modals/raid-item-creation-modal", () => ({
+  RaidItemCreationModal: vi.fn().mockImplementation(() => ({
+    prompt: promptMock,
   })),
 }));
-
-// Mock SuggesterModal — default responses: type=Risk, engagement=(None), owner=(None)
-vi.mock("@/ui/modals/suggester-modal", () => {
-  let callCount = 0;
-  return {
-    SuggesterModal: vi.fn().mockImplementation(() => {
-      const call = callCount++;
-      return {
-        choose: vi.fn().mockImplementation(() => {
-          if (call === 0) return Promise.resolve("Risk");          // RAID type
-          if (call === 1) return Promise.resolve("(None)");        // engagement
-          if (call === 2) return Promise.resolve("(None)");        // owner
-          return Promise.resolve(null);
-        }),
-      };
-    }),
-  };
-});
 
 describe("registerCreateRaidItemCommand", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    // Reset the call counter inside the SuggesterModal mock by re-importing
+    promptMock.mockResolvedValue({
+      name: "Default Risk",
+      raidType: "Risk",
+      engagementName: undefined,
+      ownerName: undefined,
+    });
   });
 
   it("registers the command with id 'create-raid-item'", () => {
@@ -52,31 +47,24 @@ describe("registerCreateRaidItemCommand", () => {
     expect(commands.find((c) => c.id === "create-raid-item")).toBeDefined();
   });
 
-  it("calls entityService.createRaidItem with correct arguments when flow completes with (None) selections", async () => {
-    const { InputModal } = await import("@/ui/modals/input-modal");
-    const { SuggesterModal } = await import("@/ui/modals/suggester-modal");
+  it("fetches engagements and owners from queryService", async () => {
+    const { services, addCommand, commands, queryService } = createMockPlugin();
+    registerCreateRaidItemCommand(services, addCommand);
+    await runCommand(commands, "create-raid-item");
+    expect(queryService.getActiveEntitiesByTag).toHaveBeenCalledWith(ENTITY_TAGS.engagement);
+    expect(queryService.getActiveEntitiesByTag).toHaveBeenCalledWith(ENTITY_TAGS.person);
+  });
 
-    vi.mocked(InputModal).mockImplementation(() => ({
-      prompt: vi.fn().mockResolvedValue("Scope Creep Risk"),
-    }) as unknown as InstanceType<typeof InputModal>);
-
-    let callCount = 0;
-    vi.mocked(SuggesterModal).mockImplementation(() => {
-      const call = callCount++;
-      return {
-        choose: vi.fn().mockImplementation(() => {
-          if (call === 0) return Promise.resolve("Risk");
-          if (call === 1) return Promise.resolve("(None)");
-          if (call === 2) return Promise.resolve("(None)");
-          return Promise.resolve(null);
-        }),
-      } as unknown as InstanceType<typeof SuggesterModal>;
+  it("calls entityService.createRaidItem with correct arguments on success", async () => {
+    promptMock.mockResolvedValue({
+      name: "Scope Creep Risk",
+      raidType: "Risk",
+      engagementName: undefined,
+      ownerName: undefined,
     });
-
     const { services, addCommand, commands, entityService } = createMockPlugin();
     registerCreateRaidItemCommand(services, addCommand);
     await runCommand(commands, "create-raid-item");
-
     expect(entityService.createRaidItem).toHaveBeenCalledWith(
       "Scope Creep Risk",
       "Risk",
@@ -86,33 +74,15 @@ describe("registerCreateRaidItemCommand", () => {
   });
 
   it("calls createRaidItem with engagement and owner when both are selected", async () => {
-    const { InputModal } = await import("@/ui/modals/input-modal");
-    const { SuggesterModal } = await import("@/ui/modals/suggester-modal");
-
-    vi.mocked(InputModal).mockImplementation(() => ({
-      prompt: vi.fn().mockResolvedValue("Budget Cut Decision"),
-    }) as unknown as InstanceType<typeof InputModal>);
-
-    const engagementPage = { file: { name: "Acme Audit" } };
-    const ownerPage = { file: { name: "Alice Smith" } };
-
-    let callCount = 0;
-    vi.mocked(SuggesterModal).mockImplementation(() => {
-      const call = callCount++;
-      return {
-        choose: vi.fn().mockImplementation(() => {
-          if (call === 0) return Promise.resolve("Decision");
-          if (call === 1) return Promise.resolve(engagementPage);
-          if (call === 2) return Promise.resolve(ownerPage);
-          return Promise.resolve(null);
-        }),
-      } as unknown as InstanceType<typeof SuggesterModal>;
+    promptMock.mockResolvedValue({
+      name: "Budget Cut Decision",
+      raidType: "Decision",
+      engagementName: "Acme Audit",
+      ownerName: "Alice Smith",
     });
-
     const { services, addCommand, commands, entityService } = createMockPlugin();
     registerCreateRaidItemCommand(services, addCommand);
     await runCommand(commands, "create-raid-item");
-
     expect(entityService.createRaidItem).toHaveBeenCalledWith(
       "Budget Cut Decision",
       "Decision",
@@ -121,194 +91,60 @@ describe("registerCreateRaidItemCommand", () => {
     );
   });
 
-  it("shows Notice and does NOT call createRaidItem when name is empty", async () => {
-    const { InputModal } = await import("@/ui/modals/input-modal");
-
-    vi.mocked(InputModal).mockImplementation(() => ({
-      prompt: vi.fn().mockResolvedValue(null),
-    }) as unknown as InstanceType<typeof InputModal>);
-
+  it("shows Notice(MSG.CANCELLED) and does NOT call createRaidItem when cancelled", async () => {
+    promptMock.mockResolvedValue(null);
     const { services, addCommand, commands, entityService } = createMockPlugin();
     registerCreateRaidItemCommand(services, addCommand);
     await runCommand(commands, "create-raid-item");
-
     expect(entityService.createRaidItem).not.toHaveBeenCalled();
+    expect(noticeMock).toHaveBeenCalledWith(MSG.CANCELLED);
+  });
+
+  it("emits a warn log when cancelled", async () => {
+    promptMock.mockResolvedValue(null);
+    const { services, addCommand, commands, loggerService } = createMockPlugin();
+    registerCreateRaidItemCommand(services, addCommand);
+    await runCommand(commands, "create-raid-item");
+    expect(loggerService.warn).toHaveBeenCalledWith(
+      expect.stringContaining("cancelled"),
+      LOG_CONTEXT.CREATE_RAID_ITEM
+    );
   });
 
   it("shows error Notice and does not propagate when createRaidItem throws", async () => {
-    const { InputModal } = await import("@/ui/modals/input-modal");
-    const { SuggesterModal } = await import("@/ui/modals/suggester-modal");
-
-    vi.mocked(InputModal).mockImplementation(() => ({
-      prompt: vi.fn().mockResolvedValue("Risk Item"),
-    }) as unknown as InstanceType<typeof InputModal>);
-
-    let callCount = 0;
-    vi.mocked(SuggesterModal).mockImplementation(() => {
-      const call = callCount++;
-      return {
-        choose: vi.fn().mockImplementation(() => {
-          if (call === 0) return Promise.resolve("Issue");
-          if (call === 1) return Promise.resolve("(None)");
-          if (call === 2) return Promise.resolve("(None)");
-          return Promise.resolve(null);
-        }),
-      } as unknown as InstanceType<typeof SuggesterModal>;
+    promptMock.mockResolvedValue({
+      name: "Risk Item",
+      raidType: "Issue",
+      engagementName: undefined,
+      ownerName: undefined,
     });
-
     const { services, addCommand, commands, entityService } = createMockPlugin();
     entityService.createRaidItem.mockRejectedValue(new Error("service failure"));
-
     registerCreateRaidItemCommand(services, addCommand);
     await expect(runCommand(commands, "create-raid-item")).resolves.toBeUndefined();
+    expect(noticeMock).toHaveBeenCalledWith(expect.stringContaining("Error"));
   });
 
-  it("emits debug logs at each step and createRaidItem is called on full success flow", async () => {
-    const { InputModal } = await import("@/ui/modals/input-modal");
-    const { SuggesterModal } = await import("@/ui/modals/suggester-modal");
-
-    vi.mocked(InputModal).mockImplementation(() => ({
-      prompt: vi.fn().mockResolvedValue("New Risk"),
-    }) as unknown as InstanceType<typeof InputModal>);
-
-    let callCount = 0;
-    vi.mocked(SuggesterModal).mockImplementation(() => {
-      const call = callCount++;
-      return {
-        choose: vi.fn().mockImplementation(() => {
-          if (call === 0) return Promise.resolve("Risk");
-          if (call === 1) return Promise.resolve("(None)");
-          if (call === 2) return Promise.resolve("(None)");
-          return Promise.resolve(null);
-        }),
-      } as unknown as InstanceType<typeof SuggesterModal>;
+  it("emits debug log at start and on success, no warn on success path", async () => {
+    promptMock.mockResolvedValue({
+      name: "New Risk",
+      raidType: "Risk",
+      engagementName: undefined,
+      ownerName: undefined,
     });
-
     const { services, addCommand, commands, loggerService, entityService } = createMockPlugin();
     registerCreateRaidItemCommand(services, addCommand);
     await runCommand(commands, "create-raid-item");
 
     expect(entityService.createRaidItem).toHaveBeenCalledWith("New Risk", "Risk", undefined, undefined);
-
-    // Verify debug logs were emitted at start and each step
     expect(loggerService.debug).toHaveBeenCalledWith(
       expect.stringContaining("command started"),
       LOG_CONTEXT.CREATE_RAID_ITEM
     );
     expect(loggerService.debug).toHaveBeenCalledWith(
-      expect.stringContaining('name: "New Risk"'),
+      expect.stringContaining("New Risk"),
       LOG_CONTEXT.CREATE_RAID_ITEM
     );
-    expect(loggerService.debug).toHaveBeenCalledWith(
-      expect.stringContaining('type: "Risk"'),
-      LOG_CONTEXT.CREATE_RAID_ITEM
-    );
-    expect(loggerService.debug).toHaveBeenCalledWith(
-      expect.stringContaining('engagement: "none"'),
-      LOG_CONTEXT.CREATE_RAID_ITEM
-    );
-    expect(loggerService.debug).toHaveBeenCalledWith(
-      expect.stringContaining('owner: "none"'),
-      LOG_CONTEXT.CREATE_RAID_ITEM
-    );
-    // No warnings on success path
     expect(loggerService.warn).not.toHaveBeenCalled();
-  });
-
-  it("emits a warning log when RAID type selection is cancelled", async () => {
-    const { InputModal } = await import("@/ui/modals/input-modal");
-    const { SuggesterModal } = await import("@/ui/modals/suggester-modal");
-
-    vi.mocked(InputModal).mockImplementation(() => ({
-      prompt: vi.fn().mockResolvedValue("Some Risk"),
-    }) as unknown as InstanceType<typeof InputModal>);
-
-    vi.mocked(SuggesterModal).mockImplementation(() => ({
-      choose: vi.fn().mockResolvedValue(null),
-    }) as unknown as InstanceType<typeof SuggesterModal>);
-
-    const { services, addCommand, commands, loggerService } = createMockPlugin();
-    registerCreateRaidItemCommand(services, addCommand);
-    await runCommand(commands, "create-raid-item");
-
-    expect(loggerService.warn).toHaveBeenCalledWith(
-      expect.stringContaining("cancelled at step 2"),
-      LOG_CONTEXT.CREATE_RAID_ITEM
-    );
-  });
-
-  it("does NOT call createRaidItem when RAID type selection is cancelled", async () => {
-    const { InputModal } = await import("@/ui/modals/input-modal");
-    const { SuggesterModal } = await import("@/ui/modals/suggester-modal");
-
-    vi.mocked(InputModal).mockImplementation(() => ({
-      prompt: vi.fn().mockResolvedValue("Some Risk"),
-    }) as unknown as InstanceType<typeof InputModal>);
-
-    vi.mocked(SuggesterModal).mockImplementation(() => ({
-      choose: vi.fn().mockResolvedValue(null),
-    }) as unknown as InstanceType<typeof SuggesterModal>);
-
-    const { services, addCommand, commands, entityService } = createMockPlugin();
-    registerCreateRaidItemCommand(services, addCommand);
-    await runCommand(commands, "create-raid-item");
-
-    expect(entityService.createRaidItem).not.toHaveBeenCalled();
-    expect(noticeMock).toHaveBeenCalledWith('RAID item creation cancelled.');
-  });
-
-  it("shows cancellation Notice and does NOT call createRaidItem when engagement selection is cancelled", async () => {
-    const { InputModal } = await import("@/ui/modals/input-modal");
-    const { SuggesterModal } = await import("@/ui/modals/suggester-modal");
-
-    vi.mocked(InputModal).mockImplementation(() => ({
-      prompt: vi.fn().mockResolvedValue("Some Risk"),
-    }) as unknown as InstanceType<typeof InputModal>);
-
-    let callCount = 0;
-    vi.mocked(SuggesterModal).mockImplementation(() => {
-      const call = callCount++;
-      return {
-        choose: vi.fn().mockImplementation(() => {
-          if (call === 0) return Promise.resolve("Risk"); // RAID type
-          return Promise.resolve(null);                   // engagement cancelled
-        }),
-      } as unknown as InstanceType<typeof SuggesterModal>;
-    });
-
-    const { services, addCommand, commands, entityService } = createMockPlugin();
-    registerCreateRaidItemCommand(services, addCommand);
-    await runCommand(commands, "create-raid-item");
-
-    expect(entityService.createRaidItem).not.toHaveBeenCalled();
-    expect(noticeMock).toHaveBeenCalledWith('RAID item creation cancelled.');
-  });
-
-  it("shows cancellation Notice and does NOT call createRaidItem when owner selection is cancelled", async () => {
-    const { InputModal } = await import("@/ui/modals/input-modal");
-    const { SuggesterModal } = await import("@/ui/modals/suggester-modal");
-
-    vi.mocked(InputModal).mockImplementation(() => ({
-      prompt: vi.fn().mockResolvedValue("Some Risk"),
-    }) as unknown as InstanceType<typeof InputModal>);
-
-    let callCount = 0;
-    vi.mocked(SuggesterModal).mockImplementation(() => {
-      const call = callCount++;
-      return {
-        choose: vi.fn().mockImplementation(() => {
-          if (call === 0) return Promise.resolve("Risk");     // RAID type
-          if (call === 1) return Promise.resolve("(None)");  // engagement selected
-          return Promise.resolve(null);                       // owner cancelled
-        }),
-      } as unknown as InstanceType<typeof SuggesterModal>;
-    });
-
-    const { services, addCommand, commands, entityService } = createMockPlugin();
-    registerCreateRaidItemCommand(services, addCommand);
-    await runCommand(commands, "create-raid-item");
-
-    expect(entityService.createRaidItem).not.toHaveBeenCalled();
-    expect(noticeMock).toHaveBeenCalledWith('RAID item creation cancelled.');
   });
 });
