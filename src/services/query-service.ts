@@ -277,6 +277,19 @@ export class QueryService implements IQueryService {
   }
 
   /**
+   * Returns all RAID items regardless of status, sorted by raised-date descending.
+   */
+  getAllRaidItems(): DataviewPage[] {
+    const dv = this.dv();
+    if (!dv) return [];
+    return [
+      ...dv
+        .pages(ENTITY_TAGS.raid)
+        .sort((p: DataviewPage) => p["raised-date"], "desc"),
+    ];
+  }
+
+  /**
    * Returns active RAID items (status not Resolved or Closed), sorted by raised-date descending.
    */
   getActiveRaidItems(): DataviewPage[] {
