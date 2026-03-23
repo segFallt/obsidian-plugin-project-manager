@@ -2,7 +2,7 @@
 
 ## 1. Overview
 
-The plugin organises vault data around 8 entity types arranged in a strict parent-child hierarchy. All entity data is stored as standard Obsidian frontmatter (YAML) and read/written via Obsidian's `processFrontMatter` API. Each entity type lives in a dedicated configurable folder and is identified by a required frontmatter tag.
+The plugin organises vault data around 11 entity types arranged in a strict parent-child hierarchy. All entity data is stored as standard Obsidian frontmatter (YAML) and read/written via Obsidian's `processFrontMatter` API. Each entity type lives in a dedicated configurable folder and is identified by a required frontmatter tag.
 
 ---
 
@@ -19,7 +19,7 @@ The plugin organises vault data around 8 entity types arranged in a strict paren
 
 ### 3.1 Entity Types
 
-The plugin defines exactly 9 entity types:
+The plugin defines 11 entity types:
 
 | Entity | Folder (default) | Required tag |
 |--------|-----------------|--------------|
@@ -32,6 +32,8 @@ The plugin defines exactly 9 entity types:
 | Single Meeting | `meetings/single/` | *(none)* |
 | Recurring Meeting | `meetings/recurring/` | *(none)* |
 | Recurring Meeting Event | `meetings/recurring-events/` | *(none)* |
+| Reference | `reference/references/` | `#reference` |
+| Reference Topic | `reference/reference-topics/` | `#reference-topic` |
 
 ### 3.2 Frontmatter Schemas
 
@@ -119,6 +121,29 @@ attendees:
   - "[[Person Name]]"
 ```
 
+**Reference Topic** (`reference/reference-topics/<Name>.md`, tag `#reference-topic`)
+```yaml
+tags:
+  - "#reference-topic"
+status: Active
+```
+
+No additional frontmatter fields. The topic's identity is its name. The page body is its view — a `pm-references` block pre-filtered to that topic.
+
+**Reference** (`reference/references/<Name>.md`, tag `#reference`)
+```yaml
+tags:
+  - "#reference"
+topics:
+  - "[[Topic Name]]"
+client: "[[Client Name]]"
+engagement: "[[Engagement Name]]"
+```
+
+- `topics` — required, multi-value list of wikilinks to Reference Topic files
+- `client` — optional wikilink to a Client file
+- `engagement` — optional wikilink to an Engagement file
+
 ### 3.3 Wikilink Convention
 
 Fields that hold wikilinks (`engagement`, `client`, `convertedFrom`, `convertedTo`, `relatedProject`, `reports-to`, `attendees`, `default-attendees`) are **never** baked into template strings. They are always written via `processFrontMatter` after file creation to avoid YAML parsing issues caused by unquoted `[[...]]` sequences in raw template text.
@@ -139,6 +164,16 @@ Recurring Meeting Event → recurring-meeting → Recurring Meeting → engageme
 ```
 
 This allows the task dashboard's context filters to group tasks from project notes, single meetings, and recurring meeting events under their ancestor client and engagement.
+
+The `pm-references` dashboard resolves client for reference items via a dual-path:
+
+```
+Reference → client                              → Client
+Reference → engagement → Engagement → client   → Client
+Reference → topics[]   → Reference Topic
+```
+
+Client resolution checks `reference.client` first; if absent, falls back to `reference.engagement → engagement.client`. This is consistent with the existing task traversal pattern.
 
 ---
 
@@ -195,6 +230,7 @@ No direct UI — the data model is displayed and edited through the `pm-properti
 - [ ] Priority values 1–5 are used consistently across projects and task emoji rendering.
 - [ ] Relationship traversal correctly resolves `Project Note → ... → Client` for task dashboard context grouping.
 - [ ] Relationship traversal correctly resolves `Recurring Meeting Event → ... → Client` for task dashboard context grouping.
+- [ ] Reference client resolution uses dual-path: `reference.client` directly OR `reference.engagement → engagement.client`.
 - [ ] The `notesDirectory` field on a project is set to `projects/notes/<snake_case_name>` at creation.
 - [ ] When an inbox note is converted to a project: `status` → `Inactive`, `convertedTo` is set on the inbox note; `convertedFrom` is set on the new project.
 
@@ -203,5 +239,5 @@ No direct UI — the data model is displayed and edited through the `pm-properti
 ## 8. Out of Scope
 
 - Cross-vault or multi-vault linking.
-- Custom entity types beyond the 8 defined here.
+- Custom entity types beyond the 11 defined here.
 - Renaming or moving entity files after creation.
