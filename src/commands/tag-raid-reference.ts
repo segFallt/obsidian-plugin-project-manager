@@ -73,9 +73,13 @@ export function registerTagRaidReferenceCommand(
       const clientName = fm["client"] as string | undefined;
       const engagementName = fm["engagement"] as string | undefined;
 
-      // Fetch all active RAID items and context-matched items
+      // Fetch all active RAID items and context-matched items.
+      // Skip context lookup when neither key is present (or both are empty strings) —
+      // no frontmatter context means no items can match, so contextItems stays empty.
       const allItems = services.queryService.getActiveRaidItems();
-      const contextItems = services.queryService.getRaidItemsForContext(clientName, engagementName);
+      const contextItems = (clientName || engagementName)
+        ? services.queryService.getRaidItemsForContext(clientName, engagementName)
+        : [];
 
       if (allItems.length === 0) {
         new Notice("No active RAID items found.");
