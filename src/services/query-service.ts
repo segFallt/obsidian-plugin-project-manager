@@ -303,12 +303,14 @@ export class QueryService implements IQueryService {
         .where((p: DataviewPage) => !RAID_INACTIVE_STATUSES.has(String(p.status ?? ""))),
     ] as DataviewPage[];
     if (!clientName && !engagementName) return pages;
+    const normalizedClientName = normalizeToName(clientName) ?? "";
+    const normalizedEngagementName = normalizeToName(engagementName) ?? "";
     return pages.filter((p: DataviewPage) => {
-      const client = p.client ? String(p.client) : "";
-      const engagement = p.engagement ? String(p.engagement) : "";
+      const client = normalizeToName(p.client) ?? "";
+      const engagement = normalizeToName(p.engagement) ?? "";
       return (
-        (clientName && client.includes(clientName)) ||
-        (engagementName && engagement.includes(engagementName))
+        (normalizedClientName && client === normalizedClientName) ||
+        (normalizedEngagementName && engagement === normalizedEngagementName)
       );
     });
   }

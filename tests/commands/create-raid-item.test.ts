@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { registerCreateRaidItemCommand } from "@/commands/create-raid-item";
 import { MSG, LOG_CONTEXT, ENTITY_TAGS } from "@/constants";
+import type { DataviewPage } from "@/types";
 import { createMockPlugin, runCommand } from "./helpers";
 
 const noticeMock = vi.hoisted(() => vi.fn());
@@ -206,5 +207,128 @@ describe("registerCreateRaidItemCommand", () => {
     const engItems = calls[1][1] as Array<{ file: { name: string } }>;
     expect(engItems[0].file.name).toBe("(None)");
     expect(engItems[1].file.name).toBe("Acme Audit");
+  });
+
+  describe("engagement SuggesterModal displayFn", () => {
+    it("returns enriched 'Eng (Client)' format when page has a client DataviewLink", async () => {
+      const { SuggesterModal } = await import("@/ui/modals/suggester-modal");
+      const { services, addCommand, commands } = createMockPlugin();
+      registerCreateRaidItemCommand(services, addCommand);
+      await runCommand(commands, "create-raid-item");
+
+      // SuggesterModal calls: [0] = type picker, [1] = engagement picker, [2] = owner picker
+      const calls = vi.mocked(SuggesterModal).mock.calls;
+      const displayFn = calls[1][2] as (page: Record<string, unknown>) => string;
+
+      const page = {
+        file: { name: "My Engagement", path: "engagements/My Engagement.md" },
+        client: { path: "clients/Acme Corp.md", type: "file" },
+      };
+      expect(displayFn(page as unknown as DataviewPage)).toBe("My Engagement (Acme Corp)");
+    });
+
+    it("returns '(None)' for the NONE_OPTION sentinel", async () => {
+      const { SuggesterModal } = await import("@/ui/modals/suggester-modal");
+      const { services, addCommand, commands } = createMockPlugin();
+      registerCreateRaidItemCommand(services, addCommand);
+      await runCommand(commands, "create-raid-item");
+
+      const calls = vi.mocked(SuggesterModal).mock.calls;
+      const displayFn = calls[1][2] as (page: Record<string, unknown>) => string;
+
+      const noneOption = { file: { name: "(None)", path: "" } };
+      expect(displayFn(noneOption as unknown as DataviewPage)).toBe("(None)");
+    });
+
+    it("falls back to file.name when engagement has no client", async () => {
+      const { SuggesterModal } = await import("@/ui/modals/suggester-modal");
+      const { services, addCommand, commands } = createMockPlugin();
+      registerCreateRaidItemCommand(services, addCommand);
+      await runCommand(commands, "create-raid-item");
+
+      const calls = vi.mocked(SuggesterModal).mock.calls;
+      const displayFn = calls[1][2] as (page: Record<string, unknown>) => string;
+
+      const page = { file: { name: "Orphan Engagement", path: "engagements/Orphan.md" } };
+      expect(displayFn(page as unknown as DataviewPage)).toBe("Orphan Engagement");
+    });
+  });
+
+  describe("owner SuggesterModal displayFn", () => {
+    it("returns enriched 'Person (Client)' format when page has a client DataviewLink", async () => {
+      const { SuggesterModal } = await import("@/ui/modals/suggester-modal");
+      const { services, addCommand, commands } = createMockPlugin();
+      registerCreateRaidItemCommand(services, addCommand);
+      await runCommand(commands, "create-raid-item");
+
+      // SuggesterModal calls: [0] = type picker, [1] = engagement picker, [2] = owner picker
+      const calls = vi.mocked(SuggesterModal).mock.calls;
+      const displayFn = calls[2][2] as (page: Record<string, unknown>) => string;
+
+      const page = {
+        file: { name: "Alice", path: "people/Alice.md" },
+        client: { path: "clients/Acme Corp.md", type: "file" },
+      };
+      expect(displayFn(page as unknown as DataviewPage)).toBe("Alice (Acme Corp)");
+    });
+
+    it("returns '(None)' for the NONE_OPTION sentinel", async () => {
+      const { SuggesterModal } = await import("@/ui/modals/suggester-modal");
+      const { services, addCommand, commands } = createMockPlugin();
+      registerCreateRaidItemCommand(services, addCommand);
+      await runCommand(commands, "create-raid-item");
+
+      const calls = vi.mocked(SuggesterModal).mock.calls;
+      const displayFn = calls[2][2] as (page: Record<string, unknown>) => string;
+
+      const noneOption = { file: { name: "(None)", path: "" } };
+      expect(displayFn(noneOption as unknown as DataviewPage)).toBe("(None)");
+    });
+
+    it("falls back to file.name when person has no client", async () => {
+      const { SuggesterModal } = await import("@/ui/modals/suggester-modal");
+      const { services, addCommand, commands } = createMockPlugin();
+      registerCreateRaidItemCommand(services, addCommand);
+      await runCommand(commands, "create-raid-item");
+
+      const calls = vi.mocked(SuggesterModal).mock.calls;
+      const displayFn = calls[2][2] as (page: Record<string, unknown>) => string;
+
+      const page = { file: { name: "Bob", path: "people/Bob.md" } };
+      expect(displayFn(page as unknown as DataviewPage)).toBe("Bob");
+    });
+  });
+
+  describe("per-step DEBUG logging", () => {
+    it("emits DEBUG logs after each of the 4 modal steps on the happy path", async () => {
+      promptMock.mockReset();
+      chooseMock.mockReset();
+      promptMock.mockResolvedValueOnce("My Risk");
+      chooseMock
+        .mockResolvedValueOnce("Risk")
+        .mockResolvedValueOnce({ file: { name: "(None)", path: "" } })
+        .mockResolvedValueOnce({ file: { name: "(None)", path: "" } });
+
+      const { services, addCommand, commands, loggerService } = createMockPlugin();
+      registerCreateRaidItemCommand(services, addCommand);
+      await runCommand(commands, "create-raid-item");
+
+      expect(loggerService.debug).toHaveBeenCalledWith(
+        expect.stringContaining('step 1 complete, name: "My Risk"'),
+        LOG_CONTEXT.CREATE_RAID_ITEM
+      );
+      expect(loggerService.debug).toHaveBeenCalledWith(
+        expect.stringContaining('step 2 complete, type: "Risk"'),
+        LOG_CONTEXT.CREATE_RAID_ITEM
+      );
+      expect(loggerService.debug).toHaveBeenCalledWith(
+        expect.stringContaining('step 3 complete, engagement: "(none)"'),
+        LOG_CONTEXT.CREATE_RAID_ITEM
+      );
+      expect(loggerService.debug).toHaveBeenCalledWith(
+        expect.stringContaining('step 4 complete, owner: "(none)"'),
+        LOG_CONTEXT.CREATE_RAID_ITEM
+      );
+    });
   });
 });

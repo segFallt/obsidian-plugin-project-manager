@@ -636,5 +636,55 @@ describe("QueryService", () => {
       const qs = new QueryService(app as unknown as import("obsidian").App, () => null, defaultFolders);
       expect(qs.getRaidItemsForContext("Acme")).toEqual([]);
     });
+
+    it("matches when clientName is passed as a wikilink string (frontmatter format)", () => {
+      // tag-raid-reference passes fm["client"] as-is, which metadataCache returns as "[[Acme]]"
+      const { qs } = createQueryService([
+        { path: "raid/R1.md", tags: ["#raid"], frontmatter: { status: "Open", client: "[[Acme]]" } },
+        { path: "raid/R2.md", tags: ["#raid"], frontmatter: { status: "Open", client: "[[OtherCo]]" } },
+      ]);
+      const result = qs.getRaidItemsForContext("[[Acme]]");
+      expect(result).toHaveLength(1);
+      expect(result[0].file.name).toBe("R1");
+    });
+
+    it("matches when page client is a DataviewLink with a folder-prefixed path", () => {
+      // Dataview returns { path: "clients/Acme.md", type: "file" } — not a plain string
+      const { qs } = createQueryService([
+        {
+          path: "raid/R1.md",
+          tags: ["#raid"],
+          frontmatter: { status: "Open", client: { path: "clients/Acme.md", type: "file" } },
+        },
+        {
+          path: "raid/R2.md",
+          tags: ["#raid"],
+          frontmatter: { status: "Open", client: { path: "clients/OtherCo.md", type: "file" } },
+        },
+      ]);
+      // clientName comes from metadataCache frontmatter as "[[Acme]]"
+      const result = qs.getRaidItemsForContext("[[Acme]]");
+      expect(result).toHaveLength(1);
+      expect(result[0].file.name).toBe("R1");
+    });
+
+    it("matches when page engagement is a DataviewLink with a folder-prefixed path", () => {
+      const { qs } = createQueryService([
+        {
+          path: "raid/R1.md",
+          tags: ["#raid"],
+          frontmatter: { status: "Open", engagement: { path: "engagements/Eng1.md", type: "file" } },
+        },
+        {
+          path: "raid/R2.md",
+          tags: ["#raid"],
+          frontmatter: { status: "Open", engagement: { path: "engagements/Eng2.md", type: "file" } },
+        },
+      ]);
+      // engagementName comes from metadataCache frontmatter as "[[Eng1]]"
+      const result = qs.getRaidItemsForContext(undefined, "[[Eng1]]");
+      expect(result).toHaveLength(1);
+      expect(result[0].file.name).toBe("R1");
+    });
   });
 });
