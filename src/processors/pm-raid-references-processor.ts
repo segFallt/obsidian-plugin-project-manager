@@ -93,7 +93,7 @@ class PmRaidReferencesRenderChild extends MarkdownRenderChild {
     }
 
     const backlinks: TFile[] = [];
-    const pages = dv.pages(`"[[${raidItemName}]]"`);
+    const pages = dv.pages(`[[${raidItemName}]]`);
     for (const page of pages) {
       const abstractFile = this.app.vault.getAbstractFileByPath(page.file.path);
       if (abstractFile instanceof TFile) {

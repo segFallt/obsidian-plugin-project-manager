@@ -58,7 +58,7 @@ describe("raid-badge post processor", () => {
   it("registers a markdown post processor", () => {
     const { mockPlugin } = createMockPlugin();
     registerRaidBadgePostProcessor(mockPlugin);
-    expect(mockPlugin.registerMarkdownPostProcessor).toHaveBeenCalledWith(expect.any(Function));
+    expect(mockPlugin.registerMarkdownPostProcessor).toHaveBeenCalledWith(expect.any(Function), 100);
   });
 
   it("{raid:positive}[[Item]] is replaced with .raid-badge--positive span", () => {
@@ -146,6 +146,60 @@ describe("raid-badge post processor", () => {
     expect(badge).not.toBeNull();
     // Generic positive fallback
     expect(badge?.textContent).toContain("Supports");
+  });
+
+  it("continues processing remaining nodes when one annotation throws", () => {
+    const { mockPlugin, getHandler } = createMockPlugin();
+    registerRaidBadgePostProcessor(mockPlugin);
+
+    const el = document.createElement("p");
+    el.appendChild(document.createTextNode("{raid:positive}"));
+    el.appendChild(document.createTextNode("{raid:negative}"));
+
+    // Force document.createElement("span") to throw on the first call so the first
+    // annotation node fails, leaving the second to be processed by the error-isolating loop.
+    const origCreate = document.createElement.bind(document);
+    let spanCallCount = 0;
+    vi.spyOn(document, "createElement").mockImplementation((tag: string, ...args: unknown[]) => {
+      if (tag === "span" && spanCallCount++ === 0) {
+        throw new Error("simulated badge creation failure");
+      }
+      return origCreate(tag, ...(args as []));
+    });
+
+    expect(() => getHandler()(el)).not.toThrow();
+    // Second node must still produce a badge despite the first throwing
+    const badge = el.querySelector(".raid-badge--negative");
+    expect(badge).not.toBeNull();
+
+    vi.restoreAllMocks();
+  });
+
+  it("transforms annotation embedded mid-sentence in a single text node", () => {
+    const { mockPlugin, getHandler } = createMockPlugin();
+    registerRaidBadgePostProcessor(mockPlugin);
+
+    // Single text node with the annotation embedded in sentence text — models
+    // how Obsidian renders a line before wikilink resolution splits the node
+    const el = document.createElement("p");
+    el.appendChild(document.createTextNode("Meeting note {raid:positive}"));
+    // link follows as a sibling (already resolved by Obsidian)
+    const link = document.createElement("a");
+    link.className = "internal-link";
+    link.setAttribute("data-href", "My Risk.md");
+    el.appendChild(link);
+    el.appendChild(document.createTextNode(" for context."));
+
+    getHandler()(el);
+
+    const badge = el.querySelector(".raid-badge--positive");
+    expect(badge).not.toBeNull();
+    expect(badge?.textContent).toContain("↑");
+    // Original {raid:...} token must not appear as text
+    expect(el.textContent).not.toContain("{raid:positive}");
+    // Surrounding text is preserved
+    expect(el.textContent).toContain("Meeting note");
+    expect(el.textContent).toContain("for context.");
   });
 
   it("preserves text before and after the annotation", () => {

@@ -27,9 +27,13 @@ export function registerRaidBadgePostProcessor(plugin: Plugin & { app: App }): v
     }
 
     for (const textNode of nodesToProcess) {
-      processRaidAnnotationNode(textNode, plugin.app);
+      try {
+        processRaidAnnotationNode(textNode, plugin.app);
+      } catch (err) {
+        console.warn("[raid-badge] failed to process annotation node:", err);
+      }
     }
-  });
+  }, 100);
 }
 
 // ─── Node processing ─────────────────────────────────────────────────────────
