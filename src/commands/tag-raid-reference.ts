@@ -5,6 +5,7 @@ import { SuggesterModal } from "../ui/modals/suggester-modal";
 import type { DataviewPage, RaidType, RaidDirection } from "../types";
 import { DIRECTION_LABELS, DIRECTION_ICONS } from "../processors/raid-constants";
 import { MSG, LOG_CONTEXT } from "../constants";
+import { normalizeToName } from "../utils/link-utils";
 
 // ─── Direction picker helpers ─────────────────────────────────────────────────
 
@@ -30,7 +31,7 @@ function formatRaidItem(page: DataviewPage): string {
   const typeRaw = page["raid-type"] as string | undefined;
   const initial = typeRaw ? typeRaw.charAt(0).toUpperCase() : "?";
   const name = page.file.name;
-  const engagement = page["engagement"] as string | undefined;
+  const engagement = normalizeToName(page["engagement"]);
   const suffix = engagement ? ` (${engagement})` : "";
   return `[${initial}] ${name}${suffix}`;
 }
