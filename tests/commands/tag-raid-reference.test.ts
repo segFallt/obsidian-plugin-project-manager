@@ -267,6 +267,67 @@ describe("registerTagRaidReferenceCommand", () => {
     expect(displayFn(items[1])).not.toMatch(/^★/); // riskPage is second
   });
 
+  it("displayFn renders plain engagement name when engagement is a DataviewLink object", async () => {
+    // Bug 1: formatRaidItem previously cast page["engagement"] as string,
+    // causing DataviewLink.toString() = "[[path]]" to appear in the picker.
+    const { SuggesterModal } = await import("@/ui/modals/suggester-modal");
+    const pageWithDataviewLink = {
+      file: { name: "Scope Risk", path: "raid/Scope Risk.md" },
+      "raid-type": "Risk",
+      engagement: { path: "engagements/My Engagement.md", type: "file" },
+    };
+    const { services, addCommand, commands, queryService } = createMockPlugin();
+    queryService.getActiveRaidItems.mockReturnValue([pageWithDataviewLink]);
+    queryService.getRaidItemsForContext.mockReturnValue([]);
+
+    registerTagRaidReferenceCommand(services, addCommand);
+    await runEditorCommand(commands, "tag-raid-reference", makeMockEditor("Line"), makeMockView());
+
+    const displayFn = vi.mocked(SuggesterModal).mock.calls[0][2] as (item: unknown) => string;
+    const label = displayFn(pageWithDataviewLink);
+    expect(label).toBe("[R] Scope Risk (My Engagement)");
+    expect(label).not.toContain("[[");
+  });
+
+  it("displayFn renders item without suffix when engagement is absent", async () => {
+    const { SuggesterModal } = await import("@/ui/modals/suggester-modal");
+    const pageNoEngagement = {
+      file: { name: "No Eng Risk", path: "raid/No Eng Risk.md" },
+      "raid-type": "Risk",
+    };
+    const { services, addCommand, commands, queryService } = createMockPlugin();
+    queryService.getActiveRaidItems.mockReturnValue([pageNoEngagement]);
+    queryService.getRaidItemsForContext.mockReturnValue([]);
+
+    registerTagRaidReferenceCommand(services, addCommand);
+    await runEditorCommand(commands, "tag-raid-reference", makeMockEditor("Line"), makeMockView());
+
+    const displayFn = vi.mocked(SuggesterModal).mock.calls[0][2] as (item: unknown) => string;
+    const label = displayFn(pageNoEngagement);
+    expect(label).toBe("[R] No Eng Risk");
+  });
+
+  it("displayFn renders plain engagement name when engagement is a wikilink string", async () => {
+    // Ensures [[My Engagement]] string format is also stripped correctly
+    const { SuggesterModal } = await import("@/ui/modals/suggester-modal");
+    const pageWithWikilink = {
+      file: { name: "Wikilink Risk", path: "raid/Wikilink Risk.md" },
+      "raid-type": "Risk",
+      engagement: "[[My Engagement]]",
+    };
+    const { services, addCommand, commands, queryService } = createMockPlugin();
+    queryService.getActiveRaidItems.mockReturnValue([pageWithWikilink]);
+    queryService.getRaidItemsForContext.mockReturnValue([]);
+
+    registerTagRaidReferenceCommand(services, addCommand);
+    await runEditorCommand(commands, "tag-raid-reference", makeMockEditor("Line"), makeMockView());
+
+    const displayFn = vi.mocked(SuggesterModal).mock.calls[0][2] as (item: unknown) => string;
+    const label = displayFn(pageWithWikilink);
+    expect(label).toBe("[R] Wikilink Risk (My Engagement)");
+    expect(label).not.toContain("[[");
+  });
+
   it("emits a debug log on success", async () => {
     const { services, addCommand, commands, queryService, loggerService } = createMockPlugin();
     queryService.getActiveRaidItems.mockReturnValue([makePage("Scope Creep", "Risk")]);
