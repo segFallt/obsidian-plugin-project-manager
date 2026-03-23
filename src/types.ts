@@ -122,6 +122,13 @@ export interface PmActionConfig {
   context?: { field: string };
 }
 
+export interface PmRaidReferencesConfig {
+  sort?: {
+    field?: "modified-date" | "created-date";
+    direction?: "asc" | "desc";
+  };
+}
+
 export interface PmActionsConfig {
   actions: PmActionConfig[];
 }

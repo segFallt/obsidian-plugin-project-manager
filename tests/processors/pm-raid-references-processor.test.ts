@@ -9,6 +9,7 @@ interface MockFile {
   path: string;
   content: string;
   mtime?: number;
+  ctime?: number;
 }
 
 function createMockServices(
@@ -38,6 +39,7 @@ function createMockServices(
   const backlinkedFiles: [string, TFile][] = backlinks.map((b) => {
     const file = new TFile(b.path);
     if (b.mtime !== undefined) file.stat.mtime = b.mtime;
+    if (b.ctime !== undefined) file.stat.ctime = b.ctime;
     return [b.path, file];
   });
   const fileMap = new Map<string, TFile>([[sourcePath, sourceFile], ...backlinkedFiles]);
@@ -93,7 +95,8 @@ function createMockServices(
 async function render(
   backlinks: MockFile[] = [],
   sourcePath = "raid/My Risk.md",
-  frontmatter: Record<string, unknown> = { "raid-type": "Risk" }
+  frontmatter: Record<string, unknown> = { "raid-type": "Risk" },
+  source = ""
 ) {
   const { services, mockPlugin, getHandler } = createMockServices(sourcePath, backlinks, frontmatter);
 
@@ -117,7 +120,7 @@ async function render(
     sourcePath,
   };
 
-  getHandler()("", el, ctx);
+  getHandler()(source, el, ctx);
 
   // Wait for async render to complete
   await new Promise((r) => setTimeout(r, 20));
@@ -297,7 +300,8 @@ describe("pm-raid-references processor", () => {
         { path: "notes/Middle Note.md", content: `{raid:neutral}[[${raidItemName}]]`, mtime: now - 1000 },
       ],
       `raid/${raidItemName}.md`,
-      { "raid-type": "Risk" }
+      { "raid-type": "Risk" },
+      ""
     );
 
     const groups = el.querySelectorAll(".pm-raid-references__group");
@@ -307,6 +311,113 @@ describe("pm-raid-references processor", () => {
     expect(headings[0]).toContain("New Note");
     expect(headings[1]).toContain("Middle Note");
     expect(headings[2]).toContain("Old Note");
+  });
+
+  describe("configurable sort", () => {
+    const raidItemName = "Sort Config Risk";
+    const now = Date.now();
+
+    // Helper that builds three files with distinct mtime and ctime values.
+    // Old: mtime = now-3000, ctime = now-9000
+    // Middle: mtime = now-1000, ctime = now-6000
+    // New: mtime = now, ctime = now-3000
+    const makeBacklinks = (): MockFile[] => [
+      { path: "notes/Old Note.md", content: `{raid:positive}[[${raidItemName}]]`, mtime: now - 3000, ctime: now - 9000 },
+      { path: "notes/New Note.md", content: `{raid:negative}[[${raidItemName}]]`, mtime: now, ctime: now - 3000 },
+      { path: "notes/Middle Note.md", content: `{raid:neutral}[[${raidItemName}]]`, mtime: now - 1000, ctime: now - 6000 },
+    ];
+
+    it("modified-date desc (default) — newest mtime first", async () => {
+      const { el } = await render(
+        makeBacklinks(),
+        `raid/${raidItemName}.md`,
+        { "raid-type": "Risk" },
+        "sort:\n  field: modified-date\n  direction: desc"
+      );
+      const headings = [...el.querySelectorAll(".pm-raid-references__group h4 a")].map(
+        (a) => a.textContent ?? ""
+      );
+      expect(headings[0]).toContain("New Note");
+      expect(headings[1]).toContain("Middle Note");
+      expect(headings[2]).toContain("Old Note");
+    });
+
+    it("modified-date asc — oldest mtime first", async () => {
+      const { el } = await render(
+        makeBacklinks(),
+        `raid/${raidItemName}.md`,
+        { "raid-type": "Risk" },
+        "sort:\n  field: modified-date\n  direction: asc"
+      );
+      const headings = [...el.querySelectorAll(".pm-raid-references__group h4 a")].map(
+        (a) => a.textContent ?? ""
+      );
+      expect(headings[0]).toContain("Old Note");
+      expect(headings[1]).toContain("Middle Note");
+      expect(headings[2]).toContain("New Note");
+    });
+
+    it("created-date desc — newest ctime first", async () => {
+      const { el } = await render(
+        makeBacklinks(),
+        `raid/${raidItemName}.md`,
+        { "raid-type": "Risk" },
+        "sort:\n  field: created-date\n  direction: desc"
+      );
+      const headings = [...el.querySelectorAll(".pm-raid-references__group h4 a")].map(
+        (a) => a.textContent ?? ""
+      );
+      // ctime order: New Note (now-3000) > Middle Note (now-6000) > Old Note (now-9000)
+      expect(headings[0]).toContain("New Note");
+      expect(headings[1]).toContain("Middle Note");
+      expect(headings[2]).toContain("Old Note");
+    });
+
+    it("created-date asc — oldest ctime first", async () => {
+      const { el } = await render(
+        makeBacklinks(),
+        `raid/${raidItemName}.md`,
+        { "raid-type": "Risk" },
+        "sort:\n  field: created-date\n  direction: asc"
+      );
+      const headings = [...el.querySelectorAll(".pm-raid-references__group h4 a")].map(
+        (a) => a.textContent ?? ""
+      );
+      // ctime order asc: Old Note (now-9000) < Middle Note (now-6000) < New Note (now-3000)
+      expect(headings[0]).toContain("Old Note");
+      expect(headings[1]).toContain("Middle Note");
+      expect(headings[2]).toContain("New Note");
+    });
+
+    it("invalid field falls back to modified-date desc — newest mtime first", async () => {
+      const { el } = await render(
+        makeBacklinks(),
+        `raid/${raidItemName}.md`,
+        { "raid-type": "Risk" },
+        "sort:\n  field: bogus\n  direction: desc"
+      );
+      const headings = [...el.querySelectorAll(".pm-raid-references__group h4 a")].map(
+        (a) => a.textContent ?? ""
+      );
+      expect(headings[0]).toContain("New Note");
+      expect(headings[1]).toContain("Middle Note");
+      expect(headings[2]).toContain("Old Note");
+    });
+
+    it("invalid direction falls back to desc — newest mtime first", async () => {
+      const { el } = await render(
+        makeBacklinks(),
+        `raid/${raidItemName}.md`,
+        { "raid-type": "Risk" },
+        "sort:\n  field: modified-date\n  direction: bogus"
+      );
+      const headings = [...el.querySelectorAll(".pm-raid-references__group h4 a")].map(
+        (a) => a.textContent ?? ""
+      );
+      expect(headings[0]).toContain("New Note");
+      expect(headings[1]).toContain("Middle Note");
+      expect(headings[2]).toContain("Old Note");
+    });
   });
 
   it("wraps each source group heading and list in a .pm-raid-references__group div", async () => {

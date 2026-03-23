@@ -593,6 +593,48 @@ describe("QueryService", () => {
     });
   });
 
+  describe("getAllRaidItems", () => {
+    it("returns items of all four statuses (Open, In Progress, Resolved, Closed)", () => {
+      const { qs } = createQueryService([
+        { path: "raid/R1.md", tags: ["#raid"], frontmatter: { status: "Open",        "raised-date": "2024-01-01" } },
+        { path: "raid/R2.md", tags: ["#raid"], frontmatter: { status: "In Progress", "raised-date": "2024-01-02" } },
+        { path: "raid/R3.md", tags: ["#raid"], frontmatter: { status: "Resolved",    "raised-date": "2024-01-03" } },
+        { path: "raid/R4.md", tags: ["#raid"], frontmatter: { status: "Closed",      "raised-date": "2024-01-04" } },
+      ]);
+      const result = qs.getAllRaidItems();
+      expect(result).toHaveLength(4);
+      expect(result.map((p) => p.file.name)).toEqual(
+        expect.arrayContaining(["R1", "R2", "R3", "R4"])
+      );
+    });
+
+    it("returns empty array when no RAID items exist", () => {
+      const { qs } = createQueryService([
+        { path: "projects/Foo.md", tags: ["#project"], frontmatter: { status: "Active" } },
+      ]);
+      expect(qs.getAllRaidItems()).toHaveLength(0);
+    });
+
+    it("sorts by raised-date descending", () => {
+      const { qs } = createQueryService([
+        { path: "raid/Old.md",    tags: ["#raid"], frontmatter: { status: "Open",     "raised-date": "2024-01-01" } },
+        { path: "raid/Newest.md", tags: ["#raid"], frontmatter: { status: "Resolved", "raised-date": "2024-03-01" } },
+        { path: "raid/Middle.md", tags: ["#raid"], frontmatter: { status: "Closed",   "raised-date": "2024-02-01" } },
+      ]);
+      const result = qs.getAllRaidItems();
+      expect(result).toHaveLength(3);
+      expect(result[0].file.name).toBe("Newest");
+      expect(result[1].file.name).toBe("Middle");
+      expect(result[2].file.name).toBe("Old");
+    });
+
+    it("returns empty array when Dataview is unavailable", () => {
+      const app = createMockApp();
+      const qs = new QueryService(app as unknown as import("obsidian").App, () => null, defaultFolders);
+      expect(qs.getAllRaidItems()).toEqual([]);
+    });
+  });
+
   describe("getRaidItemsForContext", () => {
     it("returns all active items when no filters provided", () => {
       const { qs } = createQueryService([
