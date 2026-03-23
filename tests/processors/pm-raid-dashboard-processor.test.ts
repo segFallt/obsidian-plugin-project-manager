@@ -72,7 +72,7 @@ function createMockServices(items: DataviewPage[] = []) {
       vault: { on: vaultOn },
     } as unknown as RaidProcessorServices["app"],
     queryService: {
-      getActiveRaidItems: vi.fn(() => items),
+      getAllRaidItems: vi.fn(() => items),
     } as unknown as RaidProcessorServices["queryService"],
     loggerService: {
       debug: vi.fn(),
@@ -354,9 +354,9 @@ describe("pm-raid-dashboard processor", () => {
     expect(vaultOn).toHaveBeenCalledWith("modify", expect.any(Function));
   });
 
-  it("renders error element when getActiveRaidItems throws (Dataview unavailable)", () => {
+  it("renders error element when getAllRaidItems throws (Dataview unavailable)", () => {
     const { services, mockPlugin, getHandler } = createMockServices();
-    (services.queryService.getActiveRaidItems as ReturnType<typeof vi.fn>).mockImplementation(() => {
+    (services.queryService.getAllRaidItems as ReturnType<typeof vi.fn>).mockImplementation(() => {
       throw new Error("Dataview not available");
     });
 
@@ -374,6 +374,40 @@ describe("pm-raid-dashboard processor", () => {
 
     const errorEl = el.querySelector(".pm-error");
     expect(errorEl).not.toBeNull();
+  });
+
+  describe("status filter regression — Resolved and Closed chips", () => {
+    it("selecting 'Resolved' status filter shows only Resolved items", () => {
+      const items = [
+        makeMockItem({ name: "Open Risk",     status: "Open",        raidType: "Risk" }),
+        makeMockItem({ name: "In Prog Risk",  status: "In Progress", raidType: "Risk" }),
+        makeMockItem({ name: "Resolved Risk", status: "Resolved",    raidType: "Risk" }),
+        makeMockItem({ name: "Closed Risk",   status: "Closed",      raidType: "Risk" }),
+      ];
+
+      // Config sets statusFilter to ["Resolved"] only — all four items are provided by getAllRaidItems
+      const { el } = render(items, "statusFilter:\n  - Resolved");
+
+      const rows = el.querySelectorAll(".raid-item-row");
+      expect(rows.length).toBe(1);
+      expect(rows[0].querySelector("td")?.textContent).toBe("Resolved Risk");
+    });
+
+    it("selecting 'Closed' status filter shows only Closed items", () => {
+      const items = [
+        makeMockItem({ name: "Open Risk",     status: "Open",        raidType: "Risk" }),
+        makeMockItem({ name: "In Prog Risk",  status: "In Progress", raidType: "Risk" }),
+        makeMockItem({ name: "Resolved Risk", status: "Resolved",    raidType: "Risk" }),
+        makeMockItem({ name: "Closed Risk",   status: "Closed",      raidType: "Risk" }),
+      ];
+
+      // Config sets statusFilter to ["Closed"] only — all four items are provided by getAllRaidItems
+      const { el } = render(items, "statusFilter:\n  - Closed");
+
+      const rows = el.querySelectorAll(".raid-item-row");
+      expect(rows.length).toBe(1);
+      expect(rows[0].querySelector("td")?.textContent).toBe("Closed Risk");
+    });
   });
 
   it("renders age pill using .ts millisecond value when raised-date is a Dataview DateTime object", () => {

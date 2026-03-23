@@ -143,7 +143,9 @@ engagementFilter: []
 
 **Filter state:** Plain JS object on the `MarkdownRenderChild` instance — ephemeral, reset on re-render, no frontmatter writes.
 
-**Error handling:** If `getActiveRaidItems()` throws (e.g. Dataview unavailable), renders a `.pm-error` element and returns (issue #43).
+**Data fetch:** The dashboard calls `getAllRaidItems()`, which returns all RAID items regardless of status. Status filtering is applied in the UI layer (via `applyFilters()`) so that the Resolved and Closed status filter chips produce correct results. `getActiveRaidItems()` is intentionally not used here; it is reserved for contexts where only active items are wanted (e.g. the RAID item suggester in `PM: Tag Line as RAID Reference`).
+
+**Error handling:** If `getAllRaidItems()` throws (e.g. Dataview unavailable), renders a `.pm-error` element and returns (issue #43).
 
 ---
 
@@ -212,6 +214,8 @@ Direction icons: `positive → ↑`, `negative → ↓`, `neutral → ·`
 | `direction` | positive, negative, neutral |
 
 Inactive statuses (excluded from active item queries): `Resolved`, `Closed`
+
+> **Note on query scope:** `getActiveRaidItems()` and `getRaidItemsForContext()` both exclude Resolved/Closed items and are appropriate for contexts where only actionable items are wanted (e.g. the RAID item suggester). The dashboard uses `getAllRaidItems()` instead, which returns all statuses, so that the Resolved and Closed status filter chips in the dashboard UI function correctly. Status filtering in the dashboard happens at the UI layer, not at the data-fetch layer.
 
 ---
 

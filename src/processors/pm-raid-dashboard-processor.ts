@@ -132,7 +132,7 @@ class PmRaidDashboardRenderChild extends MarkdownRenderChild {
 
     let allItems: DataviewPage[];
     try {
-      allItems = this.queryService.getActiveRaidItems();
+      allItems = this.queryService.getAllRaidItems();
     } catch (err) {
       renderError(this.containerEl, `pm-raid-dashboard: ${String(err)}`);
       return;
