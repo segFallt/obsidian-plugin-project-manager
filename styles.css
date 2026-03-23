@@ -1230,3 +1230,327 @@ details[open] .pm-filter-section__title::before {
   font-style: italic;
   padding: 8px 0;
 }
+
+/* ─── pm-references Dashboard ──────────────────────────────────────────────── */
+
+/* Dashboard container */
+.pm-references {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  background-color: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-m);
+  padding: 14px 16px;
+  font-size: 12px;
+  color: var(--text-normal);
+}
+
+/* Controls row (toolbar) */
+.pm-references__toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* Tab strip container */
+.pm-references__tabs {
+  display: flex;
+  gap: 4px;
+  background-color: var(--background-secondary);
+  border-radius: var(--radius-s);
+  padding: 2px;
+}
+
+/* Inactive tab */
+.pm-references__tab {
+  padding: 4px 12px;
+  border-radius: var(--radius-s);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.pm-references__tab:hover {
+  color: var(--text-normal);
+}
+
+/* Active tab */
+.pm-references__tab--active {
+  background-color: var(--background-modifier-border);
+  color: var(--text-normal);
+}
+
+/* Filters toggle button */
+.pm-references__filters-toggle {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+  padding: 4px 10px;
+  border-radius: var(--radius-s);
+  border: 1px solid var(--background-modifier-border);
+  background-color: var(--interactive-normal);
+  color: var(--text-normal);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.pm-references__filters-toggle:hover {
+  background-color: var(--interactive-hover);
+}
+
+/* Search input */
+.pm-references__search {
+  flex: 1;
+  background-color: var(--background-secondary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-s);
+  padding: 4px 8px;
+  font-size: 11px;
+  color: var(--text-normal);
+}
+
+.pm-references__search:focus {
+  outline: none;
+  border-color: var(--interactive-accent);
+}
+
+/* Collapsible filter panel */
+.pm-references__filter-panel {
+  display: none;
+  flex-direction: column;
+  gap: 8px;
+  background-color: var(--background-secondary);
+  border-radius: var(--radius-m);
+  padding: 10px 12px;
+  margin-top: 4px;
+}
+
+.pm-references__filter-panel--open {
+  display: flex;
+}
+
+/* Filter row */
+.pm-references__filter-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* Filter label */
+.pm-references__filter-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  min-width: 70px;
+}
+
+/* Chip container */
+.pm-references__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+/* Filter chip — default */
+.pm-ref-filter-chip {
+  padding: 2px 8px;
+  border-radius: var(--radius-s);
+  font-size: 10px;
+  font-weight: 600;
+  background-color: var(--background-secondary);
+  border: 1px solid var(--background-modifier-border);
+  color: var(--text-normal);
+  cursor: pointer;
+}
+
+.pm-ref-filter-chip:hover {
+  border-color: var(--background-modifier-border-hover);
+}
+
+/* Active chip — generic fallback (blue) */
+.pm-ref-filter-chip--active {
+  background-color: color-mix(in srgb, var(--color-blue) 19%, transparent);
+  border-color: var(--color-blue);
+  color: var(--color-blue);
+}
+
+/* Active chip — topic row (purple/mauve) */
+.pm-references__filter-row--topic .pm-ref-filter-chip--active {
+  background-color: color-mix(in srgb, var(--color-purple) 19%, transparent);
+  border-color: var(--color-purple);
+  color: var(--color-purple);
+}
+
+/* Active chip — client and engagement rows (blue) */
+.pm-references__filter-row--client .pm-ref-filter-chip--active,
+.pm-references__filter-row--engagement .pm-ref-filter-chip--active {
+  background-color: color-mix(in srgb, var(--color-blue) 19%, transparent);
+  border-color: var(--color-blue);
+  color: var(--color-blue);
+}
+
+/* Clear filters button */
+.pm-references__clear-filters {
+  font-size: 10px;
+  color: var(--text-muted);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px 6px;
+}
+
+.pm-references__clear-filters:hover {
+  color: var(--text-normal);
+}
+
+/* Output container */
+.pm-references__output {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Collapsible group <details> */
+.pm-ref-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  list-style: none;
+}
+
+/* Group header <summary> */
+.pm-ref-group__header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 0 4px;
+  border-bottom: 1px solid var(--background-modifier-border);
+  cursor: pointer;
+  list-style: none;
+}
+
+.pm-ref-group__header::-webkit-details-marker {
+  display: none;
+}
+
+/* Group title */
+.pm-ref-group__title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-normal);
+  flex: 1;
+}
+
+/* Count badge */
+.pm-ref-group__count {
+  background-color: var(--background-secondary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 10px;
+  padding: 1px 7px;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+/* Group body */
+.pm-ref-group__body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-top: 6px;
+}
+
+/* Reference card */
+.pm-ref-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  background-color: var(--background-secondary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-s);
+  padding: 7px 10px;
+}
+
+.pm-ref-card:hover {
+  border-color: var(--background-modifier-border-hover);
+}
+
+/* Title row */
+.pm-ref-card__title-row {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+/* Document icon */
+.pm-ref-card__icon {
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+/* Reference title link */
+.pm-ref-card .internal-link {
+  color: var(--color-cyan);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* Secondary hint tag */
+.pm-ref-card__hint {
+  font-size: 10px;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+/* Context chips row */
+.pm-ref-card__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+/* Base chip */
+.pm-ref-chip {
+  padding: 1px 6px;
+  border-radius: var(--radius-s);
+  font-size: 10px;
+  font-weight: 600;
+}
+
+/* Topic chip (purple/mauve) */
+.pm-ref-chip--topic {
+  background-color: color-mix(in srgb, var(--color-purple) 12%, transparent);
+  color: var(--color-purple);
+  border: 1px solid color-mix(in srgb, var(--color-purple) 25%, transparent);
+}
+
+/* Client chip (blue) */
+.pm-ref-chip--client {
+  background-color: color-mix(in srgb, var(--color-blue) 12%, transparent);
+  color: var(--color-blue);
+  border: 1px solid color-mix(in srgb, var(--color-blue) 25%, transparent);
+}
+
+/* Engagement chip (green) */
+.pm-ref-chip--engagement {
+  background-color: color-mix(in srgb, var(--color-green) 12%, transparent);
+  color: var(--color-green);
+  border: 1px solid color-mix(in srgb, var(--color-green) 25%, transparent);
+}
+
+/* Empty state */
+.pm-references-empty,
+.pm-ref-empty {
+  color: var(--text-muted);
+  font-style: italic;
+}

@@ -133,7 +133,7 @@ export class ReferenceDashboardView {
     }
 
     // Topic chips
-    const topicRow = panel.createDiv({ cls: "pm-references__filter-row" });
+    const topicRow = panel.createDiv({ cls: "pm-references__filter-row pm-references__filter-row--topic" });
     topicRow.createSpan({ cls: "pm-references__filter-label", text: "Topics" });
     const topicChips = topicRow.createDiv({ cls: "pm-references__chips" });
     const allTopics = this.services.queryService.getActiveEntitiesByTag(ENTITY_TAGS.referenceTopic);
@@ -155,7 +155,7 @@ export class ReferenceDashboardView {
     }
 
     // Client chips
-    const clientRow = panel.createDiv({ cls: "pm-references__filter-row" });
+    const clientRow = panel.createDiv({ cls: "pm-references__filter-row pm-references__filter-row--client" });
     clientRow.createSpan({ cls: "pm-references__filter-label", text: "Clients" });
     const clientChips = clientRow.createDiv({ cls: "pm-references__chips" });
     const allClients = this.services.queryService.getActiveEntitiesByTag(ENTITY_TAGS.client);
@@ -177,7 +177,7 @@ export class ReferenceDashboardView {
     }
 
     // Engagement chips
-    const engagementRow = panel.createDiv({ cls: "pm-references__filter-row" });
+    const engagementRow = panel.createDiv({ cls: "pm-references__filter-row pm-references__filter-row--engagement" });
     engagementRow.createSpan({ cls: "pm-references__filter-label", text: "Engagements" });
     const engagementChips = engagementRow.createDiv({ cls: "pm-references__chips" });
     const allEngagements = this.services.queryService.getActiveEntitiesByTag(ENTITY_TAGS.engagement);
