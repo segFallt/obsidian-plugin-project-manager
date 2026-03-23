@@ -4,6 +4,7 @@ import { InputModal } from "../ui/modals/input-modal";
 import { SuggesterModal } from "../ui/modals/suggester-modal";
 import type { DataviewPage, RaidType } from "../types";
 import { ENTITY_TAGS, MSG, LOG_CONTEXT } from "../constants";
+import { normalizeToName } from "../utils/link-utils";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -40,6 +41,7 @@ export function registerCreateRaidItemCommand(
         new Notice(MSG.CANCELLED);
         return;
       }
+      services.loggerService.debug(`create-raid-item: step 1 complete, name: "${name}"`, LOG_CONTEXT.CREATE_RAID_ITEM);
 
       // Step 2 — RAID type
       const typeModal = new SuggesterModal<RaidType>(services.app, RAID_TYPES, (t) => t);
@@ -49,13 +51,18 @@ export function registerCreateRaidItemCommand(
         new Notice(MSG.CANCELLED);
         return;
       }
+      services.loggerService.debug(`create-raid-item: step 2 complete, type: "${raidType}"`, LOG_CONTEXT.CREATE_RAID_ITEM);
 
       // Step 3 — optional engagement
       const engagements = services.queryService.getActiveEntitiesByTag(ENTITY_TAGS.engagement);
       const engagementModal = new SuggesterModal<DataviewPage>(
         services.app,
         [NONE_OPTION, ...engagements],
-        (e) => e.file.name,
+        (e) => {
+          if (e.file.path === "") return "(None)";
+          const clientName = normalizeToName(e.client);
+          return clientName ? `${e.file.name} (${clientName})` : e.file.name;
+        },
         "Engagement (optional)"
       );
       const selectedEngagement = await engagementModal.choose();
@@ -65,13 +72,18 @@ export function registerCreateRaidItemCommand(
         return;
       }
       const engagementName = selectedEngagement.file.path === "" ? undefined : selectedEngagement.file.name;
+      services.loggerService.debug(`create-raid-item: step 3 complete, engagement: "${engagementName ?? "(none)"}"`, LOG_CONTEXT.CREATE_RAID_ITEM);
 
       // Step 4 — optional owner
       const owners = services.queryService.getActiveEntitiesByTag(ENTITY_TAGS.person);
       const ownerModal = new SuggesterModal<DataviewPage>(
         services.app,
         [NONE_OPTION, ...owners],
-        (o) => o.file.name,
+        (o) => {
+          if (o.file.path === "") return "(None)";
+          const clientName = normalizeToName(o.client);
+          return clientName ? `${o.file.name} (${clientName})` : o.file.name;
+        },
         "Owner (optional)"
       );
       const selectedOwner = await ownerModal.choose();
@@ -81,6 +93,7 @@ export function registerCreateRaidItemCommand(
         return;
       }
       const ownerName = selectedOwner.file.path === "" ? undefined : selectedOwner.file.name;
+      services.loggerService.debug(`create-raid-item: step 4 complete, owner: "${ownerName ?? "(none)"}"`, LOG_CONTEXT.CREATE_RAID_ITEM);
 
       services.loggerService.debug(
         `create-raid-item: name: "${name}", type: "${raidType}", engagement: "${engagementName ?? "none"}", owner: "${ownerName ?? "none"}"`,
