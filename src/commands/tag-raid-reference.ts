@@ -1,10 +1,26 @@
 import { Notice } from "obsidian";
 import type { Editor, MarkdownView, MarkdownFileInfo } from "obsidian";
 import type { CommandServices, AddCommandFn } from "../plugin-context";
-import { RaidTagModal } from "../ui/modals/raid-tag-modal";
-import type { RaidTagLabelledItem } from "../ui/modals/raid-tag-modal";
-import type { DataviewPage } from "../types";
+import { SuggesterModal } from "../ui/modals/suggester-modal";
+import type { DataviewPage, RaidType, RaidDirection } from "../types";
+import { DIRECTION_LABELS, DIRECTION_ICONS } from "../processors/raid-constants";
 import { MSG, LOG_CONTEXT } from "../constants";
+
+// ─── Direction picker helpers ─────────────────────────────────────────────────
+
+interface DirectionOption {
+  label: string;
+  direction: RaidDirection;
+}
+
+function getDirectionOptions(raidType: RaidType): DirectionOption[] {
+  return (["positive", "negative", "neutral"] as RaidDirection[]).map((dir) => ({
+    label: `${DIRECTION_ICONS[dir]} ${dir.charAt(0).toUpperCase() + dir.slice(1)} — ${DIRECTION_LABELS[dir][raidType]}`,
+    direction: dir,
+  }));
+}
+
+// ─── Item display helper ──────────────────────────────────────────────────────
 
 /**
  * Formats a single RAID item for display in the selection list.
@@ -65,30 +81,49 @@ export function registerTagRaidReferenceCommand(
         return;
       }
 
-      // Build display list: context items first (★ prefixed), then remaining
+      // Step 1 — pick a RAID item (context items floated to top with ★ prefix)
       const contextPaths = new Set(contextItems.map((p) => p.file.path));
-      const remainingItems = allItems.filter((p) => !contextPaths.has(p.file.path));
-
-      const labelledItems: RaidTagLabelledItem[] = [
-        ...contextItems.map((p) => ({ page: p, label: `★ ${formatRaidItem(p)}` })),
-        ...remainingItems.map((p) => ({ page: p, label: formatRaidItem(p) })),
+      const sortedItems = [
+        ...contextItems,
+        ...allItems.filter((p) => !contextPaths.has(p.file.path)),
       ];
 
-      const modal = new RaidTagModal(services.app, labelledItems);
-      const result = await modal.prompt();
+      const modal1 = new SuggesterModal<DataviewPage>(
+        services.app,
+        sortedItems,
+        (p) => (contextPaths.has(p.file.path) ? `★ ${formatRaidItem(p)}` : formatRaidItem(p))
+      );
+      const selectedItem = await modal1.choose();
 
-      if (!result) {
+      if (!selectedItem) {
+        new Notice(MSG.CANCELLED);
+        return;
+      }
+
+      // Step 2 — pick a direction based on the selected item's raid-type
+      const raidType = (selectedItem["raid-type"] as RaidType | undefined) ?? "Risk";
+      const modal2 = new SuggesterModal<DirectionOption>(
+        services.app,
+        getDirectionOptions(raidType),
+        (opt) => opt.label
+      );
+      const selectedDirection = await modal2.choose();
+
+      if (!selectedDirection) {
         new Notice(MSG.CANCELLED);
         return;
       }
 
       services.loggerService.debug(
-        `tag-raid-reference: tagging line ${lineNumber} with {raid:${result.direction}}[[${result.itemName}]]`,
+        `tag-raid-reference: tagging line ${lineNumber} with {raid:${selectedDirection.direction}}[[${selectedItem.file.name}]]`,
         LOG_CONTEXT.TAG_RAID_REFERENCE
       );
 
       try {
-        editor.setLine(lineNumber, currentLine + ` {raid:${result.direction}}[[${result.itemName}]]`);
+        editor.setLine(
+          lineNumber,
+          currentLine + ` {raid:${selectedDirection.direction}}[[${selectedItem.file.name}]]`
+        );
       } catch (err) {
         services.loggerService.error(String(err), LOG_CONTEXT.TAG_RAID_REFERENCE, err);
         new Notice(`Error tagging line: ${String(err)}`);

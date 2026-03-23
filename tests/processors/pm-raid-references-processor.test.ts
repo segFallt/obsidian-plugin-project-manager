@@ -219,6 +219,36 @@ describe("pm-raid-references processor", () => {
     expect(link?.textContent).toContain("Workshop Notes");
   });
 
+  it("queries Dataview with unquoted link source [[ItemName]]", async () => {
+    const raidItemName = "My Risk";
+    const { services, mockPlugin, getHandler } = createMockServices(
+      `raid/${raidItemName}.md`,
+      [],
+      { "raid-type": "Risk" }
+    );
+
+    // Replace dv with a stable mock so we can assert on the pages call
+    const mockPagesFn = vi.fn(() => ({ [Symbol.iterator]: () => [][Symbol.iterator]() }));
+    const dvInstance = { pages: mockPagesFn };
+    (services.queryService.dv as ReturnType<typeof vi.fn>).mockReturnValue(dvInstance);
+
+    registerPmRaidReferencesProcessor(
+      mockPlugin as unknown as Parameters<typeof registerPmRaidReferencesProcessor>[0],
+      services
+    );
+
+    const el = document.createElement("div");
+    const ctx = {
+      addChild: (child: { render(): void | Promise<void> }) => { void child.render(); },
+      sourcePath: `raid/${raidItemName}.md`,
+    };
+
+    getHandler()("", el, ctx);
+    await new Promise((r) => setTimeout(r, 20));
+
+    expect(mockPagesFn).toHaveBeenCalledWith(`[[${raidItemName}]]`);
+  });
+
   it("error boundary renders error when render throws", async () => {
     const { services, mockPlugin, getHandler } = createMockServices("raid/Bad Risk.md", []);
 
