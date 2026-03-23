@@ -220,6 +220,7 @@ export const FM_KEY = {
   TASKS_FILTERS: "pm-tasks-filters", // Persisted to vault frontmatter — do NOT change this value without a migration
   TOPICS: "topics",
   PM_REFERENCES_FILTERS: "pm-references-filters",
+  RAID_DASHBOARD_FILTERS: "pm-raid-dashboard-filters",
 } as const;
 
 // ─── CSS classes ──────────────────────────────────────────────────────────

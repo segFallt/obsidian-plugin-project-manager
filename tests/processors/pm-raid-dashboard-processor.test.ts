@@ -69,10 +69,13 @@ function createMockServices(items: DataviewPage[] = []) {
 
   const services: RaidProcessorServices = {
     app: {
-      vault: { on: vaultOn },
+      vault: { on: vaultOn, getAbstractFileByPath: vi.fn(() => null) },
+      metadataCache: { getFileCache: vi.fn(() => null) },
+      fileManager: { processFrontMatter: vi.fn() },
     } as unknown as RaidProcessorServices["app"],
     queryService: {
       getAllRaidItems: vi.fn(() => items),
+      getActiveEntitiesByTag: vi.fn(() => []),
     } as unknown as RaidProcessorServices["queryService"],
     loggerService: {
       debug: vi.fn(),
@@ -201,6 +204,14 @@ describe("pm-raid-dashboard processor", () => {
     const chips = el.querySelectorAll(".raid-chip");
     // 4 RAID types + 4 statuses = 8 chips
     expect(chips.length).toBe(8);
+  });
+
+  it("renders FilterChipSelect containers for client and engagement filters", () => {
+    const { el } = render([]);
+
+    const chipSelects = el.querySelectorAll(".pm-filter-chip-select");
+    // One for clients, one for engagements
+    expect(chipSelects.length).toBe(2);
   });
 
   it("filter chips toggle active state on click", () => {
