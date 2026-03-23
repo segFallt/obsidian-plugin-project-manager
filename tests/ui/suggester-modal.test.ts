@@ -37,11 +37,27 @@ describe("SuggesterModal", () => {
   });
 
   it("onClose() without selection resolves with null", async () => {
+    vi.useFakeTimers();
     const modal = createSuggester(["a", "b"]);
     const promise = modal.choose();
+    vi.runAllTimers(); // flush FOCUS_DELAY_MS so open() fires
     modal.onClose();
+    vi.runAllTimers(); // flush the setTimeout(0) in onClose
     const result = await promise;
     expect(result).toBeNull();
+  });
+
+  it("onClose() before onChooseItem() resolves with the item (race-condition fix)", async () => {
+    vi.useFakeTimers();
+    const modal = createSuggester(["a", "b"]);
+    const promise = modal.choose();
+    vi.runAllTimers(); // flush FOCUS_DELAY_MS
+    // Simulate Obsidian's ordering: close() fires onClose() before onChooseItem()
+    modal.onClose();
+    modal.onChooseItem("a", new MouseEvent("click"));
+    vi.runAllTimers(); // flush the deferred null-resolution timeout
+    const result = await promise;
+    expect(result).toBe("a");
   });
 
   it("onClose() after selection does not double-resolve to null", async () => {

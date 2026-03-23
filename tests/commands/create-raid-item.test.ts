@@ -77,6 +77,33 @@ describe("registerCreateRaidItemCommand", () => {
     );
   });
 
+  it("completes all 4 steps and creates the RAID item when no step is cancelled", async () => {
+    promptMock.mockReset();
+    chooseMock.mockReset();
+    promptMock.mockResolvedValueOnce("Onboarding Risk");         // step 1 — name
+    chooseMock
+      .mockResolvedValueOnce("Risk")                             // step 2 — type
+      .mockResolvedValueOnce({ file: { name: "Acme Audit", path: "engagements/Acme Audit.md" } }) // step 3 — engagement
+      .mockResolvedValueOnce({ file: { name: "Alice Smith", path: "people/Alice Smith.md" } });    // step 4 — owner
+
+    const { services, addCommand, commands, entityService, loggerService } = createMockPlugin();
+    registerCreateRaidItemCommand(services, addCommand);
+    await runCommand(commands, "create-raid-item");
+
+    // All 4 steps logged
+    expect(loggerService.debug).toHaveBeenCalledWith(expect.stringContaining('step 1 complete, name: "Onboarding Risk"'), LOG_CONTEXT.CREATE_RAID_ITEM);
+    expect(loggerService.debug).toHaveBeenCalledWith(expect.stringContaining('step 2 complete, type: "Risk"'), LOG_CONTEXT.CREATE_RAID_ITEM);
+    expect(loggerService.debug).toHaveBeenCalledWith(expect.stringContaining('step 3 complete, engagement: "Acme Audit"'), LOG_CONTEXT.CREATE_RAID_ITEM);
+    expect(loggerService.debug).toHaveBeenCalledWith(expect.stringContaining('step 4 complete, owner: "Alice Smith"'), LOG_CONTEXT.CREATE_RAID_ITEM);
+
+    // Entity created with all fields
+    expect(entityService.createRaidItem).toHaveBeenCalledWith("Onboarding Risk", "Risk", "Acme Audit", "Alice Smith");
+
+    // No cancellation
+    expect(loggerService.warn).not.toHaveBeenCalled();
+    expect(noticeMock).not.toHaveBeenCalledWith(MSG.CANCELLED);
+  });
+
   it("calls createRaidItem with engagement and owner when both are selected", async () => {
     promptMock.mockReset();
     chooseMock.mockReset();

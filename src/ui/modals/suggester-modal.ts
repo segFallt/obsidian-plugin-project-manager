@@ -47,9 +47,15 @@ export class SuggesterModal<T> extends FuzzySuggestModal<T> {
   }
 
   onClose(): void {
-    if (!this.resolved) {
-      this.resolvePromise(null);
-    }
+    // Defer null-resolution by one event-loop tick so that onChooseItem() —
+    // which Obsidian fires synchronously in the same tick as close() — has a
+    // chance to set this.resolved = true first. Without this deferral, every
+    // selection silently cancels because onClose() wins the race.
+    setTimeout(() => {
+      if (!this.resolved) {
+        this.resolvePromise(null);
+      }
+    }, 0);
   }
 }
 
