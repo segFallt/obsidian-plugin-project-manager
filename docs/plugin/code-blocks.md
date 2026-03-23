@@ -304,7 +304,7 @@ Requires the Dataview plugin to be installed and enabled.
 
 ````pm-raid-references
 sort:
-  field: modified-date   # modified-date (default) | created-date
+  field: created-date    # created-date (default) | modified-date
   direction: desc        # desc (default) | asc
 ````
 
@@ -315,7 +315,7 @@ sort:
 - Each entry shows a direction badge (`positive` / `negative` / `neutral`) with a human-readable label derived from the RAID type, the stripped line text, and a link back to the source file.
 - When no annotated references are found, a placeholder message is displayed.
 - The component auto-refreshes (500 ms debounce) when any vault file is modified.
-- Source groups are sorted by modification date descending by default. Use the `sort` property to change the sort field (`modified-date` | `created-date`) or direction (`asc` | `desc`). Omitting `sort` preserves the default behaviour.
+- Source groups are sorted by creation date descending by default. Use the `sort` property to change the sort field (`created-date` | `modified-date`) or direction (`asc` | `desc`). Omitting `sort` preserves the default behaviour.
 
 ---
 

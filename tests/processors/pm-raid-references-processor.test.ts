@@ -290,14 +290,14 @@ describe("pm-raid-references processor", () => {
     expect(errorEl).not.toBeNull();
   });
 
-  it("renders source groups sorted by modification date, newest first", async () => {
+  it("renders source groups sorted by creation date, newest first", async () => {
     const raidItemName = "Sort Test Risk";
     const now = Date.now();
     const { el } = await render(
       [
-        { path: "notes/Old Note.md", content: `{raid:positive}[[${raidItemName}]]`, mtime: now - 3000 },
-        { path: "notes/New Note.md", content: `{raid:negative}[[${raidItemName}]]`, mtime: now },
-        { path: "notes/Middle Note.md", content: `{raid:neutral}[[${raidItemName}]]`, mtime: now - 1000 },
+        { path: "notes/Old Note.md", content: `{raid:positive}[[${raidItemName}]]`, mtime: now, ctime: now - 3000 },
+        { path: "notes/New Note.md", content: `{raid:negative}[[${raidItemName}]]`, mtime: now - 3000, ctime: now },
+        { path: "notes/Middle Note.md", content: `{raid:neutral}[[${raidItemName}]]`, mtime: now - 1000, ctime: now - 1000 },
       ],
       `raid/${raidItemName}.md`,
       { "raid-type": "Risk" },
@@ -389,7 +389,7 @@ describe("pm-raid-references processor", () => {
       expect(headings[2]).toContain("New Note");
     });
 
-    it("invalid field falls back to modified-date desc — newest mtime first", async () => {
+    it("invalid field falls back to created-date desc — newest ctime first", async () => {
       const { el } = await render(
         makeBacklinks(),
         `raid/${raidItemName}.md`,
