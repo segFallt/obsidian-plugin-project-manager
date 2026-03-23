@@ -298,12 +298,15 @@ Renders the list of notes that reference the current RAID item, grouped by sourc
 
 References are annotated in other notes using the syntax `{raid:positive|negative|neutral}[[RAID Item Name]]`. The direction badge and label are derived from the RAID item's `raid-type` frontmatter field.
 
-```yaml
-```pm-raid-references
-```
-```
+Requires the Dataview plugin to be installed and enabled.
 
-This block takes no configuration. Requires the Dataview plugin to be installed and enabled.
+**Configuration (all fields optional):**
+
+````pm-raid-references
+sort:
+  field: modified-date   # modified-date (default) | created-date
+  direction: desc        # desc (default) | asc
+````
 
 ### Behaviour
 
@@ -312,6 +315,7 @@ This block takes no configuration. Requires the Dataview plugin to be installed 
 - Each entry shows a direction badge (`positive` / `negative` / `neutral`) with a human-readable label derived from the RAID type, the stripped line text, and a link back to the source file.
 - When no annotated references are found, a placeholder message is displayed.
 - The component auto-refreshes (500 ms debounce) when any vault file is modified.
+- Source groups are sorted by modification date descending by default. Use the `sort` property to change the sort field (`modified-date` | `created-date`) or direction (`asc` | `desc`). Omitting `sort` preserves the default behaviour.
 
 ---
 
