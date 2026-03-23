@@ -47,7 +47,7 @@ class PmRaidReferencesRenderChild extends MarkdownRenderChild {
   ) {
     super(containerEl);
     const rawConfig = parseYaml(this.source) as PmRaidReferencesConfig | null;
-    this.sortField = rawConfig?.sort?.field === "created-date" ? "created-date" : "modified-date";
+    this.sortField = rawConfig?.sort?.field === "modified-date" ? "modified-date" : "created-date";
     this.sortDirection = rawConfig?.sort?.direction === "asc" ? "asc" : "desc";
   }
 
