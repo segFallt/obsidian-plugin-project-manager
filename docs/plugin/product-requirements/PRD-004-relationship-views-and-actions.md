@@ -52,7 +52,7 @@ actions:
 ```
 ```
 
-**Built-in action types (13):**
+**Built-in action types (15):**
 
 | `type` | Command triggered |
 |--------|-------------------|
@@ -69,6 +69,8 @@ actions:
 | `convert-single-to-recurring` | PM: Convert Single Meeting to Recurring |
 | `create-raid-item` | Opens RAID item creation flow |
 | `scaffold-vault` | PM: Set Up Vault Structure |
+| `create-reference` | PM: Create Reference |
+| `create-reference-topic` | PM: Create Reference Topic |
 
 **Custom command support:** Any action can use `commandId: <full-obsidian-command-id>` instead of `type` to invoke an arbitrary registered command.
 
@@ -97,6 +99,9 @@ When the button is clicked, `ActionContextManager.set()` is called with the valu
 | Engagement | New Engagement (`create-engagement`) |
 | Project | New Project Note (`create-project-note`), New Project (`create-project`) |
 | Person | New Person (`create-person`) |
+| Reference Topic | New Reference (`create-reference`, context: `topic`) |
+
+The scaffold view `views/References.md` also includes `create-reference` (primary) and `create-reference-topic` (default) buttons.
 
 ### 3.3 `pm-entity-view` — Structured Entity View
 

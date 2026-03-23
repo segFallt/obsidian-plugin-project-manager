@@ -2,7 +2,7 @@
 
 ## 1. Overview
 
-The `pm-properties` code block renders an interactive frontmatter editor for the current note. It supports all 9 entity types, provides inline autocomplete suggesters for linked-entity fields, and persists changes immediately via `processFrontMatter`. The component auto-refreshes when the file is modified externally and suppresses re-renders triggered by its own writes.
+The `pm-properties` code block renders an interactive frontmatter editor for the current note. It supports all 11 entity types, provides inline autocomplete suggesters for linked-entity fields, and persists changes immediately via `processFrontMatter`. The component auto-refreshes when the file is modified externally and suppresses re-renders triggered by its own writes.
 
 ---
 
@@ -39,6 +39,8 @@ entity: <entity-type>
 | `recurring-meeting` | Engagement (suggester), Start Date, End Date, Default Attendees (list suggester) |
 | `recurring-meeting-event` | Recurring Meeting (suggester), Date (datetime picker), Attendees (list suggester) |
 | `project-note` | Related Project (text), Engagement (suggester) |
+| `reference` | Topics (list-suggester), Client (suggester), Engagement (suggester) |
+| `reference-topic` | *(no fields — topic pages have no editable frontmatter)* |
 
 ### 3.3 Autocomplete Suggester (`suggester`)
 
@@ -59,6 +61,19 @@ Suggester data sources:
 | Engagement | Active engagements (`#engagement`, status: Active), shown as `"Eng (Client)"` |
 | Reports To | Active people (`#person`, status: Active), shown as `"Person (Client)"` |
 | Recurring Meeting | Active recurring meetings (folder-based query) |
+| Topics (reference) | All `#reference-topic` files (status: Active) |
+
+### 3.3.1 `reference` Field Descriptor
+
+| Field | Type | Source | Notes |
+|-------|------|--------|-------|
+| Topics | `list-suggester` | All `#reference-topic` files (status: Active) | Required; stored as wikilink array (e.g. `["[[Architecture]]"]`) |
+| Client | `suggester` | Active `#client` files | Optional; includes `(None)` to clear |
+| Engagement | `suggester` | Active `#engagement` files, shown as `"Eng (Client)"` | Optional; includes `(None)` to clear; `enriched: true` |
+
+### 3.3.2 `reference-topic` Field Descriptor
+
+`reference-topic` has an empty field descriptor (`[]`) — no `pm-properties` block is included in Reference Topic notes. The entry exists in `entity-field-config.ts` to satisfy `Record<EntityType, FieldDescriptor[]>` exhaustiveness checks.
 
 ### 3.4 List Autocomplete Suggester (`list-suggester`)
 
@@ -118,7 +133,9 @@ Applies to multi-value linked-entity fields (`attendees`, `default-attendees`). 
 
 ## 7. Acceptance Criteria
 
-- [ ] `pm-properties` renders the correct fields for all 9 entity types.
+- [ ] `pm-properties` renders the correct fields for all 11 entity types.
+- [ ] `reference` entity renders Topics (list-suggester), Client (suggester), and Engagement (suggester) fields.
+- [ ] `reference-topic` entity renders no fields (empty descriptor; no `pm-properties` block in template).
 - [ ] Changing a field value via the editor persists the change to frontmatter immediately.
 - [ ] Autocomplete suggesters filter options by case-insensitive substring as the user types.
 - [ ] Engagement and person suggesters show `"Name (Client)"` when a client link is present.
