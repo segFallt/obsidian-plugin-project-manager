@@ -159,16 +159,27 @@ class PmRaidReferencesRenderChild extends MarkdownRenderChild {
     const container = document.createElement("div");
     container.className = "pm-raid-references";
 
-    for (const [file, entries] of referencesByFile) {
+    // Sort source groups by modification date, newest first (PRD-008 §3.5).
+    // The `?? 0` fallback is a defensive guard — FileStats.mtime is typed as number
+    // but non-standard vault implementations may omit it.
+    const sortedEntries = [...referencesByFile.entries()]
+      .sort(([a], [b]) => (b.stat.mtime ?? 0) - (a.stat.mtime ?? 0));
+
+    for (const [file, entries] of sortedEntries) {
+      // Wrap each source group so inter-group and intra-group spacing can be controlled independently
+      const group = document.createElement("div");
+      group.className = "pm-raid-references__group";
+
       // Source note heading with internal link
       const heading = document.createElement("h4");
+      heading.className = "pm-raid-references__group-heading";
       const link = document.createElement("a");
       link.className = CSS_CLS.INTERNAL_LINK;
       link.textContent = file.basename;
       link.setAttribute("data-href", file.path);
       link.setAttribute("href", file.path);
       heading.appendChild(link);
-      container.appendChild(heading);
+      group.appendChild(heading);
 
       const list = document.createElement("ul");
       list.className = "pm-raid-references__list";
@@ -201,7 +212,8 @@ class PmRaidReferencesRenderChild extends MarkdownRenderChild {
         list.appendChild(item);
       }
 
-      container.appendChild(list);
+      group.appendChild(list);
+      container.appendChild(group);
     }
 
     fragment.appendChild(container);

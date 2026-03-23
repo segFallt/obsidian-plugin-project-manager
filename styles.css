@@ -1208,6 +1208,19 @@ details[open] .pm-filter-section__title::before {
   gap: 12px;
 }
 
+.pm-raid-references__group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.pm-raid-references__group-heading {
+  margin: 0;
+  font-size: var(--font-ui-small);
+  font-weight: var(--font-semibold);
+  color: var(--text-normal);
+}
+
 .pm-raid-references__list {
   list-style: none;
   padding: 0;
