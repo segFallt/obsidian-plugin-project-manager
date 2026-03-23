@@ -1,8 +1,8 @@
-import { MarkdownRenderChild, TFile } from "obsidian";
+import { MarkdownRenderChild, TFile, parseYaml } from "obsidian";
 import type { App, MarkdownPostProcessorContext } from "obsidian";
 import type { Plugin } from "obsidian";
 import type { IQueryService, ILoggerService, RaidProcessorServices } from "../services/interfaces";
-import type { RaidType, RaidDirection } from "../types";
+import type { RaidType, RaidDirection, PmRaidReferencesConfig } from "../types";
 import { CODEBLOCK, DEBOUNCE_MS, CSS_CLS } from "../constants";
 import { renderError } from "./dom-helpers";
 import { DIRECTION_LABELS, DIRECTION_ICONS } from "./raid-constants";
@@ -15,9 +15,10 @@ export function registerPmRaidReferencesProcessor(
 ): void {
   plugin.registerMarkdownCodeBlockProcessor(
     CODEBLOCK.PM_RAID_REFERENCES,
-    (_source: string, el: HTMLElement, ctx: MarkdownPostProcessorContext) => {
+    (source: string, el: HTMLElement, ctx: MarkdownPostProcessorContext) => {
       const child = new PmRaidReferencesRenderChild(
         el,
+        source,
         services.app,
         ctx.sourcePath,
         services.queryService,
@@ -33,15 +34,21 @@ export function registerPmRaidReferencesProcessor(
 
 class PmRaidReferencesRenderChild extends MarkdownRenderChild {
   private debounceTimer: ReturnType<typeof setTimeout> | null = null;
+  private readonly sortField: "modified-date" | "created-date";
+  private readonly sortDirection: "asc" | "desc";
 
   constructor(
     containerEl: HTMLElement,
+    private readonly source: string,
     private readonly app: App,
     private readonly sourcePath: string,
     private readonly queryService: IQueryService,
     private readonly loggerService: ILoggerService
   ) {
     super(containerEl);
+    const rawConfig = parseYaml(this.source) as PmRaidReferencesConfig | null;
+    this.sortField = rawConfig?.sort?.field === "created-date" ? "created-date" : "modified-date";
+    this.sortDirection = rawConfig?.sort?.direction === "asc" ? "asc" : "desc";
   }
 
   onload(): void {
@@ -159,11 +166,14 @@ class PmRaidReferencesRenderChild extends MarkdownRenderChild {
     const container = document.createElement("div");
     container.className = "pm-raid-references";
 
-    // Sort source groups by modification date, newest first (PRD-008 §3.5).
-    // The `?? 0` fallback is a defensive guard — FileStats.mtime is typed as number
+    // Sort source groups by the configured field and direction (PRD-008 §3.5).
+    // The `?? 0` fallback is a defensive guard — FileStats.mtime/ctime is typed as number
     // but non-standard vault implementations may omit it.
-    const sortedEntries = [...referencesByFile.entries()]
-      .sort(([a], [b]) => (b.stat.mtime ?? 0) - (a.stat.mtime ?? 0));
+    const sortedEntries = [...referencesByFile.entries()].sort(([a], [b]) => {
+      const aVal = this.sortField === "created-date" ? (a.stat.ctime ?? 0) : (a.stat.mtime ?? 0);
+      const bVal = this.sortField === "created-date" ? (b.stat.ctime ?? 0) : (b.stat.mtime ?? 0);
+      return this.sortDirection === "asc" ? aVal - bVal : bVal - aVal;
+    });
 
     for (const [file, entries] of sortedEntries) {
       // Wrap each source group so inter-group and intra-group spacing can be controlled independently
