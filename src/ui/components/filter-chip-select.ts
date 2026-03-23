@@ -11,6 +11,7 @@ export interface FilterChipSelectConfig {
   ariaLabel: string;
   includeUnassigned: boolean;
   unassignedLabel: string;
+  showUnassignedCheckbox?: boolean;
   onChange: (selectedValues: string[], includeUnassigned: boolean) => void;
 }
 
@@ -32,7 +33,7 @@ export class FilterChipSelect {
   private includeUnassigned: boolean;
   private suggest: PropertySuggest;
   private chipsEl: HTMLElement;
-  private unassignedCb: HTMLInputElement;
+  private unassignedCb: HTMLInputElement | undefined;
 
   constructor(
     container: HTMLElement,
@@ -65,15 +66,18 @@ export class FilterChipSelect {
     });
 
     // "Include unassigned" checkbox
-    const unassignedLabel = wrapper.createEl("label", { cls: "pm-checkbox-label" });
-    this.unassignedCb = unassignedLabel.createEl("input", { type: "checkbox" });
-    this.unassignedCb.checked = this.includeUnassigned;
-    this.unassignedCb.setAttribute("aria-label", config.unassignedLabel);
-    unassignedLabel.createSpan({ text: config.unassignedLabel });
-    this.unassignedCb.addEventListener("change", () => {
-      this.includeUnassigned = this.unassignedCb.checked;
-      this.config.onChange(this.selectedValues, this.includeUnassigned);
-    });
+    if (config.showUnassignedCheckbox !== false) {
+      const unassignedLabel = wrapper.createEl("label", { cls: "pm-checkbox-label" });
+      const unassignedCb = unassignedLabel.createEl("input", { type: "checkbox" });
+      this.unassignedCb = unassignedCb;
+      unassignedCb.checked = this.includeUnassigned;
+      unassignedCb.setAttribute("aria-label", config.unassignedLabel);
+      unassignedLabel.createSpan({ text: config.unassignedLabel });
+      unassignedCb.addEventListener("change", () => {
+        this.includeUnassigned = unassignedCb.checked;
+        this.config.onChange(this.selectedValues, this.includeUnassigned);
+      });
+    }
   }
 
   /** Releases the underlying PropertySuggest. */

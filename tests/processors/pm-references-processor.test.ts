@@ -216,6 +216,15 @@ describe("pm-references processor", () => {
     expect(groups.length).toBeGreaterThan(0);
   });
 
+  it("renders FilterChipSelect containers for client and engagement filters when filter panel is expanded", () => {
+    const { el } = render("");
+    const toggle = el.querySelector<HTMLButtonElement>(".pm-references__filters-toggle");
+    expect(toggle).not.toBeNull();
+    toggle!.click();
+    const chipSelects = el.querySelectorAll(".pm-filter-chip-select");
+    expect(chipSelects.length).toBe(2);
+  });
+
   it("reads viewMode from config and activates the correct tab", () => {
     const { el } = render("viewMode: client");
     const activeTab = el.querySelector<HTMLButtonElement>(".pm-references__tab--active");

@@ -1,11 +1,13 @@
 import { MarkdownRenderChild, parseYaml } from "obsidian";
-import type { App, MarkdownPostProcessorContext } from "obsidian";
+import type { App, TFile, MarkdownPostProcessorContext } from "obsidian";
 import type { Plugin } from "obsidian";
 import type { IQueryService, ILoggerService, RaidProcessorServices } from "../services/interfaces";
-import type { RaidDashboardFilters, RaidType, RaidStatus, RaidLikelihood, RaidImpact, DataviewPage } from "../types";
-import { CODEBLOCK, DEBOUNCE_MS, CSS_CLS } from "../constants";
+import type { RaidDashboardFilters, RaidType, RaidStatus, RaidLikelihood, RaidImpact, DataviewPage, SavedRaidDashboardFilters } from "../types";
+import { CODEBLOCK, DEBOUNCE_MS, CSS_CLS, ENTITY_TAGS, FM_KEY } from "../constants";
 import { renderError } from "./dom-helpers";
 import { normalizeToName } from "../utils/link-utils";
+import { FilterChipSelect } from "../ui/components/filter-chip-select";
+import { buildEntityOptions } from "../utils/filter-utils";
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -69,6 +71,7 @@ export function registerPmRaidDashboardProcessor(
       const child = new PmRaidDashboardRenderChild(
         el,
         source,
+        ctx.sourcePath,
         services.app,
         services.queryService,
         services.loggerService
@@ -83,12 +86,16 @@ export function registerPmRaidDashboardProcessor(
 
 class PmRaidDashboardRenderChild extends MarkdownRenderChild {
   private debounceTimer: ReturnType<typeof setTimeout> | null = null;
+  private saveDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+  private isUpdating = false;
   private filters!: RaidDashboardFilters;
   private config: PmRaidDashboardConfig = {};
+  private chipSelects: FilterChipSelect[] = [];
 
   constructor(
     containerEl: HTMLElement,
     private readonly source: string,
+    private readonly sourcePath: string,
     private readonly app: App,
     private readonly queryService: IQueryService,
     private readonly loggerService: ILoggerService
@@ -99,6 +106,7 @@ class PmRaidDashboardRenderChild extends MarkdownRenderChild {
   onload(): void {
     this.registerEvent(
       this.app.vault.on("modify", () => {
+        if (this.isUpdating) return;
         this.debouncedRefresh();
       })
     );
@@ -109,6 +117,11 @@ class PmRaidDashboardRenderChild extends MarkdownRenderChild {
       clearTimeout(this.debounceTimer);
       this.debounceTimer = null;
     }
+    if (this.saveDebounceTimer !== null) {
+      clearTimeout(this.saveDebounceTimer);
+      this.saveDebounceTimer = null;
+    }
+    this.destroyChipSelects();
   }
 
   render(): void {
@@ -126,8 +139,10 @@ class PmRaidDashboardRenderChild extends MarkdownRenderChild {
     // Initialise filters from config on first render only
     if (!this.filters) {
       this.filters = defaultFilters(this.config);
+      this.loadSavedFilters();
     }
 
+    this.destroyChipSelects();
     this.containerEl.empty();
 
     let allItems: DataviewPage[];
@@ -145,6 +160,51 @@ class PmRaidDashboardRenderChild extends MarkdownRenderChild {
     this.renderMatrix(dashboard, filtered);
     this.renderCountStrip(dashboard, filtered);
     this.renderItemGroups(dashboard, filtered);
+  }
+
+  // ─── Persistence ─────────────────────────────────────────────────────────
+
+  private loadSavedFilters(): void {
+    const file = this.app.vault.getAbstractFileByPath(this.sourcePath) as TFile | null;
+    if (!file) return;
+    const cache = this.app.metadataCache.getFileCache(file);
+    const saved = cache?.frontmatter?.[FM_KEY.RAID_DASHBOARD_FILTERS] as SavedRaidDashboardFilters | undefined;
+    if (!saved) return;
+    if (Array.isArray(saved.clientFilter)) this.filters.clientFilter = saved.clientFilter;
+    if (Array.isArray(saved.engagementFilter)) this.filters.engagementFilter = saved.engagementFilter;
+  }
+
+  private debouncedSaveFilters(): void {
+    if (this.saveDebounceTimer) clearTimeout(this.saveDebounceTimer);
+    this.saveDebounceTimer = setTimeout(() => {
+      void this.persistFilters();
+    }, DEBOUNCE_MS.PROPERTIES);
+  }
+
+  private async persistFilters(): Promise<void> {
+    const file = this.app.vault.getAbstractFileByPath(this.sourcePath) as TFile | null;
+    if (!file) return;
+    this.isUpdating = true;
+    try {
+      await this.app.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => {
+        const toSave: SavedRaidDashboardFilters = {
+          clientFilter: this.filters.clientFilter,
+          engagementFilter: this.filters.engagementFilter,
+        };
+        fm[FM_KEY.RAID_DASHBOARD_FILTERS] = toSave;
+      });
+    } finally {
+      this.isUpdating = false;
+    }
+  }
+
+  // ─── FilterChipSelect lifecycle ──────────────────────────────────────────
+
+  private destroyChipSelects(): void {
+    for (const cs of this.chipSelects) {
+      cs.destroy();
+    }
+    this.chipSelects = [];
   }
 
   // ─── Filter panel ───────────────────────────────────────────────────────
@@ -192,6 +252,46 @@ class PmRaidDashboardRenderChild extends MarkdownRenderChild {
         this.render();
       });
     }
+
+    // Client FilterChipSelect
+    const clientRow = panel.createDiv({ cls: "pm-raid-dashboard__filter-row" });
+    clientRow.createSpan({ cls: "pm-raid-dashboard__filter-label", text: "Clients" });
+    const clientOptions = buildEntityOptions(ENTITY_TAGS.client, this.queryService);
+    const clientChipSelect = new FilterChipSelect(clientRow, this.app, {
+      options: clientOptions,
+      selectedValues: this.filters.clientFilter,
+      placeholder: "Filter by client…",
+      ariaLabel: "Filter by client",
+      includeUnassigned: false,
+      unassignedLabel: "Include unassigned",
+      showUnassignedCheckbox: false,
+      onChange: (selectedValues) => {
+        this.filters.clientFilter = selectedValues;
+        this.debouncedSaveFilters();
+        this.render();
+      },
+    });
+    this.chipSelects.push(clientChipSelect);
+
+    // Engagement FilterChipSelect
+    const engagementRow = panel.createDiv({ cls: "pm-raid-dashboard__filter-row" });
+    engagementRow.createSpan({ cls: "pm-raid-dashboard__filter-label", text: "Engagements" });
+    const engagementOptions = buildEntityOptions(ENTITY_TAGS.engagement, this.queryService);
+    const engagementChipSelect = new FilterChipSelect(engagementRow, this.app, {
+      options: engagementOptions,
+      selectedValues: this.filters.engagementFilter,
+      placeholder: "Filter by engagement…",
+      ariaLabel: "Filter by engagement",
+      includeUnassigned: false,
+      unassignedLabel: "Include unassigned",
+      showUnassignedCheckbox: false,
+      onChange: (selectedValues) => {
+        this.filters.engagementFilter = selectedValues;
+        this.debouncedSaveFilters();
+        this.render();
+      },
+    });
+    this.chipSelects.push(engagementChipSelect);
 
     // Search input
     const searchRow = panel.createDiv({ cls: "pm-raid-dashboard__filter-row" });

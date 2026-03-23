@@ -1404,13 +1404,6 @@ details[open] .pm-filter-section__title::before {
   color: var(--color-purple);
 }
 
-/* Active chip — client and engagement rows (blue) */
-.pm-references__filter-row--client .pm-ref-filter-chip--active,
-.pm-references__filter-row--engagement .pm-ref-filter-chip--active {
-  background-color: color-mix(in srgb, var(--color-blue) 19%, transparent);
-  border-color: var(--color-blue);
-  color: var(--color-blue);
-}
 
 /* Clear filters button */
 .pm-references__clear-filters {

@@ -53,6 +53,11 @@ export interface SavedReferenceFilters {
   engagements?: string[];
 }
 
+export interface SavedRaidDashboardFilters {
+  clientFilter: string[];
+  engagementFilter: string[];
+}
+
 // ─── RAID Types ────────────────────────────────────────────────────────────
 
 export type RaidType = "Risk" | "Assumption" | "Issue" | "Decision";
