@@ -353,4 +353,43 @@ describe("pm-raid-dashboard processor", () => {
 
     expect(vaultOn).toHaveBeenCalledWith("modify", expect.any(Function));
   });
+
+  it("renders error element when getActiveRaidItems throws (Dataview unavailable)", () => {
+    const { services, mockPlugin, getHandler } = createMockServices();
+    (services.queryService.getActiveRaidItems as ReturnType<typeof vi.fn>).mockImplementation(() => {
+      throw new Error("Dataview not available");
+    });
+
+    registerPmRaidDashboardProcessor(
+      mockPlugin as unknown as Parameters<typeof registerPmRaidDashboardProcessor>[0],
+      services
+    );
+
+    const el = document.createElement("div");
+    const ctx = {
+      addChild: (child: { render(): void }) => { child.render(); },
+      sourcePath: "utility/RAID Dashboard.md",
+    };
+    getHandler()("", el, ctx);
+
+    const errorEl = el.querySelector(".pm-error");
+    expect(errorEl).not.toBeNull();
+  });
+
+  it("renders age pill using .ts millisecond value when raised-date is a Dataview DateTime object", () => {
+    const knownMs = new Date("2024-01-01").getTime();
+    const item = makeMockItem({
+      name: "DateTime Risk",
+      raisedDate: { ts: knownMs } as unknown as string,
+    });
+
+    const { el } = render([item]);
+
+    const agePill = el.querySelector(".raid-age-pill");
+    expect(agePill).not.toBeNull();
+    // Age in days must be a non-negative finite number
+    const days = parseInt(agePill?.textContent ?? "-1", 10);
+    expect(days).toBeGreaterThanOrEqual(0);
+    expect(isNaN(days)).toBe(false);
+  });
 });

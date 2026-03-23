@@ -184,6 +184,7 @@ export const ENTITY_TAGS = {
   person: "#person",
   reference: "#reference",
   referenceTopic: "#reference-topic",
+  raid: "#raid",
 } as const;
 
 // ─── Frontmatter keys ─────────────────────────────────────────────────────

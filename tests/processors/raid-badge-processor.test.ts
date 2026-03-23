@@ -131,6 +131,26 @@ describe("raid-badge post processor", () => {
     expect(badge?.textContent).toContain("Mitigates");
   });
 
+  it("falls back to generic label when vault file exists but has no raid-type frontmatter", () => {
+    // getFileCache returns a frontmatter object without a raid-type key
+    const { mockPlugin, getHandler } = createMockPlugin({});
+
+    // Vault finds the file, but frontmatter is empty (no raid-type)
+    (mockPlugin.app.vault.getAbstractFileByPath as ReturnType<typeof vi.fn>).mockReturnValue(
+      new TFile("raid/Unknown.md")
+    );
+
+    registerRaidBadgePostProcessor(mockPlugin);
+
+    const el = buildEl("{raid:positive}", "raid/Unknown.md");
+    getHandler()(el);
+
+    const badge = el.querySelector(".raid-badge--positive");
+    expect(badge).not.toBeNull();
+    // No raid-type → generic fallback
+    expect(badge?.textContent).toContain("Supports");
+  });
+
   it("falls back to generic label when vault file not found", () => {
     const { mockPlugin, getHandler } = createMockPlugin({});
 
