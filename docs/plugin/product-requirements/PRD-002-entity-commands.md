@@ -2,7 +2,7 @@
 
 ## 1. Overview
 
-The plugin registers 12 commands under the `PM:` prefix in the Obsidian command palette. Nine commands create new entity files, two convert an existing entity to another type, and one scaffolds the vault folder structure. Each creation command opens a modal to collect the required fields, then delegates to `EntityCreationService` to create the file and navigate to it.
+The plugin registers 14 commands under the `PM:` prefix in the Obsidian command palette. Eleven commands create new entity files, two convert an existing entity to another type, and one scaffolds the vault folder structure. Each creation command opens a modal to collect the required fields, then delegates to `EntityCreationService` to create the file and navigate to it.
 
 ---
 
@@ -31,6 +31,8 @@ The plugin registers 12 commands under the `PM:` prefix in the Obsidian command 
 | `PM: Create Recurring Meeting` | Create | Create a recurring meeting definition |
 | `PM: Create Recurring Meeting Event` | Create | Create an event note for a recurring meeting |
 | `PM: Create Project Note` | Create | Create a note linked to a project |
+| `PM: Create Reference Topic` | Create | Create a new reference topic note |
+| `PM: Create Reference` | Create | Create a new reference note linked to one or more topics |
 | `PM: Convert Inbox to Project` | Convert | Promote an inbox note to a full project |
 | `PM: Convert Single Meeting to Recurring` | Convert | Promote a single meeting to a recurring series |
 | `PM: Set Up Vault Structure` | Scaffold | Create required folders and default view files |
@@ -94,6 +96,35 @@ For all create commands, `EntityCreationService`:
 3. Creates `.base` files (Obsidian Bases) alongside view files.
 4. Safe to run on an existing vault — does not overwrite existing files.
 
+### 3.9 Create Reference Topic
+
+`PM: Create Reference Topic`:
+
+1. Opens an `InputModal` prompting for the topic name.
+2. Creates `reference/reference-topics/<Name>.md` from the Reference Topic template.
+   - Template includes a `pm-actions` block with a `create-reference` action (context: `topic`) and a `pm-references` block pre-filtered to that topic.
+3. Opens the new topic note on creation.
+
+**ActionContextManager pre-fill:** No pre-fill on this command — a topic has no parent entity.
+
+### 3.10 Create Reference
+
+`PM: Create Reference`:
+
+1. Opens an `EntityCreationModal` variant collecting:
+   - **Name** — text input (required)
+   - **Topics** — `list-suggester` over all `#reference-topic` files; at least one topic required before confirming; topics stored as `[[Topic Name]]` wikilinks
+   - **Client** (optional) — `suggester` over active `#client` files; includes a `(None)` option
+   - **Engagement** (optional) — `suggester` over active `#engagement` files, displayed as `"Eng (Client)"`; includes a `(None)` option
+2. Creates `reference/references/<Name>.md` from the Reference template.
+3. Writes `topics`, `client`, `engagement` via `processFrontMatter` after file creation.
+4. Opens the new reference note on creation.
+
+**ActionContextManager pre-fill:** When triggered from a `pm-actions` button with a `context` field:
+- From a Reference Topic page (`field: topic`) — pre-populates the topics list with that topic name (wrapped as `[[topicName]]`)
+- From a Client page (`field: client`) — pre-populates the client field
+- From an Engagement page (`field: engagement`) — pre-populates the engagement field
+
 ---
 
 ## 4. Data Requirements
@@ -124,7 +155,7 @@ For all create commands, `EntityCreationService`:
 
 ## 7. Acceptance Criteria
 
-- [ ] All 12 commands are registered and appear in the command palette with the `PM:` prefix.
+- [ ] All 14 commands are registered and appear in the command palette with the `PM:` prefix.
 - [ ] Each create command opens a modal and creates the file in the correct configured folder.
 - [ ] Wikilink fields are set via `processFrontMatter` after file creation, not via template string substitution.
 - [ ] The created file is opened immediately after creation.
@@ -132,6 +163,9 @@ For all create commands, `EntityCreationService`:
 - [ ] `ActionContextManager.consume()` pre-populates the modal field when a context is set by a `pm-actions` button.
 - [ ] Convert Inbox to Project sets `status: Complete` and `convertedTo` on the inbox note, and `convertedFrom` on the new project.
 - [ ] Scaffold vault creates folders and view files without overwriting existing content.
+- [ ] `PM: Create Reference Topic` creates a note with `pm-actions` and `pm-references` blocks and opens it immediately.
+- [ ] `PM: Create Reference` requires at least one topic before confirming; writes `topics`, `client`, `engagement` via `processFrontMatter`.
+- [ ] `ActionContextManager` pre-fill works for `create-reference` from Reference Topic, Client, and Engagement pages.
 
 ---
 
