@@ -143,7 +143,7 @@ engagementFilter: []
 - **Age** = days since `raised-date`, shown as `Nd`; calculated from `.ts` milliseconds when `raised-date` is a Dataview DateTime object (issue #27)
 - **Owner** avatar from first/last initials, resolved from `DataviewLink` object if necessary (issue #32)
 
-**Filter state:** Plain JS object on the `MarkdownRenderChild` instance — ephemeral, reset on re-render, no frontmatter writes.
+**Filter state persistence:** `raidTypes`, `statusFilter`, `clientFilter`, and `engagementFilter` are persisted to the source note's frontmatter under the key `pm-raid-dashboard-filters` on each chip or filter change (debounced) and restored on next load. `searchText` and `matrixCell` are intentionally ephemeral and reset on re-render.
 
 **Data fetch:** The dashboard calls `getAllRaidItems()`, which returns all RAID items regardless of status. Status filtering is applied in the UI layer (via `applyFilters()`) so that the Resolved and Closed status filter chips produce correct results. `getActiveRaidItems()` is intentionally not used here; it is reserved for contexts where only active items are wanted (e.g. the RAID item suggester in `PM: Tag Line as RAID Reference`).
 
@@ -309,6 +309,7 @@ Dataview may return wikilink fields (`client`, `engagement`, `owner`) as `Datavi
 - [ ] `pm-properties` renders all 10 RAID item fields with appropriate controls; status change to Resolved/Closed auto-sets `closed-date`; revert auto-clears it
 - [ ] `pm-raid-references` correctly finds and displays all annotated lines across the vault; empty state shows correct placeholder; uses link-source Dataview syntax
 - [ ] `pm-raid-dashboard` renders matrix, item counts, and grouped tables; all five filters (type, status, client, engagement, search) work correctly; matrix cell click toggles cell filter
+- [ ] `pm-raid-dashboard` filter state — `raidTypes`, `statusFilter`, `clientFilter`, `engagementFilter` — is persisted to frontmatter under `pm-raid-dashboard-filters` on each chip/filter change and correctly restored when the note is reopened; `searchText` and `matrixCell` are intentionally ephemeral
 - [ ] RAID folder path is configurable in Settings; settings deep-merge preserves the `raid` folder key when upgrading from older saved settings
 - [ ] `DataviewLink` objects in `client`, `engagement`, and `owner` fields are handled correctly in filter comparisons and display rendering
 - [ ] `raised-date` Dataview DateTime objects (`.ts` milliseconds) are handled correctly in age calculation
