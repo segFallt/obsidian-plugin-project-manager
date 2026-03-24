@@ -1,7 +1,6 @@
 import type { ReferenceProcessorServices } from "../plugin-context";
 import type { PmReferencesConfig, ReferenceFilters, ReferenceViewMode } from "../types";
 import { ENTITY_TAGS, DEBOUNCE_MS } from "../constants";
-import { normalizeToName } from "../utils/link-utils";
 import { renderTopicView } from "./reference-views/topic-view-renderer";
 import { renderClientView } from "./reference-views/client-view-renderer";
 import { renderEngagementView } from "./reference-views/engagement-view-renderer";
@@ -137,27 +136,23 @@ export class ReferenceDashboardView {
       return;
     }
 
-    // Topic chips
+    // Topic FilterChipSelect
     const topicRow = panel.createDiv({ cls: "pm-references__filter-row pm-references__filter-row--topic" });
     topicRow.createSpan({ cls: "pm-references__filter-label", text: "Topics" });
-    const topicChips = topicRow.createDiv({ cls: "pm-references__chips" });
-    const allTopics = this.services.queryService.getActiveEntitiesByTag(ENTITY_TAGS.referenceTopic);
-    for (const topicPage of allTopics) {
-      const wikilink = `[[${topicPage.file.name}]]`;
-      const active = this.filters.topics.includes(wikilink);
-      const chip = topicChips.createEl("button", {
-        cls: `pm-ref-filter-chip${active ? " pm-ref-filter-chip--active" : ""}`,
-        text: topicPage.file.name,
-      });
-      chip.addEventListener("click", () => {
-        const next = active
-          ? this.filters.topics.filter((t) => t !== wikilink)
-          : [...this.filters.topics, wikilink];
-        this.filters = { ...this.filters, topics: next };
+    const topicOptions = buildEntityOptions(ENTITY_TAGS.referenceTopic, this.services.queryService);
+    const topicChipSelect = new FilterChipSelect(topicRow, this.services.app, {
+      options: topicOptions,
+      selectedValues: this.filters.topics,
+      placeholder: "Filter by topic…",
+      ariaLabel: "Filter by topic",
+      showUnassignedCheckbox: false,
+      onChange: (selectedValues) => {
+        this.filters = { ...this.filters, topics: selectedValues };
         this.onFiltersChange(this.filters);
         this.render();
-      });
-    }
+      },
+    });
+    this.chipSelects.push(topicChipSelect);
 
     // Client FilterChipSelect
     const clientRow = panel.createDiv({ cls: "pm-references__filter-row pm-references__filter-row--client" });
@@ -168,8 +163,6 @@ export class ReferenceDashboardView {
       selectedValues: this.filters.clients,
       placeholder: "Filter by client…",
       ariaLabel: "Filter by client",
-      includeUnassigned: false,
-      unassignedLabel: "Include unassigned",
       showUnassignedCheckbox: false,
       onChange: (selectedValues) => {
         this.filters = { ...this.filters, clients: selectedValues };
@@ -188,8 +181,6 @@ export class ReferenceDashboardView {
       selectedValues: this.filters.engagements,
       placeholder: "Filter by engagement…",
       ariaLabel: "Filter by engagement",
-      includeUnassigned: false,
-      unassignedLabel: "Include unassigned",
       showUnassignedCheckbox: false,
       onChange: (selectedValues) => {
         this.filters = { ...this.filters, engagements: selectedValues };
@@ -214,12 +205,8 @@ export class ReferenceDashboardView {
   // ─── Output rendering ─────────────────────────────────────────────────────
 
   private renderOutput(): void {
-    const topicFilters = this.filters.topics
-      .map((wl) => normalizeToName(wl))
-      .filter((n): n is string => n !== null && n !== undefined);
-
     let references = this.services.queryService.getReferences({
-      topics: topicFilters.length > 0 ? topicFilters : undefined,
+      topics: this.filters.topics.length > 0 ? this.filters.topics : undefined,
       clients: this.filters.clients.length > 0 ? this.filters.clients : undefined,
       engagements: this.filters.engagements.length > 0 ? this.filters.engagements : undefined,
     });
