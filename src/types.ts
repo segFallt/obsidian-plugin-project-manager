@@ -53,11 +53,6 @@ export interface SavedReferenceFilters {
   engagements?: string[];
 }
 
-export interface SavedRaidDashboardFilters {
-  clientFilter: string[];
-  engagementFilter: string[];
-}
-
 // ─── RAID Types ────────────────────────────────────────────────────────────
 
 export type RaidType = "Risk" | "Assumption" | "Issue" | "Decision";
@@ -299,6 +294,9 @@ export type SavedDashboardFilters = Omit<DashboardFilters, "searchText">;
 
 /** By-project filter state persisted to frontmatter (excludes ephemeral projectFilter). */
 export type SavedByProjectFilters = Omit<ByProjectFilters, "projectFilter">;
+
+/** RAID dashboard filter state persisted to frontmatter (excludes ephemeral searchText and matrixCell). */
+export type SavedRaidDashboardFilters = Omit<RaidDashboardFilters, "searchText" | "matrixCell">;
 
 // ─── Plugin Internal Types ─────────────────────────────────────────────────
 

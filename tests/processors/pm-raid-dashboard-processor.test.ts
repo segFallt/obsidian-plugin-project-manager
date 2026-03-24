@@ -1,4 +1,5 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
+import { TFile } from "obsidian";
 import { registerPmRaidDashboardProcessor } from "@/processors/pm-raid-dashboard-processor";
 import type { RaidProcessorServices } from "@/services/interfaces";
 import type { DataviewPage } from "@/types";
@@ -436,5 +437,169 @@ describe("pm-raid-dashboard processor", () => {
     const days = parseInt(agePill?.textContent ?? "-1", 10);
     expect(days).toBeGreaterThanOrEqual(0);
     expect(isNaN(days)).toBe(false);
+  });
+
+  describe("filter persistence", () => {
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it("clicking a RAID type chip calls processFrontMatter after debounce", async () => {
+      vi.useFakeTimers();
+      const sourcePath = "utility/RAID Dashboard.md";
+      const mockFile = new TFile(sourcePath);
+      const processFrontMatter = vi.fn(async (_file: TFile, callback: (fm: Record<string, unknown>) => void) => {
+        callback({});
+      });
+
+      const { services, mockPlugin, getHandler } = createMockServices();
+      (services.app.vault as { getAbstractFileByPath: ReturnType<typeof vi.fn> }).getAbstractFileByPath =
+        vi.fn(() => mockFile);
+      (services.app.fileManager as { processFrontMatter: ReturnType<typeof vi.fn> }).processFrontMatter =
+        processFrontMatter;
+
+      registerPmRaidDashboardProcessor(
+        mockPlugin as unknown as Parameters<typeof registerPmRaidDashboardProcessor>[0],
+        services
+      );
+
+      const el = document.createElement("div");
+      const ctx = {
+        addChild: (child: { render(): void }) => { child.render(); },
+        sourcePath,
+      };
+      getHandler()("", el, ctx);
+
+      const chips = el.querySelectorAll(".raid-chip");
+      const riskChip = Array.from(chips).find((c) => c.textContent === "R") as HTMLElement;
+      expect(riskChip).toBeDefined();
+      riskChip.click();
+
+      expect(processFrontMatter).not.toHaveBeenCalled();
+
+      await vi.runAllTimersAsync();
+
+      expect(processFrontMatter).toHaveBeenCalled();
+    });
+
+    it("clicking a status chip calls processFrontMatter after debounce", async () => {
+      vi.useFakeTimers();
+      const sourcePath = "utility/RAID Dashboard.md";
+      const mockFile = new TFile(sourcePath);
+      const processFrontMatter = vi.fn(async (_file: TFile, callback: (fm: Record<string, unknown>) => void) => {
+        callback({});
+      });
+
+      const { services, mockPlugin, getHandler } = createMockServices();
+      (services.app.vault as { getAbstractFileByPath: ReturnType<typeof vi.fn> }).getAbstractFileByPath =
+        vi.fn(() => mockFile);
+      (services.app.fileManager as { processFrontMatter: ReturnType<typeof vi.fn> }).processFrontMatter =
+        processFrontMatter;
+
+      registerPmRaidDashboardProcessor(
+        mockPlugin as unknown as Parameters<typeof registerPmRaidDashboardProcessor>[0],
+        services
+      );
+
+      const el = document.createElement("div");
+      const ctx = {
+        addChild: (child: { render(): void }) => { child.render(); },
+        sourcePath,
+      };
+      getHandler()("", el, ctx);
+
+      const chips = el.querySelectorAll(".raid-chip");
+      const openChip = Array.from(chips).find((c) => c.textContent === "Open") as HTMLElement;
+      expect(openChip).toBeDefined();
+      openChip.click();
+
+      expect(processFrontMatter).not.toHaveBeenCalled();
+
+      await vi.runAllTimersAsync();
+
+      expect(processFrontMatter).toHaveBeenCalled();
+    });
+
+    it("loadSavedFilters restores raidTypes from frontmatter", () => {
+      const sourcePath = "utility/RAID Dashboard.md";
+      const mockFile = new TFile(sourcePath);
+
+      const { services, mockPlugin, getHandler } = createMockServices();
+      (services.app.vault as { getAbstractFileByPath: ReturnType<typeof vi.fn> }).getAbstractFileByPath =
+        vi.fn(() => mockFile);
+      (services.app.metadataCache as { getFileCache: ReturnType<typeof vi.fn> }).getFileCache = vi.fn(() => ({
+        frontmatter: {
+          "pm-raid-dashboard-filters": {
+            raidTypes: ["Risk", "Issue"],
+            statusFilter: ["Open", "In Progress"],
+            clientFilter: [],
+            engagementFilter: [],
+          },
+        },
+      }));
+
+      registerPmRaidDashboardProcessor(
+        mockPlugin as unknown as Parameters<typeof registerPmRaidDashboardProcessor>[0],
+        services
+      );
+
+      const el = document.createElement("div");
+      const ctx = {
+        addChild: (child: { render(): void }) => { child.render(); },
+        sourcePath,
+      };
+      getHandler()("", el, ctx);
+
+      const chips = el.querySelectorAll(".raid-chip");
+      const riskChip = Array.from(chips).find((c) => c.textContent === "R");
+      const assumptionChip = Array.from(chips).find((c) => c.textContent === "A");
+      const issueChip = Array.from(chips).find((c) => c.textContent === "I");
+      const decisionChip = Array.from(chips).find((c) => c.textContent === "D");
+
+      expect(riskChip?.classList.contains("raid-chip--active")).toBe(true);
+      expect(assumptionChip?.classList.contains("raid-chip--active")).toBe(false);
+      expect(issueChip?.classList.contains("raid-chip--active")).toBe(true);
+      expect(decisionChip?.classList.contains("raid-chip--active")).toBe(false);
+    });
+
+    it("loadSavedFilters restores statusFilter from frontmatter", () => {
+      const sourcePath = "utility/RAID Dashboard.md";
+      const mockFile = new TFile(sourcePath);
+
+      const { services, mockPlugin, getHandler } = createMockServices();
+      (services.app.vault as { getAbstractFileByPath: ReturnType<typeof vi.fn> }).getAbstractFileByPath =
+        vi.fn(() => mockFile);
+      (services.app.metadataCache as { getFileCache: ReturnType<typeof vi.fn> }).getFileCache = vi.fn(() => ({
+        frontmatter: {
+          "pm-raid-dashboard-filters": {
+            raidTypes: ["Risk", "Assumption", "Issue", "Decision"],
+            statusFilter: ["Resolved"],
+            clientFilter: [],
+            engagementFilter: [],
+          },
+        },
+      }));
+
+      registerPmRaidDashboardProcessor(
+        mockPlugin as unknown as Parameters<typeof registerPmRaidDashboardProcessor>[0],
+        services
+      );
+
+      const el = document.createElement("div");
+      const ctx = {
+        addChild: (child: { render(): void }) => { child.render(); },
+        sourcePath,
+      };
+      getHandler()("", el, ctx);
+
+      const chips = el.querySelectorAll(".raid-chip");
+      const openChip = Array.from(chips).find((c) => c.textContent === "Open");
+      const resolvedChip = Array.from(chips).find((c) => c.textContent === "Resolved");
+      const closedChip = Array.from(chips).find((c) => c.textContent === "Closed");
+
+      expect(openChip?.classList.contains("raid-chip--active")).toBe(false);
+      expect(resolvedChip?.classList.contains("raid-chip--active")).toBe(true);
+      expect(closedChip?.classList.contains("raid-chip--active")).toBe(false);
+    });
   });
 });

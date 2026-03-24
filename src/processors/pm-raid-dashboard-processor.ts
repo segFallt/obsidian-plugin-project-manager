@@ -1,5 +1,5 @@
-import { MarkdownRenderChild, parseYaml } from "obsidian";
-import type { App, TFile, MarkdownPostProcessorContext } from "obsidian";
+import { MarkdownRenderChild, parseYaml, TFile } from "obsidian";
+import type { App, MarkdownPostProcessorContext } from "obsidian";
 import type { Plugin } from "obsidian";
 import type { IQueryService, ILoggerService, RaidProcessorServices } from "../services/interfaces";
 import type { RaidDashboardFilters, RaidType, RaidStatus, RaidLikelihood, RaidImpact, DataviewPage, SavedRaidDashboardFilters } from "../types";
@@ -165,13 +165,27 @@ class PmRaidDashboardRenderChild extends MarkdownRenderChild {
   // ─── Persistence ─────────────────────────────────────────────────────────
 
   private loadSavedFilters(): void {
-    const file = this.app.vault.getAbstractFileByPath(this.sourcePath) as TFile | null;
-    if (!file) return;
+    const file = this.app.vault.getAbstractFileByPath(this.sourcePath);
+    if (!(file instanceof TFile)) return;
     const cache = this.app.metadataCache.getFileCache(file);
-    const saved = cache?.frontmatter?.[FM_KEY.RAID_DASHBOARD_FILTERS] as SavedRaidDashboardFilters | undefined;
+    const saved = cache?.frontmatter?.[FM_KEY.RAID_DASHBOARD_FILTERS] as Partial<SavedRaidDashboardFilters> | undefined;
     if (!saved) return;
-    if (Array.isArray(saved.clientFilter)) this.filters.clientFilter = saved.clientFilter;
-    if (Array.isArray(saved.engagementFilter)) this.filters.engagementFilter = saved.engagementFilter;
+    if (Array.isArray(saved.clientFilter)) {
+      this.filters.clientFilter = saved.clientFilter;
+    }
+    if (Array.isArray(saved.engagementFilter)) {
+      this.filters.engagementFilter = saved.engagementFilter;
+    }
+    if (Array.isArray(saved.raidTypes)) {
+      this.filters.raidTypes = saved.raidTypes.filter((v): v is RaidType =>
+        ["Risk", "Assumption", "Issue", "Decision"].includes(v)
+      );
+    }
+    if (Array.isArray(saved.statusFilter)) {
+      this.filters.statusFilter = saved.statusFilter.filter((v): v is RaidStatus =>
+        ["Open", "In Progress", "Resolved", "Closed"].includes(v)
+      );
+    }
   }
 
   private debouncedSaveFilters(): void {
@@ -182,14 +196,16 @@ class PmRaidDashboardRenderChild extends MarkdownRenderChild {
   }
 
   private async persistFilters(): Promise<void> {
-    const file = this.app.vault.getAbstractFileByPath(this.sourcePath) as TFile | null;
-    if (!file) return;
+    const file = this.app.vault.getAbstractFileByPath(this.sourcePath);
+    if (!(file instanceof TFile)) return;
     this.isUpdating = true;
     try {
       await this.app.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => {
         const toSave: SavedRaidDashboardFilters = {
           clientFilter: this.filters.clientFilter,
           engagementFilter: this.filters.engagementFilter,
+          raidTypes: this.filters.raidTypes,
+          statusFilter: this.filters.statusFilter,
         };
         fm[FM_KEY.RAID_DASHBOARD_FILTERS] = toSave;
       });
@@ -229,6 +245,7 @@ class PmRaidDashboardRenderChild extends MarkdownRenderChild {
         } else {
           this.filters.raidTypes = [...this.filters.raidTypes, raidType];
         }
+        this.debouncedSaveFilters();
         this.render();
       });
     }
@@ -249,6 +266,7 @@ class PmRaidDashboardRenderChild extends MarkdownRenderChild {
         } else {
           this.filters.statusFilter = [...this.filters.statusFilter, status];
         }
+        this.debouncedSaveFilters();
         this.render();
       });
     }
