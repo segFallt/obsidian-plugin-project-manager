@@ -40,7 +40,7 @@ export interface PmReferencesConfig {
 
 export interface ReferenceFilters {
   viewMode: ReferenceViewMode;
-  topics: string[];      // wikilink strings e.g. "[[Architecture]]"
+  topics: string[];      // plain display names e.g. "Architecture"
   clients: string[];     // display names
   engagements: string[]; // display names
   searchText: string;

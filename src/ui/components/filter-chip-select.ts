@@ -9,8 +9,8 @@ export interface FilterChipSelectConfig {
   selectedValues: string[];
   placeholder: string;
   ariaLabel: string;
-  includeUnassigned: boolean;
-  unassignedLabel: string;
+  includeUnassigned?: boolean;
+  unassignedLabel?: string;
   showUnassignedCheckbox?: boolean;
   onChange: (selectedValues: string[], includeUnassigned: boolean) => void;
 }
@@ -41,7 +41,7 @@ export class FilterChipSelect {
     private readonly config: FilterChipSelectConfig
   ) {
     this.selectedValues = [...config.selectedValues];
-    this.includeUnassigned = config.includeUnassigned;
+    this.includeUnassigned = config.includeUnassigned ?? false;
 
     const wrapper = container.createDiv({ cls: "pm-filter-chip-select" });
 
@@ -71,8 +71,8 @@ export class FilterChipSelect {
       const unassignedCb = unassignedLabel.createEl("input", { type: "checkbox" });
       this.unassignedCb = unassignedCb;
       unassignedCb.checked = this.includeUnassigned;
-      unassignedCb.setAttribute("aria-label", config.unassignedLabel);
-      unassignedLabel.createSpan({ text: config.unassignedLabel });
+      unassignedCb.setAttribute("aria-label", config.unassignedLabel ?? "");
+      unassignedLabel.createSpan({ text: config.unassignedLabel ?? "" });
       unassignedCb.addEventListener("change", () => {
         this.includeUnassigned = unassignedCb.checked;
         this.config.onChange(this.selectedValues, this.includeUnassigned);

@@ -115,6 +115,28 @@ describe("QueryService — getReferences", () => {
     );
   });
 
+  it("topic filter: legacy wikilink filter values are handled for backwards compatibility", () => {
+    // Persisted filter state from before the migration may contain wikilink strings
+    // (e.g. "[[Architecture]]"). getReferences() normalizes both sides via normalizeToName,
+    // so both plain names and wikilink strings work as filter values.
+    const { qs } = createQueryService([
+      {
+        path: "reference/references/Ref1.md",
+        tags: ["#reference"],
+        frontmatter: { topics: ["[[Architecture]]"] },
+      },
+      {
+        path: "reference/references/Ref2.md",
+        tags: ["#reference"],
+        frontmatter: { topics: ["[[Security]]"] },
+      },
+    ]);
+
+    const result = qs.getReferences({ topics: ["[[Architecture]]"] });
+    expect(result).toHaveLength(1);
+    expect(result[0].file.name).toBe("Ref1");
+  });
+
   it("client filter: direct reference.client wikilink", () => {
     const { qs } = createQueryService([
       {

@@ -262,8 +262,6 @@ class PmRaidDashboardRenderChild extends MarkdownRenderChild {
       selectedValues: this.filters.clientFilter,
       placeholder: "Filter by client…",
       ariaLabel: "Filter by client",
-      includeUnassigned: false,
-      unassignedLabel: "Include unassigned",
       showUnassignedCheckbox: false,
       onChange: (selectedValues) => {
         this.filters.clientFilter = selectedValues;
@@ -282,8 +280,6 @@ class PmRaidDashboardRenderChild extends MarkdownRenderChild {
       selectedValues: this.filters.engagementFilter,
       placeholder: "Filter by engagement…",
       ariaLabel: "Filter by engagement",
-      includeUnassigned: false,
-      unassignedLabel: "Include unassigned",
       showUnassignedCheckbox: false,
       onChange: (selectedValues) => {
         this.filters.engagementFilter = selectedValues;
