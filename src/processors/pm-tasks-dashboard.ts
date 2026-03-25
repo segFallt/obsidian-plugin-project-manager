@@ -687,7 +687,7 @@ export class DashboardView {
         allTasks,
         f,
         dv,
-        this.services.queryService
+        this.services.hierarchyService
       );
 
       if (allTasks.length === 0) {

@@ -104,7 +104,7 @@ export interface ITaskFilterService {
     tasks: DataviewTask[],
     f: DashboardFilters,
     dv: DataviewApi,
-    queryService: IQueryService
+    hierarchyService: IEntityHierarchyService
   ): DataviewTask[];
   applyContextSpecificFilters(
     tasks: DataviewTask[],
@@ -119,13 +119,14 @@ export interface ITaskFilterService {
     clientFilter: string[],
     includeUnassigned: boolean,
     dv: DataviewApi,
-    queryService: IQueryService
+    hierarchyService: IEntityHierarchyService
   ): boolean;
   matchesEngagementFilter(
     task: DataviewTask,
     engagementFilter: string[],
     includeUnassigned: boolean,
-    queryService: IQueryService
+    dv: DataviewApi,
+    hierarchyService: IEntityHierarchyService
   ): boolean;
   matchesInboxStatusFilter(pageStatus: unknown, filter: InboxStatusFilter): boolean;
 }
@@ -158,9 +159,22 @@ export interface ITestDataService {
   cleanTestData(): Promise<number>;
 }
 
+/**
+ * Resolves entity hierarchy (client and engagement) from a DataviewPage.
+ * Centralises the dual-path resolution logic so that all consumers —
+ * RAID dashboard, task filter, reference views — share one implementation.
+ */
+export interface IEntityHierarchyService {
+  /** Returns the resolved client name for a page, or null if none can be found. */
+  resolveClientName(page: DataviewPage): string | null;
+  /** Returns the resolved engagement name for a page, or null if none can be found. */
+  resolveEngagementName(page: DataviewPage): string | null;
+}
+
 /** Narrow service bundle consumed by RAID processors. */
 export interface RaidProcessorServices {
   app: App;
   queryService: IQueryService;
+  hierarchyService: IEntityHierarchyService;
   loggerService: ILoggerService;
 }
