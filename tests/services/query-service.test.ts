@@ -728,5 +728,25 @@ describe("QueryService", () => {
       expect(result).toHaveLength(1);
       expect(result[0].file.name).toBe("R1");
     });
+
+    it("resolves clientName via engagement→client chain when RAID item has no direct client", () => {
+      // R1 has engagement "Eng1"; engagement page "Eng1" has client "Acme"
+      // resolvePageClient must traverse engagement→client to surface R1 under "Acme"
+      const { qs } = createQueryService([
+        {
+          path: "raid/R1.md",
+          tags: ["#raid"],
+          frontmatter: { status: "Open", engagement: "[[Eng1]]" },
+        },
+        {
+          path: "engagements/Eng1.md",
+          tags: ["#engagement"],
+          frontmatter: { client: "[[Acme]]" },
+        },
+      ]);
+      const result = qs.getRaidItemsForContext("Acme");
+      expect(result).toHaveLength(1);
+      expect(result[0].file.name).toBe("R1");
+    });
   });
 });

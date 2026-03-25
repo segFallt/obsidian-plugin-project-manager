@@ -1,7 +1,7 @@
 import { MarkdownRenderChild, parseYaml, TFile } from "obsidian";
 import type { App, MarkdownPostProcessorContext } from "obsidian";
 import type { Plugin } from "obsidian";
-import type { IQueryService, ILoggerService, RaidProcessorServices } from "../services/interfaces";
+import type { IQueryService, ILoggerService, IEntityHierarchyService, RaidProcessorServices } from "../services/interfaces";
 import type { RaidDashboardFilters, RaidType, RaidStatus, RaidLikelihood, RaidImpact, DataviewPage, SavedRaidDashboardFilters } from "../types";
 import { CODEBLOCK, DEBOUNCE_MS, CSS_CLS, ENTITY_TAGS, FM_KEY } from "../constants";
 import { renderError } from "./dom-helpers";
@@ -74,6 +74,7 @@ export function registerPmRaidDashboardProcessor(
         ctx.sourcePath,
         services.app,
         services.queryService,
+        services.hierarchyService,
         services.loggerService
       );
       ctx.addChild(child);
@@ -98,6 +99,7 @@ class PmRaidDashboardRenderChild extends MarkdownRenderChild {
     private readonly sourcePath: string,
     private readonly app: App,
     private readonly queryService: IQueryService,
+    private readonly hierarchyService: IEntityHierarchyService,
     private readonly loggerService: ILoggerService
   ) {
     super(containerEl);
@@ -332,11 +334,11 @@ class PmRaidDashboardRenderChild extends MarkdownRenderChild {
       if (this.filters.statusFilter.length > 0 && !this.filters.statusFilter.includes(status)) return false;
 
       if (this.filters.clientFilter.length > 0) {
-        const client = normalizeToName(item.client) ?? "";
+        const client = this.hierarchyService.resolveClientName(item) ?? "";
         if (!this.filters.clientFilter.some((c) => client === c)) return false;
       }
       if (this.filters.engagementFilter.length > 0) {
-        const engagement = normalizeToName(item.engagement) ?? "";
+        const engagement = this.hierarchyService.resolveEngagementName(item) ?? "";
         if (!this.filters.engagementFilter.some((e) => engagement === e)) return false;
       }
 

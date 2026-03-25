@@ -1,6 +1,7 @@
 import { Notice, Plugin } from "obsidian";
 import { ProjectManagerSettings, DEFAULT_SETTINGS, ProjectManagerSettingTab, mergeSettings } from "./settings";
 import { QueryService } from "./services/query-service";
+import { EntityHierarchyService } from "./services/entity-hierarchy-service";
 import { EntityService } from "./services/entity-service";
 import { EntityCreationService } from "./services/entity-creation-service";
 import { EntityConversionService } from "./services/entity-conversion-service";
@@ -17,6 +18,7 @@ import { TestDataService } from "./services/test-data-service";
 import type {
   IQueryService,
   IEntityService,
+  IEntityHierarchyService,
   ITemplateService,
   ITaskParser,
   IScaffoldService,
@@ -44,6 +46,7 @@ export default class ProjectManagerPlugin extends Plugin {
   // Services declared as interface types (DIP boundary).
   // Concrete classes are only referenced inside initServices().
   queryService!: IQueryService;
+  hierarchyService!: IEntityHierarchyService;
   entityService!: IEntityService;
   taskParser!: ITaskParser;
   scaffoldService!: IScaffoldService;
@@ -117,6 +120,7 @@ export default class ProjectManagerPlugin extends Plugin {
 
     this.templateService = new TemplateService();
     this.queryService = new QueryService(this.app, getDataviewApi, this.settings.folders);
+    this.hierarchyService = new EntityHierarchyService(this.queryService);
 
     const navigationService = new NavigationService(this.app);
     const creationService = new EntityCreationService(this.app, this.settings, this.templateService, navigationService);

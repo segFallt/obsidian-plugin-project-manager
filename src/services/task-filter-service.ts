@@ -12,7 +12,7 @@ import { todayISO } from "../utils/date-utils";
 import { getTaskContext, getTaskPriority, addDays } from "../utils/task-utils";
 import { CONTEXT, STATUS, WEEK_DAYS, ISO_DATE_LENGTH, VIEW_MODE, TOMORROW_OFFSET, NEXT_WEEK_START_OFFSET, NEXT_WEEK_END_OFFSET } from "../constants";
 import type { FolderSettings } from "../settings";
-import type { IQueryService, ITaskFilterService } from "./interfaces";
+import type { IEntityHierarchyService, ITaskFilterService } from "./interfaces";
 
 /**
  * Pure filtering logic for the task dashboard and by-project views.
@@ -32,7 +32,7 @@ export class TaskFilterService implements ITaskFilterService {
     tasks: DataviewTask[],
     f: DashboardFilters,
     dv: DataviewApi,
-    queryService: IQueryService
+    hierarchyService: IEntityHierarchyService
   ): DataviewTask[] {
     let filtered = tasks;
 
@@ -58,13 +58,13 @@ export class TaskFilterService implements ITaskFilterService {
 
     if (f.clientFilter.length > 0 || f.includeUnassignedClients) {
       filtered = filtered.filter((t) =>
-        this.matchesClientFilter(t, f.clientFilter, f.includeUnassignedClients, dv, queryService)
+        this.matchesClientFilter(t, f.clientFilter, f.includeUnassignedClients, dv, hierarchyService)
       );
     }
 
     if (f.engagementFilter.length > 0 || f.includeUnassignedEngagements) {
       filtered = filtered.filter((t) =>
-        this.matchesEngagementFilter(t, f.engagementFilter, f.includeUnassignedEngagements, queryService)
+        this.matchesEngagementFilter(t, f.engagementFilter, f.includeUnassignedEngagements, dv, hierarchyService)
       );
     }
 
@@ -198,46 +198,37 @@ export class TaskFilterService implements ITaskFilterService {
 
   /**
    * Returns true if a task belongs to one of the specified clients.
-   * Traverses the engagement → client chain when the file has no direct client.
+   * Delegates all traversal chains to hierarchyService.resolveClientName, which
+   * covers: direct page.client, engagement → client, relatedProject → project.engagement
+   * → client, and recurring-meeting-event → meeting.engagement → client.
+   *
+   * Falls back to loading the parent project page directly to handle the edge case
+   * where a project has a direct client field but no engagement.
    */
   matchesClientFilter(
     task: DataviewTask,
     clientFilter: string[],
     includeUnassigned: boolean,
     dv: DataviewApi,
-    queryService: IQueryService
+    hierarchyService: IEntityHierarchyService
   ): boolean {
     if (clientFilter.length === 0 && !includeUnassigned) return true;
 
     const page = dv.page(task.path);
     if (!page) return false;
 
-    let taskClient = normalizeToName(page.client);
+    let taskClient = hierarchyService.resolveClientName(page);
 
-    // Try engagement chain
-    if (!taskClient && page.engagement) {
-      taskClient = queryService.getClientFromEngagementLink(page.engagement);
-    }
-
-    // Try parent project chain
+    // Edge-case fallback: project note whose parent project has a direct client
+    // field but no engagement field (resolveClientName covers the engagement path;
+    // this handles the client-only path on the parent project page).
     if (!taskClient && page.relatedProject) {
       const parentProjectName = normalizeToName(page.relatedProject);
       if (parentProjectName) {
         const parentProject = dv.page(`${this.folders.projects}/${parentProjectName}`);
         if (parentProject) {
-          taskClient = normalizeToName(parentProject.client);
-          if (!taskClient && parentProject.engagement) {
-            taskClient = queryService.getClientFromEngagementLink(parentProject.engagement);
-          }
+          taskClient = hierarchyService.resolveClientName(parentProject);
         }
-      }
-    }
-
-    // Try parent recurring meeting chain
-    if (!taskClient && page["recurring-meeting"]) {
-      const meetingEngagement = queryService.getEngagementNameForPath(task.path);
-      if (meetingEngagement) {
-        taskClient = queryService.getClientFromEngagementLink(meetingEngagement);
       }
     }
 
@@ -249,17 +240,20 @@ export class TaskFilterService implements ITaskFilterService {
   /**
    * Returns true if a task belongs to one of the specified engagements.
    * Delegates all traversal (direct engagement, project note, recurring meeting
-   * event) to queryService.getEngagementNameForPath.
+   * event) to hierarchyService.resolveEngagementName.
    */
   matchesEngagementFilter(
     task: DataviewTask,
     engagementFilter: string[],
     includeUnassigned: boolean,
-    queryService: IQueryService
+    dv: DataviewApi,
+    hierarchyService: IEntityHierarchyService
   ): boolean {
     if (engagementFilter.length === 0 && !includeUnassigned) return true;
 
-    const taskEngagement = queryService.getEngagementNameForPath(task.path);
+    const page = dv.page(task.path);
+    if (!page) return false;
+    const taskEngagement = hierarchyService.resolveEngagementName(page);
 
     if (includeUnassigned && !taskEngagement) return true;
     if (engagementFilter.length === 0) return includeUnassigned ? !taskEngagement : false;

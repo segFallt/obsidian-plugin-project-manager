@@ -306,6 +306,9 @@ export class QueryService implements IQueryService {
   /**
    * Returns active RAID items (status not Resolved or Closed) optionally filtered
    * by client or engagement name. If neither filter is provided, returns all active items.
+   *
+   * Client matching uses dual-path resolution: direct page.client field OR
+   * page.engagement → engagement.client traversal.
    */
   getRaidItemsForContext(clientName?: string, engagementName?: string): DataviewPage[] {
     const dv = this.dv();
@@ -319,7 +322,7 @@ export class QueryService implements IQueryService {
     const normalizedClientName = normalizeToName(clientName) ?? "";
     const normalizedEngagementName = normalizeToName(engagementName) ?? "";
     return pages.filter((p: DataviewPage) => {
-      const client = normalizeToName(p.client) ?? "";
+      const client = this.resolvePageClient(p);
       const engagement = normalizeToName(p.engagement) ?? "";
       return (
         (normalizedClientName && client === normalizedClientName) ||
@@ -366,9 +369,7 @@ export class QueryService implements IQueryService {
 
       // Client filter (OR) — dual-path: direct client OR via engagement
       if (filters.clients && filters.clients.length > 0) {
-        const directClient = normalizeToName(p.client) ?? "";
-        const viaEngagement = this.getClientFromEngagementLink(p.engagement) ?? "";
-        const resolvedClient = directClient || viaEngagement;
+        const resolvedClient = this.resolvePageClient(p);
         if (!filters.clients.includes(resolvedClient)) return false;
       }
 
@@ -380,5 +381,21 @@ export class QueryService implements IQueryService {
 
       return true;
     });
+  }
+
+  /**
+   * Resolves a client name for a page using the same traversal chain as
+   * EntityHierarchyService.resolveClientName:
+   *   1. direct page.client field
+   *   2. getEngagementNameForPath → getClientFromEngagementLink (covers direct
+   *      engagement, relatedProject→project.engagement, and
+   *      recurring-meeting-event→meeting.engagement chains)
+   * Returns empty string (not null) so callers can use it directly in comparisons.
+   */
+  private resolvePageClient(page: DataviewPage): string {
+    const direct = normalizeToName(page.client);
+    if (direct) return direct;
+    const engName = this.getEngagementNameForPath(page.file?.path ?? "");
+    return engName ? (this.getClientFromEngagementLink(engName) ?? "") : "";
   }
 }
