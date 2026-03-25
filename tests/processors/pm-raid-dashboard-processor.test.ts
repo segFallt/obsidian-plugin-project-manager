@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { TFile } from "obsidian";
 import { registerPmRaidDashboardProcessor } from "@/processors/pm-raid-dashboard-processor";
-import type { RaidProcessorServices } from "@/services/interfaces";
+import type { RaidProcessorServices, IEntityHierarchyService } from "@/services/interfaces";
 import type { DataviewPage } from "@/types";
 
 // ─── Mock item factory ────────────────────────────────────────────────────
@@ -43,7 +43,34 @@ function makeMockItem(overrides: Partial<{
 
 // ─── Mock services factory ────────────────────────────────────────────────
 
-function createMockServices(items: DataviewPage[] = []) {
+function createMockHierarchyService(overrides: Partial<{
+  resolveClientName: (page: DataviewPage) => string | null;
+  resolveEngagementName: (page: DataviewPage) => string | null;
+}> = {}): IEntityHierarchyService {
+  return {
+    resolveClientName: overrides.resolveClientName ?? ((page: DataviewPage) => {
+      // Default: mirror direct-client normalisation so existing tests still pass
+      const client = page.client;
+      if (!client) return null;
+      if (typeof client === "object" && client !== null && "path" in client) {
+        const p = (client as { path: string }).path;
+        return p.split("/").pop()?.replace(/\.md$/, "") ?? null;
+      }
+      return String(client) || null;
+    }),
+    resolveEngagementName: overrides.resolveEngagementName ?? ((page: DataviewPage) => {
+      const eng = page.engagement;
+      if (!eng) return null;
+      if (typeof eng === "object" && eng !== null && "path" in eng) {
+        const p = (eng as { path: string }).path;
+        return p.split("/").pop()?.replace(/\.md$/, "") ?? null;
+      }
+      return String(eng) || null;
+    }),
+  };
+}
+
+function createMockServices(items: DataviewPage[] = [], hierarchyService?: IEntityHierarchyService) {
   let registeredHandler:
     | ((
         source: string,
@@ -78,6 +105,7 @@ function createMockServices(items: DataviewPage[] = []) {
       getAllRaidItems: vi.fn(() => items),
       getActiveEntitiesByTag: vi.fn(() => []),
     } as unknown as RaidProcessorServices["queryService"],
+    hierarchyService: hierarchyService ?? createMockHierarchyService(),
     loggerService: {
       debug: vi.fn(),
       info: vi.fn(),
@@ -96,8 +124,8 @@ function createMockServices(items: DataviewPage[] = []) {
 
 // ─── Render helper ─────────────────────────────────────────────────────────
 
-function render(items: DataviewPage[] = [], source = "") {
-  const { services, mockPlugin, getHandler, vaultOn } = createMockServices(items);
+function render(items: DataviewPage[] = [], source = "", hierarchyService?: IEntityHierarchyService) {
+  const { services, mockPlugin, getHandler, vaultOn } = createMockServices(items, hierarchyService);
 
   registerPmRaidDashboardProcessor(
     mockPlugin as unknown as Parameters<typeof registerPmRaidDashboardProcessor>[0],
@@ -419,6 +447,50 @@ describe("pm-raid-dashboard processor", () => {
       const rows = el.querySelectorAll(".raid-item-row");
       expect(rows.length).toBe(1);
       expect(rows[0].querySelector("td")?.textContent).toBe("Closed Risk");
+    });
+  });
+
+  describe("clientFilter uses engagement→client hierarchy fallback", () => {
+    it("includes a RAID item with no client field when its engagement resolves to the filtered client", () => {
+      // The item has an engagement but no direct client.
+      // The hierarchyService resolves the client via the engagement chain.
+      const item = makeMockItem({
+        name: "Hierarchy Risk",
+        client: undefined,
+        engagement: { path: "engagements/Project X.md" },
+      });
+
+      const hierarchyService = createMockHierarchyService({
+        resolveClientName: (page) => {
+          // Simulate: no direct client, engagement resolves to "Acme Corp"
+          if (page.engagement && !page.client) return "Acme Corp";
+          return null;
+        },
+      });
+
+      const { el } = render([item], "clientFilter:\n  - Acme Corp", hierarchyService);
+
+      const rows = el.querySelectorAll(".raid-item-row");
+      expect(rows.length).toBe(1);
+      expect(rows[0].querySelector("td")?.textContent).toBe("Hierarchy Risk");
+    });
+
+    it("excludes a RAID item with no client field when its engagement resolves to a different client", () => {
+      const item = makeMockItem({
+        name: "Other Client Risk",
+        client: undefined,
+        engagement: { path: "engagements/Project Y.md" },
+      });
+
+      const hierarchyService = createMockHierarchyService({
+        resolveClientName: (_page) => "Beta Ltd",
+      });
+
+      // Filter is "Acme Corp" but the item resolves to "Beta Ltd" — should be excluded
+      const { el } = render([item], "clientFilter:\n  - Acme Corp", hierarchyService);
+
+      const rows = el.querySelectorAll(".raid-item-row");
+      expect(rows.length).toBe(0);
     });
   });
 

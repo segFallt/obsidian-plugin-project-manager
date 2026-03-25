@@ -34,15 +34,15 @@ function makeFilters(overrides: Partial<DashboardFilters> = {}): DashboardFilter
   };
 }
 
-// Minimal QueryService mock
-function makeQueryService(overrides: Partial<{
-  getClientFromEngagementLink: (link: unknown) => string | null;
-  getEngagementNameForPath: (path: string) => string | null;
+// Minimal IEntityHierarchyService mock
+function makeHierarchyService(overrides: Partial<{
+  resolveClientName: (page: import("@/types").DataviewPage) => string | null;
+  resolveEngagementName: (page: import("@/types").DataviewPage) => string | null;
 }> = {}) {
   return {
-    getClientFromEngagementLink: overrides.getClientFromEngagementLink ?? (() => null),
-    getEngagementNameForPath: overrides.getEngagementNameForPath ?? (() => null),
-  } as unknown as import("@/services/query-service").QueryService;
+    resolveClientName: overrides.resolveClientName ?? (() => null),
+    resolveEngagementName: overrides.resolveEngagementName ?? (() => null),
+  } as unknown as import("@/services/interfaces").IEntityHierarchyService;
 }
 
 const service = new TaskFilterService(defaultFolders);
@@ -58,7 +58,7 @@ describe("TaskFilterService.applyDashboardFilters", () => {
       createMockTask({ path: "inbox/Task.md", text: "Task 1", completed: false }),
       createMockTask({ path: "inbox/Task.md", text: "Task 2", completed: true }),
     ];
-    const result = service.applyDashboardFilters(tasks, makeFilters(), dv, makeQueryService());
+    const result = service.applyDashboardFilters(tasks, makeFilters(), dv, makeHierarchyService());
     expect(result).toHaveLength(2);
   });
 
@@ -72,7 +72,7 @@ describe("TaskFilterService.applyDashboardFilters", () => {
       tasks,
       makeFilters({ showCompleted: false }),
       dv,
-      makeQueryService()
+      makeHierarchyService()
     );
     expect(result).toHaveLength(1);
     expect(result[0].completed).toBe(false);
@@ -88,7 +88,7 @@ describe("TaskFilterService.applyDashboardFilters", () => {
       tasks,
       makeFilters({ contextFilter: ["Inbox"] }),
       dv,
-      makeQueryService()
+      makeHierarchyService()
     );
     expect(result).toHaveLength(1);
     expect(result[0].path).toBe("inbox/t.md");
@@ -104,7 +104,7 @@ describe("TaskFilterService.applyDashboardFilters", () => {
       tasks,
       makeFilters({ searchText: "groceries" }),
       dv,
-      makeQueryService()
+      makeHierarchyService()
     );
     expect(result).toHaveLength(1);
     expect(result[0].text).toBe("Buy groceries");
@@ -121,7 +121,7 @@ describe("TaskFilterService.applyDashboardFilters", () => {
       tasks,
       makeFilters({ dueDateFilter: { selectedPresets: ["Today"], rangeFrom: null, rangeTo: null } }),
       dv,
-      makeQueryService()
+      makeHierarchyService()
     );
     expect(result).toHaveLength(1);
     expect(result[0].due).toBe(today);
@@ -138,7 +138,7 @@ describe("TaskFilterService.applyDashboardFilters", () => {
       tasks,
       makeFilters({ priorityFilter: [1] }),
       dv,
-      makeQueryService()
+      makeHierarchyService()
     );
     expect(result).toHaveLength(1);
     expect(result[0].text).toBe("Urgent ⏫");
@@ -404,7 +404,7 @@ describe("TaskFilterService.matchesClientFilter", () => {
   it("returns true when filter is empty and includeUnassigned is false", () => {
     const dv = createMockDataviewApi([{ path: "inbox/t.md" }]);
     const task = createMockTask({ path: "inbox/t.md" });
-    expect(service.matchesClientFilter(task, [], false, dv, makeQueryService())).toBe(true);
+    expect(service.matchesClientFilter(task, [], false, dv, makeHierarchyService())).toBe(true);
   });
 
   it("matches task with direct client frontmatter", () => {
@@ -415,14 +415,16 @@ describe("TaskFilterService.matchesClientFilter", () => {
       },
     ]);
     const task = createMockTask({ path: "projects/Foo.md" });
-    expect(service.matchesClientFilter(task, ["Acme"], false, dv, makeQueryService())).toBe(true);
-    expect(service.matchesClientFilter(task, ["Other"], false, dv, makeQueryService())).toBe(false);
+    // matchesClientFilter delegates resolution entirely to hierarchyService
+    const hs = makeHierarchyService({ resolveClientName: () => "Acme" });
+    expect(service.matchesClientFilter(task, ["Acme"], false, dv, hs)).toBe(true);
+    expect(service.matchesClientFilter(task, ["Other"], false, dv, hs)).toBe(false);
   });
 
   it("includes unassigned tasks when includeUnassigned is true", () => {
     const dv = createMockDataviewApi([{ path: "inbox/t.md" }]);
     const task = createMockTask({ path: "inbox/t.md" });
-    expect(service.matchesClientFilter(task, [], true, dv, makeQueryService())).toBe(true);
+    expect(service.matchesClientFilter(task, [], true, dv, makeHierarchyService())).toBe(true);
   });
 
   it("traverses engagement chain to find client", () => {
@@ -433,9 +435,9 @@ describe("TaskFilterService.matchesClientFilter", () => {
       },
     ]);
     const task = createMockTask({ path: "projects/Foo.md" });
-    const qs = makeQueryService({ getClientFromEngagementLink: () => "Acme" });
-    expect(service.matchesClientFilter(task, ["Acme"], false, dv, qs)).toBe(true);
-    expect(service.matchesClientFilter(task, ["Other"], false, dv, qs)).toBe(false);
+    const hs = makeHierarchyService({ resolveClientName: () => "Acme" });
+    expect(service.matchesClientFilter(task, ["Acme"], false, dv, hs)).toBe(true);
+    expect(service.matchesClientFilter(task, ["Other"], false, dv, hs)).toBe(false);
   });
 
   it("traverses parent project chain for project notes", () => {
@@ -450,7 +452,13 @@ describe("TaskFilterService.matchesClientFilter", () => {
       },
     ]);
     const task = createMockTask({ path: "projects/notes/foo/Note.md" });
-    expect(service.matchesClientFilter(task, ["Acme"], false, dv, makeQueryService())).toBe(true);
+    // Note page has no client/engagement; parent project page has a direct client.
+    // The fallback branch in matchesClientFilter loads the parent project and calls
+    // resolveClientName on it — so the mock must return "Acme" for that page.
+    const hs = makeHierarchyService({
+      resolveClientName: (page) => page.file.path === "projects/Foo.md" ? "Acme" : null,
+    });
+    expect(service.matchesClientFilter(task, ["Acme"], false, dv, hs)).toBe(true);
   });
 
   it("treats a task with {path: ''} client as unassigned", () => {
@@ -462,9 +470,9 @@ describe("TaskFilterService.matchesClientFilter", () => {
     ]);
     const task = createMockTask({ path: "projects/Foo.md" });
     // Should be treated as unassigned — included when includeUnassigned is true
-    expect(service.matchesClientFilter(task, [], true, dv, makeQueryService())).toBe(true);
+    expect(service.matchesClientFilter(task, [], true, dv, makeHierarchyService())).toBe(true);
     // Should NOT be included when a specific client filter is active
-    expect(service.matchesClientFilter(task, ["Acme"], false, dv, makeQueryService())).toBe(false);
+    expect(service.matchesClientFilter(task, ["Acme"], false, dv, makeHierarchyService())).toBe(false);
   });
 
   it("checkbox-only mode (no clients selected + includeUnassigned=true) excludes tasks with valid clients", () => {
@@ -476,7 +484,8 @@ describe("TaskFilterService.matchesClientFilter", () => {
     ]);
     const task = createMockTask({ path: "projects/Foo.md" });
     // clientFilter is empty but includeUnassigned=true — assigned task should be excluded
-    expect(service.matchesClientFilter(task, [], true, dv, makeQueryService())).toBe(false);
+    const hs = makeHierarchyService({ resolveClientName: () => "Acme" });
+    expect(service.matchesClientFilter(task, [], true, dv, hs)).toBe(false);
   });
 });
 
@@ -484,26 +493,30 @@ describe("TaskFilterService.matchesClientFilter", () => {
 
 describe("TaskFilterService.matchesEngagementFilter", () => {
   it("returns true when filter is empty and includeUnassigned is false", () => {
+    const dv = createMockDataviewApi([{ path: "inbox/t.md" }]);
     const task = createMockTask({ path: "inbox/t.md" });
-    expect(service.matchesEngagementFilter(task, [], false, makeQueryService())).toBe(true);
+    expect(service.matchesEngagementFilter(task, [], false, dv, makeHierarchyService())).toBe(true);
   });
 
   it("matches task with direct engagement frontmatter", () => {
+    const dv = createMockDataviewApi([{ path: "projects/Foo.md", frontmatter: { engagement: "[[Eng1]]" } }]);
     const task = createMockTask({ path: "projects/Foo.md" });
-    const qs = makeQueryService({ getEngagementNameForPath: () => "Eng1" });
-    expect(service.matchesEngagementFilter(task, ["Eng1"], false, qs)).toBe(true);
-    expect(service.matchesEngagementFilter(task, ["Other"], false, qs)).toBe(false);
+    const hs = makeHierarchyService({ resolveEngagementName: () => "Eng1" });
+    expect(service.matchesEngagementFilter(task, ["Eng1"], false, dv, hs)).toBe(true);
+    expect(service.matchesEngagementFilter(task, ["Other"], false, dv, hs)).toBe(false);
   });
 
   it("includes unassigned tasks when includeUnassigned is true", () => {
+    const dv = createMockDataviewApi([{ path: "inbox/t.md" }]);
     const task = createMockTask({ path: "inbox/t.md" });
-    expect(service.matchesEngagementFilter(task, [], true, makeQueryService())).toBe(true);
+    expect(service.matchesEngagementFilter(task, [], true, dv, makeHierarchyService())).toBe(true);
   });
 
   it("traverses parent project chain for project notes", () => {
+    const dv = createMockDataviewApi([{ path: "projects/notes/foo/Note.md", frontmatter: { relatedProject: "Foo" } }]);
     const task = createMockTask({ path: "projects/notes/foo/Note.md" });
-    const qs = makeQueryService({ getEngagementNameForPath: () => "Eng1" });
-    expect(service.matchesEngagementFilter(task, ["Eng1"], false, qs)).toBe(true);
+    const hs = makeHierarchyService({ resolveEngagementName: () => "Eng1" });
+    expect(service.matchesEngagementFilter(task, ["Eng1"], false, dv, hs)).toBe(true);
   });
 });
 
@@ -511,9 +524,12 @@ describe("TaskFilterService.matchesEngagementFilter", () => {
 
 describe("TaskFilterService — recurring meeting event traversal", () => {
   it("engagement filter: matches via recurring-meeting → parent meeting engagement (happy path)", () => {
+    const dv = createMockDataviewApi([
+      { path: "meetings/recurring-events/StandUp/2024-03-01.md" },
+    ]);
     const task = createMockTask({ path: "meetings/recurring-events/StandUp/2024-03-01.md" });
-    const qs = makeQueryService({ getEngagementNameForPath: () => "Acme Q1" });
-    expect(service.matchesEngagementFilter(task, ["Acme Q1"], false, qs)).toBe(true);
+    const hs = makeHierarchyService({ resolveEngagementName: () => "Acme Q1" });
+    expect(service.matchesEngagementFilter(task, ["Acme Q1"], false, dv, hs)).toBe(true);
   });
 
   it("client filter: matches via recurring-meeting → parent meeting engagement → client (happy path)", () => {
@@ -521,34 +537,35 @@ describe("TaskFilterService — recurring meeting event traversal", () => {
       { path: "meetings/recurring-events/StandUp/2024-03-01.md", frontmatter: { "recurring-meeting": "StandUp" } },
     ]);
     const task = createMockTask({ path: "meetings/recurring-events/StandUp/2024-03-01.md" });
-    const qs = makeQueryService({
-      getEngagementNameForPath: () => "Acme Q1",
-      getClientFromEngagementLink: () => "Acme Corp",
-    });
-    expect(service.matchesClientFilter(task, ["Acme Corp"], false, dv, qs)).toBe(true);
+    const hs = makeHierarchyService({ resolveClientName: () => "Acme Corp" });
+    expect(service.matchesClientFilter(task, ["Acme Corp"], false, dv, hs)).toBe(true);
   });
 
   it("engagement filter: returns false when parent meeting has a different engagement", () => {
+    const dv = createMockDataviewApi([
+      { path: "meetings/recurring-events/StandUp/2024-03-01.md" },
+    ]);
     const task = createMockTask({ path: "meetings/recurring-events/StandUp/2024-03-01.md" });
-    const qs = makeQueryService({ getEngagementNameForPath: () => "Other Q1" });
-    expect(service.matchesEngagementFilter(task, ["Acme Q1"], false, qs)).toBe(false);
+    const hs = makeHierarchyService({ resolveEngagementName: () => "Other Q1" });
+    expect(service.matchesEngagementFilter(task, ["Acme Q1"], false, dv, hs)).toBe(false);
   });
 
-  it("engagement filter: treats event as unassigned when queryService resolves no engagement", () => {
+  it("engagement filter: treats event as unassigned when hierarchyService resolves no engagement", () => {
+    const dv = createMockDataviewApi([
+      { path: "meetings/recurring-events/StandUp/2024-03-01.md" },
+    ]);
     const task = createMockTask({ path: "meetings/recurring-events/StandUp/2024-03-01.md" });
-    // getEngagementNameForPath returns null → treated as unassigned
-    expect(service.matchesEngagementFilter(task, [], true, makeQueryService())).toBe(true);
-    expect(service.matchesEngagementFilter(task, ["Acme Q1"], false, makeQueryService())).toBe(false);
+    expect(service.matchesEngagementFilter(task, [], true, dv, makeHierarchyService())).toBe(true);
+    expect(service.matchesEngagementFilter(task, ["Acme Q1"], false, dv, makeHierarchyService())).toBe(false);
   });
 
-  it("client filter: treats event as unassigned when queryService resolves no engagement", () => {
+  it("client filter: treats event as unassigned when hierarchyService resolves no client", () => {
     const dv = createMockDataviewApi([
       { path: "meetings/recurring-events/StandUp/2024-03-01.md", frontmatter: { "recurring-meeting": "StandUp" } },
     ]);
     const task = createMockTask({ path: "meetings/recurring-events/StandUp/2024-03-01.md" });
-    // Both methods return null → unassigned
-    expect(service.matchesClientFilter(task, [], true, dv, makeQueryService())).toBe(true);
-    expect(service.matchesClientFilter(task, ["Acme Corp"], false, dv, makeQueryService())).toBe(false);
+    expect(service.matchesClientFilter(task, [], true, dv, makeHierarchyService())).toBe(true);
+    expect(service.matchesClientFilter(task, ["Acme Corp"], false, dv, makeHierarchyService())).toBe(false);
   });
 });
 
@@ -672,7 +689,7 @@ describe("TaskFilterService.applyContextSpecificFilters", () => {
       tasks,
       makeFilters({ contextFilter: ["Recurring Meeting"] }),
       dv,
-      makeQueryService()
+      makeHierarchyService()
     );
     expect(result).toHaveLength(1);
     expect(result[0].path).toBe("meetings/recurring-events/StandUp/2024-01-15.md");
@@ -691,7 +708,7 @@ describe("TaskFilterService.applyContextSpecificFilters", () => {
       tasks,
       makeFilters({ contextFilter: ["Meeting"] }),
       dv,
-      makeQueryService()
+      makeHierarchyService()
     );
     expect(result).toHaveLength(1);
     expect(result[0].path).toBe("meetings/single/Standup.md");

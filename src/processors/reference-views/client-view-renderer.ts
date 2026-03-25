@@ -1,18 +1,13 @@
 import type { DataviewPage } from "../../types";
 import type { ReferenceProcessorServices } from "../../plugin-context";
-import { normalizeToName } from "../../utils/link-utils";
 import { renderCollapsibleGroup, renderReferenceCard, renderEmptyState } from "./topic-view-renderer";
 
 const UNASSIGNED_LABEL = "Unassigned";
 
 /**
  * Renders references grouped by resolved client.
- *
- * Client resolution uses a dual-path:
- *   1. normalizeToName(ref.client) — direct client link on the reference
- *   2. If the reference has an engagement but no direct client, resolve the
- *      client via queryService.getClientFromEngagementLink(ref.engagement)
- *
+ * Client resolution is delegated to hierarchyService.resolveClientName, which
+ * handles direct client links and engagement → client traversal.
  * References with no resolved client are collected into an "Unassigned" group
  * appended at the bottom.
  */
@@ -25,12 +20,7 @@ export function renderClientView(
   const unassigned: DataviewPage[] = [];
 
   for (const ref of references) {
-    let clientName = normalizeToName(ref.client);
-
-    // Dual-path: resolve client from engagement if direct client is absent
-    if (!clientName && ref.engagement) {
-      clientName = services.queryService.getClientFromEngagementLink(ref.engagement);
-    }
+    const clientName = services.hierarchyService.resolveClientName(ref);
 
     if (clientName) {
       let bucket = groups.get(clientName);

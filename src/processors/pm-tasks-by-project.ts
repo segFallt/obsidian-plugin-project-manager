@@ -9,7 +9,6 @@ import type {
 } from "../types";
 import { DEFAULT_TASK_VIEW_STATUSES, PRIORITY_FALLBACK, DEBOUNCE_MS, ENTITY_TAGS, CSS_CLS, MSG, LOG_CONTEXT } from "../constants";
 import { renderError } from "./dom-helpers";
-import { normalizeToName } from "../utils/link-utils";
 import type { ITaskSortService } from "../services/interfaces";
 import type { TaskListRenderer } from "./task-list-renderer";
 import { FilterChipSelect } from "../ui/components/filter-chip-select";
@@ -201,19 +200,19 @@ export class ByProjectView {
         );
       }
 
-      // Client filter
+      // Client filter — uses hierarchyService.resolveClientName for engagement→client traversal
       if (f.clientFilter.length > 0 || f.includeUnassignedClients) {
         projects = projects.filter((p) => {
-          const client = normalizeToName(p.client);
+          const client = this.services.hierarchyService.resolveClientName(p);
           if (!client) return f.includeUnassignedClients;
           return f.clientFilter.length === 0 || f.clientFilter.includes(client);
         });
       }
 
-      // Engagement filter
+      // Engagement filter — uses hierarchyService.resolveEngagementName for full chain traversal
       if (f.engagementFilter.length > 0 || f.includeUnassignedEngagements) {
         projects = projects.filter((p) => {
-          const engagement = normalizeToName(p.engagement);
+          const engagement = this.services.hierarchyService.resolveEngagementName(p);
           if (!engagement) return f.includeUnassignedEngagements;
           return f.engagementFilter.length === 0 || f.engagementFilter.includes(engagement);
         });

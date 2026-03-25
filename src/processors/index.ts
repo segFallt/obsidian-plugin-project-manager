@@ -32,6 +32,7 @@ export function registerAllProcessors(plugin: ProjectManagerPlugin): void {
   const raidServices = {
     app: plugin.app,
     queryService: plugin.queryService,
+    hierarchyService: plugin.hierarchyService,
     loggerService: plugin.loggerService,
   };
   registerPmRaidReferencesProcessor(plugin, raidServices);
@@ -43,6 +44,7 @@ export function registerAllProcessors(plugin: ProjectManagerPlugin): void {
     app: plugin.app,
     settings: plugin.settings,
     queryService: plugin.queryService,
+    hierarchyService: plugin.hierarchyService,
     loggerService: plugin.loggerService,
   };
   registerPmReferencesProcessor(plugin, referenceServices);

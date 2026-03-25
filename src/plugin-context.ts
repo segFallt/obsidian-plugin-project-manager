@@ -2,6 +2,7 @@ import type { App, Command, MarkdownPostProcessorContext } from "obsidian";
 import type {
   IQueryService,
   IEntityService,
+  IEntityHierarchyService,
   IScaffoldService,
   ITaskParser,
   ILoggerService,
@@ -35,6 +36,7 @@ export interface TaskProcessorServices {
   app: App;
   settings: ProjectManagerSettings;
   queryService: IQueryService;
+  hierarchyService: IEntityHierarchyService;
   taskParser: ITaskParser;
   loggerService: ILoggerService;
   filterService: ITaskFilterService;
@@ -82,12 +84,14 @@ export interface PluginServices {
   actionContext: IActionContextManager;
   commandExecutor: ICommandExecutor;
   testDataService: ITestDataService;
+  hierarchyService: IEntityHierarchyService;
 }
 
 export interface ReferenceProcessorServices {
   app: App;
   settings: ProjectManagerSettings;
   queryService: IQueryService;
+  hierarchyService: IEntityHierarchyService;
   loggerService: ILoggerService;
 }
 
