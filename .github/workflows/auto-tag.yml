@@ -1,0 +1,85 @@
+name: Auto Tag
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'manifest.json'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  auto-tag:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check version tag
+        id: tag
+        run: |
+          VERSION=$(jq -r '.version' manifest.json)
+          TAG="v${VERSION}"
+          if git ls-remote --tags origin "$TAG" | grep -q "$TAG"; then
+            echo "Tag $TAG already exists — skipping auto-tag"
+            echo "proceed=false" >> "$GITHUB_OUTPUT"
+            echo "tag=" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "proceed=true" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Extract release notes from CHANGELOG.md
+        if: steps.tag.outputs.proceed == 'true'
+        run: |
+          awk '/^## \[/{found++} found==1{print} found==2{exit}' CHANGELOG.md > /tmp/release-notes.md
+          [ -s /tmp/release-notes.md ] || { echo "ERROR: No release notes extracted from CHANGELOG.md — check CHANGELOG format"; exit 1; }
+
+      - name: Setup Node.js
+        if: steps.tag.outputs.proceed == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        if: steps.tag.outputs.proceed == 'true'
+        run: npm ci
+
+      - name: Lint
+        if: steps.tag.outputs.proceed == 'true'
+        run: npm run lint
+
+      - name: Test (with coverage)
+        if: steps.tag.outputs.proceed == 'true'
+        run: npm run test:coverage
+
+      - name: Build
+        if: steps.tag.outputs.proceed == 'true'
+        run: npm run build
+
+      - name: Detect release type
+        if: steps.tag.outputs.proceed == 'true'
+        id: release_type
+        run: |
+          TAG="${{ steps.tag.outputs.tag }}"
+          if [[ "$TAG" == *-* ]]; then
+            echo "flags=--prerelease" >> "$GITHUB_OUTPUT"
+          else
+            echo "flags=--latest" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create GitHub Release
+        if: steps.tag.outputs.proceed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ASSETS="main.js manifest.json"
+          [ -f styles.css ] && ASSETS="$ASSETS styles.css"
+          gh release create "${{ steps.tag.outputs.tag }}" \
+            $ASSETS \
+            --create-tag \
+            --notes-file /tmp/release-notes.md \
+            --title "${{ steps.tag.outputs.tag }}" \
+            ${{ steps.release_type.outputs.flags }}

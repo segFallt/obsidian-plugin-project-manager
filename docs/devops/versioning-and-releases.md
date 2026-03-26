@@ -75,7 +75,9 @@ Always start from a release branch — never run the bump steps directly on `mai
    .ci/bump-version.sh --commit <x.y.z>
    ```
 
-5. **Push the branch and open an MR** targeting `main`. Once merged, the GitLab CI `auto-tag` job detects the change to `manifest.json` on `main`, reads the new version, and creates the `v<x.y.z>` tag. The tag triggers the `build` and `publish` jobs (GitLab Release) and the GitHub Actions `release.yml` workflow (GitHub Release).
+5. **Push the branch and open an MR** targeting `main`. Once merged:
+   - The GitLab CI `auto-tag` job detects the change to `manifest.json` on `main`, reads the new version, and creates the `v<x.y.z>` tag. The tag triggers the `build` and `publish` jobs (GitLab Release).
+   - The GitHub Actions `auto-tag.yml` workflow independently detects the `manifest.json` change on `main`, creates its own `v<x.y.z>` tag on GitHub, runs the quality gate, and publishes the GitHub Release.
 
 ---
 
@@ -159,18 +161,18 @@ Runs on every `v*` tag:
 2. **`build`** — Runs `npm run build`, produces `main.js`, `manifest.json`, `styles.css` as artifacts
 3. **`publish`** — Uploads artifacts to the GitLab Generic Package Registry, extracts release notes from `CHANGELOG.md`, creates a GitLab Release with asset links
 
-### GitHub Release (`release.yml`)
+### GitHub Release (`auto-tag.yml`)
 
-Runs when a `v*` tag is pushed to the GitHub mirror:
+Runs on every push to `main` when `manifest.json` changes. Entirely self-contained — does not depend on GitLab pushing tags to GitHub.
 
-1. **Quality gate** — Lint + test with coverage
-2. **Build** — `npm run build`
-3. **Create GitHub Release** — Uploads `main.js`, `manifest.json`, `styles.css`
+1. **Create tag** — Reads version from `manifest.json`, creates `v<version>` tag on GitHub. Idempotent — skips cleanly if the tag already exists.
+2. **Extract release notes** — Reads the matching `## [<version>]` section from `CHANGELOG.md`.
+3. **Quality gate** — `npm ci` → `npm run lint` → `npm run test:coverage` → `npm run build`
+4. **Create GitHub Release** — Uploads `main.js`, `manifest.json`, `styles.css` (if present); notes sourced from `CHANGELOG.md`.
 
 **Key release flags:**
-- `prerelease: true` when version contains `-`
-- `make_latest: true` only for stable releases
-- `generate_release_notes: true` — GitHub auto-generates notes from commits
+- `--prerelease` when version tag contains `-`
+- `--latest` for stable releases
 
 ---
 
