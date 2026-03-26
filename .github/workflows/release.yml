@@ -2,8 +2,8 @@ name: Release
 
 on:
   push:
-    branches:
-      - main
+    tags:
+      - 'v*'
   workflow_dispatch:
 
 permissions:
@@ -35,13 +35,13 @@ jobs:
       - name: Test (with coverage)
         run: npm run test:coverage
 
-      # Extract version from manifest.json (source of truth)
+      # The tag already exists (created by GitLab CI auto-tag job or manually).
+      # Extract version and release type from manifest.json.
       - name: Extract version
         id: version
         run: |
           VERSION=$(node -p "require('./manifest.json').version")
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "tag=$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Detect release type
         id: release_type
@@ -55,51 +55,13 @@ jobs:
             echo "Detected stable version: $VERSION"
           fi
 
-      # Three-state check: no tag/release, tag only, or both already exist
-      - name: Check release state
-        id: release_state
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG: ${{ steps.version.outputs.tag }}
-        run: |
-          if git rev-parse "refs/tags/$TAG" > /dev/null 2>&1; then
-            echo "tag_exists=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "tag_exists=false" >> "$GITHUB_OUTPUT"
-          fi
-
-          if gh release view "$TAG" > /dev/null 2>&1; then
-            echo "release_exists=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "release_exists=false" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Skip notice (tag + release already exist)
-        if: steps.release_state.outputs.tag_exists == 'true' && steps.release_state.outputs.release_exists == 'true'
-        run: |
-          echo "Tag ${{ steps.version.outputs.tag }} and its GitHub Release already exist."
-          echo "No release action needed for this merge. Bump the version in manifest.json to trigger a new release."
-
-      # Build only when a release will actually be published
       - name: Build
-        if: steps.release_state.outputs.release_exists == 'false'
         run: npm run build
 
-      - name: Create annotated tag
-        if: steps.release_state.outputs.tag_exists == 'false' && steps.release_state.outputs.release_exists == 'false'
-        env:
-          TAG: ${{ steps.version.outputs.tag }}
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git tag -a "$TAG" -m "Release $TAG"
-          git push origin "$TAG"
-
       - name: Create GitHub Release
-        if: steps.release_state.outputs.release_exists == 'false'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ steps.version.outputs.tag }}
+          tag_name: ${{ github.ref_name }}
           name: ${{ steps.version.outputs.version }}
           prerelease: ${{ steps.release_type.outputs.is_prerelease == 'true' }}
           make_latest: ${{ steps.release_type.outputs.is_prerelease != 'true' }}

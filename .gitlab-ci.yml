@@ -1,8 +1,13 @@
 # GitLab CI/CD Pipeline
 #
-# Mirrors the two GitHub Actions workflows:
+# MR-first release workflow:
+#   - MR pipelines: lint + test + build (quality gate before merge)
+#   - Push to main: auto-tag job creates v<version> tag when manifest.json changes
+#   - Tag pipelines: validate version → build → publish release
+#
+# Mirrors the GitHub Actions workflows:
 #   - pr-validation.yml  →  mr-validate job
-#   - release.yml        →  lint / test / prepare / build / publish jobs
+#   - release.yml        →  validate-version / build / publish jobs (tag-triggered)
 #
 # Notable differences from GitHub Actions:
 #   - Release assets are uploaded to the GitLab Generic Package Registry and
@@ -10,12 +15,8 @@
 #     directly attached to releases).
 #   - GitLab Releases have no "pre-release" flag; a pre-release version is
 #     indicated by appending " (pre-release)" to the release name.
-#   - Release notes are not auto-generated (no equivalent of
-#     generate_release_notes: true); the description defaults to "Release <v>".
-#   - make_latest has no direct equivalent; GitLab determines the latest
-#     release by tag date automatically.
-#   - Tag push uses the CI_JOB_TOKEN URL; ensure "CI_JOB_TOKEN allowed to
-#     push to protected branches" is enabled under Settings → CI/CD → Token Access.
+#   - Tag creation uses RELEASE_TOKEN (a project/group access token with
+#     write_repository scope, stored as a protected CI/CD variable).
 
 stages:
   - validate
@@ -35,7 +36,8 @@ workflow:
   rules:
     - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
     - if: $CI_COMMIT_BRANCH == 'main' && $CI_PIPELINE_SOURCE == 'push'
-    - if: $CI_PIPELINE_SOURCE == 'web' # manual trigger
+    - if: $CI_COMMIT_TAG
+    - if: $CI_PIPELINE_SOURCE == 'web'
 
 # ─────────────────────────────────────────────────────────────────────────────
 # MR Validation
@@ -81,98 +83,86 @@ e2e-validate:
     - if: $CI_PIPELINE_SOURCE == 'web'
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Release Pipeline
+# Auto-tag
+# Runs on push to main when manifest.json changes (i.e. after a release MR merges).
+# Reads the version from manifest.json and creates a v<version> tag via the
+# GitLab API using RELEASE_TOKEN. Idempotent — skips silently if tag exists.
+#
+# Prerequisite: add a CI/CD variable named RELEASE_TOKEN in
+# Settings → CI/CD → Variables: a project or group access token with
+# Developer+ role and write_repository scope, marked as Protected.
 # ─────────────────────────────────────────────────────────────────────────────
 
-.main:
+auto-tag:
+  stage: validate
+  image: alpine:latest
+  before_script:
+    - apk add --no-cache curl
+  script:
+    - |
+      set -eu
+      VERSION=$(cat manifest.json | sed -n 's/.*"version": *"\([^"]*\)".*/\1/p' | head -1)
+      [ -n "$VERSION" ] || { echo "ERROR: Could not extract version from manifest.json"; exit 1; }
+      TAG="v${VERSION}"
+      echo "Detected version: $VERSION"
+      HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+        --header "PRIVATE-TOKEN: $RELEASE_TOKEN" \
+        "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/repository/tags/${TAG}")
+      if [ "$HTTP_CODE" = "200" ]; then
+        echo "Tag $TAG already exists — skipping auto-tag"
+        exit 0
+      fi
+      echo "Creating tag $TAG at $CI_COMMIT_SHA …"
+      curl --fail -X POST \
+        --header "PRIVATE-TOKEN: $RELEASE_TOKEN" \
+        --header "Content-Type: application/json" \
+        --data "{\"tag_name\": \"$TAG\", \"ref\": \"$CI_COMMIT_SHA\"}" \
+        "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/repository/tags"
+      echo "Created tag $TAG"
   rules:
-    - if: $CI_COMMIT_BRANCH == 'main' && $CI_PIPELINE_SOURCE == 'push'
-    - if: $CI_PIPELINE_SOURCE == 'web'
+    - if: '$CI_COMMIT_BRANCH == "main" && $CI_PIPELINE_SOURCE == "push"'
+      changes:
+        - manifest.json
 
-# Quality gate — fail before any release work if code is broken
-lint:
-  extends: .main
+# ─────────────────────────────────────────────────────────────────────────────
+# Tag Pipeline — validate, build, publish
+# All three jobs run only on v* tags created by the auto-tag job (or manually).
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Quality gate for the tag pipeline. Ensures lint and tests pass even when a
+# tag is created manually (bypassing the MR workflow).
+lint-and-test:
   stage: validate
   script:
     - npm ci
     - npm run lint
-
-test:
-  extends: .main
-  stage: validate
-  script:
-    - npm ci
     - npm run test:coverage
+  rules:
+    - if: '$CI_COMMIT_TAG =~ /^v/'
 
-# Extract version from manifest.json (source of truth) and probe release state.
-# Results are exported as a dotenv artifact and consumed by downstream jobs.
-# GIT_DEPTH: 0 is scoped here because only this job inspects local tags.
-prepare:
-  extends: .main
+# Verify the tag name matches the version in manifest.json.
+validate-version:
   stage: validate
-  variables:
-    GIT_DEPTH: 0
   script:
     - |
       set -euo pipefail
-      VERSION=$(node -p "require('./manifest.json').version")
-      echo "VERSION=$VERSION" >> release.env
-
-      if [[ "$VERSION" == *-* ]]; then
-        echo "IS_PRERELEASE=true"  >> release.env
-        echo "Detected pre-release version: $VERSION"
-      else
-        echo "IS_PRERELEASE=false" >> release.env
-        echo "Detected stable version: $VERSION"
-      fi
-
-      if git rev-parse "refs/tags/$VERSION" > /dev/null 2>&1; then
-        echo "TAG_EXISTS=true"  >> release.env
-        echo "Tag $VERSION already exists."
-      else
-        echo "TAG_EXISTS=false" >> release.env
-        echo "Tag $VERSION does not exist."
-      fi
-
-      HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
-        --max-time 30 --retry 3 \
-        --header "JOB-TOKEN: $CI_JOB_TOKEN" \
-        "$CI_API_V4_URL/projects/$CI_PROJECT_ID/releases/$VERSION")
-      if [ "$HTTP_CODE" = "200" ]; then
-        echo "RELEASE_EXISTS=true"  >> release.env
-        echo "Release $VERSION already exists."
-      elif [ "$HTTP_CODE" = "404" ]; then
-        echo "RELEASE_EXISTS=false" >> release.env
-        echo "Release $VERSION does not exist."
-      else
-        echo "Unexpected HTTP $HTTP_CODE checking release existence — aborting."
+      TAG_VERSION="${CI_COMMIT_TAG#v}"
+      MANIFEST_VERSION=$(node -p "require('./manifest.json').version")
+      if [ "$TAG_VERSION" != "$MANIFEST_VERSION" ]; then
+        echo "ERROR: Tag version '$TAG_VERSION' does not match manifest.json version '$MANIFEST_VERSION'"
         exit 1
       fi
+      echo "Version match: $MANIFEST_VERSION"
+  rules:
+    - if: '$CI_COMMIT_TAG =~ /^v/'
 
-      cat release.env
-  artifacts:
-    reports:
-      dotenv: release.env
-
-# Build only when a release will actually be published.
-# Waits for lint and test so build artifacts are never produced for broken code.
+# Build the plugin. Requires both quality gate and version validation to pass.
 build:
-  extends: .main
   stage: build
-  needs: [lint, test, prepare]
+  needs: [lint-and-test, validate-version]
   script:
-    - |
-      set -euo pipefail
-      if [ "$TAG_EXISTS" = "true" ] && [ "$RELEASE_EXISTS" = "true" ]; then
-        echo "Tag and release already exist — skipping build."
-        # main.js is gitignored and absent from the checkout. Create a stub so
-        # artifact collection does not fail. publish also exits early on this
-        # same condition so this stub is never uploaded to the registry.
-        touch main.js
-        exit 0
-      fi
-      npm ci
-      npm run build
+    - npm ci
+    - npm run build
   artifacts:
     paths:
       - main.js
@@ -180,29 +170,22 @@ build:
       - styles.css
     when: on_success
     expire_in: 1 hour
+  rules:
+    - if: '$CI_COMMIT_TAG =~ /^v/'
 
-# Three-state logic (mirrors the GitHub release workflow):
-#   no tag / no release  → upload assets, create annotated tag, create release
-#   tag only             → upload assets, skip tag creation, create release
-#   tag + release        → print skip notice, exit cleanly
-#
-# All logic is in a single shell block so that `exit 0` in the skip path
-# actually terminates the job (each `- |` entry is a separate shell invocation).
+# Upload artefacts to the Generic Package Registry and create a GitLab Release.
 publish:
-  extends: .main
   stage: release
-  needs: [lint, test, prepare, build]
+  needs: [lint-and-test, validate-version, build]
   script:
     - |
       set -euo pipefail
-      if [ "$TAG_EXISTS" = "true" ] && [ "$RELEASE_EXISTS" = "true" ]; then
-        echo "Tag $VERSION and its GitLab Release already exist."
-        echo "No release action needed. Bump the version in manifest.json to trigger a new release."
-        exit 0
-      fi
+      VERSION="${CI_COMMIT_TAG#v}"
+      IS_PRERELEASE="false"
+      echo "$VERSION" | grep -q '-' && IS_PRERELEASE="true"
 
-      # Upload build artefacts to the Generic Package Registry
-      BASE_PKG_URL="$CI_API_V4_URL/projects/$CI_PROJECT_ID/packages/generic/release/$VERSION"
+      BASE_PKG_URL="$CI_API_V4_URL/projects/$CI_PROJECT_ID/packages/generic/release/$CI_COMMIT_TAG"
+
       for FILE in main.js manifest.json styles.css; do
         echo "Uploading $FILE …"
         curl --fail --max-time 30 --retry 3 --request PUT \
@@ -211,29 +194,25 @@ publish:
           "$BASE_PKG_URL/$FILE"
       done
 
-      # Create an annotated tag when neither the tag nor the release exist yet
-      if [ "$TAG_EXISTS" = "false" ]; then
-        echo "Creating annotated tag $VERSION …"
-        git config user.name  "gitlab-ci[bot]"
-        git config user.email "gitlab-ci[bot]@users.noreply.gitlab.com"
-        git tag -a "$VERSION" -m "Release $VERSION"
-        git push "https://gitlab-ci-token:${CI_JOB_TOKEN}@${CI_SERVER_HOST}/${CI_PROJECT_PATH}.git" "$VERSION"
+      # Extract release notes from CHANGELOG.md (the section for this version)
+      awk '/^## \['"$VERSION"'\]/{found=1; next} /^## \[/ && found{exit} found{print}' CHANGELOG.md > /tmp/release-notes.md
+      if [ ! -s /tmp/release-notes.md ]; then
+        echo "Release $CI_COMMIT_TAG" > /tmp/release-notes.md
       fi
 
-      # Build the release payload and POST it to the GitLab Releases API.
-      # Pre-release versions (containing a hyphen) are flagged in the name
-      # because GitLab Releases have no dedicated pre-release field.
       node -e "
-        const version  = process.env.VERSION;
-        const isPrerel = process.env.IS_PRERELEASE === 'true';
-        const base     = process.env.CI_API_V4_URL
-                       + '/projects/' + process.env.CI_PROJECT_ID
-                       + '/packages/generic/release/' + version;
+        const fs   = require('fs');
+        const tag  = process.env.CI_COMMIT_TAG;
+        const ver  = tag.replace(/^v/, '');
+        const pre  = '$IS_PRERELEASE' === 'true';
+        const base = process.env.CI_API_V4_URL
+                   + '/projects/' + process.env.CI_PROJECT_ID
+                   + '/packages/generic/release/' + tag;
 
         const payload = {
-          tag_name:    version,
-          name:        isPrerel ? version + ' (pre-release)' : version,
-          description: 'Release ' + version,
+          tag_name:    tag,
+          name:        pre ? tag + ' (pre-release)' : tag,
+          description: fs.readFileSync('/tmp/release-notes.md', 'utf8'),
           assets: {
             links: [
               { name: 'main.js',       url: base + '/main.js',       link_type: 'package' },
@@ -243,11 +222,14 @@ publish:
           }
         };
         process.stdout.write(JSON.stringify(payload));
-      " > release_payload.json
+      " > /tmp/release_payload.json
 
-      echo "Creating GitLab Release $VERSION …"
+      echo "Creating GitLab Release $CI_COMMIT_TAG …"
       curl --fail --max-time 30 --retry 3 --request POST \
         --header "JOB-TOKEN: $CI_JOB_TOKEN" \
         --header "Content-Type: application/json" \
-        --data @release_payload.json \
+        --data @/tmp/release_payload.json \
         "$CI_API_V4_URL/projects/$CI_PROJECT_ID/releases"
+      echo "GitLab Release $CI_COMMIT_TAG created."
+  rules:
+    - if: '$CI_COMMIT_TAG =~ /^v/'

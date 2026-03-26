@@ -1,6 +1,6 @@
 # Versioning and Releases
 
-This document explains how to bump versions, what happens during a release, and how the beta vs stable lifecycle works for this plugin.
+This document explains how to bump versions, prepare a release, and what happens in CI when a release MR is merged.
 
 ---
 
@@ -24,14 +24,14 @@ This project uses [Semantic Versioning](https://semver.org/) (`MAJOR.MINOR.PATCH
 
 ## The Three Version Files
 
-All three files must always agree on the current version. The `npm version` command (via `version-bump.mjs`) keeps them in sync automatically — never edit them by hand.
+All three files must always agree on the current version. `.ci/bump-version.sh` keeps them in sync — never edit them by hand.
 
 ### `package.json`
 ```json
 { "version": "0.1.4-beta.5" }
 ```
-- The **source of truth** for `npm version` commands
-- Drives the `version-bump.mjs` script via `process.env.npm_package_version`
+- The **source of truth** read by `bump-version.sh`
+- Drives `version-bump.mjs` via `process.env.npm_package_version`
 
 ### `manifest.json`
 ```json
@@ -40,6 +40,7 @@ All three files must always agree on the current version. The `npm version` comm
 - Read by Obsidian to identify the installed plugin version
 - **Always updated** by `version-bump.mjs` (both stable and pre-release)
 - `minAppVersion` is set manually when you need to raise the Obsidian version floor
+- CI detects changes to this file on `main` to trigger the auto-tag job
 
 ### `versions.json`
 ```json
@@ -52,62 +53,67 @@ All three files must always agree on the current version. The `npm version` comm
 
 ---
 
-## How to Bump Versions
+## Release Steps Overview
 
-All version bumps follow the same pattern:
+Always start from a release branch — never run the bump steps directly on `main`.
+
+1. **Create a release branch** from an up-to-date `main`:
+   ```bash
+   git checkout main && git pull
+   git checkout -b release/v<x.y.z>
+   ```
+
+2. **Run Phase 1** — bump the version and generate a changelog template:
+   ```bash
+   .ci/bump-version.sh patch   # or minor / major / explicit version e.g. 0.2.0
+   ```
+
+3. **Edit `CHANGELOG.md`** — replace the placeholder lines with real release notes.
+
+4. **Run Phase 2** — validate the changelog and create the release commit:
+   ```bash
+   .ci/bump-version.sh --commit <x.y.z>
+   ```
+
+5. **Push the branch and open an MR** targeting `main`. Once merged, the GitLab CI `auto-tag` job detects the change to `manifest.json` on `main`, reads the new version, and creates the `v<x.y.z>` tag. The tag triggers the `build` and `publish` jobs (GitLab Release) and the GitHub Actions `release.yml` workflow (GitHub Release).
+
+---
+
+## Phase 1 — Bump version and prepare changelog
+
+Run `.ci/bump-version.sh` with the desired bump type or an explicit version:
 
 ```bash
-npm version <new-version>
-git push && git push --tags
+.ci/bump-version.sh patch   # 1.0.0 → 1.0.1
+.ci/bump-version.sh minor   # 1.0.0 → 1.1.0
+.ci/bump-version.sh major   # 1.0.0 → 2.0.0
+.ci/bump-version.sh 2.5.0   # explicit version
 ```
 
-`npm version` runs `version-bump.mjs` (via the `"version"` script in `package.json`), which:
-1. Writes the new version into `manifest.json`
-2. Adds a `versions.json` entry **only** if the version has no `-` suffix (stable only)
-3. Stages both files with `git add manifest.json versions.json`
+This script:
+1. Updates `package.json` with the new version
+2. Calls `version-bump.mjs` to sync `manifest.json` and (for stable versions) `versions.json`
+3. Prepends a changelog template section to `CHANGELOG.md`
+4. Prints instructions and exits — it does **not** commit or tag
 
-Then `npm version` creates a git commit and tag automatically.
+Edit `CHANGELOG.md` to replace the placeholder lines with real release notes before continuing.
 
-### Specific commands for each scenario
+---
 
-#### Next beta (incrementing beta counter)
+## Phase 2 — Validate and commit
+
+Once the changelog is filled in, run Phase 2:
+
 ```bash
-npm version 0.1.4-beta.6
+.ci/bump-version.sh --commit <x.y.z>
 ```
 
-#### First beta of a new patch
-```bash
-npm version 0.1.5-beta.1
-```
+This script:
+1. Verifies `package.json` is already at `<x.y.z>` (fails fast if Phase 1 was skipped)
+2. Checks that the `CHANGELOG.md` entry for `[<x.y.z>]` contains no unfilled placeholder lines (bare `-`)
+3. Stages `package.json`, `manifest.json`, `versions.json`, and `CHANGELOG.md` and creates the commit `chore: release v<x.y.z>`
 
-#### First beta of a new minor version
-```bash
-npm version 0.2.0-beta.1
-```
-
-#### Release candidate
-```bash
-npm version 0.1.5-rc.1
-```
-
-#### Promote beta to stable
-```bash
-npm version 0.1.5
-```
-This is the only scenario that updates `versions.json`.
-
-#### Minor release
-```bash
-npm version 0.2.0
-```
-
-#### Major release (1.0.0)
-```bash
-npm version 1.0.0
-```
-
-> **Tip:** You can also use npm's shorthand keywords for stable bumps:
-> `npm version patch`, `npm version minor`, `npm version major`
+The script does **not** push and does **not** create a tag — CI handles the tag.
 
 ---
 
@@ -115,7 +121,7 @@ npm version 1.0.0
 
 ```
 version-bump.mjs
-├── Reads new version from $npm_package_version (set by npm version)
+├── Reads new version from $npm_package_version
 ├── Reads manifest.json
 ├── Sets manifest.version = new version
 ├── Writes manifest.json
@@ -125,40 +131,45 @@ version-bump.mjs
     └── Writes versions.json
 ```
 
-The script is invoked automatically by `npm version` via the `"version"` script in `package.json`. You never call it directly.
+This script is called by `bump-version.sh` (and also by `npm version` via the `"version"` hook in `package.json`). You never call it directly.
 
 ---
 
 ## The Release Pipeline
 
-### PR Validation (`pr-validation.yml`)
+### MR Validation (`pr-validation.yml` / `mr-validate` job)
 
-Runs on every PR targeting `main`. All three checks must pass before merging:
+Runs on every MR targeting `main`. All three checks must pass before merging:
 
 1. **Lint** — `npm run lint`
 2. **Test with coverage** — `npm run test:coverage`
 3. **Build** — `npm run build`
 
-### Release Workflow (`release.yml`)
+### Auto-tag (`auto-tag` job in `.gitlab-ci.yml`)
 
-Runs on every push to `main` (including merged PRs) and can also be triggered manually via `workflow_dispatch`.
+Runs on every push to `main` when `manifest.json` changes. Reads the version from `manifest.json` and creates the `v<version>` tag via the GitLab API using `RELEASE_TOKEN`. Idempotent — skips silently if the tag already exists.
 
-**Steps:**
+**Prerequisite:** A CI/CD variable named `RELEASE_TOKEN` must be configured in **Settings → CI/CD → Variables**: a project or group access token with **Developer+ role** and **`write_repository` scope**, marked as **Protected**.
 
-1. **Quality gate** — Lint + test with coverage (same as PR validation, but release is blocked if these fail)
-2. **Extract version** — Reads `manifest.json` for the version and tag name
-3. **Detect release type** — Checks whether the version contains `-`; sets `is_prerelease=true/false`
-4. **Check release state** — Three-state check:
-   - No tag, no release → full release flow
-   - Tag exists but no release → skip tag creation, create release only
-   - Both exist → skip entirely (prints notice; bump the version to trigger a new release)
-5. **Build** — `npm run build` (only if a release will be published)
-6. **Create annotated tag** — `git tag -a "$VERSION" -m "Release $VERSION"` + push
-7. **Create GitHub Release** — Uploads `main.js`, `manifest.json`, `styles.css`
+### GitLab Release (`validate-version` → `build` → `publish` jobs)
+
+Runs on every `v*` tag:
+
+1. **`validate-version`** — Confirms the tag name matches `manifest.json`
+2. **`build`** — Runs `npm run build`, produces `main.js`, `manifest.json`, `styles.css` as artifacts
+3. **`publish`** — Uploads artifacts to the GitLab Generic Package Registry, extracts release notes from `CHANGELOG.md`, creates a GitLab Release with asset links
+
+### GitHub Release (`release.yml`)
+
+Runs when a `v*` tag is pushed to the GitHub mirror:
+
+1. **Quality gate** — Lint + test with coverage
+2. **Build** — `npm run build`
+3. **Create GitHub Release** — Uploads `main.js`, `manifest.json`, `styles.css`
 
 **Key release flags:**
 - `prerelease: true` when version contains `-`
-- `make_latest: true` only for stable releases (so the "latest" badge always points to a stable version)
+- `make_latest: true` only for stable releases
 - `generate_release_notes: true` — GitHub auto-generates notes from commits
 
 ---
@@ -181,7 +192,7 @@ Runs on every push to `main` (including merged PRs) and can also be triggered ma
 ### `minAppVersion`
 - Defined in `manifest.json`
 - The minimum Obsidian version required to install/run this plugin
-- Change it manually in `manifest.json` before running `npm version` when you need to raise the floor
+- Change it manually in `manifest.json` before running `.ci/bump-version.sh` when you need to raise the floor
 - Once a stable version is tagged, the `minAppVersion` for that release is permanently recorded in `versions.json`
 
 ### `versions.json` purpose
@@ -194,30 +205,57 @@ Users can manually install a beta by downloading `main.js` and `manifest.json` f
 
 ---
 
+## Troubleshooting
+
+### Tag already exists
+
+If the `auto-tag` job encounters a tag that already exists, it skips tag creation and exits 0:
+```
+Tag v1.0.1 already exists — skipping auto-tag
+```
+No action needed — the existing tag is left untouched.
+
+### CI version mismatch
+
+The `validate-version` job compares the tag name against `manifest.json`. If they differ:
+```
+ERROR: Tag version '1.0.1' does not match manifest.json version '1.0.0'
+```
+Delete the incorrect tag, ensure `manifest.json` is correct, and re-run the pipeline (or allow `auto-tag` to create the tag on the next merge).
+
+### RELEASE_TOKEN not configured
+
+If `RELEASE_TOKEN` is not set, the `auto-tag` job will fail with a `401 Unauthorized` error from the GitLab API. Add the variable under **Settings → CI/CD → Variables**.
+
+---
+
 ## Version Progression Examples
 
 ### Current state → 1.0.0
 
 ```
-0.1.4-beta.5  (current)
-      ↓  npm version 0.1.4
-0.1.4         (stable patch — if 0.1.4 features are ready)
-      ↓  npm version 0.2.0-beta.1
-0.2.0-beta.1  (start next feature cycle)
+0.1.13-beta.21  (current)
+      ↓  .ci/bump-version.sh 0.1.13  →  fill CHANGELOG  →  --commit  →  MR
+0.1.13          (stable)
+      ↓  .ci/bump-version.sh minor   →  fill CHANGELOG  →  --commit  →  MR
+0.2.0-beta.1    (start next feature cycle — use explicit version)
       ↓  ...iterate betas...
 0.2.0-beta.N
-      ↓  npm version 0.2.0
-0.2.0         (stable minor)
+      ↓  .ci/bump-version.sh 0.2.0   →  fill CHANGELOG  →  --commit  →  MR
+0.2.0           (stable minor)
       ↓  ...continue through 0.x.0 milestones...
-1.0.0-rc.1    (release candidate for 1.0)
-      ↓  npm version 1.0.0
-1.0.0         (first major stable release)
+1.0.0-rc.1      (release candidate for 1.0)
+      ↓  .ci/bump-version.sh 1.0.0   →  fill CHANGELOG  →  --commit  →  MR
+1.0.0           (first major stable release)
 ```
 
 ### Hotfix on a stable release
 
 ```bash
-# If 0.1.4 is the current stable and you need a hotfix:
-npm version 0.1.5-beta.1   # optional: test the fix first
-npm version 0.1.5           # stable hotfix release
+git checkout -b release/v0.1.14
+.ci/bump-version.sh patch          # bumps to 0.1.14
+# edit CHANGELOG.md
+.ci/bump-version.sh --commit 0.1.14
+git push origin HEAD
+# open MR → merge → CI auto-tags v0.1.14
 ```
