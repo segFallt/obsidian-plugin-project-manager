@@ -1,1 +1,12 @@
 * text eol=lf
+
+# Binary assets — must not have line-ending conversion applied
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.otf binary
