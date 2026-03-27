@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <!-- New release sections are prepended by .ci/bump-version.sh -->
 
+## [0.2.4] - 2026-03-27
+
+### Added
+
+- Added 8 Mermaid UML architecture diagrams covering service classes, dependency graph, initialization sequence, narrow interface bundles, processor hierarchy, command execution, task pipeline, and entity hierarchy resolution (`docs/plugin/architecture/`) ([#61](https://gitlab.n3.pingleberry.com/obsidian/obsidian-plugin-project-manager/-/issues/61)).
+- Documented slash command invocation availability and `pm-actions` action-type coverage per command in the commands reference, including an editor-command vs. global-command explainer ([#68](https://gitlab.n3.pingleberry.com/obsidian/obsidian-plugin-project-manager/-/issues/68)).
+
+### Changed
+
+- Promoted `resolveClientName` to `IQueryService` and removed the private `resolvePageClient` helper from `QueryService`; `EntityHierarchyService.resolveClientName` now delegates to `queryService.resolveClientName` rather than duplicating the traversal logic ([#60](https://gitlab.n3.pingleberry.com/obsidian/obsidian-plugin-project-manager/-/issues/60)).
+
+### Fixed
+
+- Fixed broken image paths in `04-processors/` user guide: all 14 PNG references now correctly resolve via `../assets/` ([#67](https://gitlab.n3.pingleberry.com/obsidian/obsidian-plugin-project-manager/-/issues/67)).
+
 ## [0.2.3] - 2026-03-27
 
 ### Added

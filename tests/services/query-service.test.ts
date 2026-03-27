@@ -731,7 +731,7 @@ describe("QueryService", () => {
 
     it("resolves clientName via engagement→client chain when RAID item has no direct client", () => {
       // R1 has engagement "Eng1"; engagement page "Eng1" has client "Acme"
-      // resolvePageClient must traverse engagement→client to surface R1 under "Acme"
+      // resolveClientName must traverse engagement→client to surface R1 under "Acme"
       const { qs } = createQueryService([
         {
           path: "raid/R1.md",
@@ -747,6 +747,96 @@ describe("QueryService", () => {
       const result = qs.getRaidItemsForContext("Acme");
       expect(result).toHaveLength(1);
       expect(result[0].file.name).toBe("R1");
+    });
+  });
+
+  describe("resolveClientName", () => {
+    it("returns the client name when page.client is a direct link", () => {
+      const { qs } = createQueryService([
+        { path: "raid/R1.md", tags: ["#raid"], frontmatter: { client: { path: "clients/Acme.md" } } },
+      ]);
+      const dv = qs.dv()!;
+      const page = dv.page("raid/R1.md")!;
+      expect(qs.resolveClientName(page)).toBe("Acme");
+    });
+
+    it("returns the client name when page.client is a wikilink string", () => {
+      const { qs } = createQueryService([
+        { path: "raid/R1.md", tags: ["#raid"], frontmatter: { client: "[[Gamma Inc]]" } },
+      ]);
+      const dv = qs.dv()!;
+      const page = dv.page("raid/R1.md")!;
+      expect(qs.resolveClientName(page)).toBe("Gamma Inc");
+    });
+
+    it("returns null when page has no client and no engagement", () => {
+      const { qs } = createQueryService([
+        { path: "raid/R1.md", tags: ["#raid"], frontmatter: {} },
+      ]);
+      const dv = qs.dv()!;
+      const page = dv.page("raid/R1.md")!;
+      expect(qs.resolveClientName(page)).toBeNull();
+    });
+
+    it("resolves client via direct engagement → engagement.client chain", () => {
+      // page has no client but has an engagement; the engagement has a client
+      const { qs } = createQueryService([
+        {
+          path: "raid/R1.md",
+          tags: ["#raid"],
+          frontmatter: { engagement: "[[Eng1]]" },
+        },
+        {
+          path: "engagements/Eng1.md",
+          tags: ["#engagement"],
+          frontmatter: { client: "[[Acme]]" },
+        },
+      ]);
+      const dv = qs.dv()!;
+      const page = dv.page("raid/R1.md")!;
+      expect(qs.resolveClientName(page)).toBe("Acme");
+    });
+
+    it("regression: resolves client via relatedProject → project.engagement → engagement.client (multi-hop chain)", () => {
+      // A project note links to a project; the project links to an engagement;
+      // the engagement links to a client. resolveClientName must walk all three hops.
+      const { qs } = createQueryService([
+        {
+          path: "projects/notes/my-proj/Note.md",
+          frontmatter: { relatedProject: "[[My Project]]" },
+        },
+        {
+          path: "projects/My Project.md",
+          tags: ["#project"],
+          frontmatter: { engagement: "[[Alpha Engagement]]" },
+        },
+        {
+          path: "engagements/Alpha Engagement.md",
+          tags: ["#engagement"],
+          frontmatter: { client: "[[Delta Corp]]" },
+        },
+      ]);
+      const dv = qs.dv()!;
+      const page = dv.page("projects/notes/my-proj/Note.md")!;
+      expect(qs.resolveClientName(page)).toBe("Delta Corp");
+    });
+
+    it("returns null when engagement exists but engagement page has no client", () => {
+      const { qs } = createQueryService([
+        {
+          path: "raid/R1.md",
+          tags: ["#raid"],
+          frontmatter: { engagement: "[[Eng1]]" },
+        },
+        {
+          path: "engagements/Eng1.md",
+          tags: ["#engagement"],
+          frontmatter: {},
+        },
+      ]);
+      const dv = qs.dv()!;
+      const page = dv.page("raid/R1.md")!;
+      expect(qs.resolveClientName(page)).toBeNull();
     });
   });
 });

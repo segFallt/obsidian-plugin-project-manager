@@ -322,7 +322,7 @@ export class QueryService implements IQueryService {
     const normalizedClientName = normalizeToName(clientName) ?? "";
     const normalizedEngagementName = normalizeToName(engagementName) ?? "";
     return pages.filter((p: DataviewPage) => {
-      const client = this.resolvePageClient(p);
+      const client = this.resolveClientName(p) ?? "";
       const engagement = normalizeToName(p.engagement) ?? "";
       return (
         (normalizedClientName && client === normalizedClientName) ||
@@ -369,7 +369,7 @@ export class QueryService implements IQueryService {
 
       // Client filter (OR) — dual-path: direct client OR via engagement
       if (filters.clients && filters.clients.length > 0) {
-        const resolvedClient = this.resolvePageClient(p);
+        const resolvedClient = this.resolveClientName(p) ?? "";
         if (!filters.clients.includes(resolvedClient)) return false;
       }
 
@@ -384,18 +384,18 @@ export class QueryService implements IQueryService {
   }
 
   /**
-   * Resolves a client name for a page using the same traversal chain as
-   * EntityHierarchyService.resolveClientName:
-   *   1. direct page.client field
-   *   2. getEngagementNameForPath → getClientFromEngagementLink (covers direct
-   *      engagement, relatedProject→project.engagement, and
-   *      recurring-meeting-event→meeting.engagement chains)
-   * Returns empty string (not null) so callers can use it directly in comparisons.
+   * Resolves the client name for a page using the dual-path traversal chain:
+   *   1. normalizeToName(page.client) — direct client frontmatter link
+   *   2. getEngagementNameForPath → getClientFromEngagementLink — covers direct
+   *      engagement, relatedProject → project.engagement, and
+   *      recurring-meeting-event → meeting.engagement chains
+   * Returns null if neither path yields a name.
    */
-  private resolvePageClient(page: DataviewPage): string {
+  resolveClientName(page: DataviewPage): string | null {
     const direct = normalizeToName(page.client);
     if (direct) return direct;
     const engName = this.getEngagementNameForPath(page.file?.path ?? "");
-    return engName ? (this.getClientFromEngagementLink(engName) ?? "") : "";
+    if (engName) return this.getClientFromEngagementLink(engName);
+    return null;
   }
 }

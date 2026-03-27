@@ -2,7 +2,7 @@
 
 Renders one or more action buttons. Each button triggers a plugin command when clicked — letting you create related records directly from the current note without opening the command palette.
 
-![pm-actions showing four buttons](assets/pm-actions.png)
+![pm-actions showing four buttons](../assets/pm-actions.png)
 
 ---
 

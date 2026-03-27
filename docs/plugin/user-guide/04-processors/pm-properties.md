@@ -2,7 +2,7 @@
 
 Renders an interactive inline editor for the current note's frontmatter fields. Changes are saved immediately — no save button required.
 
-![pm-properties on a project note](assets/pm-properties-project.png)
+![pm-properties on a project note](../assets/pm-properties-project.png)
 
 ---
 
@@ -72,4 +72,4 @@ For RAID items, when the `status` field is changed to **Resolved** or **Closed**
 
 Place `pm-properties` at the **top** of the note, before any body content. It works in both editing view and reading view, but is most useful in reading view where frontmatter is otherwise hidden.
 
-![pm-properties on a client note](assets/pm-properties-client.png)
+![pm-properties on a client note](../assets/pm-properties-client.png)

@@ -43,6 +43,15 @@ export interface IQueryService {
   getRaidItemsForContext(clientName?: string, engagementName?: string): DataviewPage[];
   getReferencesByTopic(topicName: string): DataviewPage[];
   getReferences(filters?: { topics?: string[]; clients?: string[]; engagements?: string[] }): DataviewPage[];
+  /**
+   * Resolves the client name for a page using the dual-path traversal chain:
+   *   1. normalizeToName(page.client) — direct client frontmatter link
+   *   2. getEngagementNameForPath → getClientFromEngagementLink — covers direct
+   *      engagement, relatedProject → project.engagement, and
+   *      recurring-meeting-event → meeting.engagement chains
+   * Returns null if neither path yields a name.
+   */
+  resolveClientName(page: DataviewPage): string | null;
 }
 
 export interface IEntityCreationService {

@@ -2,7 +2,7 @@
 
 Renders an interactive RAID dashboard with a likelihood × impact risk matrix, a count strip, and item tables grouped by RAID type. Place this block in any note — an engagement overview note or a dedicated RAID tracking note are common choices.
 
-![RAID dashboard](assets/pm-raid-dashboard.png)
+![RAID dashboard](../assets/pm-raid-dashboard.png)
 
 ---
 

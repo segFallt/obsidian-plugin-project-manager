@@ -2,7 +2,7 @@
 
 Renders a relationship table listing the entities linked to the current note.
 
-![pm-table showing a client's engagements and people](assets/pm-table-client.png)
+![pm-table showing a client's engagements and people](../assets/pm-table-client.png)
 
 ---
 
@@ -40,7 +40,7 @@ type: client-engagements
 ```
 ````
 
-![Engagement projects table](assets/pm-table-engagement-projects.png)
+![Engagement projects table](../assets/pm-table-engagement-projects.png)
 
 ### Project note — linked project notes table
 
@@ -50,7 +50,7 @@ type: related-project-notes
 ```
 ````
 
-![Project notes table](assets/pm-table-project-notes.png)
+![Project notes table](../assets/pm-table-project-notes.png)
 
 ---
 

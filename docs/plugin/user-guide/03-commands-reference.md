@@ -2,6 +2,28 @@
 
 All commands are accessible via the command palette (`Ctrl/Cmd + P`) — search for **PM:** to filter to Project Manager commands. Many commands can also be triggered from action buttons embedded in entity notes (see [`pm-actions`](04-processors/pm-actions.md)).
 
+## Invocation Methods
+
+PM commands can be triggered in three ways:
+
+| Method | How to access | Which commands |
+|--------|---------------|----------------|
+| **Command palette** | `Ctrl/Cmd + P`, then search **PM:** | All commands |
+| **Slash command** | Type `/` in the editor, then search the command name | Editor commands only (see note below) |
+| **Action button** | `pm-actions` code block in a note | Most creation and conversion commands (see note below) |
+
+> **Editor commands vs. global commands**
+>
+> Obsidian distinguishes two types of commands:
+> - **Editor commands** (`editorCallback`) — require an active editor and cursor position. They appear in both the command palette *and* the slash command menu (triggered by typing `/` in the editor).
+> - **Global commands** (`callback`) — always available from the command palette regardless of what is open. They do **not** appear in the slash command menu.
+>
+> Only **`PM: Tag Line as RAID Reference`** is an editor command. It is specifically designed for in-editor use because it operates on the current cursor position or selection, appending the RAID badge annotation to the active line. All other PM commands are global commands and will not appear in the slash command menu.
+
+> **`pm-actions` coverage**
+>
+> The `pm-actions` code block processor supports action buttons for all creation, conversion, and infrastructure commands. The one exception is `PM: Tag Line as RAID Reference` — it has no corresponding `pm-actions` action type because it requires an active editor context that action buttons cannot provide.
+
 ---
 
 ## Entity Creation Commands
@@ -9,6 +31,8 @@ All commands are accessible via the command palette (`Ctrl/Cmd + P`) — search 
 ### PM: Create Client
 
 Creates a new Client note in the clients folder.
+
+**Invocation:** Command palette · Action button (`create-client`)
 
 **Pre-conditions:** None.
 
@@ -22,6 +46,8 @@ Creates a new Client note in the clients folder.
 ### PM: Create Engagement
 
 Creates a new Engagement note and links it to a Client.
+
+**Invocation:** Command palette · Action button (`create-engagement`)
 
 **Pre-conditions:** At least one Client note must exist in the clients folder.
 
@@ -37,6 +63,8 @@ Creates a new Engagement note and links it to a Client.
 
 Creates a new Project note and links it to an Engagement.
 
+**Invocation:** Command palette · Action button (`create-project`)
+
 **Pre-conditions:** At least one Engagement note must exist.
 
 **Modal flow:**
@@ -50,6 +78,8 @@ Creates a new Project note and links it to an Engagement.
 ### PM: Create Person
 
 Creates a new Person note and links it to a Client.
+
+**Invocation:** Command palette · Action button (`create-person`)
 
 **Pre-conditions:** At least one Client note must exist.
 
@@ -65,6 +95,8 @@ Creates a new Person note and links it to a Client.
 
 Creates a lightweight capture note in the inbox folder. Inbox notes can later be promoted to Projects.
 
+**Invocation:** Command palette · Action button (`create-inbox`)
+
 **Pre-conditions:** None (engagement selection is optional).
 
 **Modal flow:**
@@ -76,6 +108,8 @@ Creates a lightweight capture note in the inbox folder. Inbox notes can later be
 ### PM: Create Single Meeting
 
 Creates a Single Meeting note linked to an Engagement.
+
+**Invocation:** Command palette · Action button (`create-single-meeting`)
 
 **Pre-conditions:** At least one Engagement note must exist.
 
@@ -90,6 +124,8 @@ Creates a Single Meeting note linked to an Engagement.
 
 Creates a Recurring Meeting series note.
 
+**Invocation:** Command palette · Action button (`create-recurring-meeting`)
+
 **Pre-conditions:** At least one Engagement note must exist.
 
 **Modal flow:**
@@ -101,6 +137,8 @@ Creates a Recurring Meeting series note.
 ### PM: Create Recurring Meeting Event
 
 Creates an event instance for a Recurring Meeting.
+
+**Invocation:** Command palette · Action button (`create-recurring-meeting-event`)
 
 **Pre-conditions:** At least one Recurring Meeting note must exist.
 
@@ -114,6 +152,8 @@ Creates an event instance for a Recurring Meeting.
 
 Creates a Project Note linked to a Project.
 
+**Invocation:** Command palette · Action button (`create-project-note`)
+
 **Pre-conditions:** At least one Project note must exist.
 
 **Modal flow:**
@@ -125,6 +165,8 @@ Creates a Project Note linked to a Project.
 ### PM: Create RAID Item
 
 Creates a RAID item (Risk, Assumption, Issue, or Decision).
+
+**Invocation:** Command palette · Action button (`create-raid-item`)
 
 **Pre-conditions:** None (client/engagement/owner are optional).
 
@@ -141,6 +183,8 @@ Creates a RAID item (Risk, Assumption, Issue, or Decision).
 
 Creates a Reference Topic note used to categorise references.
 
+**Invocation:** Command palette · Action button (`create-reference-topic`)
+
 **Pre-conditions:** None.
 
 **Modal flow:**
@@ -151,6 +195,8 @@ Creates a Reference Topic note used to categorise references.
 ### PM: Create Reference
 
 Creates a Reference document and links it to one or more Reference Topics.
+
+**Invocation:** Command palette · Action button (`create-reference`)
 
 **Pre-conditions:** At least one Reference Topic note must exist.
 
@@ -168,6 +214,8 @@ Creates a Reference document and links it to one or more Reference Topics.
 
 Promotes an Inbox Note to a full Project. The inbox note is marked as converted and the new project note inherits the engagement link.
 
+**Invocation:** Command palette · Action button (`convert-inbox`)
+
 **Pre-conditions:** The currently open note must be an Inbox Note (located in the inbox folder).
 
 **How to invoke:** Open an Inbox Note, then run this command from the palette. No modal is shown — the conversion happens immediately.
@@ -182,6 +230,8 @@ Promotes an Inbox Note to a full Project. The inbox note is marked as converted 
 ### PM: Convert Single Meeting to Recurring
 
 Converts a Single Meeting note into a Recurring Meeting series.
+
+**Invocation:** Command palette · Action button (`convert-single-to-recurring`)
 
 **Pre-conditions:** The currently open note must be a Single Meeting (located in the single meetings folder).
 
@@ -199,15 +249,19 @@ Converts a Single Meeting note into a Recurring Meeting series.
 
 Creates all required folders and default view files (Task Dashboard, Tasks By Project) in the utility folder. Safe to re-run on an existing vault — existing files are not overwritten.
 
-**Pre-conditions:** None.
+**Invocation:** Command palette · Action button (`scaffold-vault`) · Settings tab button
 
-**How to invoke:** Command palette only (or the **Set Up Vault** button in Settings).
+**Pre-conditions:** None.
 
 ---
 
 ### PM: Tag Line as RAID Reference
 
 Annotates the currently selected line in the editor with a directional RAID reference badge, linking it to a RAID item. The badge renders inline as a styled label (e.g. "↑ Mitigates", "↓ Escalates").
+
+**Invocation:** Command palette · **Slash command** (type `/` in the editor — requires active editor)
+
+> This is the only PM command registered as an **editor command** (`editorCallback`). It appears in the slash command menu because it operates on the current cursor position or line selection. It cannot be triggered via a `pm-actions` action button.
 
 **Pre-conditions:** A line must be selected or the cursor must be on a line in the editor. At least one RAID item must exist.
 

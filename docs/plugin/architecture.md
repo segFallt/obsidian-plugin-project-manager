@@ -8,6 +8,21 @@ Layer 2: Commands           (user-facing actions, orchestrate services + modals)
 Layer 1: Services & Utils   (pure logic, Dataview API wrapper, independently testable)
 ```
 
+## Detailed UML Diagrams
+
+Mermaid diagrams for deep structural reference, located in [`docs/plugin/architecture/`](architecture/):
+
+| Diagram | Description |
+|---------|-------------|
+| [01 — Service Class Diagram](architecture/01-service-class-diagram.md) | All service interfaces and their implementations |
+| [02 — Service Dependency Graph](architecture/02-service-dependency-graph.md) | Directed dependency graph across all service classes |
+| [03 — Plugin Initialization Sequence](architecture/03-plugin-initialization-sequence.md) | `onload()` → `initServices()` → `registerAllCommands()` → `registerAllProcessors()` |
+| [04 — Narrow Interface Bundles](architecture/04-narrow-interface-bundles.md) | ISP narrow-interface pattern and consumer mapping |
+| [05 — Processor Class Hierarchy](architecture/05-processor-class-hierarchy.md) | All processors, their base class, and view-class compositions |
+| [06 — Command Execution Sequence](architecture/06-command-execution-sequence.md) | End-to-end `CreateProjectCommand` execution traced |
+| [07 — Task Processing Pipeline](architecture/07-task-processing-pipeline.md) | `pm-tasks` dashboard data flow and filter persistence loop |
+| [08 — Entity Hierarchy Resolution](architecture/08-entity-hierarchy-resolution.md) | Dual-path client/engagement resolution logic |
+
 ## Service Dependency Graph
 
 ```
@@ -95,6 +110,13 @@ Key methods:
 - `getLinkedEntities(folder, tag, property, file)` — powers pm-table relationships
 - `getProjectNotes(file)` — resolves project-note files linked to a project
 - `getActiveRecurringMeetings()` — folders-based query for recurring meeting files
+- `resolveClientName(page)` — dual-path client resolution: direct `page.client` field or `getEngagementNameForPath → getClientFromEngagementLink` chain (covers direct engagement, `relatedProject → project.engagement`, and `recurring-meeting-event → meeting.engagement`)
+
+### `EntityHierarchyService` (`src/services/entity-hierarchy-service.ts`)
+Canonical resolver for entity hierarchy (client and engagement) from a `DataviewPage`. All consumers — RAID dashboard, task filter, reference views — should use this service rather than calling `QueryService` primitive methods directly.
+
+- `resolveClientName(page)` — delegates to `queryService.resolveClientName(page)`. `QueryService` owns the traversal logic; `EntityHierarchyService` provides the stable, interface-level entry point for all higher-layer consumers.
+- `resolveEngagementName(page)` — delegates to `queryService.getEngagementNameForPath(page.file.path)`.
 
 ### `TemplateService` (`src/services/template-service.ts`)
 Returns template strings for all 9 entity types via a static lookup map. Template strings are defined as named exports in `src/services/template-constants.ts`. Templates use `{{variable}}` placeholders processed by `processTemplate()`.
