@@ -1,5 +1,4 @@
 import type { DataviewPage } from "../types";
-import { normalizeToName } from "../utils/link-utils";
 import type { IEntityHierarchyService, IQueryService } from "./interfaces";
 
 /**
@@ -15,23 +14,11 @@ export class EntityHierarchyService implements IEntityHierarchyService {
 
   /**
    * Returns the client name for a page.
-   *
-   * Resolution order:
-   *   1. normalizeToName(page.client) — direct client frontmatter link
-   *   2. getEngagementNameForPath(page.file.path) → getClientFromEngagementLink — covers
-   *      the direct engagement field, relatedProject → project.engagement, and
-   *      recurring-meeting-event → meeting.engagement chains
-   *
-   * Returns null if neither path yields a name.
+   * Delegates to queryService.resolveClientName which owns the dual-path
+   * traversal logic (direct client field, or engagement → client chain).
    */
   resolveClientName(page: DataviewPage): string | null {
-    const direct = normalizeToName(page.client);
-    if (direct) return direct;
-
-    const engName = this.queryService.getEngagementNameForPath(page.file?.path ?? "");
-    if (engName) return this.queryService.getClientFromEngagementLink(engName) ?? null;
-
-    return null;
+    return this.queryService.resolveClientName(page);
   }
 
   /**
