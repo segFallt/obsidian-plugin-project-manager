@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added 8 Mermaid UML architecture diagrams covering service classes, dependency graph, initialization sequence, narrow interface bundles, processor hierarchy, command execution, task pipeline, and entity hierarchy resolution (`docs/plugin/architecture/`) ([#61](https://gitlab.n3.pingleberry.com/obsidian/obsidian-plugin-project-manager/-/issues/61)).
 - Documented slash command invocation availability and `pm-actions` action-type coverage per command in the commands reference, including an editor-command vs. global-command explainer ([#68](https://gitlab.n3.pingleberry.com/obsidian/obsidian-plugin-project-manager/-/issues/68)).
 
 ### Changed
