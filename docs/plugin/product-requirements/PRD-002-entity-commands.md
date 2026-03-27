@@ -2,7 +2,7 @@
 
 ## 1. Overview
 
-The plugin registers 14 commands under the `PM:` prefix in the Obsidian command palette. Eleven commands create new entity files, two convert an existing entity to another type, and one scaffolds the vault folder structure. Each creation command opens a modal to collect the required fields, then delegates to `EntityCreationService` to create the file and navigate to it.
+The plugin registers 16 commands under the `PM:` prefix in the Obsidian command palette. Twelve commands create new entity files, two convert an existing entity to another type, one scaffolds the vault folder structure, and one tags a selected line as a RAID reference. Each creation command opens a modal to collect the required fields, then delegates to `EntityCreationService` to create the file and navigate to it.
 
 ---
 
@@ -33,9 +33,11 @@ The plugin registers 14 commands under the `PM:` prefix in the Obsidian command 
 | `PM: Create Project Note` | Create | Create a note linked to a project |
 | `PM: Create Reference Topic` | Create | Create a new reference topic note |
 | `PM: Create Reference` | Create | Create a new reference note linked to one or more topics |
+| `PM: Create RAID Item` | Create | Create a new RAID log entry (Risk, Assumption, Issue, or Decision) |
 | `PM: Convert Inbox to Project` | Convert | Promote an inbox note to a full project |
 | `PM: Convert Single Meeting to Recurring` | Convert | Promote a single meeting to a recurring series |
 | `PM: Set Up Vault Structure` | Scaffold | Create required folders and default view files |
+| `PM: Tag Line as RAID Reference` | Tag | Tag the current editor line as a RAID reference (editor command) |
 
 ### 3.2 Modal Behaviour
 
@@ -155,7 +157,7 @@ For all create commands, `EntityCreationService`:
 
 ## 7. Acceptance Criteria
 
-- [ ] All 14 commands are registered and appear in the command palette with the `PM:` prefix.
+- [ ] All 16 commands are registered and appear in the command palette with the `PM:` prefix.
 - [ ] Each create command opens a modal and creates the file in the correct configured folder.
 - [ ] Wikilink fields are set via `processFrontMatter` after file creation, not via template string substitution.
 - [ ] The created file is opened immediately after creation.
