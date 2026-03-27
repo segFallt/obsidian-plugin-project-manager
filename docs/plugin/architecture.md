@@ -95,6 +95,13 @@ Key methods:
 - `getLinkedEntities(folder, tag, property, file)` — powers pm-table relationships
 - `getProjectNotes(file)` — resolves project-note files linked to a project
 - `getActiveRecurringMeetings()` — folders-based query for recurring meeting files
+- `resolveClientName(page)` — dual-path client resolution: direct `page.client` field or `getEngagementNameForPath → getClientFromEngagementLink` chain (covers direct engagement, `relatedProject → project.engagement`, and `recurring-meeting-event → meeting.engagement`)
+
+### `EntityHierarchyService` (`src/services/entity-hierarchy-service.ts`)
+Canonical resolver for entity hierarchy (client and engagement) from a `DataviewPage`. All consumers — RAID dashboard, task filter, reference views — should use this service rather than calling `QueryService` primitive methods directly.
+
+- `resolveClientName(page)` — delegates to `queryService.resolveClientName(page)`. `QueryService` owns the traversal logic; `EntityHierarchyService` provides the stable, interface-level entry point for all higher-layer consumers.
+- `resolveEngagementName(page)` — delegates to `queryService.getEngagementNameForPath(page.file.path)`.
 
 ### `TemplateService` (`src/services/template-service.ts`)
 Returns template strings for all 9 entity types via a static lookup map. Template strings are defined as named exports in `src/services/template-constants.ts`. Templates use `{{variable}}` placeholders processed by `processTemplate()`.
