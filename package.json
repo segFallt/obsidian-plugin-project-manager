@@ -1,6 +1,6 @@
 {
   "name": "obsidian-project-manager",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "description": "Client-Engagement-Project hierarchy manager for Obsidian",
   "main": "main.js",
   "scripts": {
