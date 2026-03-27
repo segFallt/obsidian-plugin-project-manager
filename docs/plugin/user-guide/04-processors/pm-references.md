@@ -2,7 +2,7 @@
 
 Renders a filterable, searchable reference library. Place this block in any note to display all reference documents in the vault, grouped and filtered by topic, client, or engagement.
 
-![References dashboard](assets/pm-references.png)
+![References dashboard](../assets/pm-references.png)
 
 ---
 

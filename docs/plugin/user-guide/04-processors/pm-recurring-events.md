@@ -2,7 +2,7 @@
 
 Renders a chronological tile grid of all event instances for a recurring meeting. Place this block in a Recurring Meeting note — the meeting name is inferred automatically from the note's filename.
 
-![Recurring meeting events tile grid](assets/pm-recurring-events.png)
+![Recurring meeting events tile grid](../assets/pm-recurring-events.png)
 
 ---
 

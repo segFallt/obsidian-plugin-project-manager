@@ -2,7 +2,7 @@
 
 Renders a filterable, sortable task dashboard. Use it in dashboard mode for a vault-wide view of all tasks, or in by-project mode to browse tasks grouped by project.
 
-![Task dashboard in context view mode](assets/pm-tasks-dashboard.png)
+![Task dashboard in context view mode](../assets/pm-tasks-dashboard.png)
 
 ---
 
@@ -57,7 +57,7 @@ When filters are active, a strip of removable chips appears below the toolbar. C
 
 ### Filter drawer
 
-![Task dashboard with filter drawer open](assets/pm-tasks-filter-drawer.png)
+![Task dashboard with filter drawer open](../assets/pm-tasks-filter-drawer.png)
 
 The filter drawer contains:
 
@@ -94,7 +94,7 @@ Click any task checkbox to toggle it complete or incomplete. Completing a task a
 
 ## By-Project Mode
 
-![Tasks grouped by project](assets/pm-tasks-by-project.png)
+![Tasks grouped by project](../assets/pm-tasks-by-project.png)
 
 Groups tasks by project. Only projects whose status matches the selected status filters are shown (defaults: New, Active, On Hold — Complete projects are hidden).
 
