@@ -189,3 +189,7 @@ The scaffold service also creates `.base` files (Obsidian Bases) alongside `.md`
 ## Dataview Dependency
 
 Dataview is checked for at `onLayoutReady` time. If not found, a Notice is shown but the plugin continues to load (commands and non-query processors still work). The `QueryService.dv()` method returns `null` when unavailable, and all methods guard against this.
+
+## Tasks Plugin Dependency
+
+The Tasks community plugin (`obsidian-tasks-plugin`) is a required dependency for structured task authoring. The plugin checks for its presence at `onLayoutReady`; if absent, a Notice is shown but the plugin continues to load. `TaskParser` parses the Tasks emoji format (due dates, priority emojis, completion markers) via regex — no Tasks plugin API calls are made. Task date and priority data will be absent from `pm-tasks` output when the Tasks plugin is not installed.
