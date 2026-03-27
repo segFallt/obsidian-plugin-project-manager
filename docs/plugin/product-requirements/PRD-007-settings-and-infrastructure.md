@@ -136,11 +136,18 @@ Clients → People, Engagements → Projects, Inbox Notes, Single Meetings, Recu
 
 ## 6. Dataview Graceful Degradation
 
-- Dataview is an **optional** dependency checked at `onLayoutReady`.
+- Dataview is a **required** dependency checked at `onLayoutReady`.
 - If Dataview is not found, an Obsidian Notice is shown, but the plugin continues to load.
 - Commands and non-query processors (`pm-actions`) continue to function without Dataview.
 - `QueryService.dv()` returns `null` when Dataview is unavailable; all query methods guard against this.
 - Processors that require Dataview (`pm-table`, `pm-tasks`, `pm-recurring-events`, `pm-properties` suggesters) display a "Dataview is not available" message when `dv()` is `null`.
+
+### Tasks Plugin Dependency
+
+- The Tasks community plugin (`obsidian-tasks-plugin`) is checked for presence at `onLayoutReady`.
+- If not found, an Obsidian Notice is shown, but the plugin continues to load.
+- `TaskParser` parses the Tasks emoji format via regex and does not call the Tasks plugin API — parsing continues regardless of whether the Tasks plugin is installed.
+- When the Tasks plugin is absent, tasks authored without its emoji format will lack due date, priority, and completion marker data; `pm-tasks` date and priority filters will return no results for those tasks.
 
 ---
 
@@ -149,7 +156,8 @@ Clients → People, Engagements → Projects, Inbox Notes, Single Meetings, Recu
 ### 7.1 Requirements
 
 - Obsidian **1.4.0** or later.
-- Dataview plugin (optional; required for query-based processors).
+- Dataview plugin (required for query-based processors).
+- Tasks community plugin (required for structured task authoring — emoji due dates, priorities, completion markers).
 
 ### 7.2 Primary Method: BRAT (Beta Reviewer's Auto-update Tester)
 
@@ -263,6 +271,7 @@ Key flags: `prerelease: true` for pre-release versions; `make_latest: true` only
 - [ ] Generate Test Data creates 90 files; Clean Test Data deletes all `[TEST]`-prefixed files.
 - [ ] Dataview absence shows a Notice at startup but does not prevent the plugin from loading.
 - [ ] Query-based processors show "Dataview is not available" when Dataview is absent.
+- [ ] Tasks plugin absent → Notice shown at startup; plugin loads normally; `pm-tasks` date/priority filters return no results.
 - [ ] `npm version <new-version>` updates `manifest.json` and `versions.json` (stable only) atomically.
 - [ ] Release workflow creates a GitHub Release with the correct `prerelease` and `make_latest` flags.
 

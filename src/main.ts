@@ -32,13 +32,14 @@ import type {
 import { registerAllCommands } from "./commands";
 import { registerAllProcessors } from "./processors";
 import type { DataviewApi } from "./types";
-import { DATAVIEW_PLUGIN_ID, NOTICE_DURATION_MS } from "./constants";
+import { DATAVIEW_PLUGIN_ID, TASKS_PLUGIN_ID, NOTICE_DURATION_MS } from "./constants";
 
 /**
  * Project Manager Plugin — main entry point.
  *
  * Initialises all services and registers commands + code block processors.
  * Requires the Dataview community plugin to be installed and enabled.
+ * Requires the Tasks community plugin for structured task authoring (emoji due dates, priorities, completion markers).
  */
 export default class ProjectManagerPlugin extends Plugin {
   settings!: ProjectManagerSettings;
@@ -102,9 +103,10 @@ export default class ProjectManagerPlugin extends Plugin {
     this.loggerService = this.loggerServiceImpl;
     void this.loggerService.cleanOldLogs();
 
+    type PluginsHost = { plugins?: { plugins?: Record<string, { api?: DataviewApi } | undefined> } };
+    const host = this.app as unknown as PluginsHost;
+
     const getDataviewApi = (): DataviewApi | null => {
-      type PluginsHost = { plugins?: { plugins?: Record<string, { api?: DataviewApi }> } };
-      const host = this.app as unknown as PluginsHost;
       const dv = host.plugins?.plugins?.[DATAVIEW_PLUGIN_ID]?.api;
       return dv ?? null;
     };
@@ -114,6 +116,14 @@ export default class ProjectManagerPlugin extends Plugin {
       new Notice(
         "Project Manager: Dataview plugin not found. " +
           "Please install and enable the Dataview community plugin.",
+        NOTICE_DURATION_MS
+      );
+    }
+
+    if (!host.plugins?.plugins?.[TASKS_PLUGIN_ID]) {
+      new Notice(
+        "Project Manager: Tasks plugin not found. " +
+          "Please install and enable the Tasks community plugin.",
         NOTICE_DURATION_MS
       );
     }
