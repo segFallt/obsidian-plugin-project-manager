@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <!-- New release sections are prepended by .ci/bump-version.sh -->
 
+## [0.2.2] - 2026-03-27
+
+### Fixed
+
+- Remove unsupported `--create-tag` flag from `gh release create` in `auto-tag.yml` workflow, fixing pipeline failure on `ubuntu-latest` runner (`gh` implicitly creates the tag from the supplied tag name when the flag is absent).
+
 ## [0.2.1] - 2026-03-26
 
 ### Changed
