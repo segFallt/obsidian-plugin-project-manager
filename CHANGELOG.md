@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Documented slash command invocation availability and `pm-actions` action-type coverage per command in the commands reference, including an editor-command vs. global-command explainer ([#68](https://gitlab.n3.pingleberry.com/obsidian/obsidian-plugin-project-manager/-/issues/68)).
+
 ### Changed
 
 - Promoted `resolveClientName` to `IQueryService` and removed the private `resolvePageClient` helper from `QueryService`; `EntityHierarchyService.resolveClientName` now delegates to `queryService.resolveClientName` rather than duplicating the traversal logic ([#60](https://gitlab.n3.pingleberry.com/obsidian/obsidian-plugin-project-manager/-/issues/60)).
