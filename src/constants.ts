@@ -337,4 +337,5 @@ export const ISO_DATETIME_INPUT_LENGTH = 16;
 // ─── Plugin identifiers ────────────────────────────────────────────────────
 
 export const DATAVIEW_PLUGIN_ID = "dataview";
+export const TASKS_PLUGIN_ID = "obsidian-tasks-plugin";
 export const PLUGIN_ID = "project-manager";

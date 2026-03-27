@@ -1,0 +1,576 @@
+/* Copied from the root styles.css — update this file when the production
+   stylesheet changes so screenshots remain visually accurate. */
+
+/* ============================================================
+   Project Manager Plugin — styles.css
+   All classes use the `pm-` prefix with BEM methodology.
+   Uses Obsidian CSS custom properties for theme compatibility.
+   ============================================================ */
+
+/* ─── Status Badges ──────────────────────────────────────────── */
+
+.pm-status-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: var(--font-smaller);
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.pm-status-badge--active {
+  background-color: var(--color-green);
+  color: white;
+}
+
+.pm-status-badge--inactive {
+  background-color: var(--background-modifier-border);
+  color: var(--text-muted);
+}
+
+.pm-status-badge--new {
+  background-color: var(--color-blue);
+  color: white;
+}
+
+.pm-status-badge--on-hold {
+  background-color: var(--color-yellow);
+  color: var(--text-normal);
+}
+
+.pm-status-badge--complete {
+  background-color: var(--background-modifier-border);
+  color: var(--text-muted);
+  text-decoration: line-through;
+}
+
+/* ─── Tables ─────────────────────────────────────────────────── */
+
+.pm-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 8px 0;
+  font-size: var(--font-small);
+}
+
+.pm-table th {
+  text-align: left;
+  padding: 6px 12px;
+  background-color: var(--background-secondary);
+  border-bottom: 2px solid var(--background-modifier-border);
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  font-size: var(--font-smaller);
+  letter-spacing: 0.05em;
+}
+
+.pm-table td {
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--background-modifier-border-hover);
+  vertical-align: middle;
+}
+
+.pm-table tbody tr:hover {
+  background-color: var(--background-modifier-hover);
+}
+
+/* ─── Properties Editor ──────────────────────────────────────── */
+
+.pm-properties {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 8px 0;
+}
+
+.pm-properties__row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.pm-properties__label {
+  font-size: var(--font-smaller);
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.pm-properties__input,
+.pm-properties__select,
+.pm-properties__textarea {
+  background-color: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-m);
+  padding: 6px 10px;
+  color: var(--text-normal);
+  font-size: var(--font-ui-medium);
+  width: 100%;
+  box-sizing: border-box;
+  transition: border-color 0.15s ease;
+}
+
+.pm-properties__input:focus,
+.pm-properties__select:focus,
+.pm-properties__textarea:focus {
+  outline: none;
+  border-color: var(--interactive-accent);
+  box-shadow: 0 0 0 2px rgba(var(--interactive-accent-rgb), 0.2);
+}
+
+.pm-properties__textarea {
+  resize: vertical;
+  min-height: 72px;
+  font-family: var(--font-text);
+}
+
+/* Chip list (multi-entity select) */
+.pm-properties__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 4px;
+}
+
+.pm-properties__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  background-color: var(--interactive-accent);
+  color: var(--text-on-accent);
+  border-radius: 12px;
+  font-size: var(--font-smaller);
+}
+
+.pm-properties__chip-remove {
+  cursor: pointer;
+  font-weight: bold;
+  opacity: 0.7;
+  transition: opacity 0.1s;
+}
+
+.pm-properties__chip-remove:hover {
+  opacity: 1;
+}
+
+/* ─── Filter Chip Select ─────────────────────────────────────────────────────── */
+
+.pm-filter-chip-select {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.pm-filter-chip-select__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+/* Reuse the chip styling from pm-properties */
+.pm-filter-chip-select__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  background-color: var(--interactive-accent);
+  color: var(--text-on-accent);
+  border-radius: 12px;
+  font-size: var(--font-smaller);
+}
+
+.pm-filter-chip-select__chip-remove {
+  cursor: pointer;
+  font-weight: bold;
+  opacity: 0.7;
+  transition: opacity 0.1s;
+}
+
+.pm-filter-chip-select__chip-remove:hover {
+  opacity: 1;
+}
+
+/* ─── Inline Autocomplete ───────────────────────────────────────────────────── */
+
+.pm-autocomplete {
+  position: relative;
+  width: 100%;
+}
+
+.pm-autocomplete__option--none {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+/* ─── Action Buttons ─────────────────────────────────────────── */
+
+.pm-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 4px 0;
+}
+
+.pm-actions__button {
+  padding: 6px 16px;
+  border-radius: var(--radius-m);
+  border: 1px solid var(--background-modifier-border);
+  background-color: var(--interactive-normal);
+  color: var(--text-normal);
+  cursor: pointer;
+  font-size: var(--font-ui-medium);
+  transition: background-color 0.15s ease;
+}
+
+.pm-actions__button:hover {
+  background-color: var(--interactive-hover);
+}
+
+.pm-actions__button.mod-cta {
+  background-color: var(--interactive-accent);
+  color: var(--text-on-accent);
+  border-color: transparent;
+}
+
+.pm-actions__button.mod-cta:hover {
+  background-color: var(--interactive-accent-hover);
+}
+
+/* ─── Task Dashboard ─────────────────────────────────────────── */
+
+.pm-tasks-dashboard {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.pm-tasks-dashboard__controls {
+  background-color: var(--background-secondary);
+  border-radius: var(--radius-l);
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.pm-tasks-control-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pm-tasks-control-row__label {
+  font-size: var(--font-smaller);
+  font-weight: 600;
+  color: var(--text-muted);
+  min-width: 100px;
+}
+
+.pm-tasks-filter-select {
+  padding: 4px 8px;
+  border-radius: var(--radius-m);
+  background-color: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  color: var(--text-normal);
+  font-size: var(--font-ui-small);
+}
+
+.pm-tasks-search {
+  padding: 4px 10px;
+  border-radius: var(--radius-m);
+  border: 1px solid var(--background-modifier-border);
+  background-color: var(--background-primary);
+  color: var(--text-normal);
+  font-size: var(--font-ui-medium);
+  flex: 1;
+}
+
+.pm-tasks-clear-btn {
+  align-self: flex-start;
+  padding: 4px 12px;
+  border-radius: var(--radius-m);
+  background-color: var(--background-modifier-border);
+  color: var(--text-muted);
+  border: none;
+  cursor: pointer;
+  font-size: var(--font-ui-small);
+}
+
+.pm-tasks-clear-btn:hover {
+  background-color: var(--background-modifier-border-hover);
+  color: var(--text-normal);
+}
+
+/* Collapsible filter sections */
+.pm-filter-section {
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-m);
+}
+
+.pm-filter-section__title {
+  padding: 6px 12px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: var(--font-ui-small);
+  list-style: none;
+  user-select: none;
+}
+
+.pm-filter-section__title::-webkit-details-marker {
+  display: none;
+}
+
+.pm-filter-section__title::before {
+  content: "▶ ";
+  font-size: 0.7em;
+  opacity: 0.6;
+}
+
+details[open] .pm-filter-section__title::before {
+  content: "▼ ";
+}
+
+.pm-filter-section__content {
+  padding: 8px 12px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pm-filter-label {
+  font-size: var(--font-smaller);
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+.pm-checkbox-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.pm-checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--font-ui-small);
+  cursor: pointer;
+}
+
+/* ─── Date Presets ───────────────────────────────────────────── */
+
+.pm-date-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.pm-date-preset-btn {
+  padding: 4px 12px;
+  border-radius: var(--radius-m);
+  border: 1px solid var(--background-modifier-border);
+  background-color: var(--interactive-normal);
+  color: var(--text-normal);
+  cursor: pointer;
+  font-size: var(--font-ui-small);
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.pm-date-preset-btn:hover {
+  background-color: var(--interactive-hover);
+}
+
+.pm-date-preset-btn--active {
+  background-color: var(--interactive-accent);
+  color: var(--text-on-accent);
+  border-color: transparent;
+}
+
+.pm-date-preset-btn--active:hover {
+  background-color: var(--interactive-accent-hover);
+}
+
+.pm-date-range {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.pm-date-range-input {
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-s);
+  background-color: var(--background-primary);
+  color: var(--text-normal);
+  font-size: var(--font-ui-small);
+  padding: 3px 6px;
+}
+
+.pm-date-range-separator {
+  color: var(--text-muted);
+  font-size: var(--font-ui-small);
+}
+
+/* ─── Task List ──────────────────────────────────────────────── */
+
+.pm-task-list {
+  list-style: none;
+  padding: 0;
+  margin: 4px 0 12px;
+}
+
+.pm-task-list .task-list-item {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 3px 0;
+  flex-wrap: wrap;
+}
+
+.pm-task-text {
+  flex: 1;
+}
+
+.pm-task-due {
+  font-size: var(--font-smaller);
+  color: var(--text-muted);
+  background-color: var(--background-secondary);
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
+.pm-task-due--overdue {
+  color: var(--text-error);
+  background-color: rgba(var(--color-red-rgb), 0.1);
+}
+
+.pm-task-priority {
+  font-size: var(--font-smaller);
+}
+
+.pm-task-source {
+  font-size: var(--font-smaller);
+  color: var(--text-accent);
+  opacity: 0.7;
+  text-decoration: none;
+}
+
+.pm-task-source:hover {
+  opacity: 1;
+}
+
+/* ─── By-Project View ────────────────────────────────────────── */
+
+.pm-tasks-by-project__controls {
+  background-color: var(--background-secondary);
+  border-radius: var(--radius-l);
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.pm-tasks-project-group {
+  margin-bottom: 24px;
+}
+
+.pm-tasks-project-group__title {
+  margin-bottom: 4px;
+}
+
+.pm-tasks-completed summary {
+  color: var(--text-muted);
+  font-size: var(--font-small);
+  cursor: pointer;
+  padding: 4px 0;
+}
+
+/* ─── Error display ──────────────────────────────────────────── */
+
+.pm-error {
+  padding: 8px 12px;
+  border-left: 3px solid var(--text-error);
+  color: var(--text-error);
+  font-size: var(--font-ui-small);
+  background-color: rgba(var(--color-red-rgb), 0.06);
+  border-radius: 0 var(--radius-m) var(--radius-m) 0;
+  margin: 4px 0;
+}
+
+/* ─── Modal fields ───────────────────────────────────────────── */
+
+.pm-modal-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.pm-modal-field__input,
+.pm-modal-field__select {
+  padding: 6px 10px;
+  border-radius: var(--radius-m);
+  border: 1px solid var(--background-modifier-border);
+  background-color: var(--background-primary);
+  color: var(--text-normal);
+  font-size: var(--font-ui-medium);
+}
+
+.pm-modal-buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+/* ─── pm-recurring-events ──────────────────────────────────────────────────── */
+
+.pm-recurring-events__empty {
+  color: var(--text-muted);
+  font-style: italic;
+  padding: 8px 0;
+}
+
+.pm-recurring-events__grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+  overflow-anchor: none; /* prevent browser scroll anchoring during tile rebuilds */
+  contain: layout style; /* limit relayout scope when tiles are swapped */
+}
+
+.pm-recurring-events__tile {
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.pm-recurring-events__tile-header {
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.pm-recurring-events__tile-attendees {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.pm-recurring-events__tile-attendee {
+  background: var(--background-modifier-hover);
+  border-radius: 4px;
+  padding: 2px 8px;
+  font-size: 0.85em;
+}
+
+.pm-recurring-events__tile-notes {
+  font-size: 0.9em;
+  color: var(--text-muted);
+}
+.pm-recurring-events__tile-notes p:first-child { margin-top: 0; }
+.pm-recurring-events__tile-notes p:last-child { margin-bottom: 0; }
