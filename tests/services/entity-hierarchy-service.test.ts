@@ -5,11 +5,11 @@ import type { DataviewPage } from "@/types";
 // ─── Mock helpers ─────────────────────────────────────────────────────────
 
 function makeQueryService(overrides: Partial<{
-  getClientFromEngagementLink: (link: unknown) => string | null;
+  resolveClientName: (page: DataviewPage) => string | null;
   getEngagementNameForPath: (path: string) => string | null;
 }> = {}) {
   return {
-    getClientFromEngagementLink: overrides.getClientFromEngagementLink ?? vi.fn(() => null),
+    resolveClientName: overrides.resolveClientName ?? vi.fn(() => null),
     getEngagementNameForPath: overrides.getEngagementNameForPath ?? vi.fn(() => null),
   } as unknown as import("@/services/interfaces").IQueryService;
 }
@@ -38,107 +38,26 @@ function makePage(overrides: Partial<{
 // ─── resolveClientName ────────────────────────────────────────────────────
 
 describe("EntityHierarchyService.resolveClientName", () => {
-  it("returns the client name directly when page.client is a DataviewLink", () => {
-    const qs = makeQueryService();
+  it("delegates to queryService.resolveClientName and returns its result", () => {
+    const page = makePage({ path: "raid/R1.md" });
+    const resolveClientName = vi.fn(() => "Acme Corp");
+    const qs = makeQueryService({ resolveClientName });
     const svc = new EntityHierarchyService(qs);
-    const page = makePage({ client: { path: "clients/Acme Corp.md" } });
-
-    expect(svc.resolveClientName(page)).toBe("Acme Corp");
-  });
-
-  it("returns the client name directly when page.client is a plain string", () => {
-    const qs = makeQueryService();
-    const svc = new EntityHierarchyService(qs);
-    const page = makePage({ client: "Beta Ltd" });
-
-    expect(svc.resolveClientName(page)).toBe("Beta Ltd");
-  });
-
-  it("falls back via getEngagementNameForPath + getClientFromEngagementLink when page.client is absent but engagement is set", () => {
-    // resolveClientName now delegates all traversal to getEngagementNameForPath rather
-    // than reading page.engagement directly. The queryService mock simulates the case
-    // where getEngagementNameForPath resolves the page's direct engagement field and
-    // returns the engagement name; getClientFromEngagementLink then resolves to the client.
-    const getEngagementNameForPath = vi.fn(() => "Project X");
-    const getClientFromEngagementLink = vi.fn(() => "Gamma Inc");
-    const qs = makeQueryService({ getEngagementNameForPath, getClientFromEngagementLink });
-    const svc = new EntityHierarchyService(qs);
-    const page = makePage({ engagement: { path: "engagements/Project X.md" } });
 
     const result = svc.resolveClientName(page);
 
-    expect(result).toBe("Gamma Inc");
-    expect(getEngagementNameForPath).toHaveBeenCalledWith(page.file.path);
-    expect(getClientFromEngagementLink).toHaveBeenCalledWith("Project X");
+    expect(result).toBe("Acme Corp");
+    expect(resolveClientName).toHaveBeenCalledWith(page);
   });
 
-  it("returns null when both page.client and engagement are absent", () => {
-    const qs = makeQueryService();
+  it("returns null when queryService.resolveClientName returns null", () => {
+    const page = makePage({ path: "inbox/Note.md" });
+    const resolveClientName = vi.fn(() => null);
+    const qs = makeQueryService({ resolveClientName });
     const svc = new EntityHierarchyService(qs);
-    const page = makePage({});
 
     expect(svc.resolveClientName(page)).toBeNull();
-  });
-
-  it("returns null when page.client is absent and getClientFromEngagementLink returns null", () => {
-    const qs = makeQueryService({
-      getClientFromEngagementLink: vi.fn(() => null),
-    });
-    const svc = new EntityHierarchyService(qs);
-    const page = makePage({ engagement: { path: "engagements/Project Y.md" } });
-
-    expect(svc.resolveClientName(page)).toBeNull();
-  });
-
-  it("does not call getClientFromEngagementLink when direct client is resolved", () => {
-    const getClientFromEngagementLink = vi.fn(() => "Should Not Be Called");
-    const qs = makeQueryService({ getClientFromEngagementLink });
-    const svc = new EntityHierarchyService(qs);
-    const page = makePage({ client: { path: "clients/Direct Client.md" }, engagement: { path: "engagements/Eng.md" } });
-
-    svc.resolveClientName(page);
-
-    expect(getClientFromEngagementLink).not.toHaveBeenCalled();
-  });
-
-  it("resolves client via getEngagementNameForPath for a project note (relatedProject chain)", () => {
-    const getEngagementNameForPath = vi.fn(() => "Alpha Engagement");
-    const getClientFromEngagementLink = vi.fn(() => "Delta Corp");
-    const qs = makeQueryService({ getEngagementNameForPath, getClientFromEngagementLink });
-    const svc = new EntityHierarchyService(qs);
-    // Project note has no direct client or engagement field
-    const page = makePage({ path: "projects/notes/my-note/Some Note.md" });
-
-    const result = svc.resolveClientName(page);
-
-    expect(result).toBe("Delta Corp");
-    expect(getEngagementNameForPath).toHaveBeenCalledWith("projects/notes/my-note/Some Note.md");
-    expect(getClientFromEngagementLink).toHaveBeenCalledWith("Alpha Engagement");
-  });
-
-  it("resolves client via getEngagementNameForPath for a recurring-meeting-event page", () => {
-    const getEngagementNameForPath = vi.fn(() => "Beta Engagement");
-    const getClientFromEngagementLink = vi.fn(() => "Sigma Ltd");
-    const qs = makeQueryService({ getEngagementNameForPath, getClientFromEngagementLink });
-    const svc = new EntityHierarchyService(qs);
-    // Recurring meeting event has no direct client or engagement
-    const page = makePage({ path: "meetings/recurring/Weekly Sync/2026-03-25.md" });
-
-    const result = svc.resolveClientName(page);
-
-    expect(result).toBe("Sigma Ltd");
-    expect(getEngagementNameForPath).toHaveBeenCalledWith("meetings/recurring/Weekly Sync/2026-03-25.md");
-  });
-
-  it("returns null when getEngagementNameForPath returns null and no direct client", () => {
-    const getEngagementNameForPath = vi.fn(() => null);
-    const getClientFromEngagementLink = vi.fn(() => null);
-    const qs = makeQueryService({ getEngagementNameForPath, getClientFromEngagementLink });
-    const svc = new EntityHierarchyService(qs);
-    const page = makePage({ path: "inbox/Some Note.md" });
-
-    expect(svc.resolveClientName(page)).toBeNull();
-    expect(getClientFromEngagementLink).not.toHaveBeenCalled();
+    expect(resolveClientName).toHaveBeenCalledWith(page);
   });
 });
 
