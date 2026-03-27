@@ -443,14 +443,6 @@ async function main(): Promise<void> {
       await sleep(300);
     }
 
-    // ── Settings tab full overview (scrolled to top) ──────────────────────────
-    console.log('\n[screenshot-docs] Settings full tab screenshot...');
-    await openSettings(page);
-    const pmTabFull = await page.$('.vertical-tab-nav-item:has-text("Project Manager")');
-    if (pmTabFull) { await pmTabFull.click(); await sleep(600); }
-    await screenshot(page, 'settings-tab-full.png');
-    await closeModal(page);
-
     console.log('\n[screenshot-docs] All screenshots captured successfully.');
     console.log(`Output: ${ASSETS_DIR}`);
 
