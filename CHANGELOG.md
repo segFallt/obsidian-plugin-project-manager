@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <!-- New release sections are prepended by .ci/bump-version.sh -->
 
+## [Unreleased]
+
+### Added
+
+- Comprehensive user guide covering all 9 code block processors, 16 commands, all settings, all 11 entity types, and 6 end-to-end workflow walkthroughs (`docs/plugin/user-guide/`), with 28 screenshots captured from a live Obsidian instance ([#58](https://gitlab.n3.pingleberry.com/obsidian/obsidian-plugin-project-manager/-/issues/58)).
+
 ## [0.2.2] - 2026-03-27
 
 ### Fixed
