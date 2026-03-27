@@ -17,6 +17,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Promoted `resolveClientName` to `IQueryService` and removed the private `resolvePageClient` helper from `QueryService`; `EntityHierarchyService.resolveClientName` now delegates to `queryService.resolveClientName` rather than duplicating the traversal logic ([#60](https://gitlab.n3.pingleberry.com/obsidian/obsidian-plugin-project-manager/-/issues/60)).
 
+### Fixed
+
+- Fixed broken image paths in `04-processors/` user guide: all 14 PNG references now correctly resolve via `../assets/` ([#67](https://gitlab.n3.pingleberry.com/obsidian/obsidian-plugin-project-manager/-/issues/67)).
+
 ## [0.2.3] - 2026-03-27
 
 ### Added

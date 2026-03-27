@@ -2,7 +2,7 @@
 
 Renders a combined section with a heading, an action button, and a relationship table — all in a single, concise code block. It is a shorthand for the common pattern of combining `pm-actions` and `pm-table`.
 
-![pm-entity-view showing a client's engagements and people sections](assets/pm-entity-view.png)
+![pm-entity-view showing a client's engagements and people sections](../assets/pm-entity-view.png)
 
 ---
 

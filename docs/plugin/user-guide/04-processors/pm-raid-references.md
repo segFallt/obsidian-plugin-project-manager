@@ -4,7 +4,7 @@ Renders a list of all notes in the vault that reference the current RAID item, g
 
 References are created by annotating lines in any note using the format `{raid:positive|negative|neutral}[[RAID Item Name]]` — either manually, or via the **PM: Tag Line as RAID Reference** command.
 
-![RAID references list](assets/pm-raid-references.png)
+![RAID references list](../assets/pm-raid-references.png)
 
 ---
 
