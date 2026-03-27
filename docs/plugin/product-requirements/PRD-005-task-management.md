@@ -144,6 +144,8 @@ Clicking a task checkbox:
 
 The `TaskParser` (regex-based, Tasks plugin emoji format, no Tasks plugin API dependency) is used to parse and update task lines.
 
+> **Note:** The Tasks community plugin is required for structured task authoring (emoji due dates, priorities, completion markers). `TaskParser` parses the format via regex regardless of whether the plugin is installed, but the Tasks plugin is the standard authoring tool. Tasks authored without the Tasks plugin emoji format will lack due date and priority data.
+
 ### 3.7 Filter State Persistence
 
 - Filter state is serialised to the note's frontmatter under the `pm-tasks-filters` key.
@@ -177,6 +179,7 @@ The `TaskParser` (regex-based, Tasks plugin emoji format, no Tasks plugin API de
 
 - **PRD-001** — Relationship traversal chains for context grouping and filtering.
 - **PRD-007** — `utility/` folder path (excluded from task queries) comes from Settings. Dataview graceful degradation.
+- **Tasks community plugin** (`obsidian-tasks-plugin`) — required for structured task authoring (emoji due dates, priorities, completion markers). Graceful degradation behaviour (Notice at startup; plugin continues to load; date/priority filters return no data when absent) is defined in PRD-007.
 
 ---
 
