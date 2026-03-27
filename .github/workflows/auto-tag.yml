@@ -79,7 +79,6 @@ jobs:
           [ -f styles.css ] && ASSETS="$ASSETS styles.css"
           gh release create "${{ steps.tag.outputs.tag }}" \
             $ASSETS \
-            --create-tag \
             --notes-file /tmp/release-notes.md \
             --title "${{ steps.tag.outputs.tag }}" \
             ${{ steps.release_type.outputs.flags }}
