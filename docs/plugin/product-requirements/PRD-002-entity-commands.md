@@ -113,11 +113,11 @@ For all create commands, `EntityCreationService`:
 
 `PM: Create Reference`:
 
-1. Opens an `EntityCreationModal` variant collecting:
+1. Opens `ReferenceCreationModal` collecting:
    - **Name** — text input (required)
-   - **Topics** — `list-suggester` over all `#reference-topic` files; at least one topic required before confirming; topics stored as `[[Topic Name]]` wikilinks
-   - **Client** (optional) — `suggester` over active `#client` files; includes a `(None)` option
-   - **Engagement** (optional) — `suggester` over active `#engagement` files, displayed as `"Eng (Client)"`; includes a `(None)` option
+   - **Topics** — `FilterChipSelect` (`showUnassignedCheckbox: false`) over all `#reference-topic` files; type-ahead filters by case-insensitive substring; selected topics appear as removable chips; at least one topic required before confirming; topics stored as `[[Topic Name]]` wikilinks
+   - **Client** (optional) — `PropertySuggest` (`includeNone: true`) over active `#client` files; selecting `(None)` clears the field
+   - **Engagement** (optional) — `PropertySuggest` (`includeNone: true`) over active `#engagement` files; selecting `(None)` clears the field
 2. Creates `reference/references/<Name>.md` from the Reference template.
 3. Writes `topics`, `client`, `engagement` via `processFrontMatter` after file creation.
 4. Opens the new reference note on creation.
