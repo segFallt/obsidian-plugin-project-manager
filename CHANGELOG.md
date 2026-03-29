@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <!-- New release sections are prepended by .ci/bump-version.sh -->
 
+## [0.2.5] - 2026-03-29
+
+### Changed
+
+- Replaced static checkbox list and native `<select>` elements in `ReferenceCreationModal` with `FilterChipSelect` type-ahead for topics and `PropertySuggest` for client/engagement fields, bringing the creation dialog in line with the plugin's broader UX conventions ([#69](https://gitlab.n3.pingleberry.com/obsidian/obsidian-plugin-project-manager/-/issues/69)).
+
 ## [0.2.4] - 2026-03-27
 
 ### Added

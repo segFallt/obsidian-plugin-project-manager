@@ -428,6 +428,18 @@ Reference file names must not contain colons (`:`) — Obsidian prohibits colons
 
 Reference and Reference Topic create modals use `EntityCreationModal` following the same `.pm-modal-field` / `.pm-modal-buttons` CSS class structure as Client, Engagement, and Project modals. No inline styles.
 
+### 6.7 Create Reference modal UI controls (issue #69)
+
+`ReferenceCreationModal` uses the following UI components:
+
+| Field | Component | Config |
+|-------|-----------|--------|
+| Topics | `FilterChipSelect` | `showUnassignedCheckbox: false`; options mapped as `{ displayText: name, value: '[[name]]' }`; pre-selected topics passed as `selectedValues` |
+| Client | `PropertySuggest` | `includeNone: true`; options mapped as `{ displayText: name, value: name }`; pre-selected client passed as `currentValue` |
+| Engagement | `PropertySuggest` | `includeNone: true`; options mapped as `{ displayText: name, value: name }`; pre-selected engagement passed as `currentValue` |
+
+All three component instances must have `destroy()` called in `onClose()` to release Obsidian suggest popovers.
+
 ---
 
 ## 7. Acceptance Criteria
