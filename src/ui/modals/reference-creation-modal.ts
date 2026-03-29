@@ -1,6 +1,9 @@
 import { App, Modal } from "obsidian";
 import type { DataviewPage } from "../../types";
 import { FOCUS_DELAY_MS } from "../../constants";
+import { FilterChipSelect } from "../components/filter-chip-select";
+import { PropertySuggest } from "../components/property-suggest";
+import type { AutocompleteOption } from "../components/property-suggest";
 
 // ─── Result type ─────────────────────────────────────────────────────────────
 
@@ -16,16 +19,20 @@ export interface ReferenceCreationResult {
 
 /**
  * Compound modal for Reference creation.
- * Collects name, one or more topics (checkbox list), optional client, and optional engagement.
+ * Collects name, one or more topics (FilterChipSelect with type-ahead), optional client,
+ * and optional engagement (both via PropertySuggest).
  *
  * Supports pre-selection of topics, client, and engagement from actionContext.
  */
 export class ReferenceCreationModal extends Modal {
   private resolvePromise!: (value: ReferenceCreationResult | null) => void;
   private nameInput!: HTMLInputElement;
-  private clientSelect!: HTMLSelectElement;
-  private engagementSelect!: HTMLSelectElement;
-  private readonly checkedTopics = new Set<string>();
+  private selectedTopics: string[];
+  private selectedClientName: string | undefined;
+  private selectedEngagementName: string | undefined;
+  private topicChipSelect: FilterChipSelect | undefined;
+  private clientSuggest: PropertySuggest | undefined;
+  private engagementSuggest: PropertySuggest | undefined;
 
   constructor(
     app: App,
@@ -37,9 +44,9 @@ export class ReferenceCreationModal extends Modal {
     private readonly preselectedEngagement?: string
   ) {
     super(app);
-    for (const t of preselectedTopics) {
-      this.checkedTopics.add(t);
-    }
+    this.selectedTopics = [...preselectedTopics];
+    this.selectedClientName = preselectedClient;
+    this.selectedEngagementName = preselectedEngagement;
   }
 
   /** Opens the modal and returns a promise that resolves with the user's input, or null if cancelled. */
@@ -66,69 +73,82 @@ export class ReferenceCreationModal extends Modal {
     this.nameInput.style.width = "100%";
     this.nameInput.style.marginTop = "4px";
 
-    // Topics (checkbox list, at least one required)
+    // Topics (FilterChipSelect with type-ahead, at least one required)
     const topicsGroup = contentEl.createDiv({ cls: "pm-modal-field" });
     topicsGroup.style.marginTop = "12px";
     topicsGroup.createEl("label", { text: "Topics (at least one required)" });
 
-    const topicList = topicsGroup.createDiv({ cls: "pm-modal-field__topic-list" });
-    topicList.style.maxHeight = "120px";
-    topicList.style.overflowY = "auto";
-    topicList.style.border = "1px solid var(--background-modifier-border)";
-    topicList.style.borderRadius = "var(--radius-m)";
-    topicList.style.padding = "4px 6px";
-    topicList.style.marginTop = "4px";
+    const topicOptions: AutocompleteOption[] = this.topics.map((t) => ({
+      displayText: t.file.name,
+      value: `[[${t.file.name}]]`,
+    }));
 
-    for (const topic of this.topics) {
-      const wikilink = `[[${topic.file.name}]]`;
-      const row = topicList.createDiv({ cls: "pm-modal-field__topic-row" });
-      row.style.display = "flex";
-      row.style.alignItems = "center";
-      row.style.gap = "6px";
-      row.style.padding = "2px 0";
+    this.topicChipSelect = new FilterChipSelect(topicsGroup, this.app, {
+      options: topicOptions,
+      selectedValues: this.selectedTopics,
+      placeholder: "Search topics…",
+      ariaLabel: "Topics",
+      showUnassignedCheckbox: false,
+      onChange: (selectedValues) => {
+        this.selectedTopics = selectedValues;
+      },
+    });
 
-      const checkbox = row.createEl("input", { type: "checkbox" });
-      checkbox.checked = this.checkedTopics.has(wikilink);
-      row.createEl("label", { text: topic.file.name });
-
-      checkbox.addEventListener("change", () => {
-        if (checkbox.checked) {
-          this.checkedTopics.add(wikilink);
-        } else {
-          this.checkedTopics.delete(wikilink);
-        }
-      });
-    }
-
-    // Client (optional)
+    // Client (optional, PropertySuggest)
     const clientGroup = contentEl.createDiv({ cls: "pm-modal-field" });
     clientGroup.style.marginTop = "12px";
     clientGroup.createEl("label", { text: "Client (optional)" });
-    this.clientSelect = clientGroup.createEl("select", { cls: "pm-modal-field__select dropdown" });
-    this.clientSelect.style.width = "100%";
-    this.clientSelect.style.marginTop = "4px";
-    this.clientSelect.createEl("option", { text: "(None)", value: "" });
-    for (const c of this.clients) {
-      this.clientSelect.createEl("option", { text: c.file.name, value: c.file.name });
-    }
-    if (this.preselectedClient) {
-      this.clientSelect.value = this.preselectedClient;
-    }
 
-    // Engagement (optional)
+    const clientOptions: AutocompleteOption[] = this.clients.map((c) => ({
+      displayText: c.file.name,
+      value: c.file.name,
+    }));
+
+    this.clientSuggest = new PropertySuggest(
+      clientGroup,
+      this.app,
+      clientOptions,
+      this.preselectedClient ?? null,
+      {
+        placeholder: "Search clients…",
+        ariaLabel: "Client",
+        includeNone: true,
+        onSelect: (option) => {
+          this.selectedClientName = option.value;
+        },
+        onClear: () => {
+          this.selectedClientName = undefined;
+        },
+      }
+    );
+
+    // Engagement (optional, PropertySuggest)
     const engGroup = contentEl.createDiv({ cls: "pm-modal-field" });
     engGroup.style.marginTop = "12px";
     engGroup.createEl("label", { text: "Engagement (optional)" });
-    this.engagementSelect = engGroup.createEl("select", { cls: "pm-modal-field__select dropdown" });
-    this.engagementSelect.style.width = "100%";
-    this.engagementSelect.style.marginTop = "4px";
-    this.engagementSelect.createEl("option", { text: "(None)", value: "" });
-    for (const e of this.engagements) {
-      this.engagementSelect.createEl("option", { text: e.file.name, value: e.file.name });
-    }
-    if (this.preselectedEngagement) {
-      this.engagementSelect.value = this.preselectedEngagement;
-    }
+
+    const engagementOptions: AutocompleteOption[] = this.engagements.map((e) => ({
+      displayText: e.file.name,
+      value: e.file.name,
+    }));
+
+    this.engagementSuggest = new PropertySuggest(
+      engGroup,
+      this.app,
+      engagementOptions,
+      this.preselectedEngagement ?? null,
+      {
+        placeholder: "Search engagements…",
+        ariaLabel: "Engagement",
+        includeNone: true,
+        onSelect: (option) => {
+          this.selectedEngagementName = option.value;
+        },
+        onClear: () => {
+          this.selectedEngagementName = undefined;
+        },
+      }
+    );
 
     // Buttons
     const buttonRow = contentEl.createDiv({ cls: "pm-modal-buttons" });
@@ -156,6 +176,9 @@ export class ReferenceCreationModal extends Modal {
   }
 
   onClose(): void {
+    this.topicChipSelect?.destroy();
+    this.clientSuggest?.destroy();
+    this.engagementSuggest?.destroy();
     this.resolvePromise?.(null);
     this.contentEl.empty();
   }
@@ -164,11 +187,11 @@ export class ReferenceCreationModal extends Modal {
     const name = this.nameInput.value.trim();
     if (!name) return;
 
-    const topics = [...this.checkedTopics];
+    const topics = this.selectedTopics;
     if (topics.length === 0) return;
 
-    const clientName = this.clientSelect.value || undefined;
-    const engagementName = this.engagementSelect.value || undefined;
+    const clientName = this.selectedClientName;
+    const engagementName = this.selectedEngagementName;
 
     this.resolvePromise({ name, topics, clientName, engagementName });
     this.resolvePromise = () => {};
