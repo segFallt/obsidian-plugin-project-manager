@@ -202,7 +202,9 @@ Creates a Reference document and links it to one or more Reference Topics.
 
 **Modal flow:**
 1. Enter the reference name
-2. Select one or more topics
+2. Type in the **Topics** field to filter topics by name — matching topics appear as suggestions. Select one to add it as a chip. Repeat to add multiple topics. Remove a chip with the **×** button. At least one topic is required before creating.
+3. Optionally type in the **Client** field and select a client from the suggestions, or leave it blank for none.
+4. Optionally type in the **Engagement** field and select an engagement from the suggestions, or leave it blank for none.
 
 ![Create Reference modal](assets/modal-create-reference.png)
 
