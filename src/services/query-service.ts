@@ -415,6 +415,15 @@ export class QueryService implements IQueryService {
       pageMap.set(p.file.name, p);
     }
 
+    // Case-insensitive fallback: maps lowercase name → canonical name in pageMap.
+    // Obsidian filenames are unique on case-insensitive filesystems; last-write wins is acceptable here.
+    const pageMapLower = new Map<string, string>();
+    for (const key of pageMap.keys()) {
+      pageMapLower.set(key.toLowerCase(), key);
+    }
+    const resolveCanonical = (name: string): string | null =>
+      pageMap.has(name) ? name : (pageMapLower.get(name.toLowerCase()) ?? null);
+
     // Detect cycles: only mark nodes that are actually within the cycle loop.
     const inCycle = new Set<string>();
     for (const p of pages) {
@@ -435,7 +444,8 @@ export class QueryService implements IQueryService {
         const page = pageMap.get(current);
         if (!page) break;
         const parentRaw = page.parent;
-        current = parentRaw ? (normalizeToName(parentRaw) ?? null) : null;
+        const rawNext = parentRaw ? (normalizeToName(parentRaw) ?? null) : null;
+        current = rawNext ? resolveCanonical(rawNext) : null;
       }
     }
 
@@ -452,8 +462,9 @@ export class QueryService implements IQueryService {
     for (const p of pages) {
       const node = nodeMap.get(p.file.name);
       if (!node) continue;
-      const parentName = p.parent ? (normalizeToName(p.parent) ?? null) : null;
-      if (parentName && pageMap.has(parentName) && !inCycle.has(p.file.name)) {
+      const rawParentName = p.parent ? (normalizeToName(p.parent) ?? null) : null;
+      const parentName = rawParentName ? resolveCanonical(rawParentName) : null;
+      if (parentName && !inCycle.has(p.file.name)) {
         let siblings = childrenMap.get(parentName);
         if (!siblings) {
           siblings = [];

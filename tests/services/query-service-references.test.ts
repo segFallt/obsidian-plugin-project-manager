@@ -348,6 +348,31 @@ describe("QueryService — getReferenceTopicTree", () => {
     expect(k8sNode.children).toHaveLength(1);
     expect(k8sNode.children[0].name).toBe("Helm");
   });
+
+  it("regression #72: case-insensitive parent name matching (wikilink written in different case than filename)", () => {
+    // Parent note has canonical filename "Kubernetes" (PascalCase).
+    // Child note uses [[kubernetes]] (lowercase) in its parent field — intentional case mismatch.
+    const { qs } = createQueryService([
+      makeTopicPage("Kubernetes"),
+      {
+        path: "reference/reference-topics/kubectl.md",
+        name: "kubectl",
+        tags: ["#reference-topic"],
+        frontmatter: { parent: "[[kubernetes]]" }, // lowercase wikilink — case mismatch
+      },
+    ]);
+
+    const tree = qs.getReferenceTopicTree();
+    // Kubernetes should be the single root node
+    expect(tree).toHaveLength(1);
+    expect(tree[0].name).toBe("Kubernetes");
+    // kubectl should be nested as a child, not promoted to root
+    expect(tree[0].children).toHaveLength(1);
+    expect(tree[0].children[0].name).toBe("kubectl");
+    // Confirm kubectl is NOT a root node
+    const rootNames = tree.map((n) => n.name);
+    expect(rootNames).not.toContain("kubectl");
+  });
 });
 
 describe("QueryService — getTopicDescendants", () => {
