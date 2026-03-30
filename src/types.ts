@@ -44,6 +44,7 @@ export interface ReferenceFilters {
   clients: string[];     // display names
   engagements: string[]; // display names
   searchText: string;
+  selectedNode?: string;  // plain display name of active sidebar selection, e.g. "Kubernetes"
 }
 
 export interface SavedReferenceFilters {
@@ -51,6 +52,13 @@ export interface SavedReferenceFilters {
   topics?: string[];
   clients?: string[];
   engagements?: string[];
+  selectedNode?: string;
+}
+
+export interface TopicNode {
+  name: string;
+  page: DataviewPage;
+  children: TopicNode[];
 }
 
 // ─── RAID Types ────────────────────────────────────────────────────────────

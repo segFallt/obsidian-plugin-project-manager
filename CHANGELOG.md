@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <!-- New release sections are prepended by .ci/bump-version.sh -->
 
+## [0.3.0] - 2026-03-30
+
+### Added
+
+- Added hierarchical parent–child support to Reference Topics: optional `parent` wikilink field in frontmatter, `getReferenceTopicTree()` and `getTopicDescendants()` query methods, `PM: Update Reference Topic` command to assign or clear parent, and updated `PM: Create Reference Topic` to include optional parent selection (`PropertySuggest` with `includeNone: true`) ([#70](https://gitlab.n3.pingleberry.com/obsidian/obsidian-plugin-project-manager/-/issues/70)).
+- Redesigned `pm-references` dashboard with a two-panel sidebar + content layout: hierarchical topic tree sidebar for By Topic mode, flat client/engagement lists for other modes, and nested collapsible groups in the content panel when a parent node is selected ([#70](https://gitlab.n3.pingleberry.com/obsidian/obsidian-plugin-project-manager/-/issues/70)).
+
 ## [0.2.5] - 2026-03-29
 
 ### Changed

@@ -6,6 +6,7 @@ import { renderClientView } from "./reference-views/client-view-renderer";
 import { renderEngagementView } from "./reference-views/engagement-view-renderer";
 import { FilterChipSelect } from "../ui/components/filter-chip-select";
 import { buildEntityOptions } from "../utils/filter-utils";
+import { normalizeToName } from "../utils/link-utils";
 
 // ─── View mode tab definitions ────────────────────────────────────────────────
 
@@ -24,6 +25,7 @@ function defaultFilters(config: PmReferencesConfig): ReferenceFilters {
     clients: [],
     engagements: [],
     searchText: "",
+    selectedNode: undefined,
   };
 }
 
@@ -36,13 +38,14 @@ function defaultFilters(config: PmReferencesConfig): ReferenceFilters {
  *   - View mode tabs (By Topic / By Client / By Engagement)
  *   - Collapsible filter panel (topic / client / engagement chips + clear button)
  *   - Search input with debounce
+ *   - Two-panel body: sidebar (tree or flat list) + content panel
  *   - Dispatching to the appropriate view renderer
  */
 export class ReferenceDashboardView {
   private filters: ReferenceFilters;
   private filtersExpanded = false;
   private searchDebounceTimer: ReturnType<typeof setTimeout> | null = null;
-  private outputEl!: HTMLElement;
+  private bodyEl!: HTMLElement;
   private chipSelects: FilterChipSelect[] = [];
 
   constructor(
@@ -64,15 +67,15 @@ export class ReferenceDashboardView {
 
     this.renderControls(root);
     this.renderFilterPanel(root);
-    this.outputEl = root.createDiv({ cls: "pm-references__output" });
-    this.renderOutput();
+    this.bodyEl = root.createDiv({ cls: "pm-references__body" });
+    this.renderBody();
   }
 
-  /** Re-renders only the output section (called on vault modify auto-refresh). */
+  /** Re-renders only the body section (called on vault modify auto-refresh). */
   refreshOutput(): void {
-    if (this.outputEl) {
-      this.outputEl.empty();
-      this.renderOutput();
+    if (this.bodyEl) {
+      this.bodyEl.empty();
+      this.renderBody();
     }
   }
 
@@ -89,7 +92,8 @@ export class ReferenceDashboardView {
         text: tab.label,
       });
       btn.addEventListener("click", () => {
-        this.filters = { ...this.filters, viewMode: tab.mode };
+        // Reset selectedNode when switching view modes
+        this.filters = { ...this.filters, viewMode: tab.mode, selectedNode: undefined };
         this.onFiltersChange(this.filters);
         this.render();
       });
@@ -119,8 +123,8 @@ export class ReferenceDashboardView {
       this.searchDebounceTimer = setTimeout(() => {
         this.filters = { ...this.filters, searchText: searchInput.value };
         this.onFiltersChange(this.filters);
-        this.outputEl.empty();
-        this.renderOutput();
+        this.bodyEl.empty();
+        this.renderBody();
       }, DEBOUNCE_MS.SEARCH);
     });
   }
@@ -202,16 +206,25 @@ export class ReferenceDashboardView {
     });
   }
 
-  // ─── Output rendering ─────────────────────────────────────────────────────
+  // ─── Body: sidebar + panel ────────────────────────────────────────────────
 
-  private renderOutput(): void {
+  private renderBody(): void {
+    const sidebar = this.bodyEl.createDiv({ cls: "pm-references__sidebar" });
+    const panel = this.bodyEl.createDiv({ cls: "pm-references__panel" });
+
+    const onNodeSelect = (node: string | undefined): void => {
+      this.filters = { ...this.filters, selectedNode: node };
+      this.onFiltersChange(this.filters);
+      this.bodyEl.empty();
+      this.renderBody();
+    };
+
     let references = this.services.queryService.getReferences({
       topics: this.filters.topics.length > 0 ? this.filters.topics : undefined,
       clients: this.filters.clients.length > 0 ? this.filters.clients : undefined,
       engagements: this.filters.engagements.length > 0 ? this.filters.engagements : undefined,
     });
 
-    // Apply text search (not handled by query service)
     if (this.filters.searchText) {
       const search = this.filters.searchText.toLowerCase();
       references = references.filter((ref) =>
@@ -219,15 +232,18 @@ export class ReferenceDashboardView {
       );
     }
 
+    const selectedNode = this.filters.selectedNode;
+    const selectedName = selectedNode ? (normalizeToName(selectedNode) ?? undefined) : undefined;
+
     switch (this.filters.viewMode) {
       case "topic":
-        renderTopicView(this.outputEl, references, this.services);
+        renderTopicView(sidebar, panel, references, this.services, selectedName, onNodeSelect);
         break;
       case "client":
-        renderClientView(this.outputEl, references, this.services);
+        renderClientView(sidebar, panel, references, this.services, selectedName, onNodeSelect);
         break;
       case "engagement":
-        renderEngagementView(this.outputEl, references, this.services);
+        renderEngagementView(sidebar, panel, references, this.services, selectedName, onNodeSelect);
         break;
     }
   }
