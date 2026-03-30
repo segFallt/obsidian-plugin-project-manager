@@ -60,25 +60,30 @@ describe("renderTopicView — sidebar tree DOM nesting (Bug 1 regression)", () =
   it("renders a leaf node with no children container", () => {
     const tree = [makeNode("Technology")];
     const { sidebar } = renderView(tree, []);
-    const nodeEl = sidebar.querySelector(".pm-ref-tree__node");
-    expect(nodeEl).not.toBeNull();
+    const itemEl = sidebar.querySelector(".pm-ref-tree__item");
+    expect(itemEl).not.toBeNull();
     // No children container for a leaf
-    expect(nodeEl!.querySelector(".pm-ref-tree__children")).toBeNull();
+    expect(itemEl!.querySelector(".pm-ref-tree__children")).toBeNull();
   });
 
-  it("nests the children container INSIDE the parent node element, not as a sibling", () => {
+  it("places the children container as a sibling of the label row, not inside the flex label row", () => {
     const tree = [makeNode("Technology", [makeNode("Kubernetes")])];
     const { sidebar } = renderView(tree, []);
 
-    // The top-level node element
-    const parentNodeEl = sidebar.querySelector(".pm-ref-tree__node");
-    expect(parentNodeEl).not.toBeNull();
+    // The item wrapper contains both the label row and the children container
+    const itemEl = sidebar.querySelector(".pm-ref-tree__item");
+    expect(itemEl).not.toBeNull();
 
-    // Children container must be a descendant of the parent node, not of sidebar directly
-    const childrenEl = parentNodeEl!.querySelector(".pm-ref-tree__children");
+    const labelRowEl = itemEl!.querySelector(".pm-ref-tree__node");
+    expect(labelRowEl).not.toBeNull();
+
+    const childrenEl = itemEl!.querySelector(".pm-ref-tree__children");
     expect(childrenEl).not.toBeNull();
 
-    // Confirm it is NOT a direct child of sidebar (i.e., not a sibling of the parent node)
+    // The children container must NOT be inside the flex label row
+    expect(labelRowEl!.querySelector(".pm-ref-tree__children")).toBeNull();
+
+    // The children container must NOT be a direct child of sidebar
     const directChildrenOfSidebar = [...sidebar.children].filter(
       (el) => el.classList.contains("pm-ref-tree__children")
     );
@@ -89,30 +94,30 @@ describe("renderTopicView — sidebar tree DOM nesting (Bug 1 regression)", () =
     const tree = [makeNode("Technology", [makeNode("Kubernetes", [makeNode("Helm")])])];
     const { sidebar } = renderView(tree, []);
 
-    const level1Node = sidebar.querySelector(".pm-ref-tree__node");
-    expect(level1Node).not.toBeNull();
+    const level1Item = sidebar.querySelector(".pm-ref-tree__item");
+    expect(level1Item).not.toBeNull();
 
-    const level1Children = level1Node!.querySelector(".pm-ref-tree__children");
+    const level1Children = level1Item!.querySelector(".pm-ref-tree__children");
     expect(level1Children).not.toBeNull();
 
-    const level2Node = level1Children!.querySelector(".pm-ref-tree__node");
-    expect(level2Node).not.toBeNull();
+    const level2Item = level1Children!.querySelector(".pm-ref-tree__item");
+    expect(level2Item).not.toBeNull();
 
-    const level2Children = level2Node!.querySelector(".pm-ref-tree__children");
+    const level2Children = level2Item!.querySelector(".pm-ref-tree__children");
     expect(level2Children).not.toBeNull();
 
-    const level3Node = level2Children!.querySelector(".pm-ref-tree__node");
-    expect(level3Node).not.toBeNull();
-    expect(level3Node!.textContent).toContain("Helm");
+    const level3Item = level2Children!.querySelector(".pm-ref-tree__item");
+    expect(level3Item).not.toBeNull();
+    expect(level3Item!.textContent).toContain("Helm");
   });
 
   it("renders multiple root nodes at the top level", () => {
     const tree = [makeNode("Technology"), makeNode("Architecture")];
     const { sidebar } = renderView(tree, []);
-    const topLevelNodes = [...sidebar.children].filter((el) =>
-      el.classList.contains("pm-ref-tree__node")
+    const topLevelItems = [...sidebar.children].filter((el) =>
+      el.classList.contains("pm-ref-tree__item")
     );
-    expect(topLevelNodes).toHaveLength(2);
+    expect(topLevelItems).toHaveLength(2);
   });
 
   it("marks the selected node with the selected CSS class", () => {
@@ -133,6 +138,20 @@ describe("renderTopicView — sidebar tree DOM nesting (Bug 1 regression)", () =
     const otherToggle = nodes[1].querySelector(".pm-ref-tree__toggle");
     expect(technologyToggle?.textContent).toBe("▾");
     expect(otherToggle?.textContent).toBe(" ");
+  });
+
+  it("the label row (.pm-ref-tree__node) contains only the toggle and name, not the children container", () => {
+    const tree = [makeNode("Technology", [makeNode("Kubernetes")])];
+    const { sidebar } = renderView(tree, []);
+
+    const labelRowEl = sidebar.querySelector(".pm-ref-tree__node");
+    expect(labelRowEl).not.toBeNull();
+
+    // The flex label row must NOT contain the children container
+    expect(labelRowEl!.querySelector(".pm-ref-tree__children")).toBeNull();
+
+    // The label row has exactly 2 child elements: toggle span and name span
+    expect(labelRowEl!.children).toHaveLength(2);
   });
 });
 

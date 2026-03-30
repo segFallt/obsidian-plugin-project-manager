@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <!-- New release sections are prepended by .ci/bump-version.sh -->
 
+## [Unreleased]
+
+### Fixed
+
+- Fixed visually flat topic nesting in `pm-references` sidebar tree by restructuring the DOM: introduced a `pm-ref-tree__item` block wrapper per node so `.pm-ref-tree__children` is a sibling of the flex label row rather than a flex item inside it ([#73](https://gitlab.n3.pingleberry.com/obsidian/obsidian-plugin-project-manager/-/issues/73)).
+
 ## [0.3.2] - 2026-03-30
 
 ### Fixed
