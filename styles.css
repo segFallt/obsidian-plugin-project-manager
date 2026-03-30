@@ -1653,3 +1653,68 @@ details[open] .pm-filter-section__title::before {
   color: var(--text-muted);
   font-style: italic;
 }
+
+/* ─── pm-references ItemView panel ──────────────────────────────────────────── */
+
+.pm-reference-dashboard-view {
+  height: 100%;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.pm-reference-dashboard-view .pm-references {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.pm-reference-dashboard-view .pm-references__body {
+  flex: 1;
+  overflow: hidden;
+}
+
+.pm-reference-dashboard-view .pm-references__sidebar,
+.pm-reference-dashboard-view .pm-references__panel {
+  overflow-y: auto;
+  height: 100%;
+}
+
+/* Depth indicators for sidebar tree nodes */
+.pm-ref-tree__children {
+  border-left: 2px solid var(--background-modifier-border);
+  padding-left: 12px;
+  margin-left: 6px;
+}
+
+/* Depth indicators for nested content groups */
+.pm-ref-group__body > .pm-ref-group {
+  margin-left: 16px;
+  border-left: 2px solid var(--background-modifier-border);
+  padding-left: 8px;
+}
+
+/* pm-references summary card (code block → compact card) */
+.pm-references-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 8px;
+}
+
+.pm-references-summary h3 {
+  margin: 0;
+  font-size: var(--font-ui-medium);
+}
+
+.pm-references-summary p {
+  margin: 0;
+  color: var(--text-muted);
+}
+
+.pm-references-summary__open-btn {
+  align-self: flex-start;
+}
