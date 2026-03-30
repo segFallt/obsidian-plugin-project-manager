@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <!-- New release sections are prepended by .ci/bump-version.sh -->
 
+## [Unreleased]
+
+### Fixed
+
+- Hardened `pm-references` CSS nesting: replaced `display: flex` on `<details>.pm-ref-group` with `display: block` to fix a Chromium native disclosure layout quirk that made `margin-left` indentation imperceptible; added `border-left` depth guides to sidebar `.pm-ref-tree__children` and nested content `.pm-ref-group` for two distinct visual signals per hierarchy level; scoped all `.pm-ref-*` rules under `.pm-references` for specificity against Obsidian theme overrides ([#74](https://gitlab.n3.pingleberry.com/obsidian/obsidian-plugin-project-manager/-/issues/74)).
+- Added unit tests for `client-view-renderer.ts` and `engagement-view-renderer.ts` (sidebar alphabetical list, grouped content, empty state, unassigned group, selected node filtering) and toggle click simulation tests for the topic tree sidebar ([#74](https://gitlab.n3.pingleberry.com/obsidian/obsidian-plugin-project-manager/-/issues/74)).
+
 ## [0.3.3] - 2026-03-30
 
 ### Fixed
