@@ -91,7 +91,11 @@ function renderTreeNode(
   const isSelected = selectedNode === node.name;
   const hasChildren = node.children.length > 0;
 
-  const nodeEl = container.createDiv({
+  // Block-level wrapper that holds the label row and (optionally) the children container
+  const itemEl = container.createDiv({ cls: "pm-ref-tree__item" });
+
+  // Label row (flex) — contains only the toggle span and name span
+  const nodeEl = itemEl.createDiv({
     cls: `pm-ref-tree__node${isSelected ? " pm-ref-tree__node--selected" : ""}`,
   });
 
@@ -111,7 +115,8 @@ function renderTreeNode(
   });
 
   if (hasChildren) {
-    const childrenEl = nodeEl.createDiv({ cls: "pm-ref-tree__children" });
+    // Children container is a sibling of the label row inside the item wrapper, NOT inside the flex label row
+    const childrenEl = itemEl.createDiv({ cls: "pm-ref-tree__children" });
     childrenEl.style.display = "block";
 
     toggleEl.addEventListener("click", (e) => {
