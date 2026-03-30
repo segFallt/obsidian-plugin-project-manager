@@ -230,3 +230,46 @@ describe("renderTopicView — content panel default (hierarchical) view (Bug 2 r
     expect(panel.textContent).toContain("Book B");
   });
 });
+
+describe("renderTopicView — sidebar toggle click (AC-13)", () => {
+  it("toggles children visibility on successive toggle clicks", () => {
+    const tree = [makeNode("Technology", [makeNode("Kubernetes")])];
+    const { sidebar } = renderView(tree, []);
+
+    const toggleEl = sidebar.querySelector(".pm-ref-tree__toggle") as HTMLElement;
+    const childrenEl = sidebar.querySelector(".pm-ref-tree__children") as HTMLElement;
+
+    expect(toggleEl).not.toBeNull();
+    expect(childrenEl).not.toBeNull();
+
+    // Initial state: expanded — inline style set by renderTreeNode at topic-view-renderer.ts:120;
+    // jsdom does not compute CSS rules, so only inline styles are visible here
+    expect(childrenEl.style.display).toBe("block");
+    expect(toggleEl.textContent).toBe("▾");
+
+    // First click: collapse
+    toggleEl.click();
+    expect(childrenEl.style.display).toBe("none");
+    expect(toggleEl.textContent).toBe("▶");
+
+    // Second click: expand
+    toggleEl.click();
+    expect(childrenEl.style.display).toBe("block");
+    expect(toggleEl.textContent).toBe("▾");
+  });
+
+  it("does not toggle when clicking the label row (node selection area)", () => {
+    const tree = [makeNode("Technology", [makeNode("Kubernetes")])];
+    const { sidebar } = renderView(tree, []);
+
+    const childrenEl = sidebar.querySelector(".pm-ref-tree__children") as HTMLElement;
+    const nodeEl = sidebar.querySelector(".pm-ref-tree__node") as HTMLElement;
+
+    // Clicking the label row should NOT toggle children display
+    // (the toggle click handler is on the toggle span, not the node)
+    expect(childrenEl.style.display).toBe("block");
+    nodeEl.click();
+    // Still block — node click calls onNodeSelect, not toggle
+    expect(childrenEl.style.display).toBe("block");
+  });
+});
