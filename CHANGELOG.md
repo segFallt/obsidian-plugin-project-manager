@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <!-- New release sections are prepended by .ci/bump-version.sh -->
 
+## [Unreleased]
+
+### Fixed
+
+- Fixed case-insensitive parent name resolution in `getReferenceTopicTree()` so child topics whose `parent` wikilink uses a different capitalisation than the canonical filename (e.g. `[[kubernetes]]` pointing to `Kubernetes.md`) are correctly nested instead of being promoted to root ([#72](https://gitlab.n3.pingleberry.com/obsidian/obsidian-plugin-project-manager/-/issues/72)).
+
 ## [0.3.1] - 2026-03-30
 
 ### Fixed
