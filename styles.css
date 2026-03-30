@@ -1476,6 +1476,11 @@ details[open] .pm-filter-section__title::before {
   padding-top: 6px;
 }
 
+/* Indent nested groups inside a group body */
+.pm-ref-group__body > .pm-ref-group {
+  margin-left: 16px;
+}
+
 /* Reference card */
 .pm-ref-card {
   display: flex;
@@ -1577,6 +1582,11 @@ details[open] .pm-filter-section__title::before {
   flex: 1;
   min-width: 0;
   overflow-y: auto;
+}
+
+/* Topic tree item wrapper — explicit block context to prevent flex inheritance from ancestors */
+.pm-ref-tree__item {
+  display: block;
 }
 
 /* Topic tree node */
