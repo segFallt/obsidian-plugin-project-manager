@@ -12,12 +12,15 @@ vi.mock("../../src/ui/modals/entity-creation-modal", () => ({
 vi.mock("../../src/ui/modals/suggester-modal", () => ({
   SuggesterModal: vi.fn(),
 }));
+vi.mock("../../src/ui/modals/reference-topic-update-modal", () => ({
+  ReferenceTopicUpdateModal: vi.fn(),
+}));
 
 describe("registerAllCommands", () => {
-  it("registers exactly 16 commands", () => {
+  it("registers exactly 17 commands", () => {
     const { plugin, commands } = createMockPlugin();
     registerAllCommands(plugin);
-    expect(commands).toHaveLength(16);
+    expect(commands).toHaveLength(17);
   });
 
   it("registers the expected command IDs", () => {
@@ -39,6 +42,7 @@ describe("registerAllCommands", () => {
     expect(ids).toContain("create-raid-item");
     expect(ids).toContain("tag-raid-reference");
     expect(ids).toContain("create-reference-topic");
+    expect(ids).toContain("update-reference-topic");
     expect(ids).toContain("create-reference");
   });
 });

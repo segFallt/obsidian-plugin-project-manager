@@ -1554,6 +1554,85 @@ details[open] .pm-filter-section__title::before {
   border: 1px solid color-mix(in srgb, var(--color-green) 25%, transparent);
 }
 
+/* Two-panel body layout */
+.pm-references__body {
+  display: flex;
+  gap: 12px;
+  min-height: 200px;
+}
+
+/* Sidebar */
+.pm-references__sidebar {
+  width: 180px;
+  flex-shrink: 0;
+  background: var(--background-secondary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-s);
+  padding: 8px 6px;
+  overflow-y: auto;
+}
+
+/* Content panel */
+.pm-references__panel {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+}
+
+/* Topic tree node */
+.pm-ref-tree__node {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 6px;
+  border-radius: var(--radius-s);
+  cursor: pointer;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.pm-ref-tree__node:hover {
+  background: var(--background-modifier-border);
+  color: var(--text-normal);
+}
+
+.pm-ref-tree__node--selected {
+  background: var(--background-modifier-border);
+  color: var(--text-normal);
+  font-weight: 600;
+}
+
+.pm-ref-tree__toggle {
+  font-size: 9px;
+  color: var(--text-faint);
+  width: 10px;
+  flex-shrink: 0;
+}
+
+.pm-ref-tree__children {
+  padding-left: 14px;
+}
+
+/* Flat sidebar items (By Client / By Engagement) */
+.pm-ref-sidebar__item {
+  padding: 3px 8px;
+  border-radius: var(--radius-s);
+  cursor: pointer;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.pm-ref-sidebar__item:hover {
+  background: var(--background-modifier-border);
+  color: var(--text-normal);
+}
+
+.pm-ref-sidebar__item--selected {
+  background: var(--background-modifier-border);
+  color: var(--text-normal);
+  font-weight: 600;
+}
+
 /* Empty state */
 .pm-references-empty,
 .pm-ref-empty {

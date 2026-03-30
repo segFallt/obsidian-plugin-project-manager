@@ -107,6 +107,7 @@ class PmReferencesRenderChild extends MarkdownRenderChild {
       clients: saved.clients ?? [],
       engagements: saved.engagements ?? [],
       searchText: "",
+      selectedNode: saved.selectedNode,
     };
   }
 
@@ -127,6 +128,7 @@ class PmReferencesRenderChild extends MarkdownRenderChild {
         topics: filters.topics,
         clients: filters.clients,
         engagements: filters.engagements,
+        selectedNode: filters.selectedNode,
       };
       await this.services.app.fileManager.processFrontMatter(
         file,

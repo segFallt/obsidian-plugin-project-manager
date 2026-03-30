@@ -52,6 +52,10 @@ class OptionSuggest extends AbstractInputSuggest<AutocompleteOption | null> {
     this.includeNone = includeNone;
   }
 
+  setOptions(options: AutocompleteOption[]): void {
+    this.allOptions = options;
+  }
+
   getSuggestions(query: string): (AutocompleteOption | null)[] {
     const q = query.toLowerCase();
     const filtered = q
@@ -136,6 +140,11 @@ export class PropertySuggest {
   /** Opens the suggest popover (used by list-suggester to auto-reopen after selection). */
   reopen(): void {
     this.suggest.open();
+  }
+
+  /** Replaces the option list. Useful when available choices depend on another field's selection. */
+  updateOptions(options: AutocompleteOption[]): void {
+    this.suggest.setOptions(options);
   }
 
   /** Closes the suggest popover. Call when unmounting. */
