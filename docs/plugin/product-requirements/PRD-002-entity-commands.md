@@ -2,7 +2,7 @@
 
 ## 1. Overview
 
-The plugin registers 16 commands under the `PM:` prefix in the Obsidian command palette. Twelve commands create new entity files, two convert an existing entity to another type, one scaffolds the vault folder structure, and one tags a selected line as a RAID reference. Each creation command opens a modal to collect the required fields, then delegates to `EntityCreationService` to create the file and navigate to it.
+The plugin registers 17 commands under the `PM:` prefix in the Obsidian command palette. Twelve commands create new entity files, two convert an existing entity to another type, one scaffolds the vault folder structure, one tags a selected line as a RAID reference, and one updates an existing Reference Topic. Each creation command opens a modal to collect the required fields, then delegates to `EntityCreationService` to create the file and navigate to it.
 
 ---
 
@@ -32,6 +32,7 @@ The plugin registers 16 commands under the `PM:` prefix in the Obsidian command 
 | `PM: Create Recurring Meeting Event` | Create | Create an event note for a recurring meeting |
 | `PM: Create Project Note` | Create | Create a note linked to a project |
 | `PM: Create Reference Topic` | Create | Create a new reference topic note |
+| `PM: Update Reference Topic` | Update | Select an existing reference topic and assign or clear its parent topic |
 | `PM: Create Reference` | Create | Create a new reference note linked to one or more topics |
 | `PM: Create RAID Item` | Create | Create a new RAID log entry (Risk, Assumption, Issue, or Decision) |
 | `PM: Convert Inbox to Project` | Convert | Promote an inbox note to a full project |
@@ -109,7 +110,20 @@ For all create commands, `EntityCreationService`:
 
 **ActionContextManager pre-fill:** No pre-fill on this command — a topic has no parent entity.
 
-### 3.10 Create Reference
+### 3.10 Update Reference Topic
+
+`PM: Update Reference Topic`:
+
+1. Opens a modal prompting the user to select an existing Reference Topic (autocomplete over all `#reference-topic` files).
+2. After selection, presents a second step to assign or clear the `parent` field:
+   - A `PropertySuggest` (`includeNone: true`) over all `#reference-topic` files excluding the selected topic itself.
+   - Selecting `(None)` clears the `parent` field.
+   - Selecting a topic sets `parent: "[[Topic Name]]"` via `processFrontMatter`.
+3. Does not navigate away — the update is applied in place.
+
+**ActionContextManager pre-fill:** No pre-fill on this command.
+
+### 3.11 Create Reference
 
 `PM: Create Reference`:
 
@@ -157,7 +171,7 @@ For all create commands, `EntityCreationService`:
 
 ## 7. Acceptance Criteria
 
-- [ ] All 16 commands are registered and appear in the command palette with the `PM:` prefix.
+- [ ] All 17 commands are registered and appear in the command palette with the `PM:` prefix.
 - [ ] Each create command opens a modal and creates the file in the correct configured folder.
 - [ ] Wikilink fields are set via `processFrontMatter` after file creation, not via template string substitution.
 - [ ] The created file is opened immediately after creation.
@@ -166,6 +180,7 @@ For all create commands, `EntityCreationService`:
 - [ ] Convert Inbox to Project sets `status: Complete` and `convertedTo` on the inbox note, and `convertedFrom` on the new project.
 - [ ] Scaffold vault creates folders and view files without overwriting existing content.
 - [ ] `PM: Create Reference Topic` creates a note with `pm-actions` and `pm-references` blocks and opens it immediately.
+- [ ] `PM: Update Reference Topic` presents a two-step modal: select topic then assign or clear parent; writes `parent` via `processFrontMatter`; selecting `(None)` removes the field.
 - [ ] `PM: Create Reference` requires at least one topic before confirming; writes `topics`, `client`, `engagement` via `processFrontMatter`.
 - [ ] `ActionContextManager` pre-fill works for `create-reference` from Reference Topic, Client, and Engagement pages.
 

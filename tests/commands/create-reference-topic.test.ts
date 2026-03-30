@@ -3,10 +3,10 @@ import { registerCreateReferenceTopicCommand } from "@/commands/create-reference
 import { TEMPLATE_REFERENCE_TOPIC } from "@/services/template-constants";
 import { createMockPlugin, runCommand, Notice } from "./helpers";
 
-// Mock InputModal — default: user enters "Architecture"
-vi.mock("../../src/ui/modals/input-modal", () => ({
-  InputModal: vi.fn().mockImplementation(() => ({
-    prompt: vi.fn().mockResolvedValue("Architecture"),
+// Mock ReferenceTopicCreationModal — default: user enters "Architecture" with no parent
+vi.mock("../../src/ui/modals/reference-topic-creation-modal", () => ({
+  ReferenceTopicCreationModal: vi.fn().mockImplementation(() => ({
+    prompt: vi.fn().mockResolvedValue({ name: "Architecture", parentName: null }),
   })),
 }));
 
@@ -27,15 +27,14 @@ describe("registerCreateReferenceTopicCommand", () => {
     expect(commands.find((c) => c.id === "create-reference-topic")).toBeDefined();
   });
 
-  it("calls entityService.createReferenceTopic with the entered name on happy path", async () => {
-    const { InputModal } = await import("../../src/ui/modals/input-modal");
+  it("calls entityService.createReferenceTopic with name and undefined parent on happy path", async () => {
+    const { ReferenceTopicCreationModal } = await import("../../src/ui/modals/reference-topic-creation-modal");
 
-    vi.mocked(InputModal).mockImplementation(() => ({
-      prompt: vi.fn().mockResolvedValue("Clean Code"),
-    }) as unknown as InstanceType<typeof InputModal>);
+    vi.mocked(ReferenceTopicCreationModal).mockImplementation(() => ({
+      prompt: vi.fn().mockResolvedValue({ name: "Clean Code", parentName: null }),
+    }) as unknown as InstanceType<typeof ReferenceTopicCreationModal>);
 
     const { services, addCommand, commands, entityService } = createMockPlugin();
-    // Add createReferenceTopic mock to entityService
     (entityService as unknown as Record<string, unknown>).createReferenceTopic = vi
       .fn()
       .mockResolvedValue({});
@@ -45,15 +44,35 @@ describe("registerCreateReferenceTopicCommand", () => {
 
     expect(
       (entityService as unknown as Record<string, unknown>).createReferenceTopic
-    ).toHaveBeenCalledWith("Clean Code");
+    ).toHaveBeenCalledWith("Clean Code", undefined);
   });
 
-  it("shows Notice and does NOT call createReferenceTopic when name is empty", async () => {
-    const { InputModal } = await import("../../src/ui/modals/input-modal");
+  it("calls entityService.createReferenceTopic with parentName when parent selected", async () => {
+    const { ReferenceTopicCreationModal } = await import("../../src/ui/modals/reference-topic-creation-modal");
 
-    vi.mocked(InputModal).mockImplementation(() => ({
+    vi.mocked(ReferenceTopicCreationModal).mockImplementation(() => ({
+      prompt: vi.fn().mockResolvedValue({ name: "Helm", parentName: "Kubernetes" }),
+    }) as unknown as InstanceType<typeof ReferenceTopicCreationModal>);
+
+    const { services, addCommand, commands, entityService } = createMockPlugin();
+    (entityService as unknown as Record<string, unknown>).createReferenceTopic = vi
+      .fn()
+      .mockResolvedValue({});
+
+    registerCreateReferenceTopicCommand(services, addCommand);
+    await runCommand(commands, "create-reference-topic");
+
+    expect(
+      (entityService as unknown as Record<string, unknown>).createReferenceTopic
+    ).toHaveBeenCalledWith("Helm", "Kubernetes");
+  });
+
+  it("shows Notice and does NOT call createReferenceTopic when modal is cancelled", async () => {
+    const { ReferenceTopicCreationModal } = await import("../../src/ui/modals/reference-topic-creation-modal");
+
+    vi.mocked(ReferenceTopicCreationModal).mockImplementation(() => ({
       prompt: vi.fn().mockResolvedValue(null),
-    }) as unknown as InstanceType<typeof InputModal>);
+    }) as unknown as InstanceType<typeof ReferenceTopicCreationModal>);
 
     const { services, addCommand, commands, entityService } = createMockPlugin();
     (entityService as unknown as Record<string, unknown>).createReferenceTopic = vi
@@ -69,11 +88,11 @@ describe("registerCreateReferenceTopicCommand", () => {
   });
 
   it("shows error Notice and does not propagate when createReferenceTopic throws", async () => {
-    const { InputModal } = await import("../../src/ui/modals/input-modal");
+    const { ReferenceTopicCreationModal } = await import("../../src/ui/modals/reference-topic-creation-modal");
 
-    vi.mocked(InputModal).mockImplementation(() => ({
-      prompt: vi.fn().mockResolvedValue("Failing Topic"),
-    }) as unknown as InstanceType<typeof InputModal>);
+    vi.mocked(ReferenceTopicCreationModal).mockImplementation(() => ({
+      prompt: vi.fn().mockResolvedValue({ name: "Failing Topic", parentName: null }),
+    }) as unknown as InstanceType<typeof ReferenceTopicCreationModal>);
 
     const { services, addCommand, commands, entityService } = createMockPlugin();
     (entityService as unknown as Record<string, unknown>).createReferenceTopic = vi

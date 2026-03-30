@@ -21,6 +21,10 @@ export function createMockPlugin(overrides: {
 } = {}) {
   const app = createMockApp();
 
+  // Wrap vault/fileManager methods as spies so tests can call .mockReturnValue on them
+  app.vault.getAbstractFileByPath = vi.fn(app.vault.getAbstractFileByPath.bind(app.vault));
+  app.fileManager.processFrontMatter = vi.fn(app.fileManager.processFrontMatter.bind(app.fileManager));
+
   // Configure active file
   const activeFile = overrides.activeFile ?? null;
   app.workspace.getActiveFile = () => activeFile as unknown as import("obsidian").TFile | null;
@@ -50,9 +54,12 @@ export function createMockPlugin(overrides: {
 
   const queryService = {
     getActiveEntitiesByTag: vi.fn().mockReturnValue([]),
+    getEntitiesByTag: vi.fn().mockReturnValue([]),
     getActiveRecurringMeetings: vi.fn().mockReturnValue([]),
     getActiveRaidItems: vi.fn().mockReturnValue([]),
     getRaidItemsForContext: vi.fn().mockReturnValue([]),
+    getReferenceTopicTree: vi.fn().mockReturnValue([]),
+    getTopicDescendants: vi.fn().mockReturnValue([]),
   };
 
   const scaffoldService = {

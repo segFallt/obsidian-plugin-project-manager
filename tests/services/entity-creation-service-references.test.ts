@@ -41,6 +41,29 @@ describe("EntityCreationService — createReferenceTopic", () => {
   });
 });
 
+describe("EntityCreationService — createReferenceTopic with parent", () => {
+  it("calls processFrontMatter and sets fm[\"parent\"] to the wikilink when parentName is provided", async () => {
+    const { svc, app } = createSvc();
+    const mutations: Record<string, unknown> = {};
+    app.fileManager.processFrontMatter = async (_f, fn) => {
+      const fm: Record<string, unknown> = {};
+      fn(fm);
+      Object.assign(mutations, fm);
+    };
+    await svc.createReferenceTopic("Kubernetes", "Cloud");
+    expect(Object.prototype.hasOwnProperty.call(mutations, "parent")).toBe(true);
+    expect(mutations.parent).toBe("[[Cloud]]");
+  });
+
+  it("does NOT call processFrontMatter for parent when parentName is undefined", async () => {
+    const { svc, app } = createSvc();
+    const processFrontMatterSpy = vi.spyOn(app.fileManager, "processFrontMatter");
+    await svc.createReferenceTopic("Architecture");
+    // processFrontMatter should not be called at all (no parent to set)
+    expect(processFrontMatterSpy).not.toHaveBeenCalled();
+  });
+});
+
 describe("EntityCreationService — createReference", () => {
   it("creates file at the configured references folder path", async () => {
     const { svc, app } = createSvc();

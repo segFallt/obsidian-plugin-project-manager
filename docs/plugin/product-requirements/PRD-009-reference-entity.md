@@ -62,8 +62,19 @@ A **Clear Filters** button resets all active chip selections and the search fiel
 
 ### 3.4 By Topic View (default)
 
-- References are grouped by topic name, sorted alphabetically by topic.
-- A reference with multiple topics appears under each of its topics.
+The By Topic view uses a **two-column layout**: a topic-tree sidebar on the left and a reference list on the right.
+
+**Sidebar (topic tree):**
+- Renders the full Reference Topic hierarchy as a nested tree using `getReferenceTopicTree()`.
+- Root topics are listed alphabetically; children are listed alphabetically under their parent.
+- Each tree node is clickable. Clicking a node sets `selectedNode` in filter state and filters the reference list to that topic and all its descendants (via `getTopicDescendants()`).
+- The active node is highlighted. Clicking the active node again deselects it (clears `selectedNode`), showing all topics.
+- Expand/collapse arrows allow collapsing subtrees without changing the filter selection.
+
+**Reference list (right panel):**
+- When a node is selected: references are grouped by the matched topics within the selected node's subtree, sorted alphabetically by topic name.
+- When no node is selected: all topics are shown grouped alphabetically (original flat behaviour).
+- A reference with multiple topics appears under each of its matched topic groups.
 - In secondary topic groups (not the first topic in the reference's `topics[]` array), the card shows an `"also in <Primary Topic>"` hint tag, where Primary Topic is the first entry in `topics[]`.
 - Each group header: topic name + count badge (items in group under active filters) + collapse arrow. Groups are individually collapsible.
 - If a topic group is empty under active filters, it is hidden.
@@ -106,6 +117,17 @@ Code block YAML `filter` values seed initial chip selection; `pm-references-filt
 
 ## 4. Data Requirements
 
+### 4.0 Reference Topic Frontmatter
+
+```yaml
+tags:
+  - "#reference-topic"
+status: Active | Inactive
+parent: "[[Parent Topic Name]]"   # optional; omit for root topics
+```
+
+The `parent` field is a wikilink to another Reference Topic. Root topics omit the field entirely. The field is written via `processFrontMatter` by `PM: Update Reference Topic`.
+
 ### 4.1 QueryService Additions
 
 ```typescript
@@ -121,6 +143,16 @@ getReferences(filters?: {
 // Returns all #reference pages matching optional filter criteria.
 // Cross-dimension logic is AND: a reference must satisfy all non-empty filter arrays.
 // Client resolution uses dual-path: direct reference.client OR reference.engagement → engagement.client.
+
+getReferenceTopicTree(): TopicNode[]
+// Returns all #reference-topic pages assembled into a forest (array of root TopicNode objects).
+// Each node's children array contains its direct children, recursively populated.
+// Root topics are those with no parent field (or parent field absent/null).
+
+getTopicDescendants(topicName: string): string[]
+// Returns a flat array of display names for all descendant topics of the given topic (all depths).
+// Does not include the topic itself — returns only descendants. Used to expand a selected node in the sidebar to include all nested topics
+// when filtering references.
 ```
 
 ### 4.2 Client Dual-Path Resolution
@@ -136,6 +168,14 @@ Both paths may return Dataview `DataviewLink` objects; consumers must call `Stri
 All filter arrays (`topics`, `clients`, `engagements`) in `SavedReferenceFilters` use wikilink strings (e.g. `"[[Architecture]]"`), matching the format stored in Reference frontmatter. Comparisons must use the wikilink string form, not bare names.
 
 ### 4.4 Types
+
+```typescript
+interface TopicNode {
+  name: string;           // display name of the Reference Topic
+  path: string;           // vault file path
+  children: TopicNode[];  // direct children, recursively populated
+}
+```
 
 ```typescript
 type ReferenceViewMode = "topic" | "client" | "engagement";
@@ -156,6 +196,7 @@ interface ReferenceFilters {
   clientFilter: string[];
   engagementFilter: string[];
   searchText: string;
+  selectedNode?: string;  // display name of the selected topic tree node; undefined = no node selected
 }
 
 interface SavedReferenceFilters {
@@ -398,6 +439,14 @@ font-style: italic;
 | `.pm-ref-chip--client` | Client context chip |
 | `.pm-ref-chip--engagement` | Engagement context chip |
 | `.pm-ref-empty` | Empty state message |
+| `.pm-references__body` | Two-column layout wrapper (sidebar + list) |
+| `.pm-references__sidebar` | Topic tree sidebar container |
+| `.pm-ref-tree` | Topic tree root `<ul>` |
+| `.pm-ref-tree__node` | Tree node `<li>` |
+| `.pm-ref-tree__node--selected` | Currently selected tree node |
+| `.pm-ref-tree__toggle` | Expand/collapse arrow for subtree |
+| `.pm-ref-tree__children` | Nested child `<ul>` |
+| `.pm-references__panel` | Reference list panel (right column) |
 
 ---
 
@@ -449,12 +498,21 @@ All three component instances must have `destroy()` called in `onClose()` to rel
 - [ ] Reference Topic notes are created at `reference/reference-topics/<Name>.md` with `#reference-topic` tag and `status: Active` frontmatter; topic suggester in `PM: Create Reference` lists them correctly (issue #25)
 - [ ] Reference notes are created at `reference/references/<Name>.md` with `#reference` tag, `topics[]` wikilink array, and optional `client` / `engagement` wikilinks written via `processFrontMatter`
 - [ ] Reference file names do not contain colons (issue #30)
+- [ ] Reference Topic frontmatter supports an optional `parent` field containing a wikilink to another Reference Topic; root topics omit the field (issue #70)
+- [ ] `parent` field is written and cleared via `processFrontMatter` by `PM: Update Reference Topic` (issue #70)
 
 ### Commands
 
 - [ ] `PM: Create Reference Topic` creates a note with a `pm-actions` block (`create-reference`, context: `topic`) and a `pm-references` block pre-filtered to that topic; opens the new note immediately
 - [ ] `PM: Create Reference` requires at least one topic; `topics`, `client`, `engagement` are written via `processFrontMatter` after file creation
 - [ ] `ActionContextManager` pre-fill works from Reference Topic page (topic field), Client page (client field), and Engagement page (engagement field)
+- [ ] `PM: Update Reference Topic` registers in the command palette; two-step modal: select topic → assign or clear parent; writes `parent` via `processFrontMatter`; selecting `(None)` removes the field entirely (issue #70)
+
+### Service Layer
+
+- [ ] `QueryService.getReferenceTopicTree()` returns a forest of `TopicNode` objects with all `#reference-topic` pages correctly assembled into parent–child relationships (issue #70)
+- [ ] `QueryService.getTopicDescendants(topicName)` returns all descendants at all depths, not including the topic itself (issue #70)
+- [ ] A cycle in the `parent` graph (A → B → A) does not cause an infinite loop; `getReferenceTopicTree()` handles cycles gracefully (issue #70)
 
 ### Property Editor
 
@@ -473,6 +531,9 @@ All three component instances must have `destroy()` called in `onClose()` to rel
 - [ ] `"also in <Primary Topic>"` hint appears on cards in non-primary topic groups
 - [ ] Filter state persisted to `pm-references-filters` frontmatter; restored on page reload
 - [ ] When Dataview is unavailable, a `.pm-error` element is shown (not a thrown error)
+- [ ] By Topic view renders a topic-tree sidebar using the hierarchy from `getReferenceTopicTree()`; nested topics are indented under their parent (issue #70)
+- [ ] Clicking a tree node sets `selectedNode` and filters the reference list to that topic and all its descendants via `getTopicDescendants()`; clicking the active node again clears the selection (issue #70)
+- [ ] `selectedNode` is persisted to `pm-references-filters` frontmatter and restored on page reload (issue #70)
 
 ### Settings & Scaffold
 
@@ -485,6 +546,14 @@ All three component instances must have `destroy()` called in `onClose()` to rel
 - [ ] All `.pm-references*` and `.pm-ref-*` CSS classes have rules in `styles.css` matching the Catppuccin Mocha spec (§5)
 - [ ] Active topic filter chips render in Mauve (`#cba6f7`); active client/engagement chips render in Blue (`#89b4fa`) (issue #38)
 - [ ] Filter row labels render uppercase via `text-transform: uppercase` CSS (issue #38)
+- [ ] `.pm-references__body`, `.pm-references__sidebar`, `.pm-references__panel` implement the two-column sidebar layout (issue #70)
+- [ ] `.pm-ref-tree`, `.pm-ref-tree__node`, `.pm-ref-tree__node--selected`, `.pm-ref-tree__toggle`, `.pm-ref-tree__children` all have rules in `styles.css`; active node is visually highlighted (issue #70)
+
+### Documentation
+
+- [ ] `docs/plugin/data-model.md` Reference Topic section includes the `parent` field with its optional-field comment (issue #70)
+- [ ] PRD-002 command table and acceptance criteria reflect the `PM: Update Reference Topic` command (issue #70)
+- [ ] PRD-009 §4.0, §4.1, §4.4, §3.4, §5.7, and §7 are updated to reflect hierarchical topics (issue #70)
 
 ---
 

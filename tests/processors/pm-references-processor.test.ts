@@ -105,6 +105,8 @@ function createMockServices(references: DataviewPage[] = []) {
       getReferences: vi.fn(() => references),
       getActiveEntitiesByTag: vi.fn(() => []),
       getClientFromEngagementLink: vi.fn(() => null),
+      getReferenceTopicTree: vi.fn(() => []),
+      getTopicDescendants: vi.fn(() => []),
     } as unknown as ReferenceProcessorServices["queryService"],
     loggerService: {
       debug: vi.fn(),
@@ -191,10 +193,10 @@ describe("pm-references processor", () => {
 
   it("renders empty state message when no references exist", () => {
     const { el } = render("");
-    const output = el.querySelector(".pm-references__output");
-    expect(output).not.toBeNull();
-    expect(output!.querySelector(".pm-ref-empty")).not.toBeNull();
-    expect(output!.textContent).toContain("No references found");
+    const panel = el.querySelector(".pm-references__panel");
+    expect(panel).not.toBeNull();
+    expect(panel!.querySelector(".pm-ref-empty")).not.toBeNull();
+    expect(panel!.textContent).toContain("No references found");
   });
 
   it("renders reference cards when references are available", () => {
@@ -202,8 +204,8 @@ describe("pm-references processor", () => {
       makeReferencePage({ name: "Clean Architecture", topics: ["[[Architecture]]"] }),
     ];
     const { el } = render("", refs);
-    const output = el.querySelector(".pm-references__output");
-    expect(output!.textContent).toContain("Clean Architecture");
+    const panel = el.querySelector(".pm-references__panel");
+    expect(panel!.textContent).toContain("Clean Architecture");
   });
 
   it("renders collapsible groups for reference topics", () => {
@@ -258,11 +260,14 @@ describe("pm-references processor", () => {
   });
 
   describe("filter persistence", () => {
-    it("loads saved viewMode from frontmatter and activates the correct tab", () => {
+    it("loads saved viewMode and selectedNode from frontmatter and activates the correct tab", () => {
       const mock = createMockServices();
       (mock.services.app.metadataCache.getFileCache as ReturnType<typeof vi.fn>).mockReturnValue({
         frontmatter: {
-          "pm-references-filters": { viewMode: "engagement" },
+          "pm-references-filters": {
+            viewMode: "engagement",
+            selectedNode: "[[Kubernetes]]",
+          },
         },
       });
       registerPmReferencesProcessor(
@@ -282,22 +287,60 @@ describe("pm-references processor", () => {
       expect(activeTab!.textContent).toBe("By Engagement");
     });
 
-    it("calls processFrontMatter after debounce when filters change via tab click", async () => {
+    it("saves selectedNode to frontmatter after debounce when filters change via tab click", async () => {
       vi.useFakeTimers();
-      const { el, processFrontMatter } = render("");
 
-      // Click the "By Client" tab
+      // Pre-load a selectedNode in frontmatter so it is part of the persisted state
+      const mock = createMockServices();
+      (mock.services.app.metadataCache.getFileCache as ReturnType<typeof vi.fn>).mockReturnValue({
+        frontmatter: {
+          "pm-references-filters": {
+            viewMode: "topic",
+            selectedNode: "[[Kubernetes]]",
+          },
+        },
+      });
+
+      const savedStates: Array<Record<string, unknown>> = [];
+      (mock.services.app.fileManager.processFrontMatter as ReturnType<typeof vi.fn>).mockImplementation(
+        async (_file: TFile, callback: (fm: Record<string, unknown>) => void) => {
+          const fm: Record<string, unknown> = {};
+          callback(fm);
+          savedStates.push(fm);
+        }
+      );
+
+      registerPmReferencesProcessor(
+        mock.mockPlugin as unknown as import("obsidian").Plugin,
+        mock.services
+      );
+
+      const el = document.createElement("div");
+      const children: unknown[] = [];
+      mock.getHandler()("", el, {
+        addChild: (child: unknown) => children.push(child),
+        sourcePath: mock.sourcePath,
+      });
+
+      // Click the "By Client" tab to trigger a filter change
       const tabs = [...el.querySelectorAll<HTMLButtonElement>(".pm-references__tab")];
       const clientTab = tabs.find((t) => t.textContent === "By Client");
       expect(clientTab).not.toBeUndefined();
       clientTab!.click();
 
-      // Not yet called (debounced)
-      expect(processFrontMatter).not.toHaveBeenCalled();
+      // Not yet saved (debounced)
+      expect(mock.services.app.fileManager.processFrontMatter).not.toHaveBeenCalled();
 
       await vi.runAllTimersAsync();
 
-      expect(processFrontMatter).toHaveBeenCalled();
+      expect(mock.services.app.fileManager.processFrontMatter).toHaveBeenCalled();
+
+      // Switching view mode resets selectedNode to undefined
+      const lastSaved = savedStates[savedStates.length - 1] as {
+        "pm-references-filters": { selectedNode?: string; viewMode?: string };
+      };
+      expect(lastSaved["pm-references-filters"].viewMode).toBe("client");
+      expect(lastSaved["pm-references-filters"].selectedNode).toBeUndefined();
     });
   });
 });
