@@ -78,7 +78,7 @@ function renderTopicSidebar(
     return;
   }
   for (const node of tree) {
-    renderTreeNode(sidebar, node, selectedNode, onNodeSelect);
+    renderTreeNode(sidebar, node, selectedNode, onNodeSelect, 0);
   }
 }
 
@@ -86,13 +86,15 @@ function renderTreeNode(
   container: HTMLElement,
   node: TopicNode,
   selectedNode: string | undefined,
-  onNodeSelect: (node: string | undefined) => void
+  onNodeSelect: (node: string | undefined) => void,
+  depth = 0
 ): void {
   const isSelected = selectedNode === node.name;
   const hasChildren = node.children.length > 0;
 
   // Block-level wrapper that holds the label row and (optionally) the children container
   const itemEl = container.createDiv({ cls: "pm-ref-tree__item" });
+  itemEl.setAttribute("data-depth", String(depth));
 
   // Label row (flex) — contains only the toggle span and name span
   const nodeEl = itemEl.createDiv({
@@ -127,7 +129,7 @@ function renderTreeNode(
     });
 
     for (const child of node.children) {
-      renderTreeNode(childrenEl, child, selectedNode, onNodeSelect);
+      renderTreeNode(childrenEl, child, selectedNode, onNodeSelect, depth + 1);
     }
   }
 }
@@ -157,7 +159,7 @@ function renderHierarchicalTopicContent(
 
   // Render each root node as a nested group
   for (const rootNode of tree) {
-    renderNestedGroup(panel, rootNode, references);
+    renderNestedGroup(panel, rootNode, references, 0);
   }
 
   // Render any references whose topics are not in the tree (orphans)
@@ -245,13 +247,14 @@ function renderScopedTopicContent(
     return;
   }
 
-  renderNestedGroup(panel, rootNode, references);
+  renderNestedGroup(panel, rootNode, references, 0);
 }
 
 function renderNestedGroup(
   container: HTMLElement,
   node: TopicNode,
-  allReferences: DataviewPage[]
+  allReferences: DataviewPage[],
+  depth = 0
 ): void {
   // Direct references for this node only
   const directRefs = allReferences.filter((ref) => {
@@ -275,13 +278,14 @@ function renderNestedGroup(
   });
 
   const groupBody = renderCollapsibleGroup(container, node.name, totalRefs.length);
+  groupBody.parentElement?.setAttribute("data-depth", String(depth));
 
   // Direct references first
   for (const ref of directRefs) renderReferenceCard(groupBody, ref);
 
   // Then nested child groups
   for (const child of node.children) {
-    renderNestedGroup(groupBody, child, allReferences);
+    renderNestedGroup(groupBody, child, allReferences, depth + 1);
   }
 }
 

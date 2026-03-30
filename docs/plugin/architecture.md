@@ -3,10 +3,17 @@
 ## Three-Layer Architecture
 
 ```
-Layer 3: Processors & UI   (code block renderers, modals, settings tab)
-Layer 2: Commands           (user-facing actions, orchestrate services + modals)
-Layer 1: Services & Utils   (pure logic, Dataview API wrapper, independently testable)
+Layer 3: Processors, Views & UI   (code block renderers, ItemView panels, modals, settings tab)
+Layer 2: Commands                  (user-facing actions, orchestrate services + modals)
+Layer 1: Services & Utils          (pure logic, Dataview API wrapper, independently testable)
 ```
+
+### Layer 3 Components
+
+- **`src/processors/`** — Markdown code block processors (e.g. `pm-tasks`, `pm-references`, `pm-properties`). Each processor is a `MarkdownRenderChild` subclass that renders into `containerEl` inside `.markdown-rendered`.
+- **`src/views/`** — Obsidian `ItemView` panels. These render into `contentEl` which lives entirely outside `.markdown-rendered`, eliminating note-level CSS interference. Currently contains:
+  - `ReferenceDashboardItemView` (`pm-reference-dashboard`) — hosts the full `ReferenceDashboardView` component in the right sidebar. Filter state is persisted to plugin settings instead of note frontmatter.
+- **`src/ui/`** — Reusable UI components (e.g. `FilterChipSelect`, `PropertySuggest`) consumed by processors, views, and modals.
 
 ## Detailed UML Diagrams
 

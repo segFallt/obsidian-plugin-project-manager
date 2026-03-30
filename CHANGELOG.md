@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <!-- New release sections are prepended by .ci/bump-version.sh -->
 
+## [0.3.5-beta.1] - 2026-03-30
+
+### Added
+
+- Migrated `pm-references` Reference Dashboard from a code block processor to a dedicated Obsidian `ItemView` panel (`PM: Open Reference Dashboard` command + ribbon icon), definitively resolving the persistent hierarchical topic nesting problem caused by `.markdown-rendered` CSS interference ([#75](https://gitlab.n3.pingleberry.com/obsidian/obsidian-plugin-project-manager/-/issues/75)).
+- Filter state (view mode, active chips, selected node) now persists to `plugin.settings.ui.referenceDashboardFilters` in `data.json` instead of note frontmatter, and is restored when the panel is reopened.
+- Added `data-depth` attributes to topic tree nodes and nested content groups for CSS depth-indicator styling.
+
+### Changed
+
+- Existing `pm-references` code blocks now render a compact summary card (reference count + "Open Dashboard →" button) instead of the full interactive dashboard.
+
 ## [0.3.4] - 2026-03-30
 
 ### Fixed
