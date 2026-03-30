@@ -1,4 +1,4 @@
-import type { DataviewPage } from "../../types";
+import type { DataviewPage, TopicNode } from "../../types";
 import type { ReferenceProcessorServices } from "../../plugin-context";
 import { normalizeToName } from "../../utils/link-utils";
 import { CSS_CLS, CSS_VAR } from "../../constants";
@@ -6,15 +6,136 @@ import { CSS_CLS, CSS_VAR } from "../../constants";
 // ─── Public entry point ──────────────────────────────────────────────────────
 
 /**
- * Renders references grouped by topic.
- * References with multiple topics appear in each relevant group.
+ * Renders the topic sidebar (tree) and content panel (nested collapsible groups).
  */
 export function renderTopicView(
-  container: HTMLElement,
+  sidebar: HTMLElement,
+  panel: HTMLElement,
   references: DataviewPage[],
-  _services: ReferenceProcessorServices
+  services: ReferenceProcessorServices,
+  selectedNode: string | undefined,
+  onNodeSelect: (node: string | undefined) => void
 ): void {
-  // Group references by each of their topics (fan-out: reference may appear in multiple groups)
+  const tree = services.queryService.getReferenceTopicTree();
+
+  // Render sidebar tree
+  renderTopicSidebar(sidebar, tree, selectedNode, onNodeSelect);
+
+  // Render content panel
+  if (selectedNode) {
+    const rootNode = findNodeInTree(tree, selectedNode);
+    const descendants = rootNode ? collectDescendantNames(rootNode) : [];
+    const scope = new Set([selectedNode, ...descendants]);
+    const scoped = references.filter((ref) => {
+      const topics = Array.isArray(ref.topics) ? ref.topics : ref.topics ? [ref.topics] : [];
+      return topics.some((t) => {
+        const name = normalizeToName(t);
+        return name ? scope.has(name) : false;
+      });
+    });
+    renderScopedTopicContent(panel, scoped, selectedNode, tree);
+  } else {
+    renderFlatTopicContent(panel, references);
+  }
+}
+
+// ─── Tree traversal helpers ──────────────────────────────────────────────────
+
+function findNodeInTree(nodes: TopicNode[], name: string): TopicNode | null {
+  for (const n of nodes) {
+    if (n.name === name) return n;
+    const found = findNodeInTree(n.children, name);
+    if (found) return found;
+  }
+  return null;
+}
+
+function collectDescendantNames(node: TopicNode): string[] {
+  const result: string[] = [];
+  const stack = [...node.children];
+  const visited = new Set<string>();
+  while (stack.length > 0) {
+    const n = stack.pop();
+    if (!n) break;
+    if (visited.has(n.name)) continue;
+    visited.add(n.name);
+    result.push(n.name);
+    stack.push(...n.children);
+  }
+  return result;
+}
+
+// ─── Sidebar ─────────────────────────────────────────────────────────────────
+
+function renderTopicSidebar(
+  sidebar: HTMLElement,
+  tree: TopicNode[],
+  selectedNode: string | undefined,
+  onNodeSelect: (node: string | undefined) => void
+): void {
+  if (tree.length === 0) {
+    sidebar.createEl("p", { cls: "pm-ref-empty", text: "No topics." });
+    return;
+  }
+  for (const node of tree) {
+    renderTreeNode(sidebar, node, selectedNode, onNodeSelect);
+  }
+}
+
+function renderTreeNode(
+  container: HTMLElement,
+  node: TopicNode,
+  selectedNode: string | undefined,
+  onNodeSelect: (node: string | undefined) => void
+): void {
+  const isSelected = selectedNode === node.name;
+  const hasChildren = node.children.length > 0;
+
+  const nodeEl = container.createDiv({
+    cls: `pm-ref-tree__node${isSelected ? " pm-ref-tree__node--selected" : ""}`,
+  });
+
+  // Toggle icon
+  const toggleEl = nodeEl.createSpan({ cls: "pm-ref-tree__toggle" });
+  if (hasChildren) {
+    toggleEl.setText("▾"); // start expanded
+  } else {
+    toggleEl.setText(" ");
+  }
+
+  nodeEl.createSpan({ text: node.name });
+
+  nodeEl.addEventListener("click", (e) => {
+    e.stopPropagation();
+    onNodeSelect(isSelected ? undefined : node.name);
+  });
+
+  if (hasChildren) {
+    const childrenEl = container.createDiv({ cls: "pm-ref-tree__children" });
+    childrenEl.style.display = "block";
+
+    toggleEl.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const isExpanded = childrenEl.style.display !== "none";
+      childrenEl.style.display = isExpanded ? "none" : "block";
+      toggleEl.setText(isExpanded ? "▶" : "▾");
+    });
+
+    for (const child of node.children) {
+      renderTreeNode(childrenEl, child, selectedNode, onNodeSelect);
+    }
+  }
+}
+
+// ─── Content panel ────────────────────────────────────────────────────────────
+
+/**
+ * When no node is selected: flat groups by topic (original behaviour).
+ */
+function renderFlatTopicContent(
+  panel: HTMLElement,
+  references: DataviewPage[]
+): void {
   const groups = new Map<string, DataviewPage[]>();
   for (const ref of references) {
     const topics = Array.isArray(ref.topics) ? ref.topics : ref.topics ? [ref.topics] : [];
@@ -22,34 +143,92 @@ export function renderTopicView(
       const name = normalizeToName(t) ?? "";
       if (!name) continue;
       let bucket = groups.get(name);
-      if (!bucket) {
-        bucket = [];
-        groups.set(name, bucket);
-      }
+      if (!bucket) { bucket = []; groups.set(name, bucket); }
       bucket.push(ref);
     }
   }
 
-  // Sort groups alphabetically
   const sortedGroups = [...groups.entries()].sort(([a], [b]) => a.localeCompare(b));
 
   if (sortedGroups.length === 0) {
-    renderEmptyState(container, "No references found.");
+    renderEmptyState(panel, "No references found.");
     return;
   }
 
   for (const [topicName, refs] of sortedGroups) {
-    const groupBody = renderCollapsibleGroup(container, topicName, refs.length);
+    const groupBody = renderCollapsibleGroup(panel, topicName, refs.length);
     for (const ref of refs) {
       const primaryTopic =
         Array.isArray(ref.topics) && ref.topics.length > 0
           ? (normalizeToName(ref.topics[0]) ?? "")
-          : ref.topics
-          ? (normalizeToName(ref.topics) ?? "")
-          : "";
+          : ref.topics ? (normalizeToName(ref.topics) ?? "") : "";
       const isSecondary = primaryTopic !== topicName && primaryTopic !== "";
       renderReferenceCard(groupBody, ref, isSecondary ? `also in ${primaryTopic}` : undefined);
     }
+  }
+}
+
+/**
+ * When a node is selected: nested collapsible groups scoped to the selected subtree.
+ * Leaf node → single flat group.
+ * Parent node → nested groups.
+ */
+function renderScopedTopicContent(
+  panel: HTMLElement,
+  references: DataviewPage[],
+  selectedNode: string,
+  tree: TopicNode[]
+): void {
+  if (references.length === 0) {
+    renderEmptyState(panel, "No references found.");
+    return;
+  }
+
+  const rootNode = findNodeInTree(tree, selectedNode);
+  if (!rootNode) {
+    // Fallback: show as flat group
+    const groupBody = renderCollapsibleGroup(panel, selectedNode, references.length);
+    for (const ref of references) renderReferenceCard(groupBody, ref);
+    return;
+  }
+
+  renderNestedGroup(panel, rootNode, references);
+}
+
+function renderNestedGroup(
+  container: HTMLElement,
+  node: TopicNode,
+  allReferences: DataviewPage[]
+): void {
+  // Direct references for this node only
+  const directRefs = allReferences.filter((ref) => {
+    const topics = Array.isArray(ref.topics) ? ref.topics : ref.topics ? [ref.topics] : [];
+    return topics.some((t) => normalizeToName(t) === node.name);
+  });
+
+  // Total count = direct + all in subtree
+  const subtreeNames = new Set([node.name]);
+  const collectNames = (n: TopicNode) => {
+    subtreeNames.add(n.name);
+    n.children.forEach(collectNames);
+  };
+  node.children.forEach(collectNames);
+  const totalRefs = allReferences.filter((ref) => {
+    const topics = Array.isArray(ref.topics) ? ref.topics : ref.topics ? [ref.topics] : [];
+    return topics.some((t) => {
+      const name = normalizeToName(t);
+      return name ? subtreeNames.has(name) : false;
+    });
+  });
+
+  const groupBody = renderCollapsibleGroup(container, node.name, totalRefs.length);
+
+  // Direct references first
+  for (const ref of directRefs) renderReferenceCard(groupBody, ref);
+
+  // Then nested child groups
+  for (const child of node.children) {
+    renderNestedGroup(groupBody, child, allReferences);
   }
 }
 

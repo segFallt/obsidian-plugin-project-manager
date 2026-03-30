@@ -164,6 +164,8 @@ All wikilink fields (`client`, `engagement`, `owner`) are set via `processFrontM
 ```yaml
 tags:
   - "#reference-topic"
+status: Active | Inactive
+parent: "[[Parent Topic Name]]"   # optional; omit for root topics
 ```
 
 ---

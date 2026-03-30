@@ -15,6 +15,7 @@ import { registerCreateRaidItemCommand } from "./create-raid-item";
 import { registerTagRaidReferenceCommand } from "./tag-raid-reference";
 import { registerCreateReferenceTopicCommand } from "./create-reference-topic";
 import { registerCreateReferenceCommand } from "./create-reference";
+import { registerUpdateReferenceTopicCommand } from "./update-reference-topic";
 
 /**
  * Registers all plugin commands with the Obsidian command palette.
@@ -40,5 +41,6 @@ export function registerAllCommands(plugin: ProjectManagerPlugin): void {
   registerCreateRaidItemCommand(plugin, addCommand);
   registerTagRaidReferenceCommand(plugin, addCommand);
   registerCreateReferenceTopicCommand(plugin, addCommand);
+  registerUpdateReferenceTopicCommand(plugin, addCommand);
   registerCreateReferenceCommand(plugin, addCommand);
 }
