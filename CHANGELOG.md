@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <!-- New release sections are prepended by .ci/bump-version.sh -->
 
+## [0.3.1] - 2026-03-30
+
+### Fixed
+
+- Fixed hierarchical topic tree nesting in `pm-references` sidebar and default content panel, restoring parent–child indentation and nested collapsible groups ([#71](https://gitlab.n3.pingleberry.com/obsidian/obsidian-plugin-project-manager/-/issues/71)).
+
 ## [0.3.0] - 2026-03-30
 
 ### Added

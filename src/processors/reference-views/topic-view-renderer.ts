@@ -35,7 +35,7 @@ export function renderTopicView(
     });
     renderScopedTopicContent(panel, scoped, selectedNode, tree);
   } else {
-    renderFlatTopicContent(panel, references);
+    renderHierarchicalTopicContent(panel, references, tree);
   }
 }
 
@@ -111,7 +111,7 @@ function renderTreeNode(
   });
 
   if (hasChildren) {
-    const childrenEl = container.createDiv({ cls: "pm-ref-tree__children" });
+    const childrenEl = nodeEl.createDiv({ cls: "pm-ref-tree__children" });
     childrenEl.style.display = "block";
 
     toggleEl.addEventListener("click", (e) => {
@@ -130,7 +130,55 @@ function renderTreeNode(
 // ─── Content panel ────────────────────────────────────────────────────────────
 
 /**
- * When no node is selected: flat groups by topic (original behaviour).
+ * When no node is selected: nested groups mirroring the topic tree.
+ * Root topics are rendered as top-level collapsible groups with child topics nested inside.
+ * Topics not present in the tree fall back to a flat alphabetical group at the end.
+ */
+function renderHierarchicalTopicContent(
+  panel: HTMLElement,
+  references: DataviewPage[],
+  tree: TopicNode[]
+): void {
+  if (references.length === 0) {
+    renderEmptyState(panel, "No references found.");
+    return;
+  }
+
+  if (tree.length === 0) {
+    // No topic tree — fall back to flat alphabetical groups
+    renderFlatTopicContent(panel, references);
+    return;
+  }
+
+  // Render each root node as a nested group
+  for (const rootNode of tree) {
+    renderNestedGroup(panel, rootNode, references);
+  }
+
+  // Render any references whose topics are not in the tree (orphans)
+  const treeNames = new Set<string>();
+  const collectTreeNames = (node: TopicNode) => {
+    treeNames.add(node.name);
+    node.children.forEach(collectTreeNames);
+  };
+  tree.forEach(collectTreeNames);
+
+  const orphanRefs = references.filter((ref) => {
+    const topics = Array.isArray(ref.topics) ? ref.topics : ref.topics ? [ref.topics] : [];
+    return topics.length === 0 || topics.every((t) => {
+      const name = normalizeToName(t);
+      return !name || !treeNames.has(name);
+    });
+  });
+
+  if (orphanRefs.length > 0) {
+    const groupBody = renderCollapsibleGroup(panel, "Other", orphanRefs.length);
+    for (const ref of orphanRefs) renderReferenceCard(groupBody, ref);
+  }
+}
+
+/**
+ * Flat alphabetical fallback — used when the topic tree is empty.
  */
 function renderFlatTopicContent(
   panel: HTMLElement,
