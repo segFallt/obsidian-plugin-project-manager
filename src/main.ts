@@ -1,5 +1,6 @@
 import { Notice, Plugin } from "obsidian";
 import { ProjectManagerSettings, DEFAULT_SETTINGS, ProjectManagerSettingTab, mergeSettings } from "./settings";
+import { ReferenceDashboardItemView } from "./views";
 import { QueryService } from "./services/query-service";
 import { EntityHierarchyService } from "./services/entity-hierarchy-service";
 import { EntityService } from "./services/entity-service";
@@ -69,7 +70,21 @@ export default class ProjectManagerPlugin extends Plugin {
     this.app.workspace.onLayoutReady(() => {
       this.initServices();
       this.loggerService.info("Plugin initialized", "main");
+      this.registerView(
+        ReferenceDashboardItemView.VIEW_TYPE,
+        (leaf) => new ReferenceDashboardItemView(leaf, this)
+      );
       registerAllCommands(this);
+      this.addCommand({
+        id: "open-reference-dashboard",
+        name: "PM: Open Reference Dashboard",
+        callback: () => { void activateReferenceDashboard(this); },
+      });
+      if (this.settings.ui.showRibbonIcons) {
+        this.addRibbonIcon("book-open", "Open Reference Dashboard", () => {
+          void activateReferenceDashboard(this);
+        });
+      }
       registerAllProcessors(this);
     });
 
@@ -77,6 +92,7 @@ export default class ProjectManagerPlugin extends Plugin {
   }
 
   onunload() {
+    this.app.workspace.detachLeavesOfType(ReferenceDashboardItemView.VIEW_TYPE);
     this.loggerService.info("Plugin unloading", "main");
     void this.loggerService.flush();
     this.loggerServiceImpl.destroy();
@@ -150,4 +166,22 @@ export default class ProjectManagerPlugin extends Plugin {
       this.loggerService
     );
   }
+}
+
+// ─── Helper: activate Reference Dashboard panel ───────────────────────────────
+
+/**
+ * Opens the Reference Dashboard in the right sidebar. If the view is already
+ * open in any leaf, reveals it instead of creating a duplicate.
+ */
+async function activateReferenceDashboard(plugin: ProjectManagerPlugin): Promise<void> {
+  const existing = plugin.app.workspace.getLeavesOfType(ReferenceDashboardItemView.VIEW_TYPE);
+  if (existing.length > 0) {
+    void plugin.app.workspace.revealLeaf(existing[0]);
+    return;
+  }
+  const leaf = plugin.app.workspace.getRightLeaf(false);
+  if (!leaf) return;
+  await leaf.setViewState({ type: ReferenceDashboardItemView.VIEW_TYPE, active: true });
+  void plugin.app.workspace.revealLeaf(leaf);
 }

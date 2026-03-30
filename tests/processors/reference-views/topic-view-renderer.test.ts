@@ -231,6 +231,57 @@ describe("renderTopicView — content panel default (hierarchical) view (Bug 2 r
   });
 });
 
+describe("renderTopicView — data-depth attributes", () => {
+  it("root tree nodes have data-depth='0'", () => {
+    const tree = [makeNode("Technology"), makeNode("Architecture")];
+    const { sidebar } = renderView(tree, []);
+    const items = [...sidebar.querySelectorAll<HTMLElement>(":scope > .pm-ref-tree__item")];
+    expect(items.length).toBe(2);
+    for (const item of items) {
+      expect(item.getAttribute("data-depth")).toBe("0");
+    }
+  });
+
+  it("child tree nodes have data-depth='1'", () => {
+    const tree = [makeNode("Technology", [makeNode("Kubernetes")])];
+    const { sidebar } = renderView(tree, []);
+    const childrenContainer = sidebar.querySelector(".pm-ref-tree__children")!;
+    const childItem = childrenContainer.querySelector<HTMLElement>(".pm-ref-tree__item");
+    expect(childItem).not.toBeNull();
+    expect(childItem!.getAttribute("data-depth")).toBe("1");
+  });
+
+  it("grandchild tree nodes have data-depth='2'", () => {
+    const tree = [makeNode("Technology", [makeNode("Kubernetes", [makeNode("Helm")])])];
+    const { sidebar } = renderView(tree, []);
+    const level2Children = sidebar
+      .querySelector(".pm-ref-tree__children")!
+      .querySelector(".pm-ref-tree__children")!;
+    const grandchildItem = level2Children.querySelector<HTMLElement>(".pm-ref-tree__item");
+    expect(grandchildItem).not.toBeNull();
+    expect(grandchildItem!.getAttribute("data-depth")).toBe("2");
+  });
+
+  it("root content groups have data-depth='0'", () => {
+    const tree = [makeNode("Technology")];
+    const refs = [makeRef("Book A", ["Technology"])];
+    const { panel } = renderView(tree, refs);
+    const rootGroup = panel.querySelector<HTMLElement>(":scope > .pm-ref-group");
+    expect(rootGroup).not.toBeNull();
+    expect(rootGroup!.getAttribute("data-depth")).toBe("0");
+  });
+
+  it("nested content groups have data-depth='1'", () => {
+    const tree = [makeNode("Technology", [makeNode("Kubernetes")])];
+    const refs = [makeRef("Book A", ["Kubernetes"])];
+    const { panel } = renderView(tree, refs);
+    const rootGroupBody = panel.querySelector(".pm-ref-group__body")!;
+    const nestedGroup = rootGroupBody.querySelector<HTMLElement>(":scope > .pm-ref-group");
+    expect(nestedGroup).not.toBeNull();
+    expect(nestedGroup!.getAttribute("data-depth")).toBe("1");
+  });
+});
+
 describe("renderTopicView — sidebar toggle click (AC-13)", () => {
   it("toggles children visibility on successive toggle clicks", () => {
     const tree = [makeNode("Technology", [makeNode("Kubernetes")])];

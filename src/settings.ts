@@ -1,6 +1,7 @@
 import { App, Notice, PluginSettingTab, Setting } from "obsidian";
 import type ProjectManagerPlugin from "./main";
 import { DEFAULT_FOLDERS, PLUGIN_ID } from "./constants";
+import type { SavedReferenceFilters } from "./types";
 
 export interface LoggingSettings {
   enabled: boolean;
@@ -37,6 +38,7 @@ export interface UiPreferenceSettings {
   showRibbonIcons: boolean;
   defaultTaskViewMode: "context" | "date" | "priority" | "tag";
   showCompletedByDefault: boolean;
+  referenceDashboardFilters: SavedReferenceFilters;
 }
 
 export interface ProjectManagerSettings {
@@ -73,6 +75,13 @@ export const DEFAULT_SETTINGS: ProjectManagerSettings = {
     showRibbonIcons: true,
     defaultTaskViewMode: "context",
     showCompletedByDefault: false,
+    referenceDashboardFilters: {
+      viewMode: "topic",
+      topics: [],
+      clients: [],
+      engagements: [],
+      selectedNode: undefined,
+    },
   },
   logging: {
     enabled: false,

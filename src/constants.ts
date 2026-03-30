@@ -145,6 +145,7 @@ export const LOG_CONTEXT = {
   CREATE_REFERENCE: "create-reference",
   CREATE_REFERENCE_TOPIC: "create-reference-topic",
   TAG_RAID_REFERENCE: "tag-raid-reference",
+  REFERENCE_DASHBOARD_VIEW: "pm-reference-dashboard-view",
 } as const;
 
 /** Sentinel date strings for sort stability (tasks with no due date). */
@@ -340,3 +341,6 @@ export const ISO_DATETIME_INPUT_LENGTH = 16;
 export const DATAVIEW_PLUGIN_ID = "dataview";
 export const TASKS_PLUGIN_ID = "obsidian-tasks-plugin";
 export const PLUGIN_ID = "project-manager";
+
+/** Obsidian view type for the Reference Dashboard ItemView panel. */
+export const PM_REFERENCE_DASHBOARD_VIEW_TYPE = "pm-reference-dashboard";
