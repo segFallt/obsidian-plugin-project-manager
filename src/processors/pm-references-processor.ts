@@ -1,21 +1,22 @@
-import { MarkdownRenderChild, TFile, parseYaml } from "obsidian";
+import { MarkdownRenderChild, parseYaml } from "obsidian";
 import type { MarkdownPostProcessorContext } from "obsidian";
 import type { Plugin } from "obsidian";
 import type { ReferenceProcessorServices } from "../plugin-context";
-import type { PmReferencesConfig, SavedReferenceFilters, ReferenceFilters, ReferenceViewMode } from "../types";
-import { ReferenceDashboardView } from "./pm-references-dashboard";
+import type { PmReferencesConfig } from "../types";
 import { renderError } from "./dom-helpers";
-import { DEBOUNCE_MS, CODEBLOCK, FM_KEY } from "../constants";
+import { CODEBLOCK } from "../constants";
 
 /**
- * Renders the pm-references dashboard — a filterable, grouped view of all reference notes.
+ * Renders a compact summary card for the pm-references code block.
+ *
+ * The full dashboard is now hosted in the Reference Dashboard ItemView panel
+ * (see `src/views/reference-dashboard-item-view.ts`). This processor renders a
+ * lightweight card showing the reference count and a button to open the panel.
  *
  * Usage:
  * ```pm-references
  * viewMode: topic
  * ```
- *
- * Filter state is persisted to the note's frontmatter under the `pm-references-filters` key.
  */
 export function registerPmReferencesProcessor(
   plugin: Plugin,
@@ -24,7 +25,7 @@ export function registerPmReferencesProcessor(
   plugin.registerMarkdownCodeBlockProcessor(
     CODEBLOCK.PM_REFERENCES,
     (source: string, el: HTMLElement, ctx: MarkdownPostProcessorContext) => {
-      const child = new PmReferencesRenderChild(el, source, ctx.sourcePath, services);
+      const child = new PmReferencesRenderChild(el, source, services);
       ctx.addChild(child);
       child.render();
     }
@@ -34,49 +35,24 @@ export function registerPmReferencesProcessor(
 // ─── Render child ─────────────────────────────────────────────────────────────
 
 class PmReferencesRenderChild extends MarkdownRenderChild {
-  private config: PmReferencesConfig = {};
-  private activeView: ReferenceDashboardView | null = null;
-  private debounceTimer: ReturnType<typeof setTimeout> | null = null;
-  private saveDebounceTimer: ReturnType<typeof setTimeout> | null = null;
-  private isUpdating = false;
-
   constructor(
     containerEl: HTMLElement,
     private readonly source: string,
-    private readonly sourcePath: string,
     private readonly services: ReferenceProcessorServices
   ) {
     super(containerEl);
   }
 
-  onload(): void {
-    // Auto-refresh when any vault file is modified, with debounce to allow Dataview re-indexing.
-    this.registerEvent(
-      this.services.app.vault.on("modify", () => {
-        if (!this.isUpdating) this.debouncedAutoRefresh();
-      })
-    );
-  }
-
-  onunload(): void {
-    if (this.debounceTimer !== null) {
-      clearTimeout(this.debounceTimer);
-      this.debounceTimer = null;
-    }
-    if (this.saveDebounceTimer !== null) {
-      clearTimeout(this.saveDebounceTimer);
-      this.saveDebounceTimer = null;
-    }
-  }
-
   render(): void {
     this.containerEl.empty();
 
+    // Parse config to catch any YAML syntax errors early; not used further in the
+    // summary card, but preserved so future config options can be added without
+    // a breaking change.
     try {
-      const parsed = this.source.trim()
-        ? (parseYaml(this.source) as PmReferencesConfig)
-        : {};
-      this.config = parsed ?? {};
+      if (this.source.trim()) {
+        parseYaml(this.source) as PmReferencesConfig;
+      }
     } catch {
       const msg = "Invalid pm-references config.";
       this.services.loggerService.warn(msg, "pm-references-processor");
@@ -84,71 +60,27 @@ class PmReferencesRenderChild extends MarkdownRenderChild {
       return;
     }
 
-    const savedFilters = this.loadSavedFilters();
+    const references = this.services.queryService.getReferences({});
+    const count = references.length;
 
-    this.activeView = new ReferenceDashboardView(
-      this.containerEl,
-      this.services,
-      this.config,
-      savedFilters,
-      (filters) => this.debouncedSaveFilters(filters)
-    );
-    this.activeView.render();
-  }
+    const card = this.containerEl.createDiv({ cls: "pm-references-summary" });
+    card.createSpan({ text: "📚" });
+    card.createEl("h3", { text: "Reference Dashboard" });
+    card.createEl("p", {
+      text: `${count} reference${count === 1 ? "" : "s"} in your vault`,
+    });
 
-  private loadSavedFilters(): ReferenceFilters | null {
-    const file = this.services.app.vault.getAbstractFileByPath(this.sourcePath);
-    if (!(file instanceof TFile)) return null;
-    const saved = this.services.app.metadataCache.getFileCache(file)?.frontmatter?.[FM_KEY.PM_REFERENCES_FILTERS] as SavedReferenceFilters | undefined;
-    if (!saved) return null;
-    return {
-      viewMode: (saved.viewMode as ReferenceViewMode) ?? "topic",
-      topics: saved.topics ?? [],
-      clients: saved.clients ?? [],
-      engagements: saved.engagements ?? [],
-      searchText: "",
-      selectedNode: saved.selectedNode,
-    };
-  }
-
-  private debouncedSaveFilters(filters: ReferenceFilters): void {
-    if (this.saveDebounceTimer) clearTimeout(this.saveDebounceTimer);
-    this.saveDebounceTimer = setTimeout(() => {
-      void this.persistFilters(filters);
-    }, DEBOUNCE_MS.PROPERTIES);
-  }
-
-  private async persistFilters(filters: ReferenceFilters): Promise<void> {
-    const file = this.services.app.vault.getAbstractFileByPath(this.sourcePath);
-    if (!(file instanceof TFile)) return;
-    this.isUpdating = true;
-    try {
-      const saved: SavedReferenceFilters = {
-        viewMode: filters.viewMode,
-        topics: filters.topics,
-        clients: filters.clients,
-        engagements: filters.engagements,
-        selectedNode: filters.selectedNode,
-      };
-      await this.services.app.fileManager.processFrontMatter(
-        file,
-        (fm: Record<string, unknown>) => {
-          fm[FM_KEY.PM_REFERENCES_FILTERS] = saved;
-        }
+    const openBtn = card.createEl("button", {
+      cls: "pm-references-summary__open-btn mod-cta",
+      text: "Open Dashboard →",
+    });
+    openBtn.addEventListener("click", () => {
+      // app.commands is not in the public Obsidian API type definitions but is
+      // a stable internal API used across the plugin ecosystem for command dispatch.
+      type AppWithCommands = { commands: { executeCommandById(id: string): void } };
+      (this.services.app as unknown as AppWithCommands).commands.executeCommandById(
+        "project-manager:open-reference-dashboard"
       );
-    } finally {
-      this.isUpdating = false;
-    }
-  }
-
-  /**
-   * Triggered by vault 'modify' events.
-   * Uses a longer debounce to allow Dataview to re-index before re-querying.
-   */
-  private debouncedAutoRefresh(): void {
-    if (this.debounceTimer) clearTimeout(this.debounceTimer);
-    this.debounceTimer = setTimeout(() => {
-      this.activeView?.refreshOutput();
-    }, DEBOUNCE_MS.TASKS);
+    });
   }
 }

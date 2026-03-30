@@ -69,6 +69,26 @@ describe("DEFAULT_SETTINGS", () => {
     }
   });
 
+  it("mergeSettings applies default referenceDashboardFilters when key is missing from saved data", () => {
+    // Simulates a data.json from an installation predating the referenceDashboardFilters field
+    const saved: Partial<typeof DEFAULT_SETTINGS> = {
+      ui: {
+        showRibbonIcons: false,
+        defaultTaskViewMode: "date",
+        showCompletedByDefault: true,
+        // referenceDashboardFilters intentionally omitted
+      } as typeof DEFAULT_SETTINGS.ui,
+    };
+    const merged = mergeSettings(DEFAULT_SETTINGS, saved);
+    expect(merged.ui.referenceDashboardFilters).toBeDefined();
+    expect(merged.ui.referenceDashboardFilters).toEqual(
+      DEFAULT_SETTINGS.ui.referenceDashboardFilters
+    );
+    // Other ui keys from saved are preserved
+    expect(merged.ui.showRibbonIcons).toBe(false);
+    expect(merged.ui.defaultTaskViewMode).toBe("date");
+  });
+
   it("deep merge preserves DEFAULT_SETTINGS.folders keys missing from a partial saved object", () => {
     // Simulate a data.json from an older installation that predates raid/references/referenceTopics
     const saved: Partial<typeof DEFAULT_SETTINGS> = {

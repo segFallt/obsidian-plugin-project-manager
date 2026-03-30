@@ -1,8 +1,8 @@
-import { describe, it, expect, vi, afterEach } from "vitest";
+import { describe, it, expect, vi } from "vitest";
+import * as ObsidianModule from "obsidian";
 import { registerPmReferencesProcessor } from "@/processors/pm-references-processor";
 import type { ReferenceProcessorServices } from "@/plugin-context";
 import type { DataviewPage } from "@/types";
-import { TFile } from "obsidian";
 
 // ─── Reference page factory ───────────────────────────────────────────────────
 
@@ -58,8 +58,6 @@ function createMockServices(references: DataviewPage[] = []) {
       ) => void)
     | null = null;
 
-  const vaultOn = vi.fn(() => ({ id: "mock-event" }));
-
   const mockPlugin = {
     registerMarkdownCodeBlockProcessor: vi.fn(
       (
@@ -79,25 +77,25 @@ function createMockServices(references: DataviewPage[] = []) {
   };
 
   const sourcePath = "dashboard/references.md";
-  const mockFile = new TFile(sourcePath);
-
-  const processFrontMatter = vi.fn(
-    async (_file: TFile, callback: (fm: Record<string, unknown>) => void) => {
-      callback({});
-    }
-  );
 
   const services: ReferenceProcessorServices = {
     app: {
       vault: {
-        on: vaultOn,
-        getAbstractFileByPath: vi.fn(() => mockFile),
+        on: vi.fn(() => ({ id: "mock-event" })),
+        getAbstractFileByPath: vi.fn(() => null),
       },
       metadataCache: {
         getFileCache: vi.fn(() => null),
       },
       fileManager: {
-        processFrontMatter,
+        processFrontMatter: vi.fn(
+          async (_file: unknown, callback: (fm: Record<string, unknown>) => void) => {
+            callback({});
+          }
+        ),
+      },
+      commands: {
+        executeCommandById: vi.fn(),
       },
     } as unknown as ReferenceProcessorServices["app"],
     settings: {} as ReferenceProcessorServices["settings"],
@@ -119,8 +117,6 @@ function createMockServices(references: DataviewPage[] = []) {
   return {
     mockPlugin,
     services,
-    vaultOn,
-    processFrontMatter,
     sourcePath,
     getHandler: () => registeredHandler!,
   };
@@ -147,25 +143,16 @@ function render(source: string, references: DataviewPage[] = []) {
   return {
     el,
     services: mock.services,
-    vaultOn: mock.vaultOn,
-    processFrontMatter: mock.processFrontMatter,
     child: children[0] as {
       onload?(): void;
       onunload?(): void;
-      isUpdating?: boolean;
     },
   };
 }
 
-// ─── Test isolation ───────────────────────────────────────────────────────────
-
-afterEach(() => {
-  vi.useRealTimers();
-});
-
 // ─── Tests ───────────────────────────────────────────────────────────────────
 
-describe("pm-references processor", () => {
+describe("pm-references processor (summary card)", () => {
   it("registers a 'pm-references' code block processor", () => {
     const mock = createMockServices();
     registerPmReferencesProcessor(
@@ -178,169 +165,86 @@ describe("pm-references processor", () => {
     );
   });
 
-  it("renders the dashboard container", () => {
+  it("renders a summary card container with the expected CSS class", () => {
     const { el } = render("");
-    expect(el.querySelector(".pm-references")).not.toBeNull();
+    expect(el.querySelector(".pm-references-summary")).not.toBeNull();
   });
 
-  it("renders the toolbar with view mode tabs", () => {
+  it("renders the 'Reference Dashboard' heading", () => {
     const { el } = render("");
-    const toolbar = el.querySelector(".pm-references__toolbar");
-    expect(toolbar).not.toBeNull();
-    const tabs = el.querySelectorAll(".pm-references__tab");
-    expect(tabs.length).toBeGreaterThanOrEqual(3);
+    const heading = el.querySelector("h3");
+    expect(heading).not.toBeNull();
+    expect(heading!.textContent).toBe("Reference Dashboard");
   });
 
-  it("renders empty state message when no references exist", () => {
-    const { el } = render("");
-    const panel = el.querySelector(".pm-references__panel");
-    expect(panel).not.toBeNull();
-    expect(panel!.querySelector(".pm-ref-empty")).not.toBeNull();
-    expect(panel!.textContent).toContain("No references found");
+  it("renders reference count text for 0 references", () => {
+    const { el } = render("", []);
+    const p = el.querySelector("p");
+    expect(p).not.toBeNull();
+    expect(p!.textContent).toBe("0 references in your vault");
   });
 
-  it("renders reference cards when references are available", () => {
-    const refs = [
-      makeReferencePage({ name: "Clean Architecture", topics: ["[[Architecture]]"] }),
-    ];
+  it("renders reference count text for 1 reference (singular)", () => {
+    const { el } = render("", [makeReferencePage({ name: "Ref A" })]);
+    const p = el.querySelector("p");
+    expect(p!.textContent).toBe("1 reference in your vault");
+  });
+
+  it("renders reference count text for multiple references", () => {
+    const refs = [makeReferencePage({ name: "A" }), makeReferencePage({ name: "B" })];
     const { el } = render("", refs);
-    const panel = el.querySelector(".pm-references__panel");
-    expect(panel!.textContent).toContain("Clean Architecture");
+    const p = el.querySelector("p");
+    expect(p!.textContent).toBe("2 references in your vault");
   });
 
-  it("renders collapsible groups for reference topics", () => {
-    const refs = [
-      makeReferencePage({ name: "Book A", topics: [{ path: "Architecture.md" }] }),
-      makeReferencePage({ name: "Book B", topics: [{ path: "Architecture.md" }] }),
-    ];
-    const { el } = render("", refs);
-    const groups = el.querySelectorAll(".pm-ref-group");
-    expect(groups.length).toBeGreaterThan(0);
-  });
-
-  it("renders FilterChipSelect containers for topic, client, and engagement filters when filter panel is expanded", () => {
+  it("renders an 'Open Dashboard →' button", () => {
     const { el } = render("");
-    const toggle = el.querySelector<HTMLButtonElement>(".pm-references__filters-toggle");
-    expect(toggle).not.toBeNull();
-    toggle!.click();
-    const chipSelects = el.querySelectorAll(".pm-filter-chip-select");
-    expect(chipSelects.length).toBe(3);
+    const btn = el.querySelector("button");
+    expect(btn).not.toBeNull();
+    expect(btn!.textContent).toBe("Open Dashboard →");
   });
 
-  it("reads viewMode from config and activates the correct tab", () => {
-    const { el } = render("viewMode: client");
-    const activeTab = el.querySelector<HTMLButtonElement>(".pm-references__tab--active");
-    expect(activeTab).not.toBeNull();
-    expect(activeTab!.textContent).toBe("By Client");
+  it("button has the expected CSS classes", () => {
+    const { el } = render("");
+    const btn = el.querySelector("button");
+    expect(btn!.classList.contains("pm-references-summary__open-btn")).toBe(true);
+    expect(btn!.classList.contains("mod-cta")).toBe(true);
   });
 
-  describe("lifecycle", () => {
-    it("onload registers vault modify event", () => {
-      const { child, vaultOn } = render("");
-      (child as { onload(): void }).onload();
-      expect(vaultOn).toHaveBeenCalledWith("modify", expect.any(Function));
-    });
-
-    it("onunload clears debounce timers without throwing", () => {
-      const { child } = render("");
-      expect(() => (child as { onunload(): void }).onunload()).not.toThrow();
-    });
-
-    it("vault modify event triggers debounced refresh when isUpdating is false", async () => {
-      vi.useFakeTimers();
-      const { child, vaultOn } = render("");
-      (child as { onload(): void }).onload();
-
-      const modifyCallback = vaultOn.mock.calls[0][1] as () => void;
-      modifyCallback();
-
-      // Should not throw while timers are pending
-      await vi.runAllTimersAsync();
-    });
+  it("clicking the button executes the open-reference-dashboard command", () => {
+    const { el, services } = render("");
+    const btn = el.querySelector("button") as HTMLButtonElement;
+    btn.click();
+    expect(
+      (services.app.commands as { executeCommandById: ReturnType<typeof vi.fn> }).executeCommandById
+    ).toHaveBeenCalledWith("project-manager:open-reference-dashboard");
   });
 
-  describe("filter persistence", () => {
-    it("loads saved viewMode and selectedNode from frontmatter and activates the correct tab", () => {
-      const mock = createMockServices();
-      (mock.services.app.metadataCache.getFileCache as ReturnType<typeof vi.fn>).mockReturnValue({
-        frontmatter: {
-          "pm-references-filters": {
-            viewMode: "engagement",
-            selectedNode: "[[Kubernetes]]",
-          },
-        },
-      });
-      registerPmReferencesProcessor(
-        mock.mockPlugin as unknown as import("obsidian").Plugin,
-        mock.services
-      );
+  it("parses valid YAML config without errors", () => {
+    const { el } = render("viewMode: topic");
+    expect(el.querySelector(".pm-references-summary")).not.toBeNull();
+    expect(el.querySelector(".pm-error")).toBeNull();
+  });
 
-      const el = document.createElement("div");
-      const children: unknown[] = [];
-      mock.getHandler()("", el, {
-        addChild: (child: unknown) => children.push(child),
-        sourcePath: mock.sourcePath,
-      });
-
-      const activeTab = el.querySelector<HTMLButtonElement>(".pm-references__tab--active");
-      expect(activeTab).not.toBeNull();
-      expect(activeTab!.textContent).toBe("By Engagement");
+  it("renders error state for invalid YAML, not the summary card", () => {
+    // The mock parseYaml is permissive and never throws, so we force the error
+    // path by making parseYaml throw for this test only.
+    const spy = vi.spyOn(ObsidianModule, "parseYaml").mockImplementationOnce(() => {
+      throw new Error("bad YAML");
     });
+    try {
+      const { el } = render("bad: yaml: content");
+      expect(el.querySelector(".pm-references-summary")).toBeNull();
+      expect(el.querySelector(".pm-error")).not.toBeNull();
+    } finally {
+      spy.mockRestore();
+    }
+  });
 
-    it("saves selectedNode to frontmatter after debounce when filters change via tab click", async () => {
-      vi.useFakeTimers();
-
-      // Pre-load a selectedNode in frontmatter so it is part of the persisted state
-      const mock = createMockServices();
-      (mock.services.app.metadataCache.getFileCache as ReturnType<typeof vi.fn>).mockReturnValue({
-        frontmatter: {
-          "pm-references-filters": {
-            viewMode: "topic",
-            selectedNode: "[[Kubernetes]]",
-          },
-        },
-      });
-
-      const savedStates: Array<Record<string, unknown>> = [];
-      (mock.services.app.fileManager.processFrontMatter as ReturnType<typeof vi.fn>).mockImplementation(
-        async (_file: TFile, callback: (fm: Record<string, unknown>) => void) => {
-          const fm: Record<string, unknown> = {};
-          callback(fm);
-          savedStates.push(fm);
-        }
-      );
-
-      registerPmReferencesProcessor(
-        mock.mockPlugin as unknown as import("obsidian").Plugin,
-        mock.services
-      );
-
-      const el = document.createElement("div");
-      const children: unknown[] = [];
-      mock.getHandler()("", el, {
-        addChild: (child: unknown) => children.push(child),
-        sourcePath: mock.sourcePath,
-      });
-
-      // Click the "By Client" tab to trigger a filter change
-      const tabs = [...el.querySelectorAll<HTMLButtonElement>(".pm-references__tab")];
-      const clientTab = tabs.find((t) => t.textContent === "By Client");
-      expect(clientTab).not.toBeUndefined();
-      clientTab!.click();
-
-      // Not yet saved (debounced)
-      expect(mock.services.app.fileManager.processFrontMatter).not.toHaveBeenCalled();
-
-      await vi.runAllTimersAsync();
-
-      expect(mock.services.app.fileManager.processFrontMatter).toHaveBeenCalled();
-
-      // Switching view mode resets selectedNode to undefined
-      const lastSaved = savedStates[savedStates.length - 1] as {
-        "pm-references-filters": { selectedNode?: string; viewMode?: string };
-      };
-      expect(lastSaved["pm-references-filters"].viewMode).toBe("client");
-      expect(lastSaved["pm-references-filters"].selectedNode).toBeUndefined();
-    });
+  it("renders summary card with zero references for empty source", () => {
+    const { el } = render("");
+    expect(el.querySelector(".pm-references-summary")).not.toBeNull();
+    expect(el.querySelector(".pm-error")).toBeNull();
+    expect(el.querySelector("p")!.textContent).toBe("0 references in your vault");
   });
 });

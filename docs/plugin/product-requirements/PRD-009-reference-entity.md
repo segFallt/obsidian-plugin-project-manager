@@ -27,16 +27,13 @@ This PRD covers: the Reference and Reference Topic data model (see also PRD-001 
 
 ```yaml
 ```pm-references
-mode: dashboard
 viewMode: topic          # topic | client | engagement (default: topic)
-filter:
-  topics: ["[[Topic Name]]"]
-  client: "[[Client Name]]"
-  engagement: "[[Engagement Name]]"
 ```
 ```
 
-All keys are optional. `mode: dashboard` is the only supported mode. The `filter` values are single-value defaults that seed the initial chip selection; they are seeded as YAML config from the code block (not interactive state). The code block YAML filter is applied on first render; the user's interactive filter state (multi-select) is then stored separately in `pm-references-filters` frontmatter.
+The `pm-references` code block now renders a **compact summary card** showing the reference count and an "Open Dashboard →" button that activates the Reference Dashboard ItemView panel (see §3.10). The full interactive dashboard has moved to the ItemView panel.
+
+All YAML keys remain accepted for forward-compatibility, but the code block no longer renders the full dashboard. The `filter` and `mode` keys are parsed and ignored by the summary card renderer.
 
 ### 3.2 Dashboard Controls
 
@@ -101,17 +98,44 @@ Each reference card contains:
 
 ### 3.8 Filter State Persistence
 
-Interactive filter state (active chip selections, view mode, search text) is persisted to the current note's frontmatter under the `pm-references-filters` key after each user interaction. On load, saved state is restored and merged with any defaults from the code block YAML `filter` field.
+Interactive filter state (active chip selections, view mode, selected sidebar node) is persisted after each user interaction. The persistence path depends on the rendering context:
 
-```yaml
-pm-references-filters:
-  viewMode: topic
-  topicFilter: ["[[Architecture]]", "[[Security]]"]
-  clientFilter: []
-  engagementFilter: []
+**ItemView panel (§3.10) — persists to plugin settings:**
+Filter state is stored in `plugin.settings.ui.referenceDashboardFilters` and written to the plugin data file via `plugin.saveSettings()`. This keeps the filter state global across all notes and vault sessions.
+
+```typescript
+// plugin.settings.ui.referenceDashboardFilters shape (SavedReferenceFilters):
+{
+  viewMode?: "topic" | "client" | "engagement";
+  topics?: string[];
+  clients?: string[];
+  engagements?: string[];
+  selectedNode?: string;
+}
 ```
 
-Code block YAML `filter` values seed initial chip selection; `pm-references-filters` stores the full multi-select interactive state. These are two distinct shapes: YAML filter values are single strings (or arrays) used as initial seeds; frontmatter stores arrays of wikilink strings for all dimensions.
+**Legacy code block path (deprecated) — previously persisted to note frontmatter:**
+The original implementation persisted to `pm-references-filters` in the host note's frontmatter. This path is no longer used since the code block was simplified to a summary card in issue #75.
+
+### 3.9 (Reserved)
+
+### 3.10 Reference Dashboard ItemView Panel
+
+The Reference Dashboard is hosted in a dedicated Obsidian `ItemView` panel, registered under the view type `pm-reference-dashboard`.
+
+**View type constant:** `PM_REFERENCE_DASHBOARD_VIEW_TYPE = "pm-reference-dashboard"` (exported from `src/constants.ts`)
+
+**Activation command:** `PM: Open Reference Dashboard` (command ID: `project-manager:open-reference-dashboard`). Registered during `onLayoutReady`. If the view is already open in any leaf, the command reveals it instead of creating a duplicate. Otherwise it opens in the right sidebar (`workspace.getRightLeaf(false)`).
+
+**Ribbon icon:** Displayed when `settings.ui.showRibbonIcons` is `true`. Uses the `book-open` icon. Clicking the icon calls the same activation helper as the command.
+
+**Lifecycle:**
+- Registered via `this.registerView(...)` inside `onLayoutReady()` in `main.ts`.
+- On open (`onOpen()`): adds the `pm-reference-dashboard-view` CSS class to `contentEl`, constructs the `ReferenceDashboardView` component, restores saved filters from `plugin.settings.ui.referenceDashboardFilters`, and registers a vault `modify` event listener for debounced auto-refresh.
+- On close (`onClose()`): clears the debounce timer, empties `contentEl`, and nullifies the dashboard view reference.
+- On plugin unload: all leaves of type `pm-reference-dashboard` are detached via `workspace.detachLeavesOfType(...)` before logger flush.
+
+**Source:** `src/views/reference-dashboard-item-view.ts`, exported via `src/views/index.ts`.
 
 ---
 

@@ -151,6 +151,10 @@ export class Plugin {
 
   addCommand(_command: unknown) {}
   addSettingTab(_tab: unknown) {}
+  addRibbonIcon(_icon: string, _title: string, _cb: (evt: MouseEvent) => unknown) {
+    return document.createElement("div");
+  }
+  registerView(_viewType: string, _creator: (leaf: unknown) => unknown) {}
   registerMarkdownCodeBlockProcessor(
     _language: string,
     _handler: (source: string, el: HTMLElement, ctx: unknown) => void
@@ -204,6 +208,14 @@ export class App {
       openFile: (_file: TFile) => Promise.resolve(),
     }),
     onLayoutReady: (fn: () => void) => fn(),
+    registerView: (_viewType: string, _creator: (leaf: unknown) => unknown) => {},
+    getLeavesOfType: (_viewType: string) => [] as unknown[],
+    revealLeaf: (_leaf: unknown) => {},
+    detachLeavesOfType: (_viewType: string) => {},
+    getRightLeaf: (_split: boolean) =>
+      ({
+        setViewState: (_state: unknown) => Promise.resolve(),
+      } as unknown),
   };
 
   plugins = {
@@ -229,6 +241,40 @@ export class MarkdownRenderChild {
 
   onload() {}
   onunload() {}
+  register(_cb: () => void) {}
+  registerEvent(_eventRef: EventRef) {}
+}
+
+// ─── ItemView stub ────────────────────────────────────────────────────────────
+
+// Extend HTMLElement with Obsidian's additional methods used by ItemView subclasses.
+function makeObsidianEl(tagName: string): HTMLElement {
+  const el = document.createElement(tagName);
+  // Obsidian extends HTMLElement with addClass/removeClass/empty helpers.
+  (el as unknown as Record<string, unknown>).addClass = (cls: string) => el.classList.add(cls);
+  (el as unknown as Record<string, unknown>).removeClass = (cls: string) => el.classList.remove(cls);
+  (el as unknown as Record<string, unknown>).empty = () => { el.innerHTML = ""; };
+  return el;
+}
+
+export class ItemView {
+  app: App;
+  contentEl: HTMLElement;
+  containerEl: HTMLElement;
+
+  constructor(leaf: unknown) {
+    void leaf;
+    this.app = new App();
+    this.contentEl = makeObsidianEl("div");
+    this.containerEl = makeObsidianEl("div");
+    this.containerEl.appendChild(this.contentEl);
+  }
+
+  getViewType(): string { return ""; }
+  getDisplayText(): string { return ""; }
+  getIcon(): string { return ""; }
+  async onOpen(): Promise<void> {}
+  async onClose(): Promise<void> {}
   register(_cb: () => void) {}
   registerEvent(_eventRef: EventRef) {}
 }
