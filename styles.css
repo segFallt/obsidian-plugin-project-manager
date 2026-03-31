@@ -1681,6 +1681,28 @@ details[open] .pm-filter-section__title::before {
   height: 100%;
 }
 
+.pm-reference-dashboard__actions {
+  display: flex;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.pm-reference-dashboard__actions__button {
+  padding: 4px 12px;
+  border-radius: var(--radius-m);
+  border: 1px solid var(--interactive-normal);
+  background: var(--interactive-normal);
+  color: var(--text-normal);
+  cursor: pointer;
+  font-size: var(--font-ui-small);
+}
+
+.pm-reference-dashboard__actions__button:hover {
+  background: var(--interactive-hover);
+  border-color: var(--interactive-hover);
+}
+
 /* Depth indicators for sidebar tree nodes */
 .pm-ref-tree__children {
   border-left: 2px solid var(--background-modifier-border);
