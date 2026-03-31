@@ -50,6 +50,7 @@ export class ReferenceDashboardItemView extends ItemView {
       loggerService: this.plugin.loggerService,
       commandExecutor: this.plugin.commandExecutor,
       actionContext: this.plugin.actionContext,
+      saveSettings: this.plugin.saveSettings.bind(this.plugin),
     };
 
     const actionsRow = this.contentEl.createDiv({ cls: 'pm-reference-dashboard__actions' });
