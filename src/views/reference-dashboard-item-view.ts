@@ -48,7 +48,31 @@ export class ReferenceDashboardItemView extends ItemView {
       queryService: this.plugin.queryService,
       hierarchyService: this.plugin.hierarchyService,
       loggerService: this.plugin.loggerService,
+      commandExecutor: this.plugin.commandExecutor,
+      actionContext: this.plugin.actionContext,
     };
+
+    const actionsRow = this.contentEl.createDiv({ cls: 'pm-reference-dashboard__actions' });
+
+    const newRefBtn = actionsRow.createEl('button', {
+      cls: 'pm-reference-dashboard__actions__button',
+      text: '+ New Reference',
+    });
+    newRefBtn.addEventListener('click', () => {
+      const selectedNode = this.plugin.settings.ui.referenceDashboardFilters?.selectedNode;
+      if (selectedNode) {
+        services.actionContext.set({ field: 'topic', value: selectedNode });
+      }
+      services.commandExecutor.executeCommandById('project-manager:create-reference');
+    });
+
+    const newTopicBtn = actionsRow.createEl('button', {
+      cls: 'pm-reference-dashboard__actions__button',
+      text: '+ New Topic',
+    });
+    newTopicBtn.addEventListener('click', () => {
+      services.commandExecutor.executeCommandById('project-manager:create-reference-topic');
+    });
 
     const saved = this.plugin.settings.ui.referenceDashboardFilters;
     const savedFilters: ReferenceFilters | null = saved
@@ -62,8 +86,10 @@ export class ReferenceDashboardItemView extends ItemView {
         }
       : null;
 
+    const dashboardContainer = this.contentEl.createDiv();
+
     this.dashboardView = new ReferenceDashboardView(
-      this.contentEl,
+      dashboardContainer,
       services,
       {},
       savedFilters,

@@ -171,8 +171,8 @@ export default class ProjectManagerPlugin extends Plugin {
 // ─── Helper: activate Reference Dashboard panel ───────────────────────────────
 
 /**
- * Opens the Reference Dashboard in the right sidebar. If the view is already
- * open in any leaf, reveals it instead of creating a duplicate.
+ * Opens the Reference Dashboard in the main editor pane as a new tab. If the
+ * view is already open in any leaf, reveals it instead of creating a duplicate.
  */
 async function activateReferenceDashboard(plugin: ProjectManagerPlugin): Promise<void> {
   const existing = plugin.app.workspace.getLeavesOfType(ReferenceDashboardItemView.VIEW_TYPE);
@@ -180,7 +180,7 @@ async function activateReferenceDashboard(plugin: ProjectManagerPlugin): Promise
     void plugin.app.workspace.revealLeaf(existing[0]);
     return;
   }
-  const leaf = plugin.app.workspace.getRightLeaf(false);
+  const leaf = plugin.app.workspace.getLeaf('tab');
   if (!leaf) return;
   await leaf.setViewState({ type: ReferenceDashboardItemView.VIEW_TYPE, active: true });
   void plugin.app.workspace.revealLeaf(leaf);

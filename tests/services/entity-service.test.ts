@@ -150,6 +150,22 @@ describe("EntityService", () => {
     });
   });
 
+  describe("createReferenceTopic", () => {
+    it("forwards parentName to creation service when provided", async () => {
+      const { svc } = createEntityService();
+      const spy = vi.spyOn(svc["creation"], "createReferenceTopic");
+      await svc.createReferenceTopic("Agile", "Software Development");
+      expect(spy).toHaveBeenCalledWith("Agile", "Software Development");
+    });
+
+    it("forwards undefined parentName to creation service when omitted", async () => {
+      const { svc } = createEntityService();
+      const spy = vi.spyOn(svc["creation"], "createReferenceTopic");
+      await svc.createReferenceTopic("Agile");
+      expect(spy).toHaveBeenCalledWith("Agile", undefined);
+    });
+  });
+
   describe("createInboxNote", () => {
     it("creates an inbox note in the inbox folder", async () => {
       const { svc, app } = createEntityService();

@@ -32,6 +32,12 @@ function makePlugin(referenceDashboardFilters = {}) {
       warn: vi.fn(),
       error: vi.fn(),
     },
+    commandExecutor: {
+      executeCommandById: vi.fn(),
+    },
+    actionContext: {
+      set: vi.fn(),
+    },
   };
 }
 
@@ -184,6 +190,8 @@ describe("ReferenceDashboardItemView", () => {
         },
         hierarchyService: {},
         loggerService: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+        commandExecutor: { executeCommandById: vi.fn() },
+        actionContext: { set: vi.fn() },
       };
       const { ReferenceDashboardItemView } = await import("@/views/reference-dashboard-item-view");
       const view = new ReferenceDashboardItemView(
@@ -194,6 +202,90 @@ describe("ReferenceDashboardItemView", () => {
       const activeTab = view.contentEl.querySelector<HTMLButtonElement>(".pm-references__tab--active");
       expect(activeTab).not.toBeNull();
       expect(activeTab!.textContent).toBe("By Topic");
+    });
+  });
+
+  describe("actions row", () => {
+    it("renders the actions row before the dashboard content", async () => {
+      const { view } = makeView();
+      await view.onOpen();
+      const actionsRow = view.contentEl.querySelector(".pm-reference-dashboard__actions");
+      const dashboard = view.contentEl.querySelector(".pm-references");
+      expect(actionsRow).not.toBeNull();
+      expect(dashboard).not.toBeNull();
+      // Actions row should appear before dashboard in DOM order (as direct children of contentEl)
+      const directChildren = [...view.contentEl.children];
+      const actionsRowIndex = directChildren.indexOf(actionsRow!);
+      // The dashboard is nested inside its own container, so find the container that contains it
+      const dashboardContainerIndex = directChildren.findIndex((c) => c.contains(dashboard!));
+      expect(actionsRowIndex).toBeGreaterThanOrEqual(0);
+      expect(dashboardContainerIndex).toBeGreaterThanOrEqual(0);
+      expect(actionsRowIndex).toBeLessThan(dashboardContainerIndex);
+    });
+
+    it("renders '+ New Reference' button with correct text", async () => {
+      const { view } = makeView();
+      await view.onOpen();
+      const btn = view.contentEl.querySelector<HTMLButtonElement>(
+        ".pm-reference-dashboard__actions__button"
+      );
+      expect(btn).not.toBeNull();
+      expect(btn!.textContent).toBe("+ New Reference");
+    });
+
+    it("renders '+ New Topic' button with correct text", async () => {
+      const { view } = makeView();
+      await view.onOpen();
+      const btns = view.contentEl.querySelectorAll<HTMLButtonElement>(
+        ".pm-reference-dashboard__actions__button"
+      );
+      const topicBtn = [...btns].find((b) => b.textContent === "+ New Topic");
+      expect(topicBtn).not.toBeUndefined();
+    });
+
+    it("clicking '+ New Reference' with selectedNode calls actionContext.set then executeCommandById", async () => {
+      const { view, plugin } = makeView({ selectedNode: "Kubernetes" });
+      await view.onOpen();
+      const btns = view.contentEl.querySelectorAll<HTMLButtonElement>(
+        ".pm-reference-dashboard__actions__button"
+      );
+      const newRefBtn = [...btns].find((b) => b.textContent === "+ New Reference");
+      expect(newRefBtn).not.toBeUndefined();
+      newRefBtn!.click();
+      expect(plugin.actionContext.set).toHaveBeenCalledWith({ field: "topic", value: "Kubernetes" });
+      expect(plugin.commandExecutor.executeCommandById).toHaveBeenCalledWith(
+        "project-manager:create-reference"
+      );
+    });
+
+    it("clicking '+ New Reference' with no selectedNode skips actionContext.set but still executes command", async () => {
+      const { view, plugin } = makeView({});
+      await view.onOpen();
+      const btns = view.contentEl.querySelectorAll<HTMLButtonElement>(
+        ".pm-reference-dashboard__actions__button"
+      );
+      const newRefBtn = [...btns].find((b) => b.textContent === "+ New Reference");
+      expect(newRefBtn).not.toBeUndefined();
+      newRefBtn!.click();
+      expect(plugin.actionContext.set).not.toHaveBeenCalled();
+      expect(plugin.commandExecutor.executeCommandById).toHaveBeenCalledWith(
+        "project-manager:create-reference"
+      );
+    });
+
+    it("clicking '+ New Topic' calls executeCommandById and does not call actionContext.set", async () => {
+      const { view, plugin } = makeView();
+      await view.onOpen();
+      const btns = view.contentEl.querySelectorAll<HTMLButtonElement>(
+        ".pm-reference-dashboard__actions__button"
+      );
+      const newTopicBtn = [...btns].find((b) => b.textContent === "+ New Topic");
+      expect(newTopicBtn).not.toBeUndefined();
+      newTopicBtn!.click();
+      expect(plugin.commandExecutor.executeCommandById).toHaveBeenCalledWith(
+        "project-manager:create-reference-topic"
+      );
+      expect(plugin.actionContext.set).not.toHaveBeenCalled();
     });
   });
 });

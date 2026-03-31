@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { App } from "obsidian";
 import ProjectManagerPlugin from "@/main";
 import { DATAVIEW_PLUGIN_ID, TASKS_PLUGIN_ID } from "@/constants";
+import { ReferenceDashboardItemView } from "@/views";
 
 // ─── Mock Notice ──────────────────────────────────────────────────────────────
 // vi.hoisted ensures the factory function runs before module-level imports,
@@ -34,6 +35,52 @@ function buildApp(registeredIds: string[]) {
   }
   (app as unknown as PluginsHost).plugins.plugins = registry;
   return app;
+}
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+type CommandDef = { id: string; name: string; callback?: () => void };
+
+/**
+ * Builds an app with both required plugins registered and workspace spies
+ * wired up for testing activateReferenceDashboard.
+ */
+function buildAppWithWorkspaceSpy() {
+  const app = buildApp([DATAVIEW_PLUGIN_ID, TASKS_PLUGIN_ID]);
+
+  const mockLeaf = {
+    setViewState: vi.fn().mockResolvedValue(undefined),
+  };
+  const getLeafSpy = vi.fn().mockReturnValue(mockLeaf);
+  const getLeavesOfTypeSpy = vi.fn().mockReturnValue([]);
+  const revealLeafSpy = vi.fn();
+
+  app.workspace.getLeaf = getLeafSpy as unknown as typeof app.workspace.getLeaf;
+  app.workspace.getLeavesOfType = getLeavesOfTypeSpy as unknown as typeof app.workspace.getLeavesOfType;
+  app.workspace.revealLeaf = revealLeafSpy as unknown as typeof app.workspace.revealLeaf;
+
+  return { app, mockLeaf, getLeafSpy, getLeavesOfTypeSpy, revealLeafSpy };
+}
+
+/**
+ * Loads the plugin, captures the open-reference-dashboard command callback,
+ * and returns it alongside the workspace spies.
+ */
+async function loadPluginAndGetDashboardCommand(app: App) {
+  const plugin = new ProjectManagerPlugin(app, {} as never);
+
+  let openDashboardCallback: (() => void) | undefined;
+  const originalAddCommand = plugin.addCommand.bind(plugin);
+  plugin.addCommand = (command: CommandDef) => {
+    if (command.id === "open-reference-dashboard") {
+      openDashboardCallback = command.callback;
+    }
+    return originalAddCommand(command);
+  };
+
+  await plugin.onload();
+
+  return { plugin, openDashboardCallback };
 }
 
 // ─── Tests ───────────────────────────────────────────────────────────────────
@@ -83,5 +130,58 @@ describe("ProjectManagerPlugin — startup dependency checks", () => {
 
     const messages = MockNotice.mock.calls.map((c) => String(c[0]));
     expect(messages.some((m) => m.includes("Dataview") || m.includes("Tasks"))).toBe(false);
+  });
+});
+
+describe("activateReferenceDashboard", () => {
+  let plugin: ProjectManagerPlugin;
+
+  afterEach(() => {
+    plugin?.onunload();
+  });
+
+  it("calls getLeaf('tab'), setViewState, and revealLeaf when no existing view is open", async () => {
+    const { app, mockLeaf, getLeafSpy, getLeavesOfTypeSpy, revealLeafSpy } =
+      buildAppWithWorkspaceSpy();
+
+    // No existing leaves
+    getLeavesOfTypeSpy.mockReturnValue([]);
+
+    const { plugin: p, openDashboardCallback } = await loadPluginAndGetDashboardCommand(app);
+    plugin = p;
+
+    expect(openDashboardCallback).toBeDefined();
+    openDashboardCallback!();
+
+    // Flush the microtask queue: the async callback awaits setViewState before
+    // calling revealLeaf, so we need multiple ticks to let all promises settle.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(getLeafSpy).toHaveBeenCalledWith("tab");
+    expect(mockLeaf.setViewState).toHaveBeenCalledWith({
+      type: ReferenceDashboardItemView.VIEW_TYPE,
+      active: true,
+    });
+    expect(revealLeafSpy).toHaveBeenCalledWith(mockLeaf);
+  });
+
+  it("reveals the existing leaf and does not call getLeaf when the view is already open", async () => {
+    const { app, getLeafSpy, getLeavesOfTypeSpy, revealLeafSpy } = buildAppWithWorkspaceSpy();
+
+    const existingLeaf = { setViewState: vi.fn() };
+    // Simulate view already open
+    getLeavesOfTypeSpy.mockReturnValue([existingLeaf]);
+
+    const { plugin: p, openDashboardCallback } = await loadPluginAndGetDashboardCommand(app);
+    plugin = p;
+
+    expect(openDashboardCallback).toBeDefined();
+    openDashboardCallback!();
+
+    // Flush the microtask queue to let the void async callback settle.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(getLeafSpy).not.toHaveBeenCalled();
+    expect(revealLeafSpy).toHaveBeenCalledWith(existingLeaf);
   });
 });

@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <!-- New release sections are prepended by .ci/bump-version.sh -->
 
+## [0.3.5-beta.2] - 2026-03-31
+
+### Added
+
+- Added "+ New Reference" and "+ New Topic" quick-create buttons to the Reference Dashboard panel. "+ New Reference" pre-populates the topic field when a node is selected in the sidebar ([#79](https://gitlab.n3.pingleberry.com/obsidian/obsidian-plugin-project-manager/-/issues/79)).
+
+### Fixed
+
+- Fixed `EntityService.createReferenceTopic` facade silently dropping the `parentName` argument, causing the `parent` frontmatter field to be absent when creating a reference topic with a selected parent ([#77](https://gitlab.n3.pingleberry.com/obsidian/obsidian-plugin-project-manager/-/issues/77)).
+- Fixed Reference Dashboard opening in the right-hand sidebar instead of the main editor pane — now uses `workspace.getLeaf('tab')` ([#76](https://gitlab.n3.pingleberry.com/obsidian/obsidian-plugin-project-manager/-/issues/76)).
+
 ## [0.3.5-beta.1] - 2026-03-30
 
 ### Added
