@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <!-- New release sections are prepended by .ci/bump-version.sh -->
 
+## [Unreleased]
+
+### Fixed
+
+- Fixed reference card title click doing nothing — now opens the note in a new tab via NavigationService in all three view modes ([#80](https://gitlab.n3.pingleberry.com/obsidian/obsidian-plugin-project-manager/-/issues/80)).
+
 ## [0.3.5-beta.2] - 2026-03-31
 
 ### Added

@@ -20,6 +20,7 @@ import type {
   IQueryService,
   IEntityService,
   IEntityHierarchyService,
+  INavigationService,
   ITemplateService,
   ITaskParser,
   IScaffoldService,
@@ -50,6 +51,7 @@ export default class ProjectManagerPlugin extends Plugin {
   queryService!: IQueryService;
   hierarchyService!: IEntityHierarchyService;
   entityService!: IEntityService;
+  navigationService!: INavigationService;
   taskParser!: ITaskParser;
   scaffoldService!: IScaffoldService;
   loggerService!: ILoggerService;
@@ -148,8 +150,8 @@ export default class ProjectManagerPlugin extends Plugin {
     this.queryService = new QueryService(this.app, getDataviewApi, this.settings.folders);
     this.hierarchyService = new EntityHierarchyService(this.queryService);
 
-    const navigationService = new NavigationService(this.app);
-    const creationService = new EntityCreationService(this.app, this.settings, this.templateService, navigationService);
+    this.navigationService = new NavigationService(this.app);
+    const creationService = new EntityCreationService(this.app, this.settings, this.templateService, this.navigationService);
     const conversionService = new EntityConversionService(this.app, this.settings, creationService);
     this.entityService = new EntityService(creationService, conversionService);
 

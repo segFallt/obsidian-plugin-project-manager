@@ -545,6 +545,7 @@ All three component instances must have `destroy()` called in `onClose()` to rel
 
 ### Dashboard (`pm-references`)
 
+- [ ] Clicking the title link on a reference card opens the corresponding Obsidian note in a new tab (via NavigationService.openFile()); this applies in all three view modes (By Topic, By Client, By Engagement)
 - [ ] `pm-references` code block renders the dashboard with controls row (tab strip, Filters button, search input)
 - [ ] By Topic view groups references by topic alphabetically; a reference with multiple topics appears in each relevant group
 - [ ] By Client view groups by resolved client (direct or via engagement); unlinked references in Unassigned group

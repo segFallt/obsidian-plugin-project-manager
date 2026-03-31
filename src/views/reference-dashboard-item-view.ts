@@ -47,6 +47,7 @@ export class ReferenceDashboardItemView extends ItemView {
       settings: this.plugin.settings,
       queryService: this.plugin.queryService,
       hierarchyService: this.plugin.hierarchyService,
+      navigationService: this.plugin.navigationService,
       loggerService: this.plugin.loggerService,
       commandExecutor: this.plugin.commandExecutor,
       actionContext: this.plugin.actionContext,
