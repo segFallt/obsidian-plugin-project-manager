@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <!-- New release sections are prepended by .ci/bump-version.sh -->
 
+## [0.3.5-beta.3] - 2026-03-31
+
+### Fixed
+
+- Fixed reference card title click doing nothing — now opens the note in a new tab via NavigationService in all three view modes ([#80](https://gitlab.n3.pingleberry.com/obsidian/obsidian-plugin-project-manager/-/issues/80)).
+
 ## [0.3.5-beta.2] - 2026-03-31
 
 ### Added
@@ -17,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Fixed `EntityService.createReferenceTopic` facade silently dropping the `parentName` argument, causing the `parent` frontmatter field to be absent when creating a reference topic with a selected parent ([#77](https://gitlab.n3.pingleberry.com/obsidian/obsidian-plugin-project-manager/-/issues/77)).
 - Fixed Reference Dashboard opening in the right-hand sidebar instead of the main editor pane — now uses `workspace.getLeaf('tab')` ([#76](https://gitlab.n3.pingleberry.com/obsidian/obsidian-plugin-project-manager/-/issues/76)).
+- Fixed "Open Dashboard →" in `pm-references` code blocks not pre-filtering the Reference Dashboard to the current topic; the dashboard now opens with the topic's node pre-selected in the sidebar. Also fixed the summary card reference count to reflect only the filtered topic subset rather than all references ([#78](https://gitlab.n3.pingleberry.com/obsidian/obsidian-plugin-project-manager/-/issues/78)).
 
 ## [0.3.5-beta.1] - 2026-03-30
 

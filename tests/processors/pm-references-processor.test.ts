@@ -98,7 +98,11 @@ function createMockServices(references: DataviewPage[] = []) {
         executeCommandById: vi.fn(),
       },
     } as unknown as ReferenceProcessorServices["app"],
-    settings: {} as ReferenceProcessorServices["settings"],
+    settings: {
+      ui: {
+        referenceDashboardFilters: {} as Record<string, unknown>,
+      },
+    } as unknown as ReferenceProcessorServices["settings"],
     queryService: {
       getReferences: vi.fn(() => references),
       getActiveEntitiesByTag: vi.fn(() => []),
@@ -112,6 +116,7 @@ function createMockServices(references: DataviewPage[] = []) {
       warn: vi.fn(),
       error: vi.fn(),
     } as unknown as ReferenceProcessorServices["loggerService"],
+    saveSettings: vi.fn(async () => undefined),
   };
 
   return {
@@ -143,6 +148,7 @@ function render(source: string, references: DataviewPage[] = []) {
   return {
     el,
     services: mock.services,
+    saveSettings: mock.services.saveSettings as ReturnType<typeof vi.fn>,
     child: children[0] as {
       onload?(): void;
       onunload?(): void;
@@ -246,5 +252,70 @@ describe("pm-references processor (summary card)", () => {
     expect(el.querySelector(".pm-references-summary")).not.toBeNull();
     expect(el.querySelector(".pm-error")).toBeNull();
     expect(el.querySelector("p")!.textContent).toBe("0 references in your vault");
+  });
+
+  it("uses topic filter when config.filter.topics is set", () => {
+    const source = "filter:\n  topics:\n    - Technology";
+    const { services } = render(source);
+    expect(services.queryService.getReferences).toHaveBeenCalledWith({ topics: ["Technology"] });
+  });
+
+  it("uses empty filter when config.filter.topics is not set", () => {
+    const { services } = render("viewMode: topic");
+    expect(services.queryService.getReferences).toHaveBeenCalledWith({});
+  });
+
+  it("button click with filter.topics sets selectedNode, calls saveSettings, then executes command", async () => {
+    const source = "filter:\n  topics:\n    - \"[[Technology]]\"";
+    const { el, services, saveSettings } = render(source);
+    const btn = el.querySelector("button") as HTMLButtonElement;
+
+    btn.click();
+    // Flush all pending microtasks so the async IIFE fully resolves.
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+
+    expect(
+      (services.settings.ui.referenceDashboardFilters as Record<string, unknown>).selectedNode
+    ).toBe("Technology");
+    expect(saveSettings).toHaveBeenCalledOnce();
+    expect(
+      (services.app.commands as { executeCommandById: ReturnType<typeof vi.fn> }).executeCommandById
+    ).toHaveBeenCalledWith("project-manager:open-reference-dashboard");
+    // saveSettings must be called before the command is executed
+    const saveOrder = saveSettings.mock.invocationCallOrder[0];
+    const cmdOrder = (
+      services.app.commands as { executeCommandById: ReturnType<typeof vi.fn> }
+    ).executeCommandById.mock.invocationCallOrder[0];
+    expect(saveOrder).toBeLessThan(cmdOrder);
+  });
+
+  it("button click with no filter.topics does not mutate selectedNode and still executes command", () => {
+    const { el, services, saveSettings } = render("viewMode: topic");
+    const initialFilters = { ...services.settings.ui.referenceDashboardFilters } as Record<string, unknown>;
+    const btn = el.querySelector("button") as HTMLButtonElement;
+
+    btn.click();
+
+    expect(
+      (services.settings.ui.referenceDashboardFilters as Record<string, unknown>).selectedNode
+    ).toBe(initialFilters.selectedNode);
+    expect(saveSettings).not.toHaveBeenCalled();
+    expect(
+      (services.app.commands as { executeCommandById: ReturnType<typeof vi.fn> }).executeCommandById
+    ).toHaveBeenCalledWith("project-manager:open-reference-dashboard");
+  });
+
+  it("normalises wikilink topic name from [[Technology]] to Technology when setting selectedNode", async () => {
+    const source = "filter:\n  topics:\n    - \"[[Technology]]\"";
+    const { el, services } = render(source);
+    const btn = el.querySelector("button") as HTMLButtonElement;
+
+    btn.click();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(
+      (services.settings.ui.referenceDashboardFilters as Record<string, unknown>).selectedNode
+    ).toBe("Technology");
   });
 });

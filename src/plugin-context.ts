@@ -3,6 +3,7 @@ import type {
   IQueryService,
   IEntityService,
   IEntityHierarchyService,
+  INavigationService,
   IScaffoldService,
   ITaskParser,
   ILoggerService,
@@ -85,6 +86,7 @@ export interface PluginServices {
   commandExecutor: ICommandExecutor;
   testDataService: ITestDataService;
   hierarchyService: IEntityHierarchyService;
+  navigationService: INavigationService;
 }
 
 export interface ReferenceProcessorServices {
@@ -92,9 +94,11 @@ export interface ReferenceProcessorServices {
   settings: ProjectManagerSettings;
   queryService: IQueryService;
   hierarchyService: IEntityHierarchyService;
+  navigationService: INavigationService;
   loggerService: ILoggerService;
   commandExecutor: ICommandExecutor;
   actionContext: IActionContextManager;
+  saveSettings: () => Promise<void>;
 }
 
 /** Bound version of Plugin.addCommand, passed from the wiring layer. */

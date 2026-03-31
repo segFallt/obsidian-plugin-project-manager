@@ -1,10 +1,10 @@
 import { MarkdownRenderChild, parseYaml } from "obsidian";
-import type { MarkdownPostProcessorContext } from "obsidian";
-import type { Plugin } from "obsidian";
+import type { MarkdownPostProcessorContext, Plugin } from "obsidian";
 import type { ReferenceProcessorServices } from "../plugin-context";
 import type { PmReferencesConfig } from "../types";
 import { renderError } from "./dom-helpers";
 import { CODEBLOCK } from "../constants";
+import { normalizeToName } from "../utils/link-utils";
 
 /**
  * Renders a compact summary card for the pm-references code block.
@@ -46,12 +46,10 @@ class PmReferencesRenderChild extends MarkdownRenderChild {
   render(): void {
     this.containerEl.empty();
 
-    // Parse config to catch any YAML syntax errors early; not used further in the
-    // summary card, but preserved so future config options can be added without
-    // a breaking change.
+    let config: PmReferencesConfig | undefined;
     try {
       if (this.source.trim()) {
-        parseYaml(this.source) as PmReferencesConfig;
+        config = parseYaml(this.source) as PmReferencesConfig;
       }
     } catch {
       const msg = "Invalid pm-references config.";
@@ -60,7 +58,14 @@ class PmReferencesRenderChild extends MarkdownRenderChild {
       return;
     }
 
-    const references = this.services.queryService.getReferences({});
+    const topicFilter =
+      config?.filter?.topics && config.filter.topics.length > 0
+        ? config.filter.topics
+        : undefined;
+
+    const references = this.services.queryService.getReferences(
+      topicFilter ? { topics: topicFilter } : {}
+    );
     const count = references.length;
 
     const card = this.containerEl.createDiv({ cls: "pm-references-summary" });
@@ -75,12 +80,22 @@ class PmReferencesRenderChild extends MarkdownRenderChild {
       text: "Open Dashboard →",
     });
     openBtn.addEventListener("click", () => {
-      // app.commands is not in the public Obsidian API type definitions but is
-      // a stable internal API used across the plugin ecosystem for command dispatch.
-      type AppWithCommands = { commands: { executeCommandById(id: string): void } };
-      (this.services.app as unknown as AppWithCommands).commands.executeCommandById(
-        "project-manager:open-reference-dashboard"
-      );
+      void (async () => {
+        if (topicFilter) {
+          const plainName = normalizeToName(topicFilter[0]);
+          if (plainName) {
+            this.services.settings.ui.referenceDashboardFilters.selectedNode = plainName;
+            await this.services.saveSettings();
+          }
+        }
+
+        // app.commands is not in the public Obsidian API type definitions but is
+        // a stable internal API used across the plugin ecosystem for command dispatch.
+        type AppWithCommands = { commands: { executeCommandById(id: string): void } };
+        (this.services.app as unknown as AppWithCommands).commands.executeCommandById(
+          "project-manager:open-reference-dashboard"
+        );
+      })();
     });
   }
 }
