@@ -93,6 +93,8 @@ export interface ReferenceProcessorServices {
   queryService: IQueryService;
   hierarchyService: IEntityHierarchyService;
   loggerService: ILoggerService;
+  commandExecutor: ICommandExecutor;
+  actionContext: IActionContextManager;
 }
 
 /** Bound version of Plugin.addCommand, passed from the wiring layer. */

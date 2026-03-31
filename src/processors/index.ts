@@ -46,6 +46,8 @@ export function registerAllProcessors(plugin: ProjectManagerPlugin): void {
     queryService: plugin.queryService,
     hierarchyService: plugin.hierarchyService,
     loggerService: plugin.loggerService,
+    commandExecutor: plugin.commandExecutor,
+    actionContext: plugin.actionContext,
   };
   registerPmReferencesProcessor(plugin, referenceServices);
 }
