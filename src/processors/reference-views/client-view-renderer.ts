@@ -65,11 +65,11 @@ export function renderClientView(
 
   for (const [clientName, refs] of sortedGroups) {
     const groupBody = renderCollapsibleGroup(panel, clientName, refs.length);
-    for (const ref of refs) renderReferenceCard(groupBody, ref);
+    for (const ref of refs) renderReferenceCard(groupBody, ref, services);
   }
 
   if (unassigned.length > 0) {
     const groupBody = renderCollapsibleGroup(panel, UNASSIGNED_LABEL, unassigned.length);
-    for (const ref of unassigned) renderReferenceCard(groupBody, ref);
+    for (const ref of unassigned) renderReferenceCard(groupBody, ref, services);
   }
 }

@@ -1,7 +1,13 @@
+import { TFile } from "obsidian";
+import type { App } from "obsidian";
 import type { DataviewPage, TopicNode } from "../../types";
 import type { ReferenceProcessorServices } from "../../plugin-context";
+import type { INavigationService } from "../../services/interfaces";
 import { normalizeToName } from "../../utils/link-utils";
 import { CSS_CLS, CSS_VAR } from "../../constants";
+
+/** Minimal service subset required by {@link renderReferenceCard}. */
+type CardNavigationServices = { app: App; navigationService: INavigationService };
 
 // ─── Public entry point ──────────────────────────────────────────────────────
 
@@ -33,9 +39,9 @@ export function renderTopicView(
         return name ? scope.has(name) : false;
       });
     });
-    renderScopedTopicContent(panel, scoped, selectedNode, tree);
+    renderScopedTopicContent(panel, scoped, selectedNode, tree, services);
   } else {
-    renderHierarchicalTopicContent(panel, references, tree);
+    renderHierarchicalTopicContent(panel, references, tree, services);
   }
 }
 
@@ -144,7 +150,8 @@ function renderTreeNode(
 function renderHierarchicalTopicContent(
   panel: HTMLElement,
   references: DataviewPage[],
-  tree: TopicNode[]
+  tree: TopicNode[],
+  services: ReferenceProcessorServices
 ): void {
   if (references.length === 0) {
     renderEmptyState(panel, "No references found.");
@@ -153,13 +160,13 @@ function renderHierarchicalTopicContent(
 
   if (tree.length === 0) {
     // No topic tree — fall back to flat alphabetical groups
-    renderFlatTopicContent(panel, references);
+    renderFlatTopicContent(panel, references, services);
     return;
   }
 
   // Render each root node as a nested group
   for (const rootNode of tree) {
-    renderNestedGroup(panel, rootNode, references, 0);
+    renderNestedGroup(panel, rootNode, references, 0, services);
   }
 
   // Render any references whose topics are not in the tree (orphans)
@@ -180,7 +187,7 @@ function renderHierarchicalTopicContent(
 
   if (orphanRefs.length > 0) {
     const groupBody = renderCollapsibleGroup(panel, "Other", orphanRefs.length);
-    for (const ref of orphanRefs) renderReferenceCard(groupBody, ref);
+    for (const ref of orphanRefs) renderReferenceCard(groupBody, ref, services);
   }
 }
 
@@ -189,7 +196,8 @@ function renderHierarchicalTopicContent(
  */
 function renderFlatTopicContent(
   panel: HTMLElement,
-  references: DataviewPage[]
+  references: DataviewPage[],
+  services: ReferenceProcessorServices
 ): void {
   const groups = new Map<string, DataviewPage[]>();
   for (const ref of references) {
@@ -218,7 +226,7 @@ function renderFlatTopicContent(
           ? (normalizeToName(ref.topics[0]) ?? "")
           : ref.topics ? (normalizeToName(ref.topics) ?? "") : "";
       const isSecondary = primaryTopic !== topicName && primaryTopic !== "";
-      renderReferenceCard(groupBody, ref, isSecondary ? `also in ${primaryTopic}` : undefined);
+      renderReferenceCard(groupBody, ref, services, isSecondary ? `also in ${primaryTopic}` : undefined);
     }
   }
 }
@@ -232,7 +240,8 @@ function renderScopedTopicContent(
   panel: HTMLElement,
   references: DataviewPage[],
   selectedNode: string,
-  tree: TopicNode[]
+  tree: TopicNode[],
+  services: ReferenceProcessorServices
 ): void {
   if (references.length === 0) {
     renderEmptyState(panel, "No references found.");
@@ -243,18 +252,19 @@ function renderScopedTopicContent(
   if (!rootNode) {
     // Fallback: show as flat group
     const groupBody = renderCollapsibleGroup(panel, selectedNode, references.length);
-    for (const ref of references) renderReferenceCard(groupBody, ref);
+    for (const ref of references) renderReferenceCard(groupBody, ref, services);
     return;
   }
 
-  renderNestedGroup(panel, rootNode, references, 0);
+  renderNestedGroup(panel, rootNode, references, 0, services);
 }
 
 function renderNestedGroup(
   container: HTMLElement,
   node: TopicNode,
   allReferences: DataviewPage[],
-  depth = 0
+  depth = 0,
+  services: ReferenceProcessorServices
 ): void {
   // Direct references for this node only
   const directRefs = allReferences.filter((ref) => {
@@ -281,11 +291,11 @@ function renderNestedGroup(
   groupBody.parentElement?.setAttribute("data-depth", String(depth));
 
   // Direct references first
-  for (const ref of directRefs) renderReferenceCard(groupBody, ref);
+  for (const ref of directRefs) renderReferenceCard(groupBody, ref, services);
 
   // Then nested child groups
   for (const child of node.children) {
-    renderNestedGroup(groupBody, child, allReferences, depth + 1);
+    renderNestedGroup(groupBody, child, allReferences, depth + 1, services);
   }
 }
 
@@ -317,6 +327,7 @@ export function renderCollapsibleGroup(
 export function renderReferenceCard(
   container: HTMLElement,
   ref: DataviewPage,
+  services: CardNavigationServices,
   hint?: string
 ): void {
   const card = container.createDiv({ cls: "pm-ref-card" });
@@ -330,6 +341,11 @@ export function renderReferenceCard(
   });
   link.setAttribute("data-href", ref.file.path);
   link.setAttribute("href", ref.file.path);
+  link.addEventListener("click", (e) => {
+    e.preventDefault();
+    const file = services.app.vault.getAbstractFileByPath(ref.file.path);
+    if (file instanceof TFile) void services.navigationService.openFile(file).catch(() => { /* silent */ });
+  });
 
   if (hint) {
     titleRow.createSpan({ cls: "pm-ref-card__hint", text: hint });

@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import { ReferenceDashboardItemView } from "@/views/reference-dashboard-item-view";
 import { PM_REFERENCE_DASHBOARD_VIEW_TYPE } from "@/constants";
 import type { ReferenceFilters } from "@/types";
-import { App } from "obsidian";
+import { App, TFile, TFolder } from "obsidian";
 
 // ─── Mock plugin factory ──────────────────────────────────────────────────────
 
@@ -26,6 +26,9 @@ function makePlugin(referenceDashboardFilters = {}) {
       getTopicDescendants: vi.fn(() => []),
     },
     hierarchyService: {},
+    navigationService: {
+      openFile: vi.fn().mockResolvedValue(undefined),
+    },
     loggerService: {
       debug: vi.fn(),
       info: vi.fn(),
@@ -286,6 +289,129 @@ describe("ReferenceDashboardItemView", () => {
         "project-manager:create-reference-topic"
       );
       expect(plugin.actionContext.set).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("reference card click", () => {
+    it("clicking a reference card title calls navigationService.openFile with the matching TFile", async () => {
+      const refPath = "reference/references/My Note.md";
+      const mockFile = new TFile(refPath);
+
+      const { view, plugin } = makeView();
+      // Make getReferences return one mock reference with a topic so it renders a card
+      plugin.queryService.getReferences.mockReturnValue([
+        {
+          file: {
+            name: "My Note",
+            path: refPath,
+            folder: "reference/references",
+            link: { path: refPath },
+            tags: ["#reference"],
+            mtime: { valueOf: () => Date.now(), toISO: () => new Date().toISOString() },
+            tasks: {
+              length: 0,
+              values: [],
+              where: vi.fn(),
+              sort: vi.fn(),
+              map: vi.fn(),
+              filter: vi.fn(),
+              [Symbol.iterator]: [][Symbol.iterator],
+            },
+          },
+          topics: ["[[Architecture]]"],
+          client: undefined,
+          engagement: undefined,
+        },
+      ]);
+      // Make vault.getAbstractFileByPath return the mock TFile
+      vi.spyOn(plugin.app.vault, "getAbstractFileByPath").mockReturnValue(mockFile);
+
+      await view.onOpen();
+
+      const link = view.contentEl.querySelector<HTMLAnchorElement>(".internal-link");
+      expect(link).not.toBeNull();
+      link!.click();
+
+      expect(plugin.navigationService.openFile).toHaveBeenCalledWith(mockFile);
+    });
+
+    it("does NOT call navigationService.openFile when getAbstractFileByPath returns null", async () => {
+      const refPath = "reference/references/My Note.md";
+
+      const { view, plugin } = makeView();
+      plugin.queryService.getReferences.mockReturnValue([
+        {
+          file: {
+            name: "My Note",
+            path: refPath,
+            folder: "reference/references",
+            link: { path: refPath },
+            tags: ["#reference"],
+            mtime: { valueOf: () => Date.now(), toISO: () => new Date().toISOString() },
+            tasks: {
+              length: 0,
+              values: [],
+              where: vi.fn(),
+              sort: vi.fn(),
+              map: vi.fn(),
+              filter: vi.fn(),
+              [Symbol.iterator]: [][Symbol.iterator],
+            },
+          },
+          topics: ["[[Architecture]]"],
+          client: undefined,
+          engagement: undefined,
+        },
+      ]);
+      vi.spyOn(plugin.app.vault, "getAbstractFileByPath").mockReturnValue(null);
+
+      await view.onOpen();
+
+      const link = view.contentEl.querySelector<HTMLAnchorElement>(".internal-link");
+      expect(link).not.toBeNull();
+      link!.click();
+
+      expect(plugin.navigationService.openFile).not.toHaveBeenCalled();
+    });
+
+    it("does NOT call navigationService.openFile when getAbstractFileByPath returns a TFolder", async () => {
+      const refPath = "reference/references/My Note.md";
+      const mockFolder = new TFolder("some/path");
+
+      const { view, plugin } = makeView();
+      plugin.queryService.getReferences.mockReturnValue([
+        {
+          file: {
+            name: "My Note",
+            path: refPath,
+            folder: "reference/references",
+            link: { path: refPath },
+            tags: ["#reference"],
+            mtime: { valueOf: () => Date.now(), toISO: () => new Date().toISOString() },
+            tasks: {
+              length: 0,
+              values: [],
+              where: vi.fn(),
+              sort: vi.fn(),
+              map: vi.fn(),
+              filter: vi.fn(),
+              [Symbol.iterator]: [][Symbol.iterator],
+            },
+          },
+          topics: ["[[Architecture]]"],
+          client: undefined,
+          engagement: undefined,
+        },
+      ]);
+      vi.spyOn(plugin.app.vault, "getAbstractFileByPath").mockReturnValue(mockFolder);
+
+      await view.onOpen();
+
+      const link = view.contentEl.querySelector<HTMLAnchorElement>(".internal-link");
+      expect(link).not.toBeNull();
+      link!.click();
+
+      expect(plugin.navigationService.openFile).not.toHaveBeenCalled();
     });
   });
 });
