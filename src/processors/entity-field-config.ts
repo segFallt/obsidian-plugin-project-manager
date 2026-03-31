@@ -22,6 +22,8 @@ export interface FieldDescriptor {
   /** For suggester fields: the Dataview tag to query */
   entityTag?: string;
   enriched?: boolean;
+  /** When set to 'number', the select change handler coerces the value before persisting */
+  valueType?: 'string' | 'number';
 }
 
 // ─── Entity field configuration ───────────────────────────────────────────
@@ -45,7 +47,7 @@ export const ENTITY_FIELDS: Record<EntityType, FieldDescriptor[]> = {
     { key: FM_KEY.ENGAGEMENT, label: "Engagement", type: "suggester", entityTag: ENTITY_TAGS.engagement },
     { key: FM_KEY.START_DATE, label: "Start Date", type: "date" },
     { key: FM_KEY.END_DATE, label: "End Date", type: "date" },
-    { key: FM_KEY.PRIORITY, label: "Priority", type: "select", options: ["1", "2", "3", "4", "5"] },
+    { key: FM_KEY.PRIORITY, label: "Priority", type: "select", options: ["1", "2", "3", "4", "5"], valueType: 'number' },
     { key: FM_KEY.STATUS, label: "Status", type: "select", options: [...PROJECT_STATUSES] },
   ],
   person: [
