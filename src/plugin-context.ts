@@ -95,6 +95,7 @@ export interface ReferenceProcessorServices {
   loggerService: ILoggerService;
   commandExecutor: ICommandExecutor;
   actionContext: IActionContextManager;
+  saveSettings: () => Promise<void>;
 }
 
 /** Bound version of Plugin.addCommand, passed from the wiring layer. */
