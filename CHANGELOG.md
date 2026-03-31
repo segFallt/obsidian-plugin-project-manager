@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <!-- New release sections are prepended by .ci/bump-version.sh -->
 
+## [0.3.5-beta.4] - 2026-03-31
+
+### Fixed
+
+- Fixed project priority being stored as a string instead of a number in frontmatter by coercing the select value via `valueType: 'number'` on `FieldDescriptor` ([#81](https://gitlab.n3.pingleberry.com/obsidian/obsidian-plugin-project-manager/-/issues/81)).
+
 ## [0.3.5-beta.3] - 2026-03-31
 
 ### Fixed

@@ -1,9 +1,9 @@
 import { describe, it, expect, vi } from "vitest";
-import { renderField } from "../../src/processors/property-field-renderers";
+import { renderField } from "@/processors/property-field-renderers";
 import { TFile } from "../mocks/obsidian-mock";
-import type { FieldRenderContext } from "../../src/processors/property-field-renderers";
-import type { FieldDescriptor } from "../../src/processors/entity-field-config";
-import type { PropertyProcessorServices } from "../../src/plugin-context";
+import type { FieldRenderContext } from "@/processors/property-field-renderers";
+import type { FieldDescriptor } from "@/processors/entity-field-config";
+import type { PropertyProcessorServices } from "@/plugin-context";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -158,6 +158,58 @@ describe("renderField — select type", () => {
     select.value = "Inactive";
     select.dispatchEvent(new Event("change"));
     expect(ctx.updateFm).toHaveBeenCalledWith(expect.anything(), "status", "Inactive");
+  });
+
+  it("coerces value to number when valueType is 'number'", () => {
+    const ctx = makeCtx();
+    const el = renderInDiv(
+      { key: "priority", label: "Priority", type: "select", options: ["1", "2", "3", "4", "5"], valueType: "number" },
+      { priority: 1 },
+      ctx
+    );
+    const select = el.querySelector("select") as HTMLSelectElement;
+    select.value = "3";
+    select.dispatchEvent(new Event("change"));
+    expect(ctx.updateFm).toHaveBeenCalledWith(expect.anything(), "priority", 3);
+  });
+
+  it("preserves string value when valueType is absent", () => {
+    const ctx = makeCtx();
+    const el = renderInDiv(
+      { key: "status", label: "Status", type: "select", options: ["Active", "Inactive"] },
+      { status: "Active" },
+      ctx
+    );
+    const select = el.querySelector("select") as HTMLSelectElement;
+    select.value = "Inactive";
+    select.dispatchEvent(new Event("change"));
+    expect(ctx.updateFm).toHaveBeenCalledWith(expect.anything(), "status", "Inactive");
+  });
+
+  it("calls updateFm with null when valueType is 'number' and select value is empty string", () => {
+    const ctx = makeCtx();
+    const el = renderInDiv(
+      { key: "priority", label: "Priority", type: "select", options: ["1", "2", "3", "4", "5"], valueType: "number" },
+      {},
+      ctx
+    );
+    const select = el.querySelector("select") as HTMLSelectElement;
+    select.value = "";
+    select.dispatchEvent(new Event("change"));
+    expect(ctx.updateFm).toHaveBeenCalledWith(expect.anything(), "priority", null);
+  });
+
+  it("calls updateFm with null when valueType is 'number' and select value is non-numeric string", () => {
+    const ctx = makeCtx();
+    const el = renderInDiv(
+      { key: "priority", label: "Priority", type: "select", options: ["1", "2", "3", "4", "5"], valueType: "number" },
+      {},
+      ctx
+    );
+    const select = el.querySelector("select") as HTMLSelectElement;
+    select.value = "abc";
+    select.dispatchEvent(new Event("change"));
+    expect(ctx.updateFm).toHaveBeenCalledWith(expect.anything(), "priority", null);
   });
 });
 
