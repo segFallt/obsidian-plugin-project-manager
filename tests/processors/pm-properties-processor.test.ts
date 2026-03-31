@@ -178,7 +178,7 @@ describe("pm-properties processor", () => {
       const file = new TFile("projects/Alpha.md");
       const { el } = render("entity: project", file, {
         status: "Active",
-        priority: "1",
+        priority: 1,
       });
       expect(el.querySelector(".pm-properties")).not.toBeNull();
     });

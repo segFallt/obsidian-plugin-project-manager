@@ -142,7 +142,13 @@ function renderSelect(
     if (opt === currentValue) option.selected = true;
   }
   select.addEventListener("change", () => {
-    void ctx.updateFm(file, field.key, select.value);
+    const raw = select.value;
+    if (field.valueType === 'number') {
+      const num = Number(raw);
+      void ctx.updateFm(file, field.key, raw === '' || Number.isNaN(num) ? null : num);
+    } else {
+      void ctx.updateFm(file, field.key, raw);
+    }
   });
 }
 
