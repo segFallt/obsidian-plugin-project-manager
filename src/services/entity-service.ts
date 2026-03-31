@@ -64,8 +64,8 @@ export class EntityService implements IEntityService {
     return this.creation.createRaidItem(name, raidType, engagement, owner);
   }
 
-  createReferenceTopic(name: string): Promise<TFile> {
-    return this.creation.createReferenceTopic(name);
+  createReferenceTopic(name: string, parentName?: string): Promise<TFile> {
+    return this.creation.createReferenceTopic(name, parentName);
   }
 
   createReference(name: string, topics: string[], client?: string, engagement?: string): Promise<TFile> {
