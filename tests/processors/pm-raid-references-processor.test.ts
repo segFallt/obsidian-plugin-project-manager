@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { registerPmRaidReferencesProcessor } from "@/processors/pm-raid-references-processor";
-import { TFile } from "../mocks/obsidian-mock";
+import { TFile, MarkdownRenderer } from "../mocks/obsidian-mock";
 import type { RaidProcessorServices } from "@/services/interfaces";
 
 // ─── Mock services factory ────────────────────────────────────────────────
@@ -450,5 +450,86 @@ describe("pm-raid-references processor", () => {
     expect(container).not.toBeNull();
     const directH4s = [...(container?.children ?? [])].filter((c) => c.tagName === "H4");
     expect(directH4s).toHaveLength(0);
+  });
+
+  it("renders annotation lineText via MarkdownRenderer (not plain textContent)", async () => {
+    const raidItemName = "My Risk";
+    const { el } = await render(
+      [
+        {
+          path: "notes/Project Alpha.md",
+          content: `{raid:positive}[[${raidItemName}]] **critical path** and [[Related Note]]`,
+        },
+      ],
+      `raid/${raidItemName}.md`,
+      { "raid-type": "Risk" }
+    );
+
+    const textDiv = el.querySelector(".pm-raid-references__item-text");
+    expect(textDiv).not.toBeNull();
+    // MarkdownRenderer.render sets innerHTML (mock wraps in <p>) — not a raw text node
+    expect(textDiv?.innerHTML).toContain("**critical path**");
+  });
+
+  it("empty lineText produces no markdown container element", async () => {
+    const raidItemName = "My Risk";
+    const { el } = await render(
+      [
+        {
+          // Annotation with nothing after it
+          path: "notes/Empty Line.md",
+          content: `{raid:positive}[[${raidItemName}]]`,
+        },
+      ],
+      `raid/${raidItemName}.md`,
+      { "raid-type": "Risk" }
+    );
+
+    const textDiv = el.querySelector(".pm-raid-references__item-text");
+    expect(textDiv).toBeNull();
+  });
+
+  it("passes backlink file path (not RAID item path) as sourcePath to MarkdownRenderer", async () => {
+    const raidItemName = "My Risk";
+    const renderSpy = vi.spyOn(MarkdownRenderer, "render");
+
+    await render(
+      [
+        {
+          path: "notes/Project Alpha.md",
+          content: `{raid:positive}[[${raidItemName}]] See [[Related Note]]`,
+        },
+      ],
+      `raid/${raidItemName}.md`,
+      { "raid-type": "Risk" }
+    );
+
+    expect(renderSpy).toHaveBeenCalledWith(
+      expect.anything(),                // app
+      expect.any(String),               // markdown string
+      expect.any(HTMLElement),          // container element
+      "notes/Project Alpha.md",        // sourcePath = backlink file path
+      expect.anything()                 // component (this)
+    );
+
+    renderSpy.mockRestore();
+  });
+
+  it("whitespace-only lineText produces no markdown container element", async () => {
+    const raidItemName = "My Risk";
+    const { el } = await render(
+      [
+        {
+          // Annotation with only whitespace after stripping the badge
+          path: "notes/Whitespace Line.md",
+          content: `{raid:positive}[[${raidItemName}]]   `,
+        },
+      ],
+      `raid/${raidItemName}.md`,
+      { "raid-type": "Risk" }
+    );
+
+    const textDiv = el.querySelector(".pm-raid-references__item-text");
+    expect(textDiv).toBeNull();
   });
 });
