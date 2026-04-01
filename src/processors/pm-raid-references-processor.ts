@@ -204,14 +204,6 @@ class PmRaidReferencesRenderChild extends MarkdownRenderChild {
         badge.textContent = `${DIRECTION_ICONS[entry.direction]} ${entry.label}`;
         item.appendChild(badge);
 
-        // Source link (row 1, alongside badge)
-        const sourceLink = document.createElement("a");
-        sourceLink.className = CSS_CLS.INTERNAL_LINK;
-        sourceLink.textContent = file.basename;
-        sourceLink.setAttribute("data-href", file.path);
-        sourceLink.setAttribute("href", file.path);
-        item.appendChild(sourceLink);
-
         // Rendered annotation text (row 2, only when non-empty)
         if (entry.lineText.trim()) {
           const textDiv = document.createElement("div");
