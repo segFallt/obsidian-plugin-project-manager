@@ -171,7 +171,7 @@ Filter state is a plain JS object local to the render child — no frontmatter w
 Checkbox toggle reads the source file, updates the task line, and writes back via `vault.modify()`.
 
 ### `pm-raid-references`
-Placed in each RAID item note. Uses `dv.pages("[[" + currentFile.basename + "]]")` to find all vault files that link to the current RAID item. For each backlink file, reads raw content via `vault.read()` and scans for lines containing the `{raid:(positive|negative|neutral)}[[ItemName]]` annotation pattern. Renders a grouped list of tagged lines with directional badges and source note links.
+Placed in each RAID item note. Uses `dv.pages("[[" + currentFile.basename + "]]")` to find all vault files that link to the current RAID item. For each backlink file, reads raw content via `vault.read()` and scans for lines containing the `{raid:(positive|negative|neutral)}[[ItemName]]` annotation pattern. Renders a grouped list of tagged lines with directional badges and source note links. Each `<li>` uses a two-row layout: badge and source link on the first row; annotation line text rendered via `MarkdownRenderer.render()` as a block below (only when non-empty). The backlink file's path is passed as `sourcePath` so wikilinks in annotation text resolve relative to the annotating note, not the RAID item.
 
 ### `pm-raid-dashboard`
 Renders a Likelihood × Impact heat-map matrix summary plus RAID items grouped by type (Risk / Assumption / Issue / Decision). Filter state is a plain JS object local to the render child — no frontmatter writes. Queries all `#raid` tagged pages via `QueryService`. Supports filtering by RAID type, status, client, engagement, and matrix cell selection.

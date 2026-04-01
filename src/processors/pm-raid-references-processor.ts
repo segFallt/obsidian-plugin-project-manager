@@ -1,4 +1,4 @@
-import { MarkdownRenderChild, TFile, parseYaml } from "obsidian";
+import { MarkdownRenderChild, MarkdownRenderer, TFile, parseYaml } from "obsidian";
 import type { App, MarkdownPostProcessorContext } from "obsidian";
 import type { Plugin } from "obsidian";
 import type { IQueryService, ILoggerService, RaidProcessorServices } from "../services/interfaces";
@@ -204,20 +204,21 @@ class PmRaidReferencesRenderChild extends MarkdownRenderChild {
         badge.textContent = `${DIRECTION_ICONS[entry.direction]} ${entry.label}`;
         item.appendChild(badge);
 
-        // Line text
-        if (entry.lineText) {
-          item.appendChild(document.createTextNode(` ${entry.lineText} — `));
-        } else {
-          item.appendChild(document.createTextNode(" — "));
-        }
-
-        // Source link
+        // Source link (row 1, alongside badge)
         const sourceLink = document.createElement("a");
         sourceLink.className = CSS_CLS.INTERNAL_LINK;
         sourceLink.textContent = file.basename;
         sourceLink.setAttribute("data-href", file.path);
         sourceLink.setAttribute("href", file.path);
         item.appendChild(sourceLink);
+
+        // Rendered annotation text (row 2, only when non-empty)
+        if (entry.lineText.trim()) {
+          const textDiv = document.createElement("div");
+          textDiv.className = "pm-raid-references__item-text";
+          await MarkdownRenderer.render(this.app, entry.lineText.trim(), textDiv, file.path, this);
+          item.appendChild(textDiv);
+        }
 
         list.appendChild(item);
       }
