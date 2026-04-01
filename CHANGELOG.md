@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <!-- New release sections are prepended by .ci/bump-version.sh -->
 
-## [Unreleased]
+## [0.3.5-beta.5] - 2026-04-01
 
 ### Fixed
 
