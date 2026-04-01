@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.3.5-beta.5] - 2026-04-01
 
+### Improved
+
+- improve(pm-raid-references): remove redundant per-item inline source link; the group heading already renders the file name as a navigable internal link ([#83](https://gitlab.n3.pingleberry.com/obsidian/obsidian-plugin-project-manager/-/issues/83)).
+
 ### Fixed
 
 - fix(pm-raid-references): render annotation line text via `MarkdownRenderer.render()` with the backlink file's path as `sourcePath`, so bold, italic, wikilinks, and inline code in annotated lines render as proper HTML ([#82](https://gitlab.n3.pingleberry.com/obsidian/obsidian-plugin-project-manager/-/issues/82)).
