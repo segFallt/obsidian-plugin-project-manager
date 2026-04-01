@@ -532,4 +532,48 @@ describe("pm-raid-references processor", () => {
     const textDiv = el.querySelector(".pm-raid-references__item-text");
     expect(textDiv).toBeNull();
   });
+
+  it("list items do not contain an inline internal-link anchor (regression: sourceLink removed)", async () => {
+    const raidItemName = "My Risk";
+    const { el } = await render(
+      [
+        {
+          path: "notes/Project Alpha.md",
+          content: `{raid:positive}[[${raidItemName}]] The team agrees.`,
+        },
+      ],
+      `raid/${raidItemName}.md`,
+      { "raid-type": "Risk" }
+    );
+
+    const items = el.querySelectorAll(".pm-raid-references__item");
+    expect(items.length).toBeGreaterThan(0);
+
+    for (const item of items) {
+      const inlineLink = item.querySelector(":scope > a.internal-link");
+      expect(inlineLink).toBeNull();
+    }
+  });
+
+  it("list items do not contain an inline internal-link anchor for negative annotations (regression: sourceLink removed)", async () => {
+    const raidItemName = "My Risk";
+    const { el } = await render(
+      [
+        {
+          path: "notes/Project Beta.md",
+          content: `{raid:negative}[[${raidItemName}]] The team disagrees.`,
+        },
+      ],
+      `raid/${raidItemName}.md`,
+      { "raid-type": "Risk" }
+    );
+
+    const items = el.querySelectorAll(".pm-raid-references__item");
+    expect(items.length).toBeGreaterThan(0);
+
+    for (const item of items) {
+      const inlineLink = item.querySelector(":scope > a.internal-link");
+      expect(inlineLink).toBeNull();
+    }
+  });
 });

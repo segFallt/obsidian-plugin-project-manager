@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <!-- New release sections are prepended by .ci/bump-version.sh -->
 
+## [0.3.5-beta.6] - 2026-04-01
+
+### Changed
+
+- improve(pm-raid-references): remove redundant per-item inline source link; the group heading already renders the file name as a navigable internal link ([#83](https://gitlab.n3.pingleberry.com/obsidian/obsidian-plugin-project-manager/-/issues/83)).
+
 ## [0.3.5-beta.5] - 2026-04-01
 
 ### Fixed
