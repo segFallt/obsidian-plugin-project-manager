@@ -7,53 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <!-- New release sections are prepended by .ci/bump-version.sh -->
 
-## [0.3.5-beta.6] - 2026-04-01
-
-### Changed
-
-- improve(pm-raid-references): remove redundant per-item inline source link; the group heading already renders the file name as a navigable internal link ([#83](https://gitlab.n3.pingleberry.com/obsidian/obsidian-plugin-project-manager/-/issues/83)).
-
-## [0.3.5-beta.5] - 2026-04-01
-
-### Fixed
-
-- fix(pm-raid-references): render annotation line text via `MarkdownRenderer.render()` with the backlink file's path as `sourcePath`, so bold, italic, wikilinks, and inline code in annotated lines render as proper HTML ([#82](https://gitlab.n3.pingleberry.com/obsidian/obsidian-plugin-project-manager/-/issues/82)).
-
-## [0.3.5-beta.4] - 2026-03-31
-
-### Fixed
-
-- Fixed project priority being stored as a string instead of a number in frontmatter by coercing the select value via `valueType: 'number'` on `FieldDescriptor` ([#81](https://gitlab.n3.pingleberry.com/obsidian/obsidian-plugin-project-manager/-/issues/81)).
-
-## [0.3.5-beta.3] - 2026-03-31
-
-### Fixed
-
-- Fixed reference card title click doing nothing — now opens the note in a new tab via NavigationService in all three view modes ([#80](https://gitlab.n3.pingleberry.com/obsidian/obsidian-plugin-project-manager/-/issues/80)).
-
-## [0.3.5-beta.2] - 2026-03-31
+## [0.3.5] - 2026-04-02
 
 ### Added
 
 - Added "+ New Reference" and "+ New Topic" quick-create buttons to the Reference Dashboard panel. "+ New Reference" pre-populates the topic field when a node is selected in the sidebar ([#79](https://gitlab.n3.pingleberry.com/obsidian/obsidian-plugin-project-manager/-/issues/79)).
-
-### Fixed
-
-- Fixed `EntityService.createReferenceTopic` facade silently dropping the `parentName` argument, causing the `parent` frontmatter field to be absent when creating a reference topic with a selected parent ([#77](https://gitlab.n3.pingleberry.com/obsidian/obsidian-plugin-project-manager/-/issues/77)).
-- Fixed Reference Dashboard opening in the right-hand sidebar instead of the main editor pane — now uses `workspace.getLeaf('tab')` ([#76](https://gitlab.n3.pingleberry.com/obsidian/obsidian-plugin-project-manager/-/issues/76)).
-- Fixed "Open Dashboard →" in `pm-references` code blocks not pre-filtering the Reference Dashboard to the current topic; the dashboard now opens with the topic's node pre-selected in the sidebar. Also fixed the summary card reference count to reflect only the filtered topic subset rather than all references ([#78](https://gitlab.n3.pingleberry.com/obsidian/obsidian-plugin-project-manager/-/issues/78)).
-
-## [0.3.5-beta.1] - 2026-03-30
-
-### Added
-
 - Migrated `pm-references` Reference Dashboard from a code block processor to a dedicated Obsidian `ItemView` panel (`PM: Open Reference Dashboard` command + ribbon icon), definitively resolving the persistent hierarchical topic nesting problem caused by `.markdown-rendered` CSS interference ([#75](https://gitlab.n3.pingleberry.com/obsidian/obsidian-plugin-project-manager/-/issues/75)).
 - Filter state (view mode, active chips, selected node) now persists to `plugin.settings.ui.referenceDashboardFilters` in `data.json` instead of note frontmatter, and is restored when the panel is reopened.
 - Added `data-depth` attributes to topic tree nodes and nested content groups for CSS depth-indicator styling.
 
 ### Changed
 
+- improve(pm-raid-references): remove redundant per-item inline source link; the group heading already renders the file name as a navigable internal link ([#83](https://gitlab.n3.pingleberry.com/obsidian/obsidian-plugin-project-manager/-/issues/83)).
 - Existing `pm-references` code blocks now render a compact summary card (reference count + "Open Dashboard →" button) instead of the full interactive dashboard.
+
+### Fixed
+
+- fix(pm-raid-references): render annotation line text via `MarkdownRenderer.render()` with the backlink file's path as `sourcePath`, so bold, italic, wikilinks, and inline code in annotated lines render as proper HTML ([#82](https://gitlab.n3.pingleberry.com/obsidian/obsidian-plugin-project-manager/-/issues/82)).
+- Fixed project priority being stored as a string instead of a number in frontmatter by coercing the select value via `valueType: 'number'` on `FieldDescriptor` ([#81](https://gitlab.n3.pingleberry.com/obsidian/obsidian-plugin-project-manager/-/issues/81)).
+- Fixed reference card title click doing nothing — now opens the note in a new tab via NavigationService in all three view modes ([#80](https://gitlab.n3.pingleberry.com/obsidian/obsidian-plugin-project-manager/-/issues/80)).
+- Fixed `EntityService.createReferenceTopic` facade silently dropping the `parentName` argument, causing the `parent` frontmatter field to be absent when creating a reference topic with a selected parent ([#77](https://gitlab.n3.pingleberry.com/obsidian/obsidian-plugin-project-manager/-/issues/77)).
+- Fixed Reference Dashboard opening in the right-hand sidebar instead of the main editor pane — now uses `workspace.getLeaf('tab')` ([#76](https://gitlab.n3.pingleberry.com/obsidian/obsidian-plugin-project-manager/-/issues/76)).
+- Fixed "Open Dashboard →" in `pm-references` code blocks not pre-filtering the Reference Dashboard to the current topic; the dashboard now opens with the topic's node pre-selected in the sidebar. Also fixed the summary card reference count to reflect only the filtered topic subset rather than all references ([#78](https://gitlab.n3.pingleberry.com/obsidian/obsidian-plugin-project-manager/-/issues/78)).
 
 ## [0.3.4] - 2026-03-30
 
