@@ -152,6 +152,7 @@ export const LOG_CONTEXT = {
   CREATE_REFERENCE_TOPIC: "create-reference-topic",
   TAG_RAID_REFERENCE: "tag-raid-reference",
   REFERENCE_DASHBOARD_VIEW: "pm-reference-dashboard-view",
+  RECURRING_EVENTS: "pm-recurring-events",
 } as const;
 
 /** Sentinel date strings for sort stability (tasks with no due date). */
@@ -272,6 +273,17 @@ export const CSS_CLS = {
   // RAID references processor
   RAID_REFERENCES_ITEM_TEXT: "pm-raid-references__item-text",
   RAID_REFERENCES_ITEM_SECTION_BODY: "pm-raid-references__item-section-body",
+  // Obsidian built-in task classes (NOT plugin pm-* classes). Obsidian emits
+  // these on rendered markdown task lists; we reuse them so checkbox lookup
+  // and persistence stay in sync with Obsidian's own DOM output.
+  TASK_LIST_ITEM: "task-list-item",
+  TASK_LIST_ITEM_CHECKBOX: "task-list-item-checkbox",
+} as const;
+
+/** Composed DOM selector strings built from Obsidian's built-in task classes. */
+export const CSS_SELECTOR = {
+  /** Matches every checkbox input inside a rendered task-list item. */
+  TASK_LIST_CHECKBOX: `li.${CSS_CLS.TASK_LIST_ITEM} input.${CSS_CLS.TASK_LIST_ITEM_CHECKBOX}`,
 } as const;
 
 // ─── Codeblock identifiers ────────────────────────────────────────────────
@@ -318,6 +330,7 @@ export const MSG = {
   RAID_REFERENCE_TAGGED_LINE: "Tagged line as RAID reference.",
   RAID_REFERENCE_TAGGED_SECTION: (heading: string) =>
     `Tagged section "${heading}" as RAID reference.`,
+  TASK_TOGGLE_FAILED: "Project Manager: failed to save task change to the event note.",
 } as const;
 
 // ─── CSS variables ────────────────────────────────────────────────────────
