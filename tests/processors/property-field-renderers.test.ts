@@ -213,6 +213,84 @@ describe("renderField — select type", () => {
   });
 });
 
+describe("renderField — nullable select", () => {
+  it("renders and selects a (none) option when nullable and value is absent", () => {
+    const el = renderInDiv(
+      { key: "priority", label: "Priority", type: "select", options: ["1", "2", "3", "4", "5"], valueType: "number", nullable: true },
+      {}
+    );
+    const options = [...el.querySelectorAll("option")];
+    const none = options.find((o) => o.value === "");
+    expect(none).not.toBeUndefined();
+    expect(none?.textContent).toBe("(none)");
+    const select = el.querySelector("select") as HTMLSelectElement;
+    expect(select.value).toBe("");
+  });
+
+  it("renders and selects a (none) option when nullable and value is explicitly null", () => {
+    const el = renderInDiv(
+      { key: "priority", label: "Priority", type: "select", options: ["1", "2", "3", "4", "5"], valueType: "number", nullable: true },
+      { priority: null }
+    );
+    const options = [...el.querySelectorAll("option")];
+    const none = options.find((o) => o.value === "");
+    expect(none).not.toBeUndefined();
+    expect(none?.textContent).toBe("(none)");
+    const select = el.querySelector("select") as HTMLSelectElement;
+    expect(select.value).toBe("");
+  });
+
+  it("pre-selects the matching option and NOT (none) when nullable and a value is present", () => {
+    const el = renderInDiv(
+      { key: "priority", label: "Priority", type: "select", options: ["1", "2", "3", "4", "5"], valueType: "number", nullable: true },
+      { priority: 2 }
+    );
+    const select = el.querySelector("select") as HTMLSelectElement;
+    expect(select.value).toBe("2");
+    const options = [...el.querySelectorAll("option")] as HTMLOptionElement[];
+    const none = options.find((o) => o.value === "");
+    expect(none?.selected).toBe(false);
+    const matching = options.find((o) => o.value === "2");
+    expect(matching?.selected).toBe(true);
+  });
+
+  it("clears the value when the (none) option is selected", () => {
+    const ctx = makeCtx();
+    const el = renderInDiv(
+      { key: "priority", label: "Priority", type: "select", options: ["1", "2", "3", "4", "5"], valueType: "number", nullable: true },
+      { priority: 2 },
+      ctx
+    );
+    const select = el.querySelector("select") as HTMLSelectElement;
+    select.value = "";
+    select.dispatchEvent(new Event("change"));
+    expect(ctx.updateFm).toHaveBeenCalledWith(expect.anything(), "priority", null);
+  });
+
+  it("writes a number (not a string) when a numeric option is selected", () => {
+    const ctx = makeCtx();
+    const el = renderInDiv(
+      { key: "priority", label: "Priority", type: "select", options: ["1", "2", "3", "4", "5"], valueType: "number", nullable: true },
+      {},
+      ctx
+    );
+    const select = el.querySelector("select") as HTMLSelectElement;
+    select.value = "4";
+    select.dispatchEvent(new Event("change"));
+    expect(ctx.updateFm).toHaveBeenCalledWith(expect.anything(), "priority", 4);
+  });
+
+  it("does NOT render a (none) option for a non-nullable select", () => {
+    const el = renderInDiv(
+      { key: "status", label: "Status", type: "select", options: ["Open", "In Progress", "Resolved", "Closed"] },
+      {}
+    );
+    const values = [...el.querySelectorAll("option")].map((o) => o.value);
+    expect(values).toEqual(["Open", "In Progress", "Resolved", "Closed"]);
+    expect(values).not.toContain("");
+  });
+});
+
 describe("renderField — suggester type", () => {
   it("does not crash when entityTag is missing", () => {
     expect(() =>

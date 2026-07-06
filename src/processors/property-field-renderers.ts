@@ -1,7 +1,7 @@
 import { TFile } from "obsidian";
 import type { PropertyProcessorServices } from "../plugin-context";
 import type { DataviewPage } from "../types";
-import { ENTITY_TAGS, TEXTAREA_ROWS, ISO_DATETIME_INPUT_LENGTH, ISO_DATE_LENGTH, CSS_CLS } from "../constants";
+import { ENTITY_TAGS, TEXTAREA_ROWS, ISO_DATETIME_INPUT_LENGTH, ISO_DATE_LENGTH, CSS_CLS, SELECT_NONE_LABEL, SELECT_NONE_VALUE } from "../constants";
 import { normalizeToName } from "../utils/link-utils";
 import { PropertySuggest } from "../ui/components/property-suggest";
 import type { AutocompleteOption } from "../ui/components/property-suggest";
@@ -137,6 +137,10 @@ function renderSelect(
 ): void {
   const select = row.createEl("select", { cls: `${CSS_CLS.PROPERTIES_SELECT} dropdown` });
   select.id = fieldId;
+  if (field.nullable) {
+    const noneOption = select.createEl("option", { text: SELECT_NONE_LABEL, value: SELECT_NONE_VALUE });
+    if (currentValue === SELECT_NONE_VALUE) noneOption.selected = true;
+  }
   for (const opt of field.options ?? []) {
     const option = select.createEl("option", { text: opt, value: opt });
     if (opt === currentValue) option.selected = true;
@@ -145,7 +149,7 @@ function renderSelect(
     const raw = select.value;
     if (field.valueType === 'number') {
       const num = Number(raw);
-      void ctx.updateFm(file, field.key, raw === '' || Number.isNaN(num) ? null : num);
+      void ctx.updateFm(file, field.key, raw === SELECT_NONE_VALUE || Number.isNaN(num) ? null : num);
     } else {
       void ctx.updateFm(file, field.key, raw);
     }
