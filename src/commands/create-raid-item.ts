@@ -3,7 +3,7 @@ import type { CommandServices, AddCommandFn } from "../plugin-context";
 import { InputModal } from "../ui/modals/input-modal";
 import { SuggesterModal } from "../ui/modals/suggester-modal";
 import type { DataviewPage, RaidType } from "../types";
-import { ENTITY_TAGS, MSG, LOG_CONTEXT } from "../constants";
+import { ENTITY_TAGS, MSG, LOG_CONTEXT, SELECT_NONE_LABEL } from "../constants";
 import { normalizeToName } from "../utils/link-utils";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -72,7 +72,7 @@ export function registerCreateRaidItemCommand(
         return;
       }
       const engagementName = selectedEngagement.file.path === "" ? undefined : selectedEngagement.file.name;
-      services.loggerService.debug(`create-raid-item: step 3 complete, engagement: "${engagementName ?? "(none)"}"`, LOG_CONTEXT.CREATE_RAID_ITEM);
+      services.loggerService.debug(`create-raid-item: step 3 complete, engagement: "${engagementName ?? SELECT_NONE_LABEL}"`, LOG_CONTEXT.CREATE_RAID_ITEM);
 
       // Step 4 — optional owner
       const owners = services.queryService.getActiveEntitiesByTag(ENTITY_TAGS.person);
@@ -93,7 +93,7 @@ export function registerCreateRaidItemCommand(
         return;
       }
       const ownerName = selectedOwner.file.path === "" ? undefined : selectedOwner.file.name;
-      services.loggerService.debug(`create-raid-item: step 4 complete, owner: "${ownerName ?? "(none)"}"`, LOG_CONTEXT.CREATE_RAID_ITEM);
+      services.loggerService.debug(`create-raid-item: step 4 complete, owner: "${ownerName ?? SELECT_NONE_LABEL}"`, LOG_CONTEXT.CREATE_RAID_ITEM);
 
       services.loggerService.debug(
         `create-raid-item: name: "${name}", type: "${raidType}", engagement: "${engagementName ?? "none"}", owner: "${ownerName ?? "none"}"`,

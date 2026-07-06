@@ -25,7 +25,7 @@ export const CONTEXT = {
   OTHER: "Other",
 } as const;
 
-/** Priority numbers (1 = highest, 4 = lowest). */
+/** Priority numbers (1 = highest, 5 = lowest / Someday). */
 export const TASK_PRIORITIES = [1, 2, 3, 4] as const;
 
 /** Human-readable priority labels. */
@@ -34,7 +34,12 @@ export const PRIORITY_LABELS: Record<number, string> = {
   2: "High",
   3: "Medium",
   4: "Low",
+  5: "Someday",
 };
+
+/** String priority options for select fields, derived from PRIORITY_LABELS keys
+ * (sorted numerically) so it stays in sync with the label map. */
+export const PRIORITY_OPTIONS: string[] = Object.keys(PRIORITY_LABELS).sort((a, b) => Number(a) - Number(b));
 
 /** Priority display strings for task dashboard headers. */
 export const PRIORITY_DISPLAY: Record<number, string> = {
@@ -42,6 +47,7 @@ export const PRIORITY_DISPLAY: Record<number, string> = {
   2: "🔼 High",
   3: "➖ Medium",
   4: "🔽 Low",
+  5: "⏬ Someday",
 };
 
 /** Maps Tasks plugin emoji to numeric priority. Medium (3) has no emoji. */
@@ -335,6 +341,11 @@ export const NOTES_MARKER = {
 
 /** Markdown file extension. */
 export const MD_EXTENSION = ".md";
+
+/** Display label for the "no value" option prepended to nullable select fields. */
+export const SELECT_NONE_LABEL = "(none)";
+/** Sentinel value marking the "no value" option / an unset nullable select field. */
+export const SELECT_NONE_VALUE = "";
 
 /** Inbox note status options (separate from entity statuses). */
 export const INBOX_STATUSES = ["Active", "Complete"] as const;
