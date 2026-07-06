@@ -113,6 +113,6 @@ Events are sorted **newest-first** by their `date` frontmatter field (ISO 8601 d
 ## 8. Out of Scope
 
 - Filtering or searching within event tiles.
-- Editing event data inline from the tile grid (editing is done by opening the event note).
+- Editing event data inline from the tile grid (editing is done by opening the event note). Note: toggling a markdown task checkbox (`- [ ]` ↔ `- [x]`) within an event's `# Notes` section directly from the tile is explicitly supported and persisted to the note — this carve-out is distinct from editing event frontmatter/data, which remains out of scope.
 - Pagination of event tiles.
 - Custom sort orders other than newest-first.

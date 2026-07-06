@@ -1,9 +1,9 @@
-import { MarkdownRenderChild, MarkdownRenderer, TFile } from "obsidian";
+import { MarkdownRenderChild, MarkdownRenderer, Notice, TFile } from "obsidian";
 import type { MarkdownPostProcessorContext } from "obsidian";
-import type { PropertyProcessorServices, RegisterProcessorFn } from "../plugin-context";
+import type { RecurringEventsProcessorServices, RegisterProcessorFn } from "../plugin-context";
 import type { DataviewPage } from "../types";
 import { normalizeToName } from "../utils/link-utils";
-import { DEBOUNCE_MS, CODEBLOCK, CSS_CLS, ISO_DATETIME_INPUT_LENGTH, NOTES_MARKER } from "../constants";
+import { DEBOUNCE_MS, CODEBLOCK, CSS_CLS, CSS_SELECTOR, ISO_DATETIME_INPUT_LENGTH, NOTES_MARKER, LOG_CONTEXT, MSG } from "../constants";
 
 /**
  * Renders recurring meeting events as a tile grid.
@@ -14,7 +14,7 @@ import { DEBOUNCE_MS, CODEBLOCK, CSS_CLS, ISO_DATETIME_INPUT_LENGTH, NOTES_MARKE
  * The parent meeting is auto-detected from the file's basename.
  */
 export function registerPmRecurringEventsProcessor(
-  services: PropertyProcessorServices,
+  services: RecurringEventsProcessorServices,
   registerProcessor: RegisterProcessorFn
 ): void {
   registerProcessor(
@@ -35,7 +35,7 @@ class PmRecurringEventsRenderChild extends MarkdownRenderChild {
   constructor(
     containerEl: HTMLElement,
     private readonly sourcePath: string,
-    private readonly services: PropertyProcessorServices
+    private readonly services: RecurringEventsProcessorServices
   ) {
     super(containerEl);
   }
@@ -199,6 +199,89 @@ class PmRecurringEventsRenderChild extends MarkdownRenderChild {
         event.file.path,
         this
       );
+
+      // Persist task-checkbox toggles back to the event note. Obsidian does not
+      // wire checkbox persistence for markdown rendered inside a custom code
+      // block, so we do it here (mirrors TaskListRenderer.toggleTask).
+      notesDiv.addEventListener("change", (evt) => {
+        const target = evt.target;
+        if (
+          !(target instanceof HTMLInputElement) ||
+          target.type !== "checkbox" ||
+          !target.classList.contains(CSS_CLS.TASK_LIST_ITEM_CHECKBOX)
+        ) {
+          return;
+        }
+        const checkboxes = Array.from(
+          notesDiv.querySelectorAll<HTMLInputElement>(
+            CSS_SELECTOR.TASK_LIST_CHECKBOX
+          )
+        );
+        const checkboxIndex = checkboxes.indexOf(target);
+        if (checkboxIndex < 0) return;
+        void this.toggleNotesTask(event.file.path, checkboxIndex, target.checked);
+      });
+    }
+  }
+
+  /**
+   * Persists a task-checkbox toggle from an event tile's "# Notes" section.
+   *
+   * The tile renders only the trimmed slice after `# Notes`, so the clicked
+   * checkbox carries no source line. We re-read the note, re-derive the same
+   * slice, and map the Nth rendered checkbox to the Nth task line within it —
+   * a positional mapping that avoids mis-hits on duplicate task text. The
+   * slice-relative index is translated to an absolute line by locating where
+   * the trimmed slice begins in the full content (accounting for frontmatter,
+   * the heading, and the blank lines stripped during render).
+   */
+  private async toggleNotesTask(
+    filePath: string,
+    checkboxIndex: number,
+    nowCompleted: boolean
+  ): Promise<void> {
+    const abstractFile = this.services.app.vault.getAbstractFileByPath(filePath);
+    if (!(abstractFile instanceof TFile)) return;
+
+    try {
+      const content = await this.services.app.vault.read(abstractFile);
+
+      // Re-derive the same "# Notes" slice the tile rendered from.
+      const notesIdx = content.indexOf(NOTES_MARKER.PREFIX);
+      if (notesIdx < 0) return;
+      const sliceRawStart = notesIdx + NOTES_MARKER.PREFIX.length;
+      const notesContent = content
+        .slice(sliceRawStart)
+        .replace(/^\s*\n/, "")
+        .trim();
+      if (!notesContent) return;
+
+      // Translate the trimmed slice's char offset to an absolute line number.
+      const sliceStart = content.indexOf(notesContent, sliceRawStart);
+      if (sliceStart < 0) return;
+      const sliceStartLine = content.slice(0, sliceStart).split("\n").length - 1;
+
+      // Map the Nth checkbox to the Nth task line within the slice.
+      const sliceLines = notesContent.split("\n");
+      const lines = content.split("\n");
+      let taskCount = 0;
+      for (let i = 0; i < sliceLines.length; i++) {
+        if (!this.services.taskParser.parseTaskLine(sliceLines[i], filePath, i)) continue;
+        if (taskCount === checkboxIndex) {
+          const absLine = sliceStartLine + i;
+          if (absLine >= lines.length) return;
+          lines[absLine] = this.services.taskParser.toggleTaskLine(lines[absLine], nowCompleted);
+          await this.services.app.vault.modify(abstractFile, lines.join("\n"));
+          return;
+        }
+        taskCount++;
+      }
+    } catch (err) {
+      // A rejected read/modify would otherwise become a silent unhandled
+      // rejection, leaving the checkbox visually toggled but the note on disk
+      // unchanged — the exact silent-loss bug this fix addresses. Surface it.
+      this.services.loggerService.error(String(err), LOG_CONTEXT.RECURRING_EVENTS, err);
+      new Notice(MSG.TASK_TOGGLE_FAILED);
     }
   }
 
