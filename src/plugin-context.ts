@@ -52,6 +52,18 @@ export interface PropertyProcessorServices {
   loggerService: ILoggerService;
 }
 
+/**
+ * Narrow interface for the recurring-events processor.
+ *
+ * Extends the property services with `taskParser` so task checkboxes rendered
+ * inside event-tile notes can be persisted back to the note. Kept separate from
+ * PropertyProcessorServices so taskParser is not leaked to the other
+ * property/table/entity-view processors that do not need it (ISP).
+ */
+export interface RecurringEventsProcessorServices extends PropertyProcessorServices {
+  taskParser: ITaskParser;
+}
+
 /** Narrow interface for action processor consumers. */
 export interface ActionProcessorServices {
   app: App;

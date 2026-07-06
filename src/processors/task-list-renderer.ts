@@ -21,11 +21,11 @@ export class TaskListRenderer {
     const ul = container.createEl("ul", { cls: `${CSS_CLS.TASK_LIST} contains-task-list` });
 
     for (const task of tasks) {
-      const li = ul.createEl("li", { cls: "task-list-item" });
+      const li = ul.createEl("li", { cls: CSS_CLS.TASK_LIST_ITEM });
 
       const checkbox = li.createEl("input", {
         type: "checkbox",
-        cls: "task-list-item-checkbox",
+        cls: CSS_CLS.TASK_LIST_ITEM_CHECKBOX,
       });
       checkbox.checked = task.completed;
       const ariaPrefix = task.completed ? "Mark incomplete: " : "Mark complete: ";
