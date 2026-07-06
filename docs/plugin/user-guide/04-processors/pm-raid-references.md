@@ -37,6 +37,22 @@ To link a line in any note to a RAID item:
 
 The annotation `{raid:positive}[[RAID Item Name]]` is appended to the line. In reading view, the `{raid:direction}` part renders as a styled badge with a human-readable label.
 
+### Line vs. section (header-scoped) references
+
+The annotation syntax is identical whether you tag a normal line or a heading — where you place it changes how much context the RAID item pulls in:
+
+- **On an ordinary line** — only that line's text is captured and shown next to the badge.
+- **On a Markdown heading** (`#`, `##`, … up to `######`) — the **entire section beneath that heading** is captured: everything down to the next heading of the same or higher level (deeper subsections are included), or the end of the note. The heading text appears as the primary line and the full section body is rendered beneath it.
+
+The **PM: Tag Line as RAID Reference** command confirms which scope was applied ("Tagged section …" vs. "Tagged line …") based on whether your cursor is on a heading.
+
+Notes:
+
+- Only the RAID item's *own* annotation is stripped from the captured section. Annotations for *other* RAID items inside the section survive and render as their own cross-reference badges.
+- A heading with no content beneath it shows the heading only.
+- Headings inside fenced code blocks and values inside YAML front-matter are not treated as headings.
+- Setext-style headings (a title underlined with `===` or `---`) are not recognised as section headings — tagging one falls back to line scope.
+
 ### Direction labels by RAID type
 
 | Direction | Risk | Assumption | Issue | Decision |
@@ -52,7 +68,9 @@ The annotation `{raid:positive}[[RAID Item Name]]` is appended to the line. In r
 For each source file that contains at least one annotation for the current RAID item:
 
 - A heading with a link to the source file
-- Each annotated line as a list item, showing the direction badge, the text of the line, and a link back to the file
+- Each reference as a list item, showing the direction badge and:
+  - for a line reference, the text of the annotated line
+  - for a section (heading) reference, the heading text plus the full rendered section body beneath it
 
 When no annotations are found, a placeholder message is displayed.
 
