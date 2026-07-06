@@ -1,4 +1,5 @@
 import { Notice } from "obsidian";
+import { COMMAND_IDS } from "../command-ids";
 import type { CommandServices, AddCommandFn } from "../plugin-context";
 import { InputModal } from "../ui/modals/input-modal";
 import { MSG } from "../constants";
@@ -9,7 +10,7 @@ import { MSG } from "../constants";
  */
 export function registerCreateClientCommand(services: CommandServices, addCommand: AddCommandFn): void {
   addCommand({
-    id: "create-client",
+    id: COMMAND_IDS.CREATE_CLIENT,
     name: "PM: Create Client",
     callback: async () => {
       const modal = new InputModal(services.app, "New client name:", "e.g. Acme Corp");

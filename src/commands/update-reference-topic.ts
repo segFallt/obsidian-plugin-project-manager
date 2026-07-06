@@ -1,4 +1,5 @@
 import { Notice, TFile } from "obsidian";
+import { COMMAND_IDS } from "../command-ids";
 import type { CommandServices, AddCommandFn } from "../plugin-context";
 import { ReferenceTopicUpdateModal } from "../ui/modals/reference-topic-update-modal";
 import { ENTITY_TAGS, FM_KEY } from "../constants";
@@ -15,7 +16,7 @@ export function registerUpdateReferenceTopicCommand(
   addCommand: AddCommandFn
 ): void {
   addCommand({
-    id: "update-reference-topic",
+    id: COMMAND_IDS.UPDATE_REFERENCE_TOPIC,
     name: "PM: Update Reference Topic",
     callback: async () => {
       const topics = services.queryService.getEntitiesByTag(ENTITY_TAGS.referenceTopic);

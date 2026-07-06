@@ -1,4 +1,5 @@
 import { Notice } from "obsidian";
+import { COMMAND_IDS } from "../command-ids";
 import type { CommandServices, AddCommandFn } from "../plugin-context";
 import { ReferenceCreationModal } from "../ui/modals/reference-creation-modal";
 import { ENTITY_TAGS, MSG, LOG_CONTEXT } from "../constants";
@@ -15,7 +16,7 @@ export function registerCreateReferenceCommand(
   addCommand: AddCommandFn
 ): void {
   addCommand({
-    id: "create-reference",
+    id: COMMAND_IDS.CREATE_REFERENCE,
     name: "PM: Create Reference",
     callback: async () => {
       const pendingCtx = services.actionContext.consume();

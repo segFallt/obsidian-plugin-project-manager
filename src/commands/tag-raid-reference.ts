@@ -1,4 +1,5 @@
 import { Notice } from "obsidian";
+import { COMMAND_IDS } from "../command-ids";
 import type { Editor, MarkdownView, MarkdownFileInfo } from "obsidian";
 import type { CommandServices, AddCommandFn } from "../plugin-context";
 import { SuggesterModal } from "../ui/modals/suggester-modal";
@@ -52,7 +53,7 @@ export function registerTagRaidReferenceCommand(
   addCommand: AddCommandFn
 ): void {
   addCommand({
-    id: "tag-raid-reference",
+    id: COMMAND_IDS.TAG_RAID_REFERENCE,
     name: "PM: Tag Line as RAID Reference",
     editorCallback: async (editor: Editor, ctx: MarkdownView | MarkdownFileInfo) => {
       const view = ctx as MarkdownView;

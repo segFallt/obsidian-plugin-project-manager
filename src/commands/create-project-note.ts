@@ -1,4 +1,5 @@
 import { Notice } from "obsidian";
+import { COMMAND_IDS } from "../command-ids";
 import type { CommandServices, AddCommandFn } from "../plugin-context";
 import { InputModal } from "../ui/modals/input-modal";
 import { MSG } from "../constants";
@@ -10,7 +11,7 @@ import { MSG } from "../constants";
  */
 export function registerCreateProjectNoteCommand(services: CommandServices, addCommand: AddCommandFn): void {
   addCommand({
-    id: "create-project-note",
+    id: COMMAND_IDS.CREATE_PROJECT_NOTE,
     name: "PM: Create Project Note",
     callback: async () => {
       const activeFile = services.app.workspace.getActiveFile();

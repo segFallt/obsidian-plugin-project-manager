@@ -1,4 +1,5 @@
 import { Notice } from "obsidian";
+import { COMMAND_IDS } from "../command-ids";
 import type { CommandServices, AddCommandFn } from "../plugin-context";
 import { InputModal } from "../ui/modals/input-modal";
 
@@ -15,7 +16,7 @@ export function registerConvertSingleToRecurringCommand(
   addCommand: AddCommandFn
 ): void {
   addCommand({
-    id: "convert-single-to-recurring",
+    id: COMMAND_IDS.CONVERT_SINGLE_TO_RECURRING,
     name: "PM: Convert Single Meeting to Recurring",
     callback: async () => {
       const activeFile = services.app.workspace.getActiveFile();

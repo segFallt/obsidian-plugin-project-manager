@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <!-- New release sections are prepended by .ci/bump-version.sh -->
 
+## [0.4.1] - 2026-07-06
+
+### Fixed
+
+- Fixed every `pm-actions` button (New Client/Engagement/Project Note/Reference, Open Reference Dashboard, the Set Up Vault settings button, and the Reference Dashboard create buttons) silently doing nothing after the v0.4.0 plugin rename. The button → command wiring built command IDs from a stale `project-manager:` prefix that no longer matched the renamed `manifest.id`. The manifest-id prefix now lives in a single injected place (`CommandExecutor`), and every command ID is sourced from one shared `COMMAND_IDS` registry consumed by both registration and dispatch, so a future rename can never desync them again ([#93](https://gitlab.n3.pingleberry.com/obsidian/obsidian-plugin-project-manager/-/issues/93)).
+
 ## [0.4.0] - 2026-07-06
 
 ### Fixed
