@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <!-- New release sections are prepended by .ci/bump-version.sh -->
 
+## [0.4.0] - 2026-07-06
+
+### Fixed
+
+- Fixed the phantom "1" project priority: the priority select now prepends a neutral `(none)` option for unset project priority instead of implicitly showing the first option, and completes the priority scale to 1–5 (adds 5 = Someday) so all levels are selectable and reachable in the task priority dashboard ([#84](https://gitlab.n3.pingleberry.com/obsidian/obsidian-plugin-project-manager/-/issues/84)).
+- Fixed task-checkbox toggles in recurring-event tiles being silently lost — clicking a checkbox in a `pm-recurring-events` tile now persists the change back to the source event note instead of only updating the rendered DOM ([#89](https://gitlab.n3.pingleberry.com/obsidian/obsidian-plugin-project-manager/-/issues/89)).
+
+### Added
+
+- `pm-raid-references` now supports header-scoped references — a RAID annotation on a heading pulls in the whole section beneath it; line-scoped references are unchanged ([#90](https://gitlab.n3.pingleberry.com/obsidian/obsidian-plugin-project-manager/-/issues/90)).
+
 ## [0.3.5] - 2026-04-02
 
 ### Added

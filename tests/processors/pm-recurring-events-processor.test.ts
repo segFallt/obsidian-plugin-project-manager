@@ -1,7 +1,9 @@
 import { describe, it, expect, vi } from "vitest";
-import { registerPmRecurringEventsProcessor } from "../../src/processors/pm-recurring-events-processor";
+import * as obsidian from "obsidian";
+import { registerPmRecurringEventsProcessor } from "@/processors/pm-recurring-events-processor";
 import { TFile } from "../mocks/obsidian-mock";
-import type { PluginServices, RegisterProcessorFn } from "../../src/plugin-context";
+import { TaskParser } from "@/services/task-parser";
+import type { PluginServices, RegisterProcessorFn } from "@/plugin-context";
 
 // ─── Mock services factory ────────────────────────────────────────────────
 
@@ -56,23 +58,34 @@ function createMockServices(
   // Build a file map so getAbstractFileByPath returns TFile instances
   const fileMap = new Map(events.map((e) => [e.path, new TFile(e.path)]));
 
+  const loggerService = {
+    debug: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+  };
+
   const services = {
     app: {
       vault: {
         on: vaultOn,
         read: vi.fn(async (file: TFile) => contentMap.get(file.path) ?? ""),
+        modify: vi.fn(async () => {}),
         getAbstractFileByPath: vi.fn((path: string) => fileMap.get(path) ?? null),
       },
     },
     queryService: {
       getRecurringMeetingEvents: vi.fn(() => mockEvents),
     },
+    taskParser: new TaskParser(),
+    loggerService,
   } as unknown as PluginServices;
 
   return {
     services,
     registerProcessor,
     vaultOn,
+    loggerService,
     getHandler: () => registeredHandler!,
     sourcePath,
   };
@@ -90,10 +103,8 @@ function render(
   }> = [],
   sourcePath = "meetings/recurring/Weekly Standup.md"
 ) {
-  const { services, registerProcessor, getHandler, vaultOn } = createMockServices(
-    sourcePath,
-    events
-  );
+  const { services, registerProcessor, getHandler, vaultOn, loggerService } =
+    createMockServices(sourcePath, events);
   registerPmRecurringEventsProcessor(services, registerProcessor);
 
   const el = document.createElement("div");
@@ -111,7 +122,7 @@ function render(
   };
 
   getHandler()("", el, ctx);
-  return { el, children, vaultOn, services };
+  return { el, children, vaultOn, services, loggerService };
 }
 
 // ─── Tests ─────────────────────────────────────────────────────────────────
@@ -380,4 +391,345 @@ describe("pm-recurring-events processor", () => {
     document.body.removeChild(scrollParent);
     vi.restoreAllMocks();
   });
+
+  it("persists a task-checkbox toggle to the correct absolute line in the event note", async () => {
+    // Frontmatter + heading + blank line above the first task, so the tile's
+    // trimmed "# Notes" slice starts well below line 0. The second task lives at
+    // absolute line 7 — the assertion proves the absolute-line mapping is correct.
+    const content = [
+      "---", // line 0
+      "date: 2024-03-01", // line 1
+      "---", // line 2
+      "", // line 3
+      "# Notes", // line 4
+      "", // line 5
+      "- [ ] first task", // line 6
+      "- [ ] second task 📅 2024-04-01", // line 7
+    ].join("\n");
+
+    const { el, services } = render([
+      {
+        name: "2024-03-01",
+        path: "meetings/recurring-events/Weekly Standup/2024-03-01.md",
+        date: "2024-03-01",
+        content,
+      },
+    ]);
+
+    await new Promise((r) => setTimeout(r, 10));
+
+    const notesDiv = el.querySelector<HTMLElement>(".pm-recurring-events__tile-notes");
+    expect(notesDiv).not.toBeNull();
+
+    // The obsidian mock's MarkdownRenderer does not emit real task checkboxes,
+    // so inject the DOM Obsidian would produce (one checkbox per task line).
+    const boxes = injectTaskCheckboxes(notesDiv!, 2);
+
+    // Toggle the SECOND task -> should rewrite absolute line 7 only.
+    boxes[1].checked = true;
+    boxes[1].dispatchEvent(new Event("change", { bubbles: true }));
+
+    await new Promise((r) => setTimeout(r, 10));
+
+    const modify = services.app.vault.modify as ReturnType<typeof vi.fn>;
+    expect(modify).toHaveBeenCalledTimes(1);
+
+    const writtenLines = (modify.mock.calls[0][1] as string).split("\n");
+    expect(writtenLines[7]).toContain("[x]");
+    expect(writtenLines[7]).toContain("second task");
+    // Untouched task line is preserved.
+    expect(writtenLines[6]).toBe("- [ ] first task");
+  });
+
+  // ─── Negative paths (no data corruption/loss on failure) ──────────────────
+
+  it("negative: a rejected vault.modify is caught, logs, and shows a Notice (no unhandled rejection)", async () => {
+    const noticeSpy = vi
+      .spyOn(obsidian, "Notice")
+      .mockImplementation(() => ({}) as unknown as obsidian.Notice);
+    const unhandled = vi.fn();
+    process.on("unhandledRejection", unhandled);
+
+    const content = ["---", "date: 2024-03-01", "---", "# Notes", "- [ ] a task"].join("\n");
+    const { el, services, loggerService } = render([
+      {
+        name: "2024-03-01",
+        path: "meetings/recurring-events/Weekly Standup/2024-03-01.md",
+        date: "2024-03-01",
+        content,
+      },
+    ]);
+
+    await new Promise((r) => setTimeout(r, 10));
+
+    // Force the write to reject — simulates a disk/permission failure.
+    (services.app.vault.modify as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
+      new Error("disk full")
+    );
+
+    const notesDiv = el.querySelector<HTMLElement>(".pm-recurring-events__tile-notes");
+    const boxes = injectTaskCheckboxes(notesDiv!, 1);
+    boxes[0].checked = true;
+    boxes[0].dispatchEvent(new Event("change", { bubbles: true }));
+
+    await new Promise((r) => setTimeout(r, 10));
+
+    expect(loggerService.error).toHaveBeenCalledTimes(1);
+    expect(noticeSpy).toHaveBeenCalledTimes(1);
+    expect(unhandled).not.toHaveBeenCalled();
+
+    process.off("unhandledRejection", unhandled);
+    noticeSpy.mockRestore();
+  });
+
+  it("negative: checkboxIndex out of range makes no vault.modify call", async () => {
+    const content = ["---", "date: 2024-03-01", "---", "# Notes", "- [ ] only task"].join("\n");
+    const { el, services } = render([
+      {
+        name: "2024-03-01",
+        path: "meetings/recurring-events/Weekly Standup/2024-03-01.md",
+        date: "2024-03-01",
+        content,
+      },
+    ]);
+
+    await new Promise((r) => setTimeout(r, 10));
+
+    const notesDiv = el.querySelector<HTMLElement>(".pm-recurring-events__tile-notes");
+    // Inject TWO checkboxes though only one task line exists — toggling the
+    // second maps to no task line.
+    const boxes = injectTaskCheckboxes(notesDiv!, 2);
+    boxes[1].checked = true;
+    boxes[1].dispatchEvent(new Event("change", { bubbles: true }));
+
+    await new Promise((r) => setTimeout(r, 10));
+
+    expect(services.app.vault.modify).not.toHaveBeenCalled();
+  });
+
+  it("negative: absent '# Notes' marker at persist time returns early with no vault.modify", async () => {
+    const content = ["---", "date: 2024-03-01", "---", "# Notes", "- [ ] a task"].join("\n");
+    const { el, services } = render([
+      {
+        name: "2024-03-01",
+        path: "meetings/recurring-events/Weekly Standup/2024-03-01.md",
+        date: "2024-03-01",
+        content,
+      },
+    ]);
+
+    await new Promise((r) => setTimeout(r, 10));
+
+    const notesDiv = el.querySelector<HTMLElement>(".pm-recurring-events__tile-notes");
+    const boxes = injectTaskCheckboxes(notesDiv!, 1);
+
+    // The note loses its '# Notes' heading before the toggle is persisted.
+    (services.app.vault.read as ReturnType<typeof vi.fn>).mockResolvedValue(
+      "---\ndate: 2024-03-01\n---\nNo notes heading here."
+    );
+
+    boxes[0].checked = true;
+    boxes[0].dispatchEvent(new Event("change", { bubbles: true }));
+
+    await new Promise((r) => setTimeout(r, 10));
+
+    expect(services.app.vault.modify).not.toHaveBeenCalled();
+  });
+
+  it("negative: empty notes slice returns early with no vault.modify", async () => {
+    const content = ["---", "date: 2024-03-01", "---", "# Notes", "- [ ] a task"].join("\n");
+    const { el, services } = render([
+      {
+        name: "2024-03-01",
+        path: "meetings/recurring-events/Weekly Standup/2024-03-01.md",
+        date: "2024-03-01",
+        content,
+      },
+    ]);
+
+    await new Promise((r) => setTimeout(r, 10));
+
+    const notesDiv = el.querySelector<HTMLElement>(".pm-recurring-events__tile-notes");
+    const boxes = injectTaskCheckboxes(notesDiv!, 1);
+
+    // The note's '# Notes' section becomes empty before the toggle is persisted.
+    (services.app.vault.read as ReturnType<typeof vi.fn>).mockResolvedValue(
+      "---\ndate: 2024-03-01\n---\n# Notes\n"
+    );
+
+    boxes[0].checked = true;
+    boxes[0].dispatchEvent(new Event("change", { bubbles: true }));
+
+    await new Promise((r) => setTimeout(r, 10));
+
+    expect(services.app.vault.modify).not.toHaveBeenCalled();
+  });
+
+  // ─── Boundary cases ───────────────────────────────────────────────────────
+
+  it("boundary: duplicate task text — toggling index 1 rewrites the SECOND line, not the first", async () => {
+    // Two task lines with identical text. Text matching would be ambiguous;
+    // only the positional Nth-checkbox→Nth-task-line mapping resolves this.
+    const content = [
+      "---", // 0
+      "date: 2024-03-01", // 1
+      "---", // 2
+      "# Notes", // 3
+      "", // 4
+      "- [ ] duplicate task", // 5
+      "- [ ] duplicate task", // 6
+    ].join("\n");
+
+    const { el, services } = render([
+      {
+        name: "2024-03-01",
+        path: "meetings/recurring-events/Weekly Standup/2024-03-01.md",
+        date: "2024-03-01",
+        content,
+      },
+    ]);
+
+    await new Promise((r) => setTimeout(r, 10));
+
+    const notesDiv = el.querySelector<HTMLElement>(".pm-recurring-events__tile-notes");
+    const boxes = injectTaskCheckboxes(notesDiv!, 2);
+    boxes[1].checked = true;
+    boxes[1].dispatchEvent(new Event("change", { bubbles: true }));
+
+    await new Promise((r) => setTimeout(r, 10));
+
+    const modify = services.app.vault.modify as ReturnType<typeof vi.fn>;
+    expect(modify).toHaveBeenCalledTimes(1);
+    const writtenLines = (modify.mock.calls[0][1] as string).split("\n");
+    // Second identical line toggled; first identical line untouched.
+    expect(writtenLines[6]).toContain("[x]");
+    expect(writtenLines[5]).toBe("- [ ] duplicate task");
+  });
+
+  it("boundary: first checkbox (index 0) toggles the first task line", async () => {
+    const content = [
+      "---", // 0
+      "date: 2024-03-01", // 1
+      "---", // 2
+      "# Notes", // 3
+      "", // 4
+      "- [ ] first task", // 5
+      "- [ ] second task", // 6
+    ].join("\n");
+
+    const { el, services } = render([
+      {
+        name: "2024-03-01",
+        path: "meetings/recurring-events/Weekly Standup/2024-03-01.md",
+        date: "2024-03-01",
+        content,
+      },
+    ]);
+
+    await new Promise((r) => setTimeout(r, 10));
+
+    const notesDiv = el.querySelector<HTMLElement>(".pm-recurring-events__tile-notes");
+    const boxes = injectTaskCheckboxes(notesDiv!, 2);
+    boxes[0].checked = true;
+    boxes[0].dispatchEvent(new Event("change", { bubbles: true }));
+
+    await new Promise((r) => setTimeout(r, 10));
+
+    const modify = services.app.vault.modify as ReturnType<typeof vi.fn>;
+    expect(modify).toHaveBeenCalledTimes(1);
+    const writtenLines = (modify.mock.calls[0][1] as string).split("\n");
+    expect(writtenLines[5]).toContain("[x]");
+    expect(writtenLines[6]).toBe("- [ ] second task");
+  });
+
+  it("boundary: an already-checked task toggled to unchecked rewrites correctly", async () => {
+    const content = [
+      "---", // 0
+      "date: 2024-03-01", // 1
+      "---", // 2
+      "# Notes", // 3
+      "", // 4
+      "- [x] done task", // 5
+    ].join("\n");
+
+    const { el, services } = render([
+      {
+        name: "2024-03-01",
+        path: "meetings/recurring-events/Weekly Standup/2024-03-01.md",
+        date: "2024-03-01",
+        content,
+      },
+    ]);
+
+    await new Promise((r) => setTimeout(r, 10));
+
+    const notesDiv = el.querySelector<HTMLElement>(".pm-recurring-events__tile-notes");
+    const boxes = injectTaskCheckboxes(notesDiv!, 1);
+    boxes[0].checked = false;
+    boxes[0].dispatchEvent(new Event("change", { bubbles: true }));
+
+    await new Promise((r) => setTimeout(r, 10));
+
+    const modify = services.app.vault.modify as ReturnType<typeof vi.fn>;
+    expect(modify).toHaveBeenCalledTimes(1);
+    const writtenLines = (modify.mock.calls[0][1] as string).split("\n");
+    expect(writtenLines[5]).toContain("[ ]");
+    expect(writtenLines[5]).not.toContain("[x]");
+  });
+
+  it("boundary: first task on the very first line of the notes slice (no blank line before it)", async () => {
+    // No blank line between '# Notes' and the first task, so the slice starts
+    // immediately at the task line.
+    const content = [
+      "---", // 0
+      "date: 2024-03-01", // 1
+      "---", // 2
+      "# Notes", // 3
+      "- [ ] immediate task", // 4
+    ].join("\n");
+
+    const { el, services } = render([
+      {
+        name: "2024-03-01",
+        path: "meetings/recurring-events/Weekly Standup/2024-03-01.md",
+        date: "2024-03-01",
+        content,
+      },
+    ]);
+
+    await new Promise((r) => setTimeout(r, 10));
+
+    const notesDiv = el.querySelector<HTMLElement>(".pm-recurring-events__tile-notes");
+    const boxes = injectTaskCheckboxes(notesDiv!, 1);
+    boxes[0].checked = true;
+    boxes[0].dispatchEvent(new Event("change", { bubbles: true }));
+
+    await new Promise((r) => setTimeout(r, 10));
+
+    const modify = services.app.vault.modify as ReturnType<typeof vi.fn>;
+    expect(modify).toHaveBeenCalledTimes(1);
+    const writtenLines = (modify.mock.calls[0][1] as string).split("\n");
+    // Absolute line 4 (not line 3 '# Notes') is the one rewritten.
+    expect(writtenLines[4]).toContain("[x]");
+    expect(writtenLines[3]).toBe("# Notes");
+  });
 });
+
+/** Injects the task-list DOM Obsidian would render for `count` task lines. */
+function injectTaskCheckboxes(notesDiv: HTMLElement, count: number): HTMLInputElement[] {
+  const ul = document.createElement("ul");
+  ul.className = "contains-task-list";
+  const boxes: HTMLInputElement[] = [];
+  for (let i = 0; i < count; i++) {
+    const li = document.createElement("li");
+    li.className = "task-list-item";
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.className = "task-list-item-checkbox";
+    li.appendChild(checkbox);
+    ul.appendChild(li);
+    boxes.push(checkbox);
+  }
+  notesDiv.appendChild(ul);
+  return boxes;
+}
