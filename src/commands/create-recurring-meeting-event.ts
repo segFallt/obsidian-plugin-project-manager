@@ -1,4 +1,5 @@
 import { Notice } from "obsidian";
+import { COMMAND_IDS } from "../command-ids";
 import type { CommandServices, AddCommandFn } from "../plugin-context";
 import { SuggesterModal } from "../ui/modals/suggester-modal";
 import type { DataviewPage } from "../types";
@@ -16,7 +17,7 @@ export function registerCreateRecurringMeetingEventCommand(
   addCommand: AddCommandFn
 ): void {
   addCommand({
-    id: "create-recurring-meeting-event",
+    id: COMMAND_IDS.CREATE_RECURRING_MEETING_EVENT,
     name: "PM: Create Recurring Meeting Event",
     callback: async () => {
       let meetingName: string | null = null;

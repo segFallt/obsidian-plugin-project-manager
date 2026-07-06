@@ -1,27 +1,34 @@
 import type { TFile } from "obsidian";
 import type { ActionProcessorServices } from "../plugin-context";
 import type { PmActionConfig } from "../types";
-import { PLUGIN_ID, CSS_CLS, BUTTON_OPACITY_DISABLED } from "../constants";
+import { CSS_CLS, BUTTON_OPACITY_DISABLED } from "../constants";
+import { COMMAND_IDS } from "../command-ids";
 
 // ─── Action command map ──────────────────────────────────────────────────────
 
-/** Maps action type strings to plugin command IDs. */
+/**
+ * Maps action type strings to this plugin's **bare** command IDs, sourced from
+ * the single `COMMAND_IDS` registry so a dispatch id can never drift from its
+ * registration id. The manifest `id` prefix is applied by `CommandExecutor` at
+ * dispatch time, so this map stays rename-proof. Kept as an explicit allowlist:
+ * an unknown action type yields `undefined`, which renders a disabled button.
+ */
 export const ACTION_COMMAND_MAP: Record<string, string> = {
-  "create-client": `${PLUGIN_ID}:create-client`,
-  "create-engagement": `${PLUGIN_ID}:create-engagement`,
-  "create-project": `${PLUGIN_ID}:create-project`,
-  "create-person": `${PLUGIN_ID}:create-person`,
-  "create-inbox": `${PLUGIN_ID}:create-inbox`,
-  "create-single-meeting": `${PLUGIN_ID}:create-single-meeting`,
-  "create-recurring-meeting": `${PLUGIN_ID}:create-recurring-meeting`,
-  "create-recurring-meeting-event": `${PLUGIN_ID}:create-recurring-meeting-event`,
-  "create-project-note": `${PLUGIN_ID}:create-project-note`,
-  "convert-inbox": `${PLUGIN_ID}:convert-inbox`,
-  "convert-single-to-recurring": `${PLUGIN_ID}:convert-single-to-recurring`,
-  "scaffold-vault": `${PLUGIN_ID}:scaffold-vault`,
-  "create-raid-item":       `${PLUGIN_ID}:create-raid-item`,
-  "create-reference":       `${PLUGIN_ID}:create-reference`,
-  "create-reference-topic": `${PLUGIN_ID}:create-reference-topic`,
+  "create-client": COMMAND_IDS.CREATE_CLIENT,
+  "create-engagement": COMMAND_IDS.CREATE_ENGAGEMENT,
+  "create-project": COMMAND_IDS.CREATE_PROJECT,
+  "create-person": COMMAND_IDS.CREATE_PERSON,
+  "create-inbox": COMMAND_IDS.CREATE_INBOX,
+  "create-single-meeting": COMMAND_IDS.CREATE_SINGLE_MEETING,
+  "create-recurring-meeting": COMMAND_IDS.CREATE_RECURRING_MEETING,
+  "create-recurring-meeting-event": COMMAND_IDS.CREATE_RECURRING_MEETING_EVENT,
+  "create-project-note": COMMAND_IDS.CREATE_PROJECT_NOTE,
+  "convert-inbox": COMMAND_IDS.CONVERT_INBOX,
+  "convert-single-to-recurring": COMMAND_IDS.CONVERT_SINGLE_TO_RECURRING,
+  "scaffold-vault": COMMAND_IDS.SCAFFOLD_VAULT,
+  "create-raid-item": COMMAND_IDS.CREATE_RAID_ITEM,
+  "create-reference": COMMAND_IDS.CREATE_REFERENCE,
+  "create-reference-topic": COMMAND_IDS.CREATE_REFERENCE_TOPIC,
 };
 
 // ─── Action buttons ──────────────────────────────────────────────────────────

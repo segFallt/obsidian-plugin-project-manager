@@ -3,6 +3,7 @@ import type ProjectManagerPlugin from "../main";
 import type { ReferenceProcessorServices } from "../plugin-context";
 import { ReferenceDashboardView } from "../processors/pm-references-dashboard";
 import { PM_REFERENCE_DASHBOARD_VIEW_TYPE, DEBOUNCE_MS } from "../constants";
+import { COMMAND_IDS } from "../command-ids";
 import type { ReferenceFilters, SavedReferenceFilters } from "../types";
 
 /**
@@ -65,7 +66,7 @@ export class ReferenceDashboardItemView extends ItemView {
       if (selectedNode) {
         services.actionContext.set({ field: 'topic', value: selectedNode });
       }
-      services.commandExecutor.executeCommandById('project-manager:create-reference');
+      services.commandExecutor.executeCommandById(COMMAND_IDS.CREATE_REFERENCE);
     });
 
     const newTopicBtn = actionsRow.createEl('button', {
@@ -73,7 +74,7 @@ export class ReferenceDashboardItemView extends ItemView {
       text: '+ New Topic',
     });
     newTopicBtn.addEventListener('click', () => {
-      services.commandExecutor.executeCommandById('project-manager:create-reference-topic');
+      services.commandExecutor.executeCommandById(COMMAND_IDS.CREATE_REFERENCE_TOPIC);
     });
 
     const saved = this.plugin.settings.ui.referenceDashboardFilters;

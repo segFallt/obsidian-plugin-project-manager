@@ -1,4 +1,5 @@
 import { Notice } from "obsidian";
+import { COMMAND_IDS } from "../command-ids";
 import type { CommandServices, AddCommandFn } from "../plugin-context";
 import { ReferenceTopicCreationModal } from "../ui/modals/reference-topic-creation-modal";
 import { ENTITY_TAGS, MSG, LOG_CONTEXT } from "../constants";
@@ -12,7 +13,7 @@ export function registerCreateReferenceTopicCommand(
   addCommand: AddCommandFn
 ): void {
   addCommand({
-    id: "create-reference-topic",
+    id: COMMAND_IDS.CREATE_REFERENCE_TOPIC,
     name: "PM: Create Reference Topic",
     callback: async () => {
       const existingTopics = services.queryService.getEntitiesByTag(ENTITY_TAGS.referenceTopic);
