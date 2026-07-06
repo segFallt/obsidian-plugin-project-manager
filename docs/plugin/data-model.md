@@ -46,7 +46,7 @@ notesDirectory: projects/notes/snake_case_name
 start-date: YYYY-MM-DD
 end-date: YYYY-MM-DD
 status: New | Active | On Hold | Complete
-priority: 1-4
+priority: 1-5
 convertedFrom: "[[inbox/Inbox Note Name]]"
 ```
 
@@ -214,6 +214,7 @@ A `MarkdownPostProcessor` renders `{raid:direction}` as a styled badge with a ty
 | 2 | High | 🔼 |
 | 3 | Medium | *(none)* |
 | 4 | Low | 🔽 |
+| 5 | Someday | ⏬ |
 
 ## Relationship Traversal
 
