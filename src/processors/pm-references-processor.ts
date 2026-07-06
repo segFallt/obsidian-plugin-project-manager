@@ -4,6 +4,7 @@ import type { ReferenceProcessorServices } from "../plugin-context";
 import type { PmReferencesConfig } from "../types";
 import { renderError } from "./dom-helpers";
 import { CODEBLOCK } from "../constants";
+import { COMMAND_IDS } from "../command-ids";
 import { normalizeToName } from "../utils/link-utils";
 
 /**
@@ -89,12 +90,9 @@ class PmReferencesRenderChild extends MarkdownRenderChild {
           }
         }
 
-        // app.commands is not in the public Obsidian API type definitions but is
-        // a stable internal API used across the plugin ecosystem for command dispatch.
-        type AppWithCommands = { commands: { executeCommandById(id: string): void } };
-        (this.services.app as unknown as AppWithCommands).commands.executeCommandById(
-          "project-manager:open-reference-dashboard"
-        );
+        // Route through the injected executor so the manifest-id prefix is applied
+        // in one place (no local app.commands cast — that concern lives in CommandExecutor).
+        this.services.commandExecutor.executeCommandById(COMMAND_IDS.OPEN_REFERENCE_DASHBOARD);
       })();
     });
   }

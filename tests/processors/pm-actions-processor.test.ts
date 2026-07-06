@@ -118,7 +118,7 @@ describe("pm-actions processor", () => {
     const { el, commandExecutorFn } = render(source);
     const btn = el.querySelector("button");
     btn?.click();
-    expect(commandExecutorFn).toHaveBeenCalledWith("project-manager:create-client");
+    expect(commandExecutorFn).toHaveBeenCalledWith("create-client");
   });
 
   it('executes create-raid-item command when button is clicked', () => {
@@ -126,7 +126,7 @@ describe("pm-actions processor", () => {
     const { el, commandExecutorFn } = render(source);
     const button = el.querySelector('button');
     button!.click();
-    expect(commandExecutorFn).toHaveBeenCalledWith('project-manager:create-raid-item');
+    expect(commandExecutorFn).toHaveBeenCalledWith('create-raid-item');
   });
 
   it("executes custom commandId when provided", () => {

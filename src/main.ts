@@ -9,6 +9,7 @@ import { EntityConversionService } from "./services/entity-conversion-service";
 import { NavigationService } from "./services/navigation-service";
 import { ActionContextManager } from "./services/action-context-manager";
 import { CommandExecutor } from "./services/command-executor";
+import { COMMAND_IDS } from "./command-ids";
 import { TemplateService } from "./services/template-service";
 import { TaskParser } from "./services/task-parser";
 import { TaskFilterService } from "./services/task-filter-service";
@@ -78,7 +79,7 @@ export default class ProjectManagerPlugin extends Plugin {
       );
       registerAllCommands(this);
       this.addCommand({
-        id: "open-reference-dashboard",
+        id: COMMAND_IDS.OPEN_REFERENCE_DASHBOARD,
         name: "PM: Open Reference Dashboard",
         callback: () => { void activateReferenceDashboard(this); },
       });
@@ -158,7 +159,7 @@ export default class ProjectManagerPlugin extends Plugin {
     this.taskParser = new TaskParser();
     this.scaffoldService = new VaultScaffoldService(this.app, this.settings);
     this.actionContext = new ActionContextManager();
-    this.commandExecutor = new CommandExecutor(this.app);
+    this.commandExecutor = new CommandExecutor(this.app, this.manifest.id);
     this.filterService = new TaskFilterService(this.settings.folders);
     this.sortService = new TaskSortService();
     this.testDataService = new TestDataService(

@@ -1,4 +1,5 @@
 import { Notice } from "obsidian";
+import { COMMAND_IDS } from "../command-ids";
 import type { CommandServices, AddCommandFn } from "../plugin-context";
 import { InputModal } from "../ui/modals/input-modal";
 import { SuggesterModal } from "../ui/modals/suggester-modal";
@@ -27,7 +28,7 @@ export function registerCreateRaidItemCommand(
   addCommand: AddCommandFn
 ): void {
   addCommand({
-    id: "create-raid-item",
+    id: COMMAND_IDS.CREATE_RAID_ITEM,
     name: "PM: Create RAID Item",
     callback: async () => {
       services.actionContext.consume();

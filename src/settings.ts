@@ -1,6 +1,7 @@
 import { App, Notice, PluginSettingTab, Setting } from "obsidian";
 import type ProjectManagerPlugin from "./main";
-import { DEFAULT_FOLDERS, PLUGIN_ID } from "./constants";
+import { DEFAULT_FOLDERS } from "./constants";
+import { COMMAND_IDS } from "./command-ids";
 import type { SavedReferenceFilters } from "./types";
 
 export interface LoggingSettings {
@@ -328,7 +329,7 @@ export class ProjectManagerSettingTab extends PluginSettingTab {
           .setButtonText("Set Up Vault")
           .setCta()
           .onClick(() => {
-            this.plugin.commandExecutor.executeCommandById(`${PLUGIN_ID}:scaffold-vault`);
+            this.plugin.commandExecutor.executeCommandById(COMMAND_IDS.SCAFFOLD_VAULT);
           })
       );
   }
