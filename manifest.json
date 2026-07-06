@@ -1,7 +1,7 @@
 {
   "id": "engagement-project-manager",
   "name": "Engagement Project Manager",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "minAppVersion": "1.4.0",
   "description": "Client-Engagement-Project hierarchy manager for consulting and contracting workflows.",
   "author": "Project Manager Plugin",
