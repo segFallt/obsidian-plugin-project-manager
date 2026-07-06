@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <!-- New release sections are prepended by .ci/bump-version.sh -->
 
+## [Unreleased]
+
+### Added
+
+- `pm-raid-references` now supports header-scoped references — a RAID annotation on a heading pulls in the whole section beneath it; line-scoped references are unchanged ([#90](https://gitlab.n3.pingleberry.com/obsidian/obsidian-plugin-project-manager/-/issues/90)).
+
 ## [0.3.5] - 2026-04-02
 
 ### Added

@@ -1232,10 +1232,21 @@ details[open] .pm-filter-section__title::before {
 
 .pm-raid-references__item {
   display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
   gap: 6px;
   font-size: var(--font-small);
   padding: 2px 0;
+}
+
+/* Section-scoped reference body: the full Markdown beneath a tagged heading,
+   rendered on its own line below the badge + heading text. */
+.pm-raid-references__item-section-body {
+  flex-basis: 100%;
+  margin: 2px 0 0 4px;
+  padding-left: 8px;
+  border-left: 2px solid var(--background-modifier-border);
+  color: var(--text-muted);
 }
 
 .raid-references-empty {

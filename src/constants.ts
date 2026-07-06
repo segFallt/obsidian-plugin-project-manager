@@ -263,6 +263,9 @@ export const CSS_CLS = {
   PROPERTIES_CHIPS: "pm-properties__chips",
   PROPERTIES_CHIP: "pm-properties__chip",
   PROPERTIES_CHIP_REMOVE: "pm-properties__chip-remove",
+  // RAID references processor
+  RAID_REFERENCES_ITEM_TEXT: "pm-raid-references__item-text",
+  RAID_REFERENCES_ITEM_SECTION_BODY: "pm-raid-references__item-section-body",
 } as const;
 
 // ─── Codeblock identifiers ────────────────────────────────────────────────
@@ -306,6 +309,9 @@ export const MSG = {
   NO_NAME: "No name provided.",
   CANCELLED: "Creation cancelled.",
   DATAVIEW_UNAVAILABLE: "Dataview is not available. Install and enable the Dataview plugin.",
+  RAID_REFERENCE_TAGGED_LINE: "Tagged line as RAID reference.",
+  RAID_REFERENCE_TAGGED_SECTION: (heading: string) =>
+    `Tagged section "${heading}" as RAID reference.`,
 } as const;
 
 // ─── CSS variables ────────────────────────────────────────────────────────

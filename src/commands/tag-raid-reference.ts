@@ -3,9 +3,10 @@ import type { Editor, MarkdownView, MarkdownFileInfo } from "obsidian";
 import type { CommandServices, AddCommandFn } from "../plugin-context";
 import { SuggesterModal } from "../ui/modals/suggester-modal";
 import type { DataviewPage, RaidType, RaidDirection } from "../types";
-import { DIRECTION_LABELS, DIRECTION_ICONS } from "../processors/raid-constants";
+import { DIRECTION_LABELS, DIRECTION_ICONS, ATX_HEADING_RE } from "../processors/raid-constants";
 import { MSG, LOG_CONTEXT } from "../constants";
 import { normalizeToName } from "../utils/link-utils";
+import { isSectionHeadingLine } from "../processors/raid-reference-parser";
 
 // ─── Direction picker helpers ─────────────────────────────────────────────────
 
@@ -66,6 +67,7 @@ export function registerTagRaidReferenceCommand(
       // so both values must be read while the editor is still in its pre-modal state.
       const lineNumber = editor.getCursor().line;
       const currentLine = editor.getLine(lineNumber);
+      const fullContent = editor.getValue();
 
       // Read frontmatter for context-aware prioritisation
       const cache = services.app.metadataCache.getFileCache(file);
@@ -129,6 +131,20 @@ export function registerTagRaidReferenceCommand(
           lineNumber,
           currentLine + ` {raid:${selectedDirection.direction}}[[${selectedItem.file.name}]]`
         );
+
+        // Differentiated success feedback: a section (ATX heading) reference pulls
+        // in the whole section beneath it, whereas a line reference is line-scoped.
+        // The appended annotation text is identical in both cases (no new syntax).
+        // Reuse the parser's context-aware detection so a `#`-line inside a code
+        // fence or front-matter (which the processor renders as line scope) does
+        // not falsely report a section reference.
+        const headingMatch = ATX_HEADING_RE.exec(currentLine);
+        if (headingMatch && isSectionHeadingLine(fullContent, lineNumber)) {
+          const headingText = currentLine.slice(headingMatch[0].length).trim();
+          new Notice(MSG.RAID_REFERENCE_TAGGED_SECTION(headingText));
+        } else {
+          new Notice(MSG.RAID_REFERENCE_TAGGED_LINE);
+        }
       } catch (err) {
         services.loggerService.error(String(err), LOG_CONTEXT.TAG_RAID_REFERENCE, err);
         new Notice(`Error tagging line: ${String(err)}`);

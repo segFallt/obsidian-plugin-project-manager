@@ -2,10 +2,11 @@ import { MarkdownRenderChild, MarkdownRenderer, TFile, parseYaml } from "obsidia
 import type { App, MarkdownPostProcessorContext } from "obsidian";
 import type { Plugin } from "obsidian";
 import type { IQueryService, ILoggerService, RaidProcessorServices } from "../services/interfaces";
-import type { RaidType, RaidDirection, PmRaidReferencesConfig } from "../types";
+import type { RaidType, RaidReferenceEntry, PmRaidReferencesConfig } from "../types";
 import { CODEBLOCK, DEBOUNCE_MS, CSS_CLS } from "../constants";
 import { renderError } from "./dom-helpers";
-import { DIRECTION_LABELS, DIRECTION_ICONS } from "./raid-constants";
+import { DIRECTION_LABELS, DIRECTION_ICONS, DEFAULT_RAID_TYPE, RAID_SCOPE } from "./raid-constants";
+import { parseRaidReferences } from "./raid-reference-parser";
 
 // ─── Exported registration function ─────────────────────────────────────────
 
@@ -108,18 +109,12 @@ class PmRaidReferencesRenderChild extends MarkdownRenderChild {
       }
     }
 
-    // Collect references grouped by source file
-    interface ReferenceEntry {
-      direction: RaidDirection;
-      label: string;
-      lineText: string;
-    }
-    const referencesByFile = new Map<TFile, ReferenceEntry[]>();
+    // Collect references grouped by source file. Extraction is delegated to the
+    // pure, DOM-free parser (issue #90) which handles both line- and section-scope.
+    const referencesByFile = new Map<TFile, RaidReferenceEntry[]>();
 
-    const annotationPattern = new RegExp(
-      `\\{raid:(positive|negative|neutral)\\}\\[\\[${escapeRegex(raidItemName)}\\]\\]`,
-      "g"
-    );
+    const resolvedRaidType: RaidType =
+      raidType && raidType in DIRECTION_LABELS.positive ? raidType : DEFAULT_RAID_TYPE;
 
     for (const file of backlinks) {
       let content: string;
@@ -133,22 +128,12 @@ class PmRaidReferencesRenderChild extends MarkdownRenderChild {
         continue;
       }
 
-      const entries: ReferenceEntry[] = [];
-      const lines = content.split("\n");
-      for (const line of lines) {
-        annotationPattern.lastIndex = 0;
-        const match = annotationPattern.exec(line);
-        if (match) {
-          const direction = match[1] as RaidDirection;
-          const resolvedRaidType: RaidType = raidType && raidType in DIRECTION_LABELS.positive
-            ? raidType
-            : "Decision";
-          const label = DIRECTION_LABELS[direction]?.[resolvedRaidType] ?? "Notes";
-          // Strip the annotation from the line text for display
-          const strippedLine = line.replace(annotationPattern, "").trim();
-          entries.push({ direction, label, lineText: strippedLine });
-        }
-      }
+      const entries = parseRaidReferences(
+        content,
+        raidItemName,
+        resolvedRaidType,
+        DIRECTION_LABELS
+      );
 
       if (entries.length > 0) {
         referencesByFile.set(file, entries);
@@ -204,12 +189,28 @@ class PmRaidReferencesRenderChild extends MarkdownRenderChild {
         badge.textContent = `${DIRECTION_ICONS[entry.direction]} ${entry.label}`;
         item.appendChild(badge);
 
-        // Rendered annotation text (row 2, only when non-empty)
-        if (entry.lineText.trim()) {
-          const textDiv = document.createElement("div");
-          textDiv.className = "pm-raid-references__item-text";
-          await MarkdownRenderer.render(this.app, entry.lineText.trim(), textDiv, file.path, this);
-          item.appendChild(textDiv);
+        if (entry.scope === RAID_SCOPE.LINE) {
+          // Rendered annotation text (row 2, only when non-empty)
+          if (entry.lineText.trim()) {
+            const textDiv = document.createElement("div");
+            textDiv.className = CSS_CLS.RAID_REFERENCES_ITEM_TEXT;
+            await MarkdownRenderer.render(this.app, entry.lineText.trim(), textDiv, file.path, this);
+            item.appendChild(textDiv);
+          }
+        } else {
+          // Section scope — heading as the primary line, full body beneath.
+          if (entry.headingText.trim()) {
+            const textDiv = document.createElement("div");
+            textDiv.className = CSS_CLS.RAID_REFERENCES_ITEM_TEXT;
+            await MarkdownRenderer.render(this.app, entry.headingText.trim(), textDiv, file.path, this);
+            item.appendChild(textDiv);
+          }
+          if (entry.bodyMarkdown.trim()) {
+            const bodyDiv = document.createElement("div");
+            bodyDiv.className = CSS_CLS.RAID_REFERENCES_ITEM_SECTION_BODY;
+            await MarkdownRenderer.render(this.app, entry.bodyMarkdown, bodyDiv, file.path, this);
+            item.appendChild(bodyDiv);
+          }
         }
 
         list.appendChild(item);
@@ -228,10 +229,4 @@ class PmRaidReferencesRenderChild extends MarkdownRenderChild {
       void this.render();
     }, DEBOUNCE_MS.PROPERTIES);
   }
-}
-
-// ─── Utilities ───────────────────────────────────────────────────────────────
-
-function escapeRegex(str: string): string {
-  return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
