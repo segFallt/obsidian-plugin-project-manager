@@ -41,9 +41,13 @@ function makePage(name: string, raidType: string, engagement?: string) {
 
 /** Creates a minimal mock editor with spy methods. */
 function makeMockEditor(lineContent = "Some existing text") {
+  // Full document with `lineContent` at line index 3 (matches the mock cursor),
+  // so the command's context-aware heading detection sees consistent content.
+  const fullContent = ["", "", "", lineContent].join("\n");
   return {
     getCursor: vi.fn().mockReturnValue({ line: 3, ch: 10 }),
     getLine: vi.fn().mockReturnValue(lineContent),
+    getValue: vi.fn().mockReturnValue(fullContent),
     setLine: vi.fn(),
   };
 }
@@ -376,6 +380,30 @@ describe("registerTagRaidReferenceCommand", () => {
     expect(displayFn(items[0])).not.toMatch(/^★/);
     expect(displayFn(items[1])).not.toMatch(/^★/);
     expect(queryService.getRaidItemsForContext).not.toHaveBeenCalled();
+  });
+
+  it("shows the line-scoped success Notice for a non-heading line", async () => {
+    const { services, addCommand, commands, queryService } = createMockPlugin();
+    queryService.getActiveRaidItems.mockReturnValue([makePage("Scope Creep", "Risk")]);
+    queryService.getRaidItemsForContext.mockReturnValue([]);
+
+    registerTagRaidReferenceCommand(services, addCommand);
+    await runEditorCommand(commands, "tag-raid-reference", makeMockEditor("Meeting notes"), makeMockView());
+
+    expect(noticeMock).toHaveBeenCalledWith(MSG.RAID_REFERENCE_TAGGED_LINE);
+  });
+
+  it("shows the section-scoped success Notice (with heading text) for a heading line", async () => {
+    const { services, addCommand, commands, queryService } = createMockPlugin();
+    queryService.getActiveRaidItems.mockReturnValue([makePage("Scope Creep", "Risk")]);
+    queryService.getRaidItemsForContext.mockReturnValue([]);
+
+    registerTagRaidReferenceCommand(services, addCommand);
+    await runEditorCommand(
+      commands, "tag-raid-reference", makeMockEditor("## Payment approach"), makeMockView()
+    );
+
+    expect(noticeMock).toHaveBeenCalledWith(MSG.RAID_REFERENCE_TAGGED_SECTION("Payment approach"));
   });
 
   it("emits a debug log on success", async () => {

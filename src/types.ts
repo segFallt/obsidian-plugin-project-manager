@@ -69,6 +69,22 @@ export type RaidLikelihood = "High" | "Medium" | "Low";
 export type RaidImpact = "High" | "Medium" | "Low";
 export type RaidDirection = "positive" | "negative" | "neutral";
 
+/**
+ * A single RAID reference captured from a backlink file by the pm-raid-references
+ * parser (issue #90). Discriminated on `scope`:
+ *   - `line`    — a single annotated line (annotation stripped).
+ *   - `section` — an annotated ATX heading plus the full section body beneath it.
+ */
+export type RaidReferenceEntry =
+  | { scope: "line"; direction: RaidDirection; label: string; lineText: string }
+  | {
+      scope: "section";
+      direction: RaidDirection;
+      label: string;
+      headingText: string;
+      bodyMarkdown: string;
+    };
+
 export interface RaidDashboardFilters {
   raidTypes: RaidType[];
   statusFilter: RaidStatus[];

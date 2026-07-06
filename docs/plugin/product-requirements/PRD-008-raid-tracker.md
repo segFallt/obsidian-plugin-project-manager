@@ -100,8 +100,11 @@ Placed in each RAID item note (included in the template). The RAID item name is 
 Rendering:
 1. Query backlinks via `dv.pages("[[" + raidItemBasename + "]]")` — returns all vault pages containing a wikilink to the current file. This is the correct Dataview link-source syntax (not a quoted folder path); see Section 6.2.
 2. For each backlink file, read raw content via `vault.read()`.
-3. Find all lines matching `{raid:(positive|negative|neutral)}[[<CurrentItemName>]]`.
-4. For each matching line, render a badge using the type-specific label and the line text (stripped of the annotation).
+3. Extract references using the pure, DOM-free parser (`src/processors/raid-reference-parser.ts`). Each line matching `{raid:(positive|negative|neutral)}[[<CurrentItemName>]]` produces a `RaidReferenceEntry` (discriminated on `scope`):
+   - **Line scope** (default) — the annotation is on an ordinary line. Captures that line's text (stripped of the annotation). Unchanged legacy behaviour.
+   - **Section scope** (issue #90) — the annotation is on a Markdown ATX heading (`/^#{1,6}\s+/`). Captures the heading text (annotation stripped) **plus the full section body** beneath it, up to the next heading of equal-or-higher level (deeper subsections included; terminates at EOF). Only the current item's own annotation is stripped from the body; other raid items' annotations are left intact so they render as live cross-reference badges.
+   - Heading detection ignores `#`-prefixed lines inside fenced code blocks (```` ``` ```` / `~~~`) and leading YAML front-matter. Setext headings (`Title` underlined by `===`/`---`) are a known limitation: they are not detected and fall back to line scope.
+4. For each entry, render a badge using the type-specific label. Line entries render the stripped line text; section entries render the heading text as the primary line and the section body markdown beneath it (`.pm-raid-references__item-section-body`). A heading with no body renders the heading only (no empty body block).
 5. Group by source note (H4 heading with internal link to the source note).
 6. Sort source notes by the configured sort field and direction (default: creation date, newest first).
 7. On render error (e.g. Dataview unavailable), display a `.pm-error` element with the error message.
@@ -255,8 +258,10 @@ The `pm-raid-references` block uses the following CSS classes:
 | `.pm-raid-references` | Outer flex container for all groups |
 | `.pm-raid-references__group` | Wrapper `<div>` for one source-note group (heading + list) |
 | `.pm-raid-references__group-heading` | `<h4>` heading with source note link |
-| `.pm-raid-references__list` | `<ul>` list of annotated lines within a group |
-| `.pm-raid-references__item` | `<li>` single annotated line row |
+| `.pm-raid-references__list` | `<ul>` list of annotated references (line- or section-scoped) within a group |
+| `.pm-raid-references__item` | `<li>` a single reference row — either a line-scoped annotation or a section-scoped one (badge + heading text + section body) |
+| `.pm-raid-references__item-text` | `<div>` rendered primary text — the annotated line (line scope) or heading text (section scope) |
+| `.pm-raid-references__item-section-body` | `<div>` rendered full section body markdown beneath a section-scoped heading (issue #90); absent when the section has no body |
 | `.raid-badge` | Direction badge `<span>` (shared with badge renderer) |
 | `.raid-badge--positive` / `--negative` / `--neutral` | Direction-specific badge colour modifier |
 

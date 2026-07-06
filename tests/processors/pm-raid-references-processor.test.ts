@@ -555,6 +555,55 @@ describe("pm-raid-references processor", () => {
     }
   });
 
+  it("renders a section body block when the annotation is on a heading", async () => {
+    const raidItemName = "My Risk";
+    const { el } = await render(
+      [
+        {
+          path: "notes/Design.md",
+          content: [
+            `## Payment approach {raid:positive}[[${raidItemName}]]`,
+            "First detail.",
+            "",
+            "Second detail.",
+          ].join("\n"),
+        },
+      ],
+      `raid/${raidItemName}.md`,
+      { "raid-type": "Risk" }
+    );
+
+    // Heading rendered as the primary line (annotation stripped)
+    const textDiv = el.querySelector(".pm-raid-references__item-text");
+    expect(textDiv).not.toBeNull();
+    expect(textDiv?.innerHTML).toContain("## Payment approach");
+    expect(textDiv?.innerHTML).not.toContain("raid:positive");
+
+    // Section body rendered beneath in its own block
+    const body = el.querySelector(".pm-raid-references__item-section-body");
+    expect(body).not.toBeNull();
+    expect(body?.innerHTML).toContain("First detail.");
+    expect(body?.innerHTML).toContain("Second detail.");
+  });
+
+  it("renders a section heading only (no body block) for an empty section", async () => {
+    const raidItemName = "My Risk";
+    const { el } = await render(
+      [
+        {
+          path: "notes/Empty Section.md",
+          content: [`## Solo heading {raid:neutral}[[${raidItemName}]]`, "## Next", "body"].join("\n"),
+        },
+      ],
+      `raid/${raidItemName}.md`,
+      { "raid-type": "Risk" }
+    );
+
+    const textDiv = el.querySelector(".pm-raid-references__item-text");
+    expect(textDiv?.innerHTML).toContain("## Solo heading");
+    expect(el.querySelector(".pm-raid-references__item-section-body")).toBeNull();
+  });
+
   it("list items do not contain an inline internal-link anchor for negative annotations (regression: sourceLink removed)", async () => {
     const raidItemName = "My Risk";
     const { el } = await render(
