@@ -1,4 +1,5 @@
 import { Notice } from "obsidian";
+import { COMMAND_IDS } from "../command-ids";
 import type { CommandServices, AddCommandFn } from "../plugin-context";
 import { InputModal } from "../ui/modals/input-modal";
 
@@ -12,7 +13,7 @@ import { InputModal } from "../ui/modals/input-modal";
  */
 export function registerConvertInboxCommand(services: CommandServices, addCommand: AddCommandFn): void {
   addCommand({
-    id: "convert-inbox",
+    id: COMMAND_IDS.CONVERT_INBOX,
     name: "PM: Convert Inbox to Project",
     callback: async () => {
       const activeFile = services.app.workspace.getActiveFile();

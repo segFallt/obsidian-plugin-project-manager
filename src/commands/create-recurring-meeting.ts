@@ -1,4 +1,5 @@
 import { Notice } from "obsidian";
+import { COMMAND_IDS } from "../command-ids";
 import type { CommandServices, AddCommandFn } from "../plugin-context";
 import { EntityCreationModal } from "../ui/modals/entity-creation-modal";
 import { ENTITY_TAGS, MSG } from "../constants";
@@ -9,7 +10,7 @@ import { ENTITY_TAGS, MSG } from "../constants";
  */
 export function registerCreateRecurringMeetingCommand(services: CommandServices, addCommand: AddCommandFn): void {
   addCommand({
-    id: "create-recurring-meeting",
+    id: COMMAND_IDS.CREATE_RECURRING_MEETING,
     name: "PM: Create Recurring Meeting",
     callback: async () => {
       const activeEngagements = services.queryService.getActiveEntitiesByTag(

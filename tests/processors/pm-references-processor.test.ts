@@ -116,6 +116,9 @@ function createMockServices(references: DataviewPage[] = []) {
       warn: vi.fn(),
       error: vi.fn(),
     } as unknown as ReferenceProcessorServices["loggerService"],
+    commandExecutor: {
+      executeCommandById: vi.fn(),
+    } as unknown as ReferenceProcessorServices["commandExecutor"],
     saveSettings: vi.fn(async () => undefined),
   };
 
@@ -222,8 +225,8 @@ describe("pm-references processor (summary card)", () => {
     const btn = el.querySelector("button") as HTMLButtonElement;
     btn.click();
     expect(
-      (services.app.commands as { executeCommandById: ReturnType<typeof vi.fn> }).executeCommandById
-    ).toHaveBeenCalledWith("project-manager:open-reference-dashboard");
+      (services.commandExecutor.executeCommandById as ReturnType<typeof vi.fn>)
+    ).toHaveBeenCalledWith("open-reference-dashboard");
   });
 
   it("parses valid YAML config without errors", () => {
@@ -279,13 +282,13 @@ describe("pm-references processor (summary card)", () => {
     ).toBe("Technology");
     expect(saveSettings).toHaveBeenCalledOnce();
     expect(
-      (services.app.commands as { executeCommandById: ReturnType<typeof vi.fn> }).executeCommandById
-    ).toHaveBeenCalledWith("project-manager:open-reference-dashboard");
+      (services.commandExecutor.executeCommandById as ReturnType<typeof vi.fn>)
+    ).toHaveBeenCalledWith("open-reference-dashboard");
     // saveSettings must be called before the command is executed
     const saveOrder = saveSettings.mock.invocationCallOrder[0];
     const cmdOrder = (
-      services.app.commands as { executeCommandById: ReturnType<typeof vi.fn> }
-    ).executeCommandById.mock.invocationCallOrder[0];
+      services.commandExecutor.executeCommandById as ReturnType<typeof vi.fn>
+    ).mock.invocationCallOrder[0];
     expect(saveOrder).toBeLessThan(cmdOrder);
   });
 
@@ -301,8 +304,8 @@ describe("pm-references processor (summary card)", () => {
     ).toBe(initialFilters.selectedNode);
     expect(saveSettings).not.toHaveBeenCalled();
     expect(
-      (services.app.commands as { executeCommandById: ReturnType<typeof vi.fn> }).executeCommandById
-    ).toHaveBeenCalledWith("project-manager:open-reference-dashboard");
+      (services.commandExecutor.executeCommandById as ReturnType<typeof vi.fn>)
+    ).toHaveBeenCalledWith("open-reference-dashboard");
   });
 
   it("normalises wikilink topic name from [[Technology]] to Technology when setting selectedNode", async () => {

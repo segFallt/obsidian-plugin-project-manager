@@ -257,7 +257,7 @@ describe("ReferenceDashboardItemView", () => {
       newRefBtn!.click();
       expect(plugin.actionContext.set).toHaveBeenCalledWith({ field: "topic", value: "Kubernetes" });
       expect(plugin.commandExecutor.executeCommandById).toHaveBeenCalledWith(
-        "project-manager:create-reference"
+        "create-reference"
       );
     });
 
@@ -272,7 +272,7 @@ describe("ReferenceDashboardItemView", () => {
       newRefBtn!.click();
       expect(plugin.actionContext.set).not.toHaveBeenCalled();
       expect(plugin.commandExecutor.executeCommandById).toHaveBeenCalledWith(
-        "project-manager:create-reference"
+        "create-reference"
       );
     });
 
@@ -286,7 +286,7 @@ describe("ReferenceDashboardItemView", () => {
       expect(newTopicBtn).not.toBeUndefined();
       newTopicBtn!.click();
       expect(plugin.commandExecutor.executeCommandById).toHaveBeenCalledWith(
-        "project-manager:create-reference-topic"
+        "create-reference-topic"
       );
       expect(plugin.actionContext.set).not.toHaveBeenCalled();
     });

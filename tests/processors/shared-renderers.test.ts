@@ -96,7 +96,7 @@ describe("renderActionButtons", () => {
     const el = document.createElement("div");
     renderActionButtons(el, [{ type: "create-client", label: "X" }], actionServices);
     el.querySelector("button")?.click();
-    expect(executeCommandById).toHaveBeenCalledWith("project-manager:create-client");
+    expect(executeCommandById).toHaveBeenCalledWith("create-client");
   });
 
   it("uses custom commandId when provided", () => {

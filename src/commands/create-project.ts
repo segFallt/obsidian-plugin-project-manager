@@ -1,4 +1,5 @@
 import { Notice } from "obsidian";
+import { COMMAND_IDS } from "../command-ids";
 import type { CommandServices, AddCommandFn } from "../plugin-context";
 import { EntityCreationModal } from "../ui/modals/entity-creation-modal";
 import { ENTITY_TAGS, MSG } from "../constants";
@@ -10,7 +11,7 @@ import { ENTITY_TAGS, MSG } from "../constants";
  */
 export function registerCreateProjectCommand(services: CommandServices, addCommand: AddCommandFn): void {
   addCommand({
-    id: "create-project",
+    id: COMMAND_IDS.CREATE_PROJECT,
     name: "PM: Create Project",
     callback: async () => {
       const pendingCtx = services.actionContext.consume();
