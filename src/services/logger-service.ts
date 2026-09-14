@@ -13,6 +13,21 @@ interface LogEntry {
 }
 
 /**
+ * The subset of Obsidian's vault `DataAdapter` this service relies on for
+ * reading, writing, and pruning log files. Declared locally as the single
+ * boundary contract for the vault adapter, whose public type does not expose
+ * these filesystem methods.
+ */
+interface IVaultFileAdapter {
+  exists(path: string): Promise<boolean>;
+  read(path: string): Promise<string>;
+  write(path: string, content: string): Promise<void>;
+  list(path: string): Promise<{ files: string[] }>;
+  remove(path: string): Promise<void>;
+  mkdir(path: string): Promise<void>;
+}
+
+/**
  * Writes timestamped log entries to vault files.
  *
  * Buffers entries in memory and flushes to disk every LOG_FLUSH_INTERVAL_MS ms
@@ -82,10 +97,7 @@ export class LoggerService implements ILoggerService {
       return;
     }
 
-    const adapter = this.app.vault.adapter as unknown as {
-      list(path: string): Promise<{ files: string[] }>;
-      remove(path: string): Promise<void>;
-    };
+    const adapter = this.adapter;
 
     let listing: { files: string[] };
     try {
@@ -124,6 +136,15 @@ export class LoggerService implements ILoggerService {
 
   // ─── Internals ────────────────────────────────────────────────────────────
 
+  /**
+   * The vault adapter narrowed to the file operations this service uses.
+   * Cast once here (a loose double-assertion, as the public adapter type omits
+   * these methods) rather than at each call site.
+   */
+  private get adapter(): IVaultFileAdapter {
+    return this.app.vault.adapter as unknown as IVaultFileAdapter;
+  }
+
   private log(level: LogLevel, message: string, context: string): void {
     const settings = this.getSettings();
     if (!settings.enabled) return;
@@ -143,10 +164,7 @@ export class LoggerService implements ILoggerService {
   }
 
   private async ensureDirectoryExists(dirPath: string): Promise<void> {
-    const adapter = this.app.vault.adapter as unknown as {
-      exists(path: string): Promise<boolean>;
-      mkdir(path: string): Promise<void>;
-    };
+    const adapter = this.adapter;
 
     const parts = dirPath.split("/");
     let current = "";
@@ -164,11 +182,7 @@ export class LoggerService implements ILoggerService {
   }
 
   private async appendToFile(filePath: string, content: string): Promise<void> {
-    const adapter = this.app.vault.adapter as unknown as {
-      exists(path: string): Promise<boolean>;
-      read(path: string): Promise<string>;
-      write(path: string, content: string): Promise<void>;
-    };
+    const adapter = this.adapter;
 
     const exists = await adapter.exists(filePath);
     if (exists) {
