@@ -3,6 +3,7 @@ import type { MarkdownPostProcessorContext } from "obsidian";
 import type { PropertyProcessorServices, RegisterProcessorFn } from "../plugin-context";
 import type { PmPropertiesConfig } from "../types";
 import { DEBOUNCE_MS, CODEBLOCK, LOG_CONTEXT, CACHE_RETRY_MAX, CSS_CLS } from "../constants";
+import { debounced } from "../utils/debounce";
 import { renderError } from "./dom-helpers";
 import { ENTITY_FIELDS } from "./entity-field-config";
 import { renderField } from "./property-field-renderers";
@@ -38,7 +39,7 @@ export function registerPmPropertiesProcessor(
 
 
 class PmPropertiesRenderChild extends MarkdownRenderChild {
-  private debounceTimer: ReturnType<typeof setTimeout> | null = null;
+  private readonly refresh = debounced(() => this.render(), DEBOUNCE_MS.PROPERTIES);
   private isUpdating = false;
   private autocompletes: Array<{ destroy(): void }> = [];
   private cacheRetryCount = 0;
@@ -61,23 +62,13 @@ class PmPropertiesRenderChild extends MarkdownRenderChild {
         if (this.isUpdating) return;
         if (!(file instanceof TFile)) return;
         if (file.path !== this.sourcePath) return;
-        this.debouncedRefresh();
+        this.refresh.trigger();
       })
     );
   }
 
   onunload(): void {
-    if (this.debounceTimer !== null) {
-      clearTimeout(this.debounceTimer);
-      this.debounceTimer = null;
-    }
-  }
-
-  private debouncedRefresh(): void {
-    if (this.debounceTimer) clearTimeout(this.debounceTimer);
-    this.debounceTimer = setTimeout(() => {
-      this.render();
-    }, DEBOUNCE_MS.PROPERTIES);
+    this.refresh.cancel();
   }
 
   render(): void {

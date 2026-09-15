@@ -16,7 +16,8 @@ import type {
   TaskContext,
   TaskPriority,
 } from "../types";
-import { CONTEXT, ENTITY_TAGS, TASK_CONTEXTS, DUE_DATE_PRESETS, DEFAULT_DUE_DATE_FILTER, DEBOUNCE_MS, MSG, LOG_CONTEXT, VIEW_MODE } from "../constants";
+import { CONTEXT, ENTITY_TAGS, TASK_CONTEXTS, DUE_DATE_PRESETS, DEFAULT_DUE_DATE_FILTER, DEBOUNCE_MS, MSG, LOG_CONTEXT, VIEW_MODE, CSS_CLS } from "../constants";
+import { debounced } from "../utils/debounce";
 import { renderError } from "./dom-helpers";
 import type { ITaskFilterService } from "../services/interfaces";
 import type { ITaskSortService } from "../services/interfaces";
@@ -47,7 +48,8 @@ const LEGACY_SORT_MAP: Record<string, SortKey[]> = {
 export class DashboardView {
   private filters!: DashboardFilters;
   private outputEl!: HTMLElement;
-  private debounceTimer: ReturnType<typeof setTimeout> | null = null;
+  private searchControlsEl: HTMLElement | null = null;
+  private readonly search = debounced(() => this.runDebouncedRefresh(), DEBOUNCE_MS.SEARCH);
   private chipSelects: FilterChipSelect[] = [];
   private isDrawerOpen = false;
   private chipsBarEl: HTMLElement | null = null;
@@ -79,9 +81,9 @@ export class DashboardView {
   render(): void {
     this.services.loggerService.debug(`pm-tasks-dashboard rendering, mode: "${this.config.mode}"`, LOG_CONTEXT.TASKS_DASHBOARD);
     this.initFilters();
-    const root = this.containerEl.createDiv({ cls: "pm-tasks-dashboard" });
+    const root = this.containerEl.createDiv({ cls: CSS_CLS.TASKS_DASHBOARD });
     this.renderControls(root);
-    this.outputEl = root.createDiv({ cls: "pm-tasks-dashboard__output" });
+    this.outputEl = root.createDiv({ cls: CSS_CLS.TASKS_DASHBOARD_OUTPUT });
     void this.refreshDashboardOutput(this.outputEl);
   }
 
@@ -458,11 +460,11 @@ export class DashboardView {
         this.destroyDrawerComponents();
         this.isDrawerOpen = false;
         // Re-render entire dashboard from scratch
-        const dashboard = root.closest(".pm-tasks-dashboard") ?? root;
+        const dashboard = root.closest(`.${CSS_CLS.TASKS_DASHBOARD}`) ?? root;
         dashboard.empty();
         this.initFilters();
         this.renderControls(dashboard as HTMLElement);
-        this.outputEl = (dashboard as HTMLElement).createDiv({ cls: "pm-tasks-dashboard__output" });
+        this.outputEl = (dashboard as HTMLElement).createDiv({ cls: CSS_CLS.TASKS_DASHBOARD_OUTPUT });
         void this.refreshDashboardOutput(this.outputEl);
       });
   }
@@ -743,13 +745,23 @@ export class DashboardView {
   }
 
   private debouncedRefresh(controlsEl: HTMLElement): void {
-    if (this.debounceTimer) clearTimeout(this.debounceTimer);
-    this.debounceTimer = setTimeout(() => {
-      const dashboard = controlsEl.closest(".pm-tasks-dashboard");
-      if (!dashboard) return;
-      const outputEl = dashboard.querySelector(".pm-tasks-dashboard__output");
-      if (outputEl instanceof HTMLElement) void this.refreshDashboardOutput(outputEl);
-    }, DEBOUNCE_MS.SEARCH);
+    this.searchControlsEl = controlsEl;
+    this.search.trigger();
+  }
+
+  private runDebouncedRefresh(): void {
+    const controlsEl = this.searchControlsEl;
+    if (!controlsEl) return;
+    const dashboard = controlsEl.closest(`.${CSS_CLS.TASKS_DASHBOARD}`);
+    if (!dashboard) return;
+    const outputEl = dashboard.querySelector(`.${CSS_CLS.TASKS_DASHBOARD_OUTPUT}`);
+    if (outputEl instanceof HTMLElement) void this.refreshDashboardOutput(outputEl);
+  }
+
+  /** Cancels any pending debounced refresh and releases drawer/filter components. */
+  destroy(): void {
+    this.search.cancel();
+    this.destroyDrawerComponents();
   }
 
   // ─── Task querying ────────────────────────────────────────────────────────

@@ -273,6 +273,11 @@ export const CSS_CLS = {
   // RAID references processor
   RAID_REFERENCES_ITEM_TEXT: "pm-raid-references__item-text",
   RAID_REFERENCES_ITEM_SECTION_BODY: "pm-raid-references__item-section-body",
+  // Task view processors (dashboard + by-project)
+  TASKS_DASHBOARD: "pm-tasks-dashboard",
+  TASKS_DASHBOARD_OUTPUT: "pm-tasks-dashboard__output",
+  TASKS_BY_PROJECT: "pm-tasks-by-project",
+  TASKS_BY_PROJECT_OUTPUT: "pm-tasks-by-project__output",
   // Obsidian built-in task classes (NOT plugin pm-* classes). Obsidian emits
   // these on rendered markdown task lists; we reuse them so checkbox lookup
   // and persistence stay in sync with Obsidian's own DOM output.

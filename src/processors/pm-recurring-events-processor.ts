@@ -4,6 +4,7 @@ import type { RecurringEventsProcessorServices, RegisterProcessorFn } from "../p
 import type { DataviewPage } from "../types";
 import { normalizeToName } from "../utils/link-utils";
 import { DEBOUNCE_MS, CODEBLOCK, CSS_CLS, CSS_SELECTOR, ISO_DATETIME_INPUT_LENGTH, NOTES_MARKER, LOG_CONTEXT, MSG } from "../constants";
+import { debounced } from "../utils/debounce";
 
 /**
  * Renders recurring meeting events as a tile grid.
@@ -30,7 +31,7 @@ export function registerPmRecurringEventsProcessor(
 // ─── Render child ──────────────────────────────────────────────────────────
 
 class PmRecurringEventsRenderChild extends MarkdownRenderChild {
-  private debounceTimer: ReturnType<typeof setTimeout> | null = null;
+  private readonly refresh = debounced(() => { void this.render(); }, DEBOUNCE_MS.TASKS);
 
   constructor(
     containerEl: HTMLElement,
@@ -45,16 +46,13 @@ class PmRecurringEventsRenderChild extends MarkdownRenderChild {
     // Uses a 1 second debounce to allow Dataview to re-index before querying.
     this.registerEvent(
       this.services.app.vault.on("modify", () => {
-        this.debouncedRefresh();
+        this.refresh.trigger();
       })
     );
   }
 
   onunload(): void {
-    if (this.debounceTimer !== null) {
-      clearTimeout(this.debounceTimer);
-      this.debounceTimer = null;
-    }
+    this.refresh.cancel();
   }
 
   async render(): Promise<void> {
@@ -285,14 +283,4 @@ class PmRecurringEventsRenderChild extends MarkdownRenderChild {
     }
   }
 
-  /**
-   * Triggered by vault 'modify' events.
-   * Uses a 1 second debounce to allow Dataview to re-index before re-querying.
-   */
-  private debouncedRefresh(): void {
-    if (this.debounceTimer) clearTimeout(this.debounceTimer);
-    this.debounceTimer = setTimeout(() => {
-      void this.render();
-    }, DEBOUNCE_MS.TASKS);
-  }
 }

@@ -4,6 +4,7 @@ import type { Plugin } from "obsidian";
 import type { IQueryService, ILoggerService, IEntityHierarchyService, RaidProcessorServices } from "../services/interfaces";
 import type { RaidDashboardFilters, RaidType, RaidStatus, RaidLikelihood, RaidImpact, DataviewPage, SavedRaidDashboardFilters } from "../types";
 import { CODEBLOCK, DEBOUNCE_MS, CSS_CLS, ENTITY_TAGS, FM_KEY } from "../constants";
+import { debounced } from "../utils/debounce";
 import { renderError } from "./dom-helpers";
 import { normalizeToName } from "../utils/link-utils";
 import { FilterChipSelect } from "../ui/components/filter-chip-select";
@@ -86,8 +87,8 @@ export function registerPmRaidDashboardProcessor(
 // ─── Render child ───────────────────────────────────────────────────────────
 
 class PmRaidDashboardRenderChild extends MarkdownRenderChild {
-  private debounceTimer: ReturnType<typeof setTimeout> | null = null;
-  private saveDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+  private readonly refresh = debounced(() => this.render(), DEBOUNCE_MS.PROPERTIES);
+  private readonly saveFilters = debounced(() => { void this.persistFilters(); }, DEBOUNCE_MS.PROPERTIES);
   private isUpdating = false;
   private filters!: RaidDashboardFilters;
   private config: PmRaidDashboardConfig = {};
@@ -115,14 +116,8 @@ class PmRaidDashboardRenderChild extends MarkdownRenderChild {
   }
 
   onunload(): void {
-    if (this.debounceTimer !== null) {
-      clearTimeout(this.debounceTimer);
-      this.debounceTimer = null;
-    }
-    if (this.saveDebounceTimer !== null) {
-      clearTimeout(this.saveDebounceTimer);
-      this.saveDebounceTimer = null;
-    }
+    this.refresh.cancel();
+    this.saveFilters.cancel();
     this.destroyChipSelects();
   }
 
@@ -191,10 +186,7 @@ class PmRaidDashboardRenderChild extends MarkdownRenderChild {
   }
 
   private debouncedSaveFilters(): void {
-    if (this.saveDebounceTimer) clearTimeout(this.saveDebounceTimer);
-    this.saveDebounceTimer = setTimeout(() => {
-      void this.persistFilters();
-    }, DEBOUNCE_MS.PROPERTIES);
+    this.saveFilters.trigger();
   }
 
   private async persistFilters(): Promise<void> {
@@ -504,9 +496,6 @@ class PmRaidDashboardRenderChild extends MarkdownRenderChild {
   // ─── Debounced refresh ──────────────────────────────────────────────────
 
   private debouncedRefresh(): void {
-    if (this.debounceTimer) clearTimeout(this.debounceTimer);
-    this.debounceTimer = setTimeout(() => {
-      this.render();
-    }, DEBOUNCE_MS.PROPERTIES);
+    this.refresh.trigger();
   }
 }

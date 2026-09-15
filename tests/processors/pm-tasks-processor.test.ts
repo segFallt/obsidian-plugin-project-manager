@@ -532,10 +532,11 @@ describe("pm-tasks processor", () => {
       await vi.runAllTimersAsync();
 
       // While the persist promise is still unresolved, fire the vault modify event
-      // isUpdating should be true, so debouncedAutoRefresh should NOT be scheduled
+      // isUpdating should be true, so the auto-refresh should NOT be scheduled
+      const TRIGGER_METHOD = "trigger" as const;
       const autoRefreshSpy = vi.spyOn(
-        capturedChild as unknown as { debouncedAutoRefresh(): void },
-        "debouncedAutoRefresh" as never
+        (capturedChild as unknown as { autoRefresh: { trigger(): void } }).autoRefresh,
+        TRIGGER_METHOD
       );
       vaultModifyCallback();
 

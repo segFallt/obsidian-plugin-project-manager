@@ -1,6 +1,7 @@
 import type { ReferenceProcessorServices } from "../plugin-context";
 import type { PmReferencesConfig, ReferenceFilters, ReferenceViewMode } from "../types";
 import { ENTITY_TAGS, DEBOUNCE_MS } from "../constants";
+import { debounced } from "../utils/debounce";
 import { renderTopicView } from "./reference-views/topic-view-renderer";
 import { renderClientView } from "./reference-views/client-view-renderer";
 import { renderEngagementView } from "./reference-views/engagement-view-renderer";
@@ -44,7 +45,8 @@ function defaultFilters(config: PmReferencesConfig): ReferenceFilters {
 export class ReferenceDashboardView {
   private filters: ReferenceFilters;
   private filtersExpanded = false;
-  private searchDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+  private searchInputEl: HTMLInputElement | null = null;
+  private readonly search = debounced(() => this.applySearch(), DEBOUNCE_MS.SEARCH);
   private bodyEl!: HTMLElement;
   private chipSelects: FilterChipSelect[] = [];
 
@@ -119,14 +121,25 @@ export class ReferenceDashboardView {
       },
     });
     searchInput.addEventListener("input", () => {
-      if (this.searchDebounceTimer) clearTimeout(this.searchDebounceTimer);
-      this.searchDebounceTimer = setTimeout(() => {
-        this.filters = { ...this.filters, searchText: searchInput.value };
-        this.onFiltersChange(this.filters);
-        this.bodyEl.empty();
-        this.renderBody();
-      }, DEBOUNCE_MS.SEARCH);
+      this.searchInputEl = searchInput;
+      this.search.trigger();
     });
+  }
+
+  private applySearch(): void {
+    const input = this.searchInputEl;
+    if (!input) return;
+    this.filters = { ...this.filters, searchText: input.value };
+    this.onFiltersChange(this.filters);
+    this.bodyEl.empty();
+    this.renderBody();
+  }
+
+  /** Cancels any pending debounced search and releases filter components. */
+  destroy(): void {
+    this.search.cancel();
+    for (const cs of this.chipSelects) cs.destroy();
+    this.chipSelects = [];
   }
 
   // ─── Filter panel ──────────────────────────────────────────────────────────
