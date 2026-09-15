@@ -2,7 +2,26 @@ import { describe, it, expect, vi, afterEach } from "vitest";
 import { TFile } from "obsidian";
 import { registerPmRaidDashboardProcessor } from "@/processors/pm-raid-dashboard-processor";
 import type { RaidProcessorServices, IEntityHierarchyService } from "@/services/interfaces";
-import type { DataviewPage } from "@/types";
+import type { DataviewApi, DataviewPage } from "@/types";
+import { MSG } from "@/constants";
+import { createDataviewArray } from "../mocks/dataview-mock";
+
+/**
+ * A minimal Dataview API over a fixed RAID item set. `RaidQuery` calls
+ * `dv.pages("#raid").sort(...)`, so `pages` returns a DataviewArray (which
+ * supplies `sort` + iteration) of the `#raid`-tagged items.
+ */
+function makeMockDv(items: DataviewPage[]): DataviewApi {
+  return {
+    pages: (source?: string) => {
+      const matched =
+        source && source.startsWith("#")
+          ? items.filter((p) => (p.file.tags ?? []).includes(source))
+          : items;
+      return createDataviewArray(matched);
+    },
+  } as unknown as DataviewApi;
+}
 
 // ─── Mock item factory ────────────────────────────────────────────────────
 
@@ -102,7 +121,7 @@ function createMockServices(items: DataviewPage[] = [], hierarchyService?: IEnti
       fileManager: { processFrontMatter: vi.fn() },
     } as unknown as RaidProcessorServices["app"],
     queryService: {
-      getAllRaidItems: vi.fn(() => items),
+      dv: vi.fn(() => makeMockDv(items)),
       getActiveEntitiesByTag: vi.fn(() => []),
     } as unknown as RaidProcessorServices["queryService"],
     hierarchyService: hierarchyService ?? createMockHierarchyService(),
@@ -394,11 +413,9 @@ describe("pm-raid-dashboard processor", () => {
     expect(vaultOn).toHaveBeenCalledWith("modify", expect.any(Function));
   });
 
-  it("renders error element when getAllRaidItems throws (Dataview unavailable)", () => {
+  it("shows the dataview-unavailable message when Dataview is not available", () => {
     const { services, mockPlugin, getHandler } = createMockServices();
-    (services.queryService.getAllRaidItems as ReturnType<typeof vi.fn>).mockImplementation(() => {
-      throw new Error("Dataview not available");
-    });
+    (services.queryService.dv as ReturnType<typeof vi.fn>).mockReturnValue(null);
 
     registerPmRaidDashboardProcessor(
       mockPlugin as unknown as Parameters<typeof registerPmRaidDashboardProcessor>[0],
@@ -412,8 +429,7 @@ describe("pm-raid-dashboard processor", () => {
     };
     getHandler()("", el, ctx);
 
-    const errorEl = el.querySelector(".pm-error");
-    expect(errorEl).not.toBeNull();
+    expect(el.textContent).toContain(MSG.DATAVIEW_UNAVAILABLE);
   });
 
   describe("status filter regression — Resolved and Closed chips", () => {

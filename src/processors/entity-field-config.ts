@@ -1,5 +1,6 @@
 import type { EntityType } from "../types";
 import { FM_KEY, ENTITY_TAGS, CLIENT_STATUSES, ENGAGEMENT_STATUSES, PROJECT_STATUSES, INBOX_STATUSES, PRIORITY_OPTIONS } from "../constants";
+import { RAID_TYPES, RAID_STATUSES, LIKELIHOODS, IMPACTS_SEVERITY_FIRST } from "../raid-constants";
 
 // ─── Field descriptor types ───────────────────────────────────────────────
 
@@ -84,15 +85,15 @@ export const ENTITY_FIELDS: Record<EntityType, FieldDescriptor[]> = {
     { key: FM_KEY.ENGAGEMENT, label: "Engagement", type: "suggester", entityTag: ENTITY_TAGS.engagement },
   ],
   "raid-item": [
-    { key: "raid-type", label: "RAID Type", type: "select", options: ["Risk", "Assumption", "Issue", "Decision"] },
-    { key: FM_KEY.STATUS, label: "Status", type: "select", options: ["Open", "In Progress", "Resolved", "Closed"] },
-    { key: "likelihood", label: "Likelihood", type: "select", options: ["High", "Medium", "Low"] },
-    { key: "impact", label: "Impact", type: "select", options: ["High", "Medium", "Low"] },
+    { key: FM_KEY.RAID_TYPE, label: "RAID Type", type: "select", options: RAID_TYPES },
+    { key: FM_KEY.STATUS, label: "Status", type: "select", options: RAID_STATUSES },
+    { key: FM_KEY.LIKELIHOOD, label: "Likelihood", type: "select", options: LIKELIHOODS },
+    { key: FM_KEY.IMPACT, label: "Impact", type: "select", options: IMPACTS_SEVERITY_FIRST },
     { key: FM_KEY.CLIENT, label: "Client", type: "suggester", entityTag: ENTITY_TAGS.client },
     { key: FM_KEY.ENGAGEMENT, label: "Engagement", type: "suggester", entityTag: ENTITY_TAGS.engagement },
-    { key: "owner", label: "Owner", type: "suggester", entityTag: ENTITY_TAGS.person },
-    { key: "raised-date", label: "Raised Date", type: "date" },
-    { key: "closed-date", label: "Closed Date", type: "date" },
+    { key: FM_KEY.OWNER, label: "Owner", type: "suggester", entityTag: ENTITY_TAGS.person },
+    { key: FM_KEY.RAISED_DATE, label: "Raised Date", type: "date" },
+    { key: FM_KEY.CLOSED_DATE, label: "Closed Date", type: "date" },
     { key: FM_KEY.DESCRIPTION, label: "Description", type: "textarea" },
   ],
   "reference-topic": [],

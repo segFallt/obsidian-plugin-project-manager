@@ -1,5 +1,5 @@
 import type { RaidType, RaidDirection, RaidReferenceEntry } from "../types";
-import { DEFAULT_DIRECTION_LABEL, ATX_HEADING_RE, RAID_SCOPE } from "./raid-constants";
+import { DEFAULT_DIRECTION_LABEL, ATX_HEADING_RE, RAID_SCOPE } from "../raid-constants";
 
 /** Leading YAML front-matter fence delimiter (opens and closes the top block). */
 const FRONT_MATTER_DELIMITER = "---";

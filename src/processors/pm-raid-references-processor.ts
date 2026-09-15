@@ -6,7 +6,7 @@ import type { RaidType, RaidReferenceEntry, PmRaidReferencesConfig } from "../ty
 import { CODEBLOCK, DEBOUNCE_MS, CSS_CLS } from "../constants";
 import { debounced } from "../utils/debounce";
 import { renderError, createInternalLink } from "./dom-helpers";
-import { DIRECTION_LABELS, DIRECTION_ICONS, DEFAULT_RAID_TYPE, RAID_SCOPE } from "./raid-constants";
+import { DIRECTION_LABELS, DIRECTION_ICONS, DEFAULT_RAID_TYPE, RAID_SCOPE } from "../raid-constants";
 import { parseRaidReferences } from "./raid-reference-parser";
 
 // ─── Exported registration function ─────────────────────────────────────────

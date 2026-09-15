@@ -17,10 +17,9 @@ import {
 } from "../constants";
 import { normalizeToName } from "../utils/link-utils";
 import { withCommandErrorNotice } from "./command-error-notice";
+import { RAID_TYPES } from "../raid-constants";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-
-const RAID_TYPES: RaidType[] = ["Risk", "Assumption", "Issue", "Decision"];
 
 // Sentinel used as a list item for "no selection" in optional pickers
 const NONE_OPTION = { file: { name: RAID_PICKER_NONE_LABEL, path: "" } } as DataviewPage;
