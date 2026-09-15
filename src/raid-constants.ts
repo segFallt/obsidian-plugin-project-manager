@@ -1,4 +1,32 @@
-import type { RaidType, RaidDirection } from "../types";
+import type { RaidType, RaidDirection, RaidStatus, RaidLikelihood, RaidImpact } from "./types";
+
+// ─── Shared RAID vocabulary ─────────────────────────────────────────────────
+//
+// The single source of truth for RAID enumerations, consumed by the dashboard,
+// field config, badge processor, and create command.
+
+/** The four RAID item types, in canonical display order. */
+export const RAID_TYPES: RaidType[] = ["Risk", "Assumption", "Issue", "Decision"];
+
+/** The RAID item statuses, in lifecycle order. */
+export const RAID_STATUSES: RaidStatus[] = ["Open", "In Progress", "Resolved", "Closed"];
+
+/** Statuses a fresh dashboard shows by default (the still-active ones). */
+export const RAID_DEFAULT_ACTIVE_STATUSES: RaidStatus[] = ["Open", "In Progress"];
+
+/** Likelihood levels, high→low — the order used at every site (matrix rows and field config agree). */
+export const LIKELIHOODS: RaidLikelihood[] = ["High", "Medium", "Low"];
+
+/**
+ * Impact levels, low→high — the pm-raid-dashboard matrix column order.
+ * Impact ordering is deliberately site-specific: the matrix reads columns
+ * low→high, while the entity-field-config select lists them severity-first
+ * (see {@link IMPACTS_SEVERITY_FIRST}).
+ */
+export const IMPACTS: RaidImpact[] = ["Low", "Medium", "High"];
+
+/** Impact levels, high→low (severity-first) — the entity-field-config select order. */
+export const IMPACTS_SEVERITY_FIRST: RaidImpact[] = ["High", "Medium", "Low"];
 
 // ─── Shared RAID direction constants ────────────────────────────────────────
 

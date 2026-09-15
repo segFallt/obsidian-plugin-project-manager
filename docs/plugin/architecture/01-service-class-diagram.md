@@ -43,6 +43,11 @@ classDiagram
         +resolve() DataviewTask[]
     }
 
+    class RaidQuery {
+        -getDv() DataviewApi|null
+        +resolve() DataviewPage[]
+    }
+
     class IEntityCreationService {
         <<interface>>
         +createClient(name) Promise~TFile~
@@ -287,6 +292,8 @@ classDiagram
     QueryService ..|> IQueryService
     TaskQuery ..|> IEntityQuery
     TaskQuery ..> QueryService : dv()
+    RaidQuery ..|> IEntityQuery
+    RaidQuery ..> QueryService : dv()
     EntityCreationService ..|> IEntityCreationService
     EntityConversionService ..|> IEntityConversionService
     EntityService ..|> IEntityService
@@ -323,6 +330,11 @@ classDiagram
     DateViewRenderer ..|> IViewRenderer
     PriorityViewRenderer ..|> IViewRenderer
     TagViewRenderer ..|> IViewRenderer
+    RaidMatrixRenderer ..|> IViewRenderer
+    RaidItemGroupRenderer ..|> IViewRenderer
+    RaidDashboardRenderer ..|> IViewRenderer
+    RaidDashboardRenderer --> RaidMatrixRenderer : composes
+    RaidDashboardRenderer --> RaidItemGroupRenderer : composes
     IViewRenderer ..> ViewRenderContext : render(ctx)
 
     class Facet~Item~ {

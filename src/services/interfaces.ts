@@ -39,7 +39,6 @@ export interface IQueryService {
   getPage(path: string): DataviewPage | null;
   getActiveRecurringMeetings(): DataviewPage[];
   getRecurringMeetingEvents(meetingName: string): DataviewPage[];
-  getAllRaidItems(): DataviewPage[];
   getActiveRaidItems(): DataviewPage[];
   getRaidItemsForContext(clientName?: string, engagementName?: string): DataviewPage[];
   getReferencesByTopic(topicName: string): DataviewPage[];

@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { parseRaidReferences, isSectionHeadingLine } from "@/processors/raid-reference-parser";
-import { DIRECTION_LABELS } from "@/processors/raid-constants";
+import { DIRECTION_LABELS } from "@/raid-constants";
 import type { RaidReferenceEntry } from "@/types";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────

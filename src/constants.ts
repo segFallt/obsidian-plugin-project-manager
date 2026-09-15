@@ -84,6 +84,20 @@ export const FACET_KEY = {
   MEETING_DATE: "meetingDate",
 } as const;
 
+/**
+ * Filter facet keys for the RAID dashboard. `MATRIX_CELL` is the facet the
+ * interactive matrix renderer owns — the shell excludes it (`specWithout`) when
+ * computing the matrix's per-cell counts so a selected cell keeps the others'.
+ */
+export const RAID_FACET_KEY = {
+  RAID_TYPES: "raidTypes",
+  STATUS: "statusFilter",
+  CLIENT: "clientFilter",
+  ENGAGEMENT: "engagementFilter",
+  SEARCH_TEXT: "searchText",
+  MATRIX_CELL: "matrixCell",
+} as const;
+
 /** The facet keys gated to the "context" view mode. */
 export const CONTEXT_FACET_KEYS = [
   FACET_KEY.PROJECT_STATUS,
@@ -181,6 +195,8 @@ export const NEXT_WEEK_START_OFFSET = WEEK_DAYS + 1;
 export const NEXT_WEEK_END_OFFSET = WEEK_DAYS * 2;
 /** Length of an ISO date string (YYYY-MM-DD). */
 export const ISO_DATE_LENGTH = 10;
+/** Milliseconds in one day, for age/elapsed-day calculations. */
+export const MS_PER_DAY = 86400000;
 /** Length of an ISO datetime string (YYYY-MM-DDTHH:mm:ss). */
 export const ISO_DATETIME_LENGTH = 19;
 /** Fallback sort priority for items with no priority set. */
@@ -212,6 +228,13 @@ export const LOG_LEVELS = { DEBUG: 0, INFO: 1, WARN: 2, ERROR: 3 } as const;
 /** `typeof` result strings, for type-guard comparisons without bare literals. */
 export const JS_TYPE = {
   OBJECT: "object",
+  STRING: "string",
+} as const;
+
+/** Dataview sort-order argument values. */
+export const SORT_ORDER = {
+  ASC: "asc",
+  DESC: "desc",
 } as const;
 
 /** How often (ms) the logger flushes its in-memory buffer to disk. */
@@ -227,6 +250,8 @@ export const LOG_CONTEXT = {
   TASKS_PROCESSOR: "pm-tasks-processor",
   TASKS_DASHBOARD: "pm-tasks-dashboard",
   TASKS_BY_PROJECT: "pm-tasks-by-project",
+  RAID_DASHBOARD_PROCESSOR: "pm-raid-dashboard-processor",
+  RAID_DASHBOARD: "pm-raid-dashboard",
   ENTITY_VIEW: "pm-entity-view",
   CREATE_RAID_ITEM: "create-raid-item",
   CREATE_REFERENCE: "create-reference",
@@ -318,6 +343,12 @@ export const FM_KEY = {
   REPORTS_TO: "reports-to",
   PRIORITY: "priority",
   DESCRIPTION: "description",
+  RAID_TYPE: "raid-type",
+  LIKELIHOOD: "likelihood",
+  IMPACT: "impact",
+  RAISED_DATE: "raised-date",
+  CLOSED_DATE: "closed-date",
+  OWNER: "owner",
   TASKS_FILTERS: "pm-tasks-filters", // Legacy flat key — read-only fallback; migrated forward into VIEW_STATE (do NOT change without a migration)
   VIEW_STATE: "pm-view-state", // Namespaced parent holding per-block dashboard state (pm-view-state.<blockKey>)
   TOPICS: "topics",
@@ -376,6 +407,45 @@ export const CSS_CLS = {
   // RAID references processor
   RAID_REFERENCES_ITEM_TEXT: "pm-raid-references__item-text",
   RAID_REFERENCES_ITEM_SECTION_BODY: "pm-raid-references__item-section-body",
+  // RAID dashboard processor
+  RAID_DASHBOARD: "pm-raid-dashboard",
+  RAID_DASHBOARD_OUTPUT: "pm-raid-dashboard__output",
+  RAID_DASHBOARD_FILTER_PANEL: "pm-raid-dashboard__filters",
+  RAID_DASHBOARD_FILTER_ROW: "pm-raid-dashboard__filter-row",
+  RAID_DASHBOARD_FILTER_LABEL: "pm-raid-dashboard__filter-label",
+  RAID_DASHBOARD_CHIPS: "pm-raid-dashboard__chips",
+  RAID_DASHBOARD_SEARCH: "pm-raid-dashboard__search",
+  RAID_DASHBOARD_COUNTS: "pm-raid-dashboard__counts",
+  RAID_DASHBOARD_SECTION: "pm-raid-dashboard__section",
+  RAID_CHIP: "raid-chip",
+  RAID_CHIP_ACTIVE: "raid-chip--active",
+  RAID_MATRIX_WRAPPER: "raid-matrix-wrapper",
+  RAID_MATRIX: "raid-matrix",
+  RAID_MATRIX_CELL: "raid-matrix-cell",
+  RAID_MATRIX_CELL_HEADER: "raid-matrix-cell--header",
+  RAID_MATRIX_CELL_SELECTED: "raid-matrix-cell--selected",
+  RAID_SECTION_HEADER: "raid-section-header",
+  RAID_ITEM_TABLE: "raid-item-table",
+  RAID_ITEM_ROW: "raid-item-row",
+  RAID_STATUS_BADGE: "raid-status-badge",
+  RAID_LXI_DOT: "raid-lxi-dot",
+  RAID_AGE_PILL: "raid-age-pill",
+  RAID_OWNER_AVATAR: "raid-owner-avatar",
+  // RAID matrix likelihood×impact cell colours (keyed in MATRIX_CELL_CLASS)
+  RAID_CELL_HH: "raid-cell--hh",
+  RAID_CELL_HM: "raid-cell--hm",
+  RAID_CELL_HL: "raid-cell--hl",
+  RAID_CELL_MH: "raid-cell--mh",
+  RAID_CELL_MM: "raid-cell--mm",
+  RAID_CELL_ML: "raid-cell--ml",
+  RAID_CELL_LH: "raid-cell--lh",
+  RAID_CELL_LM: "raid-cell--lm",
+  RAID_CELL_LL: "raid-cell--ll",
+  // RAID status badge colours (keyed in STATUS_CSS)
+  RAID_STATUS_OPEN: "raid-status--open",
+  RAID_STATUS_IN_PROGRESS: "raid-status--in-progress",
+  RAID_STATUS_RESOLVED: "raid-status--resolved",
+  RAID_STATUS_CLOSED: "raid-status--closed",
   // Task view processors (dashboard + by-project)
   TASKS_DASHBOARD: "pm-tasks-dashboard",
   TASKS_DASHBOARD_OUTPUT: "pm-tasks-dashboard__output",
@@ -414,7 +484,15 @@ export const HTML_TAG = {
   H2: "h2",
   H3: "h3",
   H4: "h4",
+  H5: "h5",
   BUTTON: "button",
+  INPUT: "input",
+  TABLE: "table",
+  THEAD: "thead",
+  TBODY: "tbody",
+  TR: "tr",
+  TH: "th",
+  TD: "td",
 } as const;
 
 /** DOM attribute names set when building elements. */
@@ -423,10 +501,16 @@ export const DOM_ATTR = {
   DATA_HREF: "data-href",
 } as const;
 
+/** Input element `type` attribute values. */
+export const INPUT_TYPE = {
+  TEXT: "text",
+} as const;
+
 /** DOM event names passed to addEventListener. */
 export const DOM_EVENT = {
   CLICK: "click",
   KEYDOWN: "keydown",
+  INPUT: "input",
 } as const;
 
 /** Obsidian vault event names. */
@@ -501,6 +585,43 @@ export const TASK_DASHBOARD_MSG = {
 export const PM_TASKS_MODE = {
   DASHBOARD: "dashboard",
   BY_PROJECT: "by-project",
+} as const;
+
+/**
+ * The RAID dashboard has a single composite view (matrix + counts + grouped
+ * tables render together), so it registers one renderer under this mode.
+ */
+export const RAID_VIEW_MODE = {
+  MATRIX: "matrix",
+} as const;
+
+/** User-facing messages for the pm-raid-dashboard code block. */
+export const RAID_DASHBOARD_MSG = {
+  NO_ITEMS_MATCH: "No RAID items match the current filters.",
+  UNKNOWN_VIEW_MODE: (mode: string): string => `Unknown view mode: ${mode}`,
+  ERROR: (detail: string): string => `pm-raid-dashboard error: ${detail}`,
+  INVALID_CONFIG: "Invalid pm-raid-dashboard config.",
+} as const;
+
+/** User-facing labels and text formatters for the RAID dashboard UI. */
+export const RAID_DASHBOARD_TEXT = {
+  TYPE_LABEL: "Type",
+  STATUS_LABEL: "Status",
+  CLIENTS_LABEL: "Clients",
+  ENGAGEMENTS_LABEL: "Engagements",
+  CLIENT_FILTER_PLACEHOLDER: "Filter by client…",
+  CLIENT_FILTER_ARIA: "Filter by client",
+  ENGAGEMENT_FILTER_PLACEHOLDER: "Filter by engagement…",
+  ENGAGEMENT_FILTER_ARIA: "Filter by engagement",
+  SEARCH_PLACEHOLDER: "Search items…",
+  MATRIX_HEADING: "Likelihood × Impact",
+  ITEM_TABLE_HEADERS: ["Title", "Status", "L×I", "Age", "Owner"],
+  COUNT_SEPARATOR: " | ",
+  typeCount: (raidType: string, count: number): string => `${raidType}s: ${count}`,
+  sectionTitle: (raidType: string): string => `${raidType}s`,
+  agePill: (days: number): string => `${days}d`,
+  lxiLabel: (likelihood: string, impact: string): string =>
+    `${likelihood.charAt(0)}×${impact.charAt(0)}`,
 } as const;
 
 /** pm-tasks processor config-validation error messages. */

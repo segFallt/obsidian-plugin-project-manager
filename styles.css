@@ -1009,6 +1009,15 @@ details[open] .pm-filter-section__title::before {
   gap: 16px;
 }
 
+/* The shell repaints this output region on every refresh; the filter panel
+   above it is built once and survives. Mirrors the parent's column gap so the
+   matrix, count strip, and item sections keep their original spacing. */
+.pm-raid-dashboard__output {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
 .pm-raid-dashboard__filters {
   display: flex;
   flex-direction: column;
