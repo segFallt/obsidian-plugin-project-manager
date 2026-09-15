@@ -1,7 +1,6 @@
 import type { TaskProcessorServices } from "../plugin-context";
 import type {
   PmTasksConfig,
-  DataviewApi,
   DataviewTask,
   DashboardFilters,
   SavedDashboardFilters,
@@ -16,11 +15,12 @@ import type {
   TaskContext,
   TaskPriority,
 } from "../types";
-import { CONTEXT, ENTITY_TAGS, TASK_CONTEXTS, DUE_DATE_PRESETS, DEFAULT_DUE_DATE_FILTER, DEBOUNCE_MS, MSG, LOG_CONTEXT, VIEW_MODE, CSS_CLS } from "../constants";
+import { CONTEXT, ENTITY_TAGS, TASK_CONTEXTS, DUE_DATE_PRESETS, DEFAULT_DUE_DATE_FILTER, DEBOUNCE_MS, MSG, LOG_CONTEXT, VIEW_MODE, CSS_CLS, TASK_DRAWER_TEXT } from "../constants";
 import { debounced } from "../utils/debounce";
 import { renderError } from "./dom-helpers";
 import type { ITaskFilterService } from "../services/interfaces";
 import type { ITaskSortService } from "../services/interfaces";
+import type { IEntityQuery } from "../services/entity-query";
 import { presetToDateRange } from "../utils/date-utils";
 import type { TaskListRenderer } from "./task-list-renderer";
 import { FilterChipSelect } from "../ui/components/filter-chip-select";
@@ -69,6 +69,7 @@ export class DashboardView {
     private readonly filterService: ITaskFilterService,
     private readonly sortService: ITaskSortService,
     private readonly renderer: TaskListRenderer,
+    private readonly entityQuery: IEntityQuery<DataviewTask>,
     private readonly savedFilters?: SavedDashboardFilters | null,
     private readonly onSaveFilters?: ((filters: SavedDashboardFilters | null) => void) | null
   ) {
@@ -431,26 +432,7 @@ export class DashboardView {
     drawerEl.createEl("hr", { cls: "pm-tasks-drawer__divider" });
 
     // Tags
-    const tagsSection = drawerEl.createDiv({ cls: "pm-tasks-drawer__section" });
-    tagsSection.createDiv({ cls: "pm-tasks-drawer__section-label", text: "🏷 TAGS" });
-    const dv = this.services.queryService.dv();
-    if (dv) {
-      const allTasks = this.getAllTasks(dv);
-      const allTags = [...new Set(allTasks.flatMap((t) => t.tags ?? []))].sort();
-      if (allTags.length > 0) {
-        const tagChipSelect = new FilterChipSelect(tagsSection, this.services.app, {
-          options: allTags.map((tag) => ({ value: tag, displayText: tag })),
-          selectedValues: [...f.tagFilter],
-          placeholder: "type…",
-          ariaLabel: "Filter by tag",
-          includeUnassigned: f.includeUntagged,
-          unassignedLabel: "Include untagged",
-          onChange: (values, incl) => { f.tagFilter = values; f.includeUntagged = incl; onChange(); },
-        });
-        this.chipSelects.push(tagChipSelect);
-        this.drawerComponents.push(tagChipSelect);
-      }
-    }
+    this.renderTagFilterSection(drawerEl, f, onChange);
 
     // Clear Filters button at bottom of drawer
     const clearBtnRow = drawerEl.createDiv({ cls: "pm-tasks-drawer__section" });
@@ -467,6 +449,25 @@ export class DashboardView {
         this.outputEl = (dashboard as HTMLElement).createDiv({ cls: CSS_CLS.TASKS_DASHBOARD_OUTPUT });
         void this.refreshDashboardOutput(this.outputEl);
       });
+  }
+
+  /** Renders the drawer's tag filter: a labelled section with a chip-select over every task tag. */
+  private renderTagFilterSection(drawerEl: HTMLElement, f: DashboardFilters, onChange: () => void): void {
+    const tagsSection = drawerEl.createDiv({ cls: CSS_CLS.TASKS_DRAWER_SECTION });
+    tagsSection.createDiv({ cls: CSS_CLS.TASKS_DRAWER_SECTION_LABEL, text: TASK_DRAWER_TEXT.TAGS_LABEL });
+    const allTags = [...new Set(this.entityQuery.resolve().flatMap((t) => t.tags ?? []))].sort();
+    if (allTags.length === 0) return;
+    const tagChipSelect = new FilterChipSelect(tagsSection, this.services.app, {
+      options: allTags.map((tag) => ({ value: tag, displayText: tag })),
+      selectedValues: [...f.tagFilter],
+      placeholder: TASK_DRAWER_TEXT.TAG_FILTER_PLACEHOLDER,
+      ariaLabel: TASK_DRAWER_TEXT.TAG_FILTER_ARIA,
+      includeUnassigned: f.includeUntagged,
+      unassignedLabel: TASK_DRAWER_TEXT.INCLUDE_UNTAGGED_LABEL,
+      onChange: (values, incl) => { f.tagFilter = values; f.includeUntagged = incl; onChange(); },
+    });
+    this.chipSelects.push(tagChipSelect);
+    this.drawerComponents.push(tagChipSelect);
   }
 
   private renderDrawerDueDateSection(container: HTMLElement, f: DashboardFilters, onChange: () => void): void {
@@ -683,7 +684,7 @@ export class DashboardView {
 
     try {
       const f = this.filters;
-      let allTasks = this.getAllTasks(dv);
+      let allTasks = this.entityQuery.resolve();
 
       allTasks = this.filterService.applyDashboardFilters(
         allTasks,
@@ -762,14 +763,6 @@ export class DashboardView {
   destroy(): void {
     this.search.cancel();
     this.destroyDrawerComponents();
-  }
-
-  // ─── Task querying ────────────────────────────────────────────────────────
-
-  private getAllTasks(dv: DataviewApi): DataviewTask[] {
-    const utilityPrefix = this.services.settings.folders.utility + "/";
-    const pages = [...dv.pages().where((p) => !p.file.path.startsWith(utilityPrefix))];
-    return pages.flatMap((p) => [...p.file.tasks]);
   }
 
 }
