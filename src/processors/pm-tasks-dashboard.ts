@@ -16,12 +16,12 @@ import type {
   TaskContext,
   TaskPriority,
 } from "../types";
-import { CONTEXT, ENTITY_TAGS, TASK_CONTEXTS, DUE_DATE_PRESETS, DEFAULT_DUE_DATE_FILTER, DEBOUNCE_MS, MSG, LOG_CONTEXT, VIEW_MODE, CSS_CLS, TASK_DRAWER_TEXT } from "../constants";
+import { CONTEXT, ENTITY_TAGS, TASK_CONTEXTS, DUE_DATE_PRESETS, DEFAULT_DUE_DATE_FILTER, DEBOUNCE_MS, MSG, TASK_DASHBOARD_MSG, LOG_CONTEXT, VIEW_MODE, CSS_CLS, HTML_TAG, TASK_DRAWER_TEXT } from "../constants";
 import { debounced } from "../utils/debounce";
 import { renderError } from "./dom-helpers";
-import type { ITaskFilterService } from "../services/interfaces";
 import type { ITaskSortService } from "../services/interfaces";
 import type { IEntityQuery } from "../services/entity-query";
+import { buildTaskFilterSpec, buildTaskFilterState } from "../services/filter-engine";
 import { presetToDateRange } from "../utils/date-utils";
 import type { TaskListRenderer } from "./task-list-renderer";
 import { FilterChipSelect } from "../ui/components/filter-chip-select";
@@ -31,7 +31,9 @@ import { DateViewRenderer } from "./dashboard-views/date-view-renderer";
 import { PriorityViewRenderer } from "./dashboard-views/priority-view-renderer";
 import { TagViewRenderer } from "./dashboard-views/tag-view-renderer";
 import { getTaskContext, getParentProjectPath, getParentRecurringMeetingPath } from "../utils/task-utils";
-import type { TaskRenderHelpers, ViewRenderContext } from "./view-renderer";
+import type { TaskRenderHelpers } from "./view-renderer";
+import { DashboardShell } from "./dashboard-shell";
+import type { DashboardShellDeps } from "./dashboard-shell";
 
 // ─── Legacy sort migration map ────────────────────────────────────────────────
 
@@ -68,7 +70,6 @@ export class DashboardView {
     private readonly containerEl: HTMLElement,
     private readonly config: PmTasksConfig,
     private readonly services: TaskProcessorServices,
-    private readonly filterService: ITaskFilterService,
     private readonly sortService: ITaskSortService,
     private readonly renderer: TaskListRenderer,
     private readonly entityQuery: IEntityQuery<DataviewTask>,
@@ -671,65 +672,60 @@ export class DashboardView {
   // ─── Output rendering ─────────────────────────────────────────────────────
 
   private async refreshDashboardOutput(outputEl: HTMLElement): Promise<void> {
-    outputEl.empty();
-
     const dv = this.services.queryService.dv();
     if (!dv) {
-      outputEl.createEl("em", { text: MSG.DATAVIEW_UNAVAILABLE });
+      outputEl.empty();
+      outputEl.createEl(HTML_TAG.EM, { text: MSG.DATAVIEW_UNAVAILABLE });
       return;
     }
 
     try {
-      const f = this.filters;
-      let allTasks = this.entityQuery.resolve();
-
-      allTasks = this.filterService.applyDashboardFilters(
-        allTasks,
-        f,
-        dv,
-        this.services.hierarchyService
-      );
-
-      if (allTasks.length === 0) {
-        outputEl.createEl("em", { text: "No tasks match the current filters." });
-        return;
-      }
-
-      // Pre-compute maps for new sort fields
-      const folders = this.services.settings.folders;
-      const contextMap = new Map(allTasks.map((t) => [t.path, getTaskContext(t, folders)]));
-      const mtimeMap = new Map(allTasks.map((t) => [t.path, dv.page(t.path)?.file.mtime.valueOf() ?? 0]));
-
-      const helpers = this.buildTaskRenderHelpers(allTasks, dv, contextMap, mtimeMap);
-      const makeCtx = (): ViewRenderContext<DataviewTask> => ({
-        container: outputEl,
-        items: allTasks,
-        filters: f,
-        onFilterChange: (patch) => {
-          Object.assign(this.filters, patch);
-          this.persistFilters();
-          void this.refreshDashboardOutput(outputEl);
-        },
-        helpers,
-      });
-
-      const viewRenderers: Record<string, () => void | Promise<void>> = {
-        [VIEW_MODE.CONTEXT]: () => this.contextRenderer.render(makeCtx()),
-        [VIEW_MODE.DATE]: () => this.dateRenderer.render(makeCtx()),
-        [VIEW_MODE.PRIORITY]: () => this.priorityRenderer.render(makeCtx()),
-        [VIEW_MODE.TAG]: () => this.tagRenderer.render(makeCtx()),
-      };
-      const viewRenderer = viewRenderers[f.viewMode];
-      if (viewRenderer) {
-        await viewRenderer();
-      } else {
-        renderError(outputEl, `Unknown view mode: ${String(f.viewMode)}`);
-      }
+      await this.buildShell(outputEl, dv).render(outputEl);
     } catch (err) {
       this.services.loggerService.error(String(err), LOG_CONTEXT.TASKS_DASHBOARD, err);
       outputEl.empty();
-      renderError(outputEl, `pm-tasks error: ${String(err)}`);
+      renderError(outputEl, TASK_DASHBOARD_MSG.ERROR(String(err)));
     }
+  }
+
+  /**
+   * Assembles the generic {@link DashboardShell} from this view's existing
+   * collaborators: the task query, the four view renderers, the task
+   * spec/state builders that drive the `FilterEngine`, and the precomputed
+   * render helpers. The shell owns only the data-flow; all filter UI,
+   * persistence, and teardown stay on this view.
+   */
+  private buildShell(
+    outputEl: HTMLElement,
+    dv: DataviewApi
+  ): DashboardShell<DataviewTask, TaskRenderHelpers> {
+    const deps: DashboardShellDeps<DataviewTask, TaskRenderHelpers> = {
+      query: this.entityQuery,
+      views: {
+        [VIEW_MODE.CONTEXT]: this.contextRenderer,
+        [VIEW_MODE.DATE]: this.dateRenderer,
+        [VIEW_MODE.PRIORITY]: this.priorityRenderer,
+        [VIEW_MODE.TAG]: this.tagRenderer,
+      },
+      getViewMode: () => this.filters.viewMode,
+      getFilters: () => this.filters,
+      buildSpec: () =>
+        buildTaskFilterSpec({
+          folders: this.services.settings.folders,
+          dv,
+          hierarchyService: this.services.hierarchyService,
+        }),
+      buildState: () => buildTaskFilterState(this.filters),
+      buildHelpers: (items) => this.buildTaskRenderHelpers(items, dv),
+      onFilterChange: (patch) => {
+        Object.assign(this.filters, patch);
+        this.persistFilters();
+        void this.refreshDashboardOutput(outputEl);
+      },
+      emptyMessage: TASK_DASHBOARD_MSG.NO_TASKS_MATCH,
+      onUnknownMode: (el, mode) => renderError(el, TASK_DASHBOARD_MSG.UNKNOWN_VIEW_MODE(mode)),
+    };
+    return new DashboardShell(deps);
   }
 
   /**
@@ -739,13 +735,11 @@ export class DashboardView {
    * without an existence check, preserving the lazy semantic) and the
    * display-name map (with the raw path substituted for a missing page).
    */
-  private buildTaskRenderHelpers(
-    allTasks: DataviewTask[],
-    dv: DataviewApi,
-    contextMap: Map<string, string>,
-    mtimeMap: Map<string, number>
-  ): TaskRenderHelpers {
+  private buildTaskRenderHelpers(allTasks: DataviewTask[], dv: DataviewApi): TaskRenderHelpers {
     const folders = this.services.settings.folders;
+    // Pre-compute maps for the sort fields the read-pure renderers consume.
+    const contextMap = new Map(allTasks.map((t) => [t.path, getTaskContext(t, folders)]));
+    const mtimeMap = new Map(allTasks.map((t) => [t.path, dv.page(t.path)?.file.mtime.valueOf() ?? 0]));
     const parentPathMap = new Map<string, string | null>();
     for (const t of allTasks) {
       const taskContext = contextMap.get(t.path);

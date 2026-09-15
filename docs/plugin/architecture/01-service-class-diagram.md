@@ -349,4 +349,32 @@ classDiagram
     FilterEngine ..> FilterState : selections + viewMode
     TaskFilterService ..> FilterEngine : delegates
     TaskFilterService ..> FilterSpec : buildTaskFilterSpec
+
+    class DashboardShell~TItem,THelpers~ {
+        <<POJO, Obsidian-free>>
+        -deps DashboardShellDeps
+        +render(outputEl) Promise~void~
+    }
+    class DashboardViewComponent {
+        <<interface>>
+        +render() void
+        +refreshOutput() void
+        +destroy() void
+    }
+    class DashboardRenderChild {
+        +onload() void
+        +onunload() void
+        +render() void
+    }
+    class DashboardItemViewHost {
+        +onOpen() Promise~void~
+        +onClose() Promise~void~
+    }
+    DashboardShell ..> IEntityQuery : resolve()
+    DashboardShell ..> FilterEngine : apply()
+    DashboardShell ..> IViewRenderer : render(ctx)
+    DashboardRenderChild ..> DashboardViewComponent : hosts
+    DashboardItemViewHost ..> DashboardViewComponent : hosts
+    DashboardRenderChild ..> ViewStateStore : persist / isOwnWrite
+    DashboardItemViewHost ..> ViewStateStore : persist
 ```

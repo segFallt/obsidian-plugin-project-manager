@@ -489,29 +489,18 @@ describe("pm-tasks processor", () => {
       expect(processFrontMatter).toHaveBeenCalled();
     });
 
-    it("isUpdating flag suppresses auto-refresh during frontmatter write", async () => {
+    it("refreshes on an external vault modify (store reports it is not an own-write)", () => {
       vi.useFakeTimers();
-
-      let resolvePersist!: () => void;
-      const persistPromise = new Promise<void>((resolve) => {
-        resolvePersist = resolve;
-      });
 
       const sourcePath = "notes/my-note.md";
       const mock = createMockServices({ sourcePath, frontmatter: {} });
-
-      // Override processFrontMatter to be manually resolvable
-      (
-        mock.services.app.fileManager as { processFrontMatter: ReturnType<typeof vi.fn> }
-      ).processFrontMatter = vi.fn(async () => persistPromise);
-
       registerPmTasksProcessor(mock.services, mock.registerProcessor);
 
       const el = document.createElement("div");
-      let capturedChild: { onload(): void; isUpdating?: boolean } | null = null;
+      let capturedChild: { onload(): void } | null = null;
       const ctx = {
         addChild: (child: unknown) => {
-          capturedChild = child as { onload(): void; isUpdating?: boolean };
+          capturedChild = child as { onload(): void };
         },
         sourcePath,
       };
@@ -520,32 +509,17 @@ describe("pm-tasks processor", () => {
       expect(capturedChild).not.toBeNull();
       capturedChild!.onload();
 
-      // Capture the vault modify callback
-      const vaultModifyCallback = mock.vaultOn.mock.calls[0][1] as () => void;
+      // The render child wraps app.vault.on("modify", …); capture the wrapper.
+      const vaultModifyCallback = mock.vaultOn.mock.calls[0][1] as (file: TFile) => void;
 
-      // Trigger a filter change to kick off debounced persist
-      const tabs = [...el.querySelectorAll<HTMLButtonElement>(".pm-tasks-toolbar__tab")];
-      const priorityTab = tabs.find((t) => t.textContent === "Priority");
-      priorityTab!.click();
-
-      // Advance timers so persistFilters starts (sets isUpdating = true)
-      await vi.runAllTimersAsync();
-
-      // While the persist promise is still unresolved, fire the vault modify event
-      // isUpdating should be true, so the auto-refresh should NOT be scheduled
-      const TRIGGER_METHOD = "trigger" as const;
       const autoRefreshSpy = vi.spyOn(
         (capturedChild as unknown as { autoRefresh: { trigger(): void } }).autoRefresh,
-        TRIGGER_METHOD
+        "trigger"
       );
-      vaultModifyCallback();
 
-      // autoRefresh should NOT have been called while isUpdating=true
-      expect(autoRefreshSpy).not.toHaveBeenCalled();
-
-      // Resolve the persist promise and verify isUpdating resets
-      resolvePersist();
-      await persistPromise;
+      // An external edit (no pending own-write) → store.isOwnWrite is false → refresh scheduled.
+      vaultModifyCallback(new TFile(sourcePath));
+      expect(autoRefreshSpy).toHaveBeenCalled();
     });
   });
 });
