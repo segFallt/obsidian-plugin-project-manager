@@ -14,6 +14,7 @@ import type {
   ITestDataService,
 } from "./services/interfaces";
 import type { ProjectManagerSettings } from "./settings";
+import type ProjectManagerPlugin from "./main";
 
 /**
  * Narrow service bag consumed by commands.
@@ -111,6 +112,30 @@ export interface ReferenceProcessorServices {
   commandExecutor: ICommandExecutor;
   actionContext: IActionContextManager;
   saveSettings: () => Promise<void>;
+}
+
+/**
+ * Builds the ReferenceProcessorServices bag from a plugin instance.
+ *
+ * Co-located with the interface so the identical field-for-field literal is
+ * defined once rather than hand-maintained in every consumer (the item view
+ * and the processor registrar). The plugin is referenced type-only to keep
+ * this module free of any runtime import cycle.
+ */
+export function buildReferenceProcessorServices(
+  plugin: ProjectManagerPlugin
+): ReferenceProcessorServices {
+  return {
+    app: plugin.app,
+    settings: plugin.settings,
+    queryService: plugin.queryService,
+    hierarchyService: plugin.hierarchyService,
+    navigationService: plugin.navigationService,
+    loggerService: plugin.loggerService,
+    commandExecutor: plugin.commandExecutor,
+    actionContext: plugin.actionContext,
+    saveSettings: plugin.saveSettings.bind(plugin),
+  };
 }
 
 /** Bound version of Plugin.addCommand, passed from the wiring layer. */
