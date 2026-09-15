@@ -133,6 +133,11 @@ export const DEBOUNCE_MS = {
 /** Numeric weight for each log level (higher = more severe). */
 export const LOG_LEVELS = { DEBUG: 0, INFO: 1, WARN: 2, ERROR: 3 } as const;
 
+/** `typeof` result strings, for type-guard comparisons without bare literals. */
+export const JS_TYPE = {
+  OBJECT: "object",
+} as const;
+
 /** How often (ms) the logger flushes its in-memory buffer to disk. */
 export const LOG_FLUSH_INTERVAL_MS = 5000;
 

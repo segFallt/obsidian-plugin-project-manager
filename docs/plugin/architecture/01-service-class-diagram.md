@@ -248,6 +248,42 @@ classDiagram
     IEntityService --|> IEntityCreationService
     IEntityService --|> IEntityConversionService
 
+    class ViewStateStore {
+        <<interface>>
+        +load(key) ViewState|null
+        +save(key, state) Promise~void~
+        +isOwnWrite(file, value) boolean
+    }
+
+    class FrontmatterIO {
+        <<interface>>
+        +read(file) Record|null
+        +write(file, mutate) Promise~void~
+    }
+
+    class FrontmatterViewStore {
+        -io FrontmatterIO
+        -getFile() TFile|null
+        -pending PendingEcho|null
+        +load(key) ViewState|null
+        +save(key, state) Promise~void~
+        +isOwnWrite(file, value) boolean
+    }
+
+    class SettingsViewStore {
+        -getBag() Record
+        -persist() Promise~void~
+        +load(key) ViewState|null
+        +save(key, state) Promise~void~
+        +isOwnWrite() boolean
+    }
+
+    class ObsidianFrontmatterIO {
+        -app App
+        +read(file) Record|null
+        +write(file, mutate) Promise~void~
+    }
+
     QueryService ..|> IQueryService
     TaskQuery ..|> IEntityQuery
     TaskQuery ..> QueryService : dv()
@@ -265,4 +301,8 @@ classDiagram
     CommandExecutor ..|> ICommandExecutor
     VaultScaffoldService ..|> IScaffoldService
     TestDataService ..|> ITestDataService
+    FrontmatterViewStore ..|> ViewStateStore
+    SettingsViewStore ..|> ViewStateStore
+    ObsidianFrontmatterIO ..|> FrontmatterIO
+    FrontmatterViewStore --> FrontmatterIO : read / write
 ```
