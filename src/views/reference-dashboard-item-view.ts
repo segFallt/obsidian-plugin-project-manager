@@ -1,6 +1,6 @@
 import { ItemView, WorkspaceLeaf } from "obsidian";
 import type ProjectManagerPlugin from "../main";
-import type { ReferenceProcessorServices } from "../plugin-context";
+import { buildReferenceProcessorServices } from "../plugin-context";
 import { ReferenceDashboardView } from "../processors/pm-references-dashboard";
 import { PM_REFERENCE_DASHBOARD_VIEW_TYPE, DEBOUNCE_MS } from "../constants";
 import { debounced } from "../utils/debounce";
@@ -44,17 +44,7 @@ export class ReferenceDashboardItemView extends ItemView {
   async onOpen(): Promise<void> {
     this.contentEl.addClass("pm-reference-dashboard-view");
 
-    const services: ReferenceProcessorServices = {
-      app: this.plugin.app,
-      settings: this.plugin.settings,
-      queryService: this.plugin.queryService,
-      hierarchyService: this.plugin.hierarchyService,
-      navigationService: this.plugin.navigationService,
-      loggerService: this.plugin.loggerService,
-      commandExecutor: this.plugin.commandExecutor,
-      actionContext: this.plugin.actionContext,
-      saveSettings: this.plugin.saveSettings.bind(this.plugin),
-    };
+    const services = buildReferenceProcessorServices(this.plugin);
 
     const actionsRow = this.contentEl.createDiv({ cls: 'pm-reference-dashboard__actions' });
 
