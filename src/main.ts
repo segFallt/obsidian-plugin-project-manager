@@ -35,7 +35,7 @@ import type {
 import { registerAllCommands } from "./commands";
 import { registerAllProcessors } from "./processors";
 import type { DataviewApi } from "./types";
-import { DATAVIEW_PLUGIN_ID, TASKS_PLUGIN_ID, NOTICE_DURATION_MS } from "./constants";
+import { DATAVIEW_PLUGIN_ID, TASKS_PLUGIN_ID, NOTICE_DURATION_MS, COMMAND_NAMES } from "./constants";
 
 /**
  * Project Manager Plugin — main entry point.
@@ -80,7 +80,7 @@ export default class ProjectManagerPlugin extends Plugin {
       registerAllCommands(this);
       this.addCommand({
         id: COMMAND_IDS.OPEN_REFERENCE_DASHBOARD,
-        name: "PM: Open Reference Dashboard",
+        name: COMMAND_NAMES.OPEN_REFERENCE_DASHBOARD,
         callback: () => { void activateReferenceDashboard(this); },
       });
       if (this.settings.ui.showRibbonIcons) {

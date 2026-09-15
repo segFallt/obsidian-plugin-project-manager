@@ -36,3 +36,11 @@ export const ATX_HEADING_RE = /^(#{1,6})\s+/;
  * compare against the discriminated `RaidReferenceEntry` union without widening.
  */
 export const RAID_SCOPE = { LINE: "line", SECTION: "section" } as const;
+
+/** Inline RAID badge annotation keyword: `{raid:<direction>}[[Item]]`. */
+export const RAID_BADGE_KEYWORD = "raid";
+
+/** Builds the inline RAID badge annotation: `{raid:<direction>}[[<itemName>]]`. */
+export function formatRaidBadge(direction: RaidDirection, itemName: string): string {
+  return `{${RAID_BADGE_KEYWORD}:${direction}}[[${itemName}]]`;
+}

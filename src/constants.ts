@@ -139,7 +139,7 @@ export const LOG_FLUSH_INTERVAL_MS = 5000;
 /** Suffix appended to log file names (e.g. "2026-03-09-pm.log"). */
 export const LOG_FILE_SUFFIX = "-pm.log";
 
-/** Logger context tag strings for each processor / view. */
+/** Logger context tag strings for each processor / view / command. */
 export const LOG_CONTEXT = {
   PROPERTIES_PROCESSOR: "pm-properties",
   TABLE_PROCESSOR: "pm-table",
@@ -153,6 +153,18 @@ export const LOG_CONTEXT = {
   TAG_RAID_REFERENCE: "tag-raid-reference",
   REFERENCE_DASHBOARD_VIEW: "pm-reference-dashboard-view",
   RECURRING_EVENTS: "pm-recurring-events",
+  CREATE_CLIENT: "create-client",
+  CREATE_ENGAGEMENT: "create-engagement",
+  CREATE_PROJECT: "create-project",
+  CREATE_PERSON: "create-person",
+  CREATE_INBOX: "create-inbox",
+  CREATE_SINGLE_MEETING: "create-single-meeting",
+  CREATE_RECURRING_MEETING: "create-recurring-meeting",
+  CREATE_RECURRING_MEETING_EVENT: "create-recurring-meeting-event",
+  CREATE_PROJECT_NOTE: "create-project-note",
+  CONVERT_INBOX_TO_PROJECT: "convert-inbox-to-project",
+  CONVERT_SINGLE_TO_RECURRING: "convert-single-to-recurring",
+  UPDATE_REFERENCE_TOPIC: "update-reference-topic",
 } as const;
 
 /** Sentinel date strings for sort stability (tasks with no due date). */
@@ -230,6 +242,15 @@ export const FM_KEY = {
   PM_REFERENCES_FILTERS: "pm-references-filters",
   RAID_DASHBOARD_FILTERS: "pm-raid-dashboard-filters",
   PARENT: "parent",
+} as const;
+
+// ─── Action-context fields ────────────────────────────────────────────────
+
+/** Field identifiers carried on the pending action context to pre-select a parent. */
+export const ACTION_CTX_FIELD = {
+  CLIENT: "client",
+  ENGAGEMENT: "engagement",
+  RECURRING_MEETING: "recurring-meeting",
 } as const;
 
 // ─── CSS classes ──────────────────────────────────────────────────────────
@@ -357,6 +378,74 @@ export const MSG = {
   RAID_REFERENCE_TAGGED_SECTION: (heading: string) =>
     `Tagged section "${heading}" as RAID reference.`,
   TASK_TOGGLE_FAILED: "Project Manager: failed to save task change to the event note.",
+} as const;
+
+// ─── Command layer: names, modals, error labels ───────────────────────────
+
+/** Command palette display names, keyed like COMMAND_IDS. */
+export const COMMAND_NAMES = {
+  CREATE_CLIENT: "PM: Create Client",
+  CREATE_ENGAGEMENT: "PM: Create Engagement",
+  CREATE_PROJECT: "PM: Create Project",
+  CREATE_PERSON: "PM: Create Person",
+  CREATE_INBOX: "PM: Create Inbox Note",
+  CREATE_SINGLE_MEETING: "PM: Create Single Meeting",
+  CREATE_RECURRING_MEETING: "PM: Create Recurring Meeting",
+  CREATE_RECURRING_MEETING_EVENT: "PM: Create Recurring Meeting Event",
+  CREATE_PROJECT_NOTE: "PM: Create Project Note",
+  CONVERT_INBOX: "PM: Convert Inbox to Project",
+  CONVERT_SINGLE_TO_RECURRING: "PM: Convert Single Meeting to Recurring",
+  SCAFFOLD_VAULT: "PM: Set Up Vault Structure",
+  CREATE_RAID_ITEM: "PM: Create RAID Item",
+  TAG_RAID_REFERENCE: "PM: Tag Line as RAID Reference",
+  CREATE_REFERENCE_TOPIC: "PM: Create Reference Topic",
+  UPDATE_REFERENCE_TOPIC: "PM: Update Reference Topic",
+  CREATE_REFERENCE: "PM: Create Reference",
+  OPEN_REFERENCE_DASHBOARD: "PM: Open Reference Dashboard",
+} as const;
+
+/** Optional-parent picker labels shared across entity-creation modals. */
+export const PARENT_LABEL = {
+  CLIENT_OPTIONAL: "Client (optional)",
+  ENGAGEMENT_OPTIONAL: "Engagement (optional)",
+  OWNER_OPTIONAL: "Owner (optional)",
+} as const;
+
+/** Display label for the "no selection" sentinel item in RAID pickers. */
+export const RAID_PICKER_NONE_LABEL = "(None)";
+
+/** Modal titles and input placeholders for command flows, keyed like COMMAND_IDS. */
+export const CMD_MODAL = {
+  CREATE_CLIENT: { title: "New client name:", placeholder: "e.g. Acme Corp" },
+  CREATE_ENGAGEMENT: { title: "New Engagement", placeholder: "Engagement name" },
+  CREATE_PROJECT: { title: "New Project", placeholder: "Project name" },
+  CREATE_PERSON: { title: "New Person", placeholder: "Person name" },
+  CREATE_INBOX: { title: "New Inbox Note", placeholder: "Note name" },
+  CREATE_SINGLE_MEETING: { title: "New Single Meeting", placeholder: "Meeting name" },
+  CREATE_RECURRING_MEETING: { title: "New Recurring Meeting", placeholder: "Meeting name" },
+  CONVERT_INBOX: { title: "Project name:", placeholder: "Project name" },
+  CONVERT_SINGLE_TO_RECURRING: { title: "Recurring meeting name:", placeholder: "Meeting name" },
+  CREATE_PROJECT_NOTE: { title: "New project note name:", placeholder: "Note name" },
+  CREATE_RAID_ITEM: { title: "RAID item name" },
+} as const;
+
+/** Error-message labels (prefix before `: ${String(err)}`) for command error Notices. */
+export const CMD_ERROR_LABEL = {
+  CREATE_CLIENT: "Error creating client",
+  CREATE_ENGAGEMENT: "Error creating engagement",
+  CREATE_PROJECT: "Error creating project",
+  CREATE_PERSON: "Error creating person",
+  CREATE_INBOX: "Error creating inbox note",
+  CREATE_SINGLE_MEETING: "Error creating meeting",
+  CREATE_RECURRING_MEETING: "Error creating recurring meeting",
+  CREATE_RECURRING_MEETING_EVENT: "Error creating event",
+  CREATE_PROJECT_NOTE: "Error creating project note",
+  CONVERT_INBOX_TO_PROJECT: "Error converting inbox to project",
+  CONVERT_SINGLE_TO_RECURRING: "Error converting meeting",
+  CREATE_RAID_ITEM: "Error creating RAID item",
+  CREATE_REFERENCE: "Error creating reference",
+  TAG_RAID_REFERENCE: "Error tagging line",
+  GENERIC: "Error",
 } as const;
 
 // ─── CSS variables ────────────────────────────────────────────────────────
