@@ -1,46 +1,11 @@
-import { Notice } from "obsidian";
-import { COMMAND_IDS } from "../command-ids";
 import type { CommandServices, AddCommandFn } from "../plugin-context";
-import { EntityCreationModal } from "../ui/modals/entity-creation-modal";
-import { ENTITY_TAGS, MSG } from "../constants";
+import { registerEntityCreateCommand } from "./register-entity-create-command";
+import { CREATE_SINGLE_MEETING_DESCRIPTOR } from "./entity-command-descriptors";
 
 /**
  * PM: Create Single Meeting
  * Prompts for a name and optional engagement, then creates a single meeting note.
  */
 export function registerCreateSingleMeetingCommand(services: CommandServices, addCommand: AddCommandFn): void {
-  addCommand({
-    id: COMMAND_IDS.CREATE_SINGLE_MEETING,
-    name: "PM: Create Single Meeting",
-    callback: async () => {
-      const activeEngagements = services.queryService.getActiveEntitiesByTag(
-        ENTITY_TAGS.engagement
-      );
-
-      const modal = new EntityCreationModal(
-        services.app,
-        "New Single Meeting",
-        "Meeting name",
-        activeEngagements.length > 0 ? "Engagement (optional)" : null,
-        activeEngagements
-      );
-
-      const result = await modal.prompt();
-      if (!result?.name) {
-        new Notice(MSG.NO_NAME);
-        return;
-      }
-
-      services.loggerService.debug(`create-single-meeting invoked: "${result.name}", engagement: "${result.parentName ?? 'none'}"`, 'create-single-meeting');
-      try {
-        await services.entityService.createSingleMeeting(
-          result.name,
-          result.parentName ?? undefined
-        );
-      } catch (err) {
-        services.loggerService.error(String(err), "create-single-meeting", err);
-        new Notice(`Error creating meeting: ${String(err)}`);
-      }
-    },
-  });
+  registerEntityCreateCommand(services, addCommand, CREATE_SINGLE_MEETING_DESCRIPTOR);
 }

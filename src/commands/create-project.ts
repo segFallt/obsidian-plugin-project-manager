@@ -1,8 +1,6 @@
-import { Notice } from "obsidian";
-import { COMMAND_IDS } from "../command-ids";
 import type { CommandServices, AddCommandFn } from "../plugin-context";
-import { EntityCreationModal } from "../ui/modals/entity-creation-modal";
-import { ENTITY_TAGS, MSG } from "../constants";
+import { registerEntityCreateCommand } from "./register-entity-create-command";
+import { CREATE_PROJECT_DESCRIPTOR } from "./entity-command-descriptors";
 
 /**
  * PM: Create Project
@@ -10,42 +8,5 @@ import { ENTITY_TAGS, MSG } from "../constants";
  * with an auto-generated notesDirectory.
  */
 export function registerCreateProjectCommand(services: CommandServices, addCommand: AddCommandFn): void {
-  addCommand({
-    id: COMMAND_IDS.CREATE_PROJECT,
-    name: "PM: Create Project",
-    callback: async () => {
-      const pendingCtx = services.actionContext.consume();
-
-      const activeEngagements = services.queryService.getActiveEntitiesByTag(
-        ENTITY_TAGS.engagement
-      );
-      const preselected = pendingCtx?.field === "engagement" ? pendingCtx.value : undefined;
-
-      const modal = new EntityCreationModal(
-        services.app,
-        "New Project",
-        "Project name",
-        activeEngagements.length > 0 ? "Engagement (optional)" : null,
-        activeEngagements,
-        preselected
-      );
-
-      const result = await modal.prompt();
-      if (!result?.name) {
-        new Notice(MSG.NO_NAME);
-        return;
-      }
-
-      services.loggerService.debug(`create-project invoked: "${result.name}", engagement: "${result.parentName ?? 'none'}"`, 'create-project');
-      try {
-        await services.entityService.createProject(
-          result.name,
-          result.parentName ?? undefined
-        );
-      } catch (err) {
-        services.loggerService.error(String(err), "create-project", err);
-        new Notice(`Error creating project: ${String(err)}`);
-      }
-    },
-  });
+  registerEntityCreateCommand(services, addCommand, CREATE_PROJECT_DESCRIPTOR);
 }

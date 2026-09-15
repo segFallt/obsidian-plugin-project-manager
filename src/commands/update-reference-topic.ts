@@ -2,10 +2,9 @@ import { Notice, TFile } from "obsidian";
 import { COMMAND_IDS } from "../command-ids";
 import type { CommandServices, AddCommandFn } from "../plugin-context";
 import { ReferenceTopicUpdateModal } from "../ui/modals/reference-topic-update-modal";
-import { ENTITY_TAGS, FM_KEY } from "../constants";
+import { ENTITY_TAGS, FM_KEY, LOG_CONTEXT, COMMAND_NAMES, CMD_ERROR_LABEL } from "../constants";
 import { toWikilink } from "../utils/link-utils";
-
-const LOG_CTX = "update-reference-topic";
+import { withCommandErrorNotice } from "./command-error-notice";
 
 /**
  * PM: Update Reference Topic
@@ -17,7 +16,7 @@ export function registerUpdateReferenceTopicCommand(
 ): void {
   addCommand({
     id: COMMAND_IDS.UPDATE_REFERENCE_TOPIC,
-    name: "PM: Update Reference Topic",
+    name: COMMAND_NAMES.UPDATE_REFERENCE_TOPIC,
     callback: async () => {
       const topics = services.queryService.getEntitiesByTag(ENTITY_TAGS.referenceTopic);
       if (topics.length === 0) {
@@ -30,11 +29,11 @@ export function registerUpdateReferenceTopicCommand(
       if (!result) return;
 
       services.loggerService.debug(
-        `update-reference-topic: "${result.topicName}", parent: "${result.parentName ?? "none"}"`,
-        LOG_CTX
+        `${LOG_CONTEXT.UPDATE_REFERENCE_TOPIC}: "${result.topicName}", parent: "${result.parentName ?? "none"}"`,
+        LOG_CONTEXT.UPDATE_REFERENCE_TOPIC
       );
 
-      try {
+      await withCommandErrorNotice(services.loggerService, LOG_CONTEXT.UPDATE_REFERENCE_TOPIC, (err) => `${CMD_ERROR_LABEL.GENERIC}: ${String(err)}`, async () => {
         const file = services.app.vault.getAbstractFileByPath(
           topics.find((t) => t.file.name === result.topicName)?.file.path ?? ""
         );
@@ -50,10 +49,7 @@ export function registerUpdateReferenceTopicCommand(
           }
         });
         new Notice(`Updated "${result.topicName}".`);
-      } catch (err) {
-        services.loggerService.error(String(err), LOG_CTX, err);
-        new Notice(`Error: ${String(err)}`);
-      }
+      });
     },
   });
 }

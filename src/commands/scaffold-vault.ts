@@ -1,5 +1,6 @@
 import type { ScaffoldCommandServices, AddCommandFn } from "../plugin-context";
 import { COMMAND_IDS } from "../command-ids";
+import { COMMAND_NAMES } from "../constants";
 
 /**
  * PM: Set Up Vault Structure
@@ -9,7 +10,7 @@ import { COMMAND_IDS } from "../command-ids";
 export function registerScaffoldVaultCommand(services: ScaffoldCommandServices, addCommand: AddCommandFn): void {
   addCommand({
     id: COMMAND_IDS.SCAFFOLD_VAULT,
-    name: "PM: Set Up Vault Structure",
+    name: COMMAND_NAMES.SCAFFOLD_VAULT,
     callback: async () => {
       await services.scaffoldService.scaffoldVault();
     },

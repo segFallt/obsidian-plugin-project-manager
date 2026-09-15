@@ -2,6 +2,8 @@ import { Notice } from "obsidian";
 import { COMMAND_IDS } from "../command-ids";
 import type { CommandServices, AddCommandFn } from "../plugin-context";
 import { InputModal } from "../ui/modals/input-modal";
+import { COMMAND_NAMES, CMD_MODAL, LOG_CONTEXT, CMD_ERROR_LABEL } from "../constants";
+import { withCommandErrorNotice } from "./command-error-notice";
 
 /**
  * PM: Convert Single Meeting to Recurring
@@ -17,7 +19,7 @@ export function registerConvertSingleToRecurringCommand(
 ): void {
   addCommand({
     id: COMMAND_IDS.CONVERT_SINGLE_TO_RECURRING,
-    name: "PM: Convert Single Meeting to Recurring",
+    name: COMMAND_NAMES.CONVERT_SINGLE_TO_RECURRING,
     callback: async () => {
       const activeFile = services.app.workspace.getActiveFile();
 
@@ -36,8 +38,8 @@ export function registerConvertSingleToRecurringCommand(
 
       const modal = new InputModal(
         services.app,
-        "Recurring meeting name:",
-        "Meeting name",
+        CMD_MODAL.CONVERT_SINGLE_TO_RECURRING.title,
+        CMD_MODAL.CONVERT_SINGLE_TO_RECURRING.placeholder,
         activeFile.basename
       );
       const recurringName = await modal.prompt();
@@ -47,13 +49,13 @@ export function registerConvertSingleToRecurringCommand(
         return;
       }
 
-      services.loggerService.debug(`convert-single-to-recurring invoked: "${activeFile.basename}" -> "${recurringName}"`, 'convert-single-to-recurring');
-      try {
-        await services.entityService.convertSingleToRecurring(activeFile, recurringName);
-      } catch (err) {
-        services.loggerService.error(String(err), "convert-single-to-recurring", err);
-        new Notice(`Error converting meeting: ${String(err)}`);
-      }
+      services.loggerService.debug(`${LOG_CONTEXT.CONVERT_SINGLE_TO_RECURRING} invoked: "${activeFile.basename}" -> "${recurringName}"`, LOG_CONTEXT.CONVERT_SINGLE_TO_RECURRING);
+      await withCommandErrorNotice(
+        services.loggerService,
+        LOG_CONTEXT.CONVERT_SINGLE_TO_RECURRING,
+        (err) => `${CMD_ERROR_LABEL.CONVERT_SINGLE_TO_RECURRING}: ${String(err)}`,
+        () => services.entityService.convertSingleToRecurring(activeFile, recurringName)
+      );
     },
   });
 }

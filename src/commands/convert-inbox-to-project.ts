@@ -2,6 +2,8 @@ import { Notice } from "obsidian";
 import { COMMAND_IDS } from "../command-ids";
 import type { CommandServices, AddCommandFn } from "../plugin-context";
 import { InputModal } from "../ui/modals/input-modal";
+import { COMMAND_NAMES, CMD_MODAL, LOG_CONTEXT, CMD_ERROR_LABEL } from "../constants";
+import { withCommandErrorNotice } from "./command-error-notice";
 
 /**
  * PM: Convert Inbox to Project
@@ -14,7 +16,7 @@ import { InputModal } from "../ui/modals/input-modal";
 export function registerConvertInboxCommand(services: CommandServices, addCommand: AddCommandFn): void {
   addCommand({
     id: COMMAND_IDS.CONVERT_INBOX,
-    name: "PM: Convert Inbox to Project",
+    name: COMMAND_NAMES.CONVERT_INBOX,
     callback: async () => {
       const activeFile = services.app.workspace.getActiveFile();
 
@@ -33,8 +35,8 @@ export function registerConvertInboxCommand(services: CommandServices, addComman
 
       const modal = new InputModal(
         services.app,
-        "Project name:",
-        "Project name",
+        CMD_MODAL.CONVERT_INBOX.title,
+        CMD_MODAL.CONVERT_INBOX.placeholder,
         activeFile.basename
       );
       const projectName = await modal.prompt();
@@ -44,13 +46,13 @@ export function registerConvertInboxCommand(services: CommandServices, addComman
         return;
       }
 
-      services.loggerService.debug(`convert-inbox-to-project invoked: "${activeFile.basename}" -> "${projectName}"`, 'convert-inbox-to-project');
-      try {
-        await services.entityService.convertInboxToProject(activeFile, projectName);
-      } catch (err) {
-        services.loggerService.error(String(err), "convert-inbox-to-project", err);
-        new Notice(`Error converting inbox to project: ${String(err)}`);
-      }
+      services.loggerService.debug(`${LOG_CONTEXT.CONVERT_INBOX_TO_PROJECT} invoked: "${activeFile.basename}" -> "${projectName}"`, LOG_CONTEXT.CONVERT_INBOX_TO_PROJECT);
+      await withCommandErrorNotice(
+        services.loggerService,
+        LOG_CONTEXT.CONVERT_INBOX_TO_PROJECT,
+        (err) => `${CMD_ERROR_LABEL.CONVERT_INBOX_TO_PROJECT}: ${String(err)}`,
+        () => services.entityService.convertInboxToProject(activeFile, projectName)
+      );
     },
   });
 }
