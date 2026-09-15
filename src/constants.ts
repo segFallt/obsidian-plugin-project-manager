@@ -320,6 +320,7 @@ export const HTML_TAG = {
   H2: "h2",
   H3: "h3",
   H4: "h4",
+  BUTTON: "button",
 } as const;
 
 /** DOM attribute names set when building elements. */
@@ -331,6 +332,15 @@ export const DOM_ATTR = {
 /** DOM event names passed to addEventListener. */
 export const DOM_EVENT = {
   CLICK: "click",
+  KEYDOWN: "keydown",
+} as const;
+
+/** User-facing action-button labels shared across modals. */
+export const ACTION_LABEL = {
+  CREATE: "Create",
+  SAVE: "Save",
+  OK: "OK",
+  CANCEL: "Cancel",
 } as const;
 
 // ─── Codeblock identifiers ────────────────────────────────────────────────

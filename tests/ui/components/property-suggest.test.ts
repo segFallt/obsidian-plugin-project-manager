@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { App } from "obsidian";
 import { PropertySuggest } from "../../../src/ui/components/property-suggest";
-import type { AutocompleteOption, AutocompleteConfig } from "../../../src/ui/components/property-suggest";
+import type { AutocompleteConfig } from "../../../src/ui/components/property-suggest";
+import type { AutocompleteOption } from "../../../src/types";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 

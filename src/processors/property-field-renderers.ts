@@ -4,7 +4,7 @@ import type { DataviewPage } from "../types";
 import { ENTITY_TAGS, TEXTAREA_ROWS, ISO_DATETIME_INPUT_LENGTH, ISO_DATE_LENGTH, CSS_CLS, SELECT_NONE_LABEL, SELECT_NONE_VALUE } from "../constants";
 import { normalizeToName } from "../utils/link-utils";
 import { PropertySuggest } from "../ui/components/property-suggest";
-import type { AutocompleteOption } from "../ui/components/property-suggest";
+import type { AutocompleteOption } from "../types";
 import type { FieldDescriptor, FieldType } from "./entity-field-config";
 
 // ─── Render context ───────────────────────────────────────────────────────

@@ -1,5 +1,5 @@
 import type { IQueryService } from "../services/interfaces";
-import type { AutocompleteOption } from "../ui/components/filter-chip-select";
+import type { AutocompleteOption } from "../types";
 
 /**
  * Builds an array of AutocompleteOption values from active entities matching a given tag.

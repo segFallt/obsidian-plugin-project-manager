@@ -1,8 +1,10 @@
-import { App, Modal, Notice } from "obsidian";
+import { App, Notice } from "obsidian";
 import type { DataviewPage } from "../../types";
-import { FOCUS_DELAY_MS } from "../../constants";
+import { FOCUS_DELAY_MS, ACTION_LABEL } from "../../constants";
 import { PropertySuggest } from "../components/property-suggest";
-import type { AutocompleteOption } from "../components/property-suggest";
+import type { AutocompleteOption } from "../../types";
+import { PromiseModal } from "./promise-modal";
+import { createModalButtonRow } from "./modal-controls";
 
 export interface ReferenceTopicUpdateResult {
   topicName: string;
@@ -15,8 +17,7 @@ export interface ReferenceTopicUpdateResult {
  * Uses PropertySuggest for both "topic to update" and "new parent" fields.
  * Prevents setting a topic as its own parent (validated on submit).
  */
-export class ReferenceTopicUpdateModal extends Modal {
-  private resolvePromise!: (value: ReferenceTopicUpdateResult | null) => void;
+export class ReferenceTopicUpdateModal extends PromiseModal<ReferenceTopicUpdateResult> {
   private selectedTopicName: string | null = null;
   private selectedParentName: string | null = null;
   private topicSuggest: PropertySuggest | undefined;
@@ -27,13 +28,6 @@ export class ReferenceTopicUpdateModal extends Modal {
     private readonly topics: DataviewPage[]
   ) {
     super(app);
-  }
-
-  prompt(): Promise<ReferenceTopicUpdateResult | null> {
-    return new Promise((resolve) => {
-      this.resolvePromise = resolve;
-      this.open();
-    });
   }
 
   onOpen(): void {
@@ -96,26 +90,18 @@ export class ReferenceTopicUpdateModal extends Modal {
     );
 
     // Buttons
-    const buttonRow = contentEl.createDiv({ cls: "pm-modal-buttons" });
-    buttonRow.style.display = "flex";
-    buttonRow.style.justifyContent = "flex-end";
-    buttonRow.style.gap = "8px";
-    buttonRow.style.marginTop = "16px";
-
-    const cancelBtn = buttonRow.createEl("button", { text: "Cancel" });
-    cancelBtn.addEventListener("click", () => this.cancel());
-
-    const saveBtn = buttonRow.createEl("button", { text: "Save", cls: "mod-cta" });
-    saveBtn.addEventListener("click", () => this.submit());
+    createModalButtonRow(contentEl, {
+      submitText: ACTION_LABEL.SAVE,
+      onSubmit: () => this.submit(),
+      onCancel: () => this.cancel(),
+    });
 
     setTimeout(() => this.topicSuggest?.inputEl.focus(), FOCUS_DELAY_MS);
   }
 
-  onClose(): void {
+  protected onDismiss(): void {
     this.topicSuggest?.destroy();
     this.parentSuggest?.destroy();
-    this.resolvePromise?.(null);
-    this.contentEl.empty();
   }
 
   private submit(): void {
@@ -124,14 +110,10 @@ export class ReferenceTopicUpdateModal extends Modal {
       new Notice("A topic cannot be its own parent.");
       return;
     }
-    this.resolvePromise({ topicName: this.selectedTopicName, parentName: this.selectedParentName });
-    this.resolvePromise = () => {};
-    this.close();
+    this.settle({ topicName: this.selectedTopicName, parentName: this.selectedParentName });
   }
 
   private cancel(): void {
-    this.resolvePromise(null);
-    this.resolvePromise = () => {};
-    this.close();
+    this.settle(null);
   }
 }
