@@ -1,6 +1,6 @@
 import { MarkdownRenderChild, parseYaml } from "obsidian";
 import type { MarkdownPostProcessorContext } from "obsidian";
-import type { PluginServices, RegisterProcessorFn } from "../plugin-context";
+import type { EntityViewProcessorServices, RegisterProcessorFn } from "../plugin-context";
 import { ENTITY_VIEW_SECTIONS } from "./entity-view-registry";
 import { renderActionButtons } from "./action-renderers";
 import { renderEntityTable } from "./table-renderers";
@@ -26,7 +26,7 @@ interface PmEntityViewConfig {
  * ```
  */
 export function registerPmEntityViewProcessor(
-  services: PluginServices,
+  services: EntityViewProcessorServices,
   registerProcessor: RegisterProcessorFn
 ): void {
   registerProcessor(CODEBLOCK.PM_ENTITY_VIEW, (source, el, ctx: MarkdownPostProcessorContext) => {
@@ -41,7 +41,7 @@ class PmEntityViewRenderChild extends MarkdownRenderChild {
     containerEl: HTMLElement,
     private readonly source: string,
     private readonly sourcePath: string,
-    private readonly services: PluginServices
+    private readonly services: EntityViewProcessorServices
   ) {
     super(containerEl);
   }

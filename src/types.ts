@@ -347,9 +347,3 @@ export interface EntityOption {
   engagement?: string;
 }
 
-/** Result of a file creation operation. */
-export interface CreateFileResult {
-  success: boolean;
-  path: string;
-  error?: string;
-}
