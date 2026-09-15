@@ -203,6 +203,9 @@ The former `pendingActionContext` on `PluginServices` was a shared mutable field
 ### Why `CommandExecutor`?
 `app.commands.executeCommandById` is not in Obsidian's public TypeScript types, requiring an unsafe cast at every call site. `CommandExecutor` isolates the cast to one place and exposes a typed `ICommandExecutor` interface.
 
+### Why a `ViewStateStore` capability?
+Dashboard filter-state persistence is a genuine variation point with two real implementors — note-bound code-block dashboards (pm-tasks, RAID) persist to their host note's frontmatter, while the note-less References side-panel persists to plugin settings. The `ViewStateStore` interface (`src/processors/view-state-store.ts`) captures the one narrow `load(key)`/`save(key, state)` contract; `FrontmatterViewStore` (over a minimal `FrontmatterIO` port, `src/processors/frontmatter-io.ts`) and `SettingsViewStore` are its adapters. The frontmatter adapter recognises its own writes **by value** — a one-shot pending-echo consume with a canonical serialization that normalizes `[]`/`null`/absent as equivalent (Obsidian coerces empty frontmatter arrays to `null` on write) — replacing each render child's time-window `isUpdating` flag, and funnels all per-note writes through a shared per-file serializer so sibling per-block sub-keys are never clobbered. The store is key-agnostic: a caller may persist under a flat key (`pm-tasks-filters`) or a nested per-block key (`pm-view-state.<blockKey>`). Adoption across the dashboards is staged (the shell wires pm-tasks under the flat key; per-block keying, the key migration, and the References move follow).
+
 ## Vault Folder Structure
 
 Default folder layout (all paths configurable via Settings → Folder Paths):
