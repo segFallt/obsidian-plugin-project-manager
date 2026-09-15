@@ -4,7 +4,7 @@ import type { Editor, MarkdownView, MarkdownFileInfo } from "obsidian";
 import type { CommandServices, AddCommandFn } from "../plugin-context";
 import { SuggesterModal } from "../ui/modals/suggester-modal";
 import type { DataviewPage, RaidType, RaidDirection } from "../types";
-import { DIRECTION_LABELS, DIRECTION_ICONS, ATX_HEADING_RE, formatRaidBadge } from "../processors/raid-constants";
+import { DIRECTION_LABELS, DIRECTION_ICONS, ATX_HEADING_RE, formatRaidBadge } from "../raid-constants";
 import { MSG, LOG_CONTEXT, COMMAND_NAMES, CMD_ERROR_LABEL } from "../constants";
 import { normalizeToName } from "../utils/link-utils";
 import { isSectionHeadingLine } from "../processors/raid-reference-parser";

@@ -11,15 +11,15 @@ import type { IViewRenderer, ViewRenderContext } from "./view-renderer";
  * shell stays entity-agnostic: it never touches Dataview, the vault, or any
  * task-specific type — the consumer captures those in the closures it passes.
  */
-export interface DashboardShellDeps<TItem, THelpers> {
+export interface DashboardShellDeps<TItem, THelpers, TFilters = DashboardFilters> {
   /** Reads the entity's base item set (unfiltered). */
   query: IEntityQuery<TItem>;
   /** View renderers keyed by view-mode string. */
-  views: Record<string, IViewRenderer<TItem, THelpers>>;
+  views: Record<string, IViewRenderer<TItem, THelpers, TFilters>>;
   /** The active view mode; selects which renderer draws. */
   getViewMode: () => string;
   /** The current filter model handed to the chosen renderer's context. */
-  getFilters: () => DashboardFilters;
+  getFilters: () => TFilters;
   /** Builds the static facet catalog to filter with. */
   buildSpec: () => FilterSpec<TItem>;
   /** Builds the dynamic selection state to filter with. */
@@ -27,7 +27,7 @@ export interface DashboardShellDeps<TItem, THelpers> {
   /** Precomputes the read-only render helpers from the filtered item set. */
   buildHelpers: (items: TItem[]) => THelpers;
   /** An interactive renderer emits filter patches through this. */
-  onFilterChange: (patch: Partial<DashboardFilters>) => void;
+  onFilterChange: (patch: Partial<TFilters>) => void;
   /** Text shown when nothing matches the current filters. */
   emptyMessage: string;
   /** Draws the fallback when the active view mode has no registered renderer. */
@@ -43,8 +43,8 @@ export interface DashboardShellDeps<TItem, THelpers> {
  * (filter UI, persistence, teardown, Dataview access) live in the consumer and
  * reach the shell exclusively through {@link DashboardShellDeps}.
  */
-export class DashboardShell<TItem, THelpers> {
-  constructor(private readonly deps: DashboardShellDeps<TItem, THelpers>) {}
+export class DashboardShell<TItem, THelpers, TFilters = DashboardFilters> {
+  constructor(private readonly deps: DashboardShellDeps<TItem, THelpers, TFilters>) {}
 
   /** Resolves, filters, and renders the active view into `outputEl`. */
   async render(outputEl: HTMLElement): Promise<void> {
@@ -69,7 +69,7 @@ export class DashboardShell<TItem, THelpers> {
       return;
     }
 
-    const ctx: ViewRenderContext<TItem, THelpers> = {
+    const ctx: ViewRenderContext<TItem, THelpers, TFilters> = {
       container: outputEl,
       items: filtered,
       filters: deps.getFilters(),

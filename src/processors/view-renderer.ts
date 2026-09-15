@@ -25,17 +25,23 @@ export interface TaskRenderHelpers {
   nameMap: Map<string, string>;
 }
 
-/** A patch an interactive renderer emits to change filter state. */
+/** A patch an interactive renderer emits to change task filter state. */
 export type FilterPatch = Partial<DashboardFilters>;
 
-/** Everything a renderer needs for one render pass. No dv / query access. */
-export interface ViewRenderContext<TItem, THelpers = TaskRenderHelpers> {
+/**
+ * Everything a renderer needs for one render pass. No dv / query access.
+ *
+ * `TFilters` is the entity's filter model (task filters by default; the RAID
+ * dashboard supplies `RaidDashboardFilters`), so an interactive renderer reads
+ * and patches its own strongly-typed filter shape.
+ */
+export interface ViewRenderContext<TItem, THelpers = TaskRenderHelpers, TFilters = DashboardFilters> {
   container: HTMLElement;
   /** Items already filtered by the host. */
   items: TItem[];
-  filters: DashboardFilters;
+  filters: TFilters;
   /** Interactive renderers push filter changes through this; passive ones never call it. */
-  onFilterChange: (patch: FilterPatch) => void;
+  onFilterChange: (patch: Partial<TFilters>) => void;
   helpers: THelpers;
   /**
    * The item set filtered by every facet EXCEPT the one this renderer owns.
@@ -47,7 +53,7 @@ export interface ViewRenderContext<TItem, THelpers = TaskRenderHelpers> {
 }
 
 /** A dashboard view renderer: draws items into a container from its context alone. */
-export interface IViewRenderer<TItem, THelpers = TaskRenderHelpers> {
+export interface IViewRenderer<TItem, THelpers = TaskRenderHelpers, TFilters = DashboardFilters> {
   readonly mode: string;
   /**
    * The single filter facet an interactive renderer drives (e.g. the RAID
@@ -55,7 +61,7 @@ export interface IViewRenderer<TItem, THelpers = TaskRenderHelpers> {
    * such a renderer counts filtered by all OTHER facets.
    */
   readonly ownsFacet?: string;
-  render(ctx: ViewRenderContext<TItem, THelpers>): void | Promise<void>;
+  render(ctx: ViewRenderContext<TItem, THelpers, TFilters>): void | Promise<void>;
 }
 
 export type TaskViewRenderer = IViewRenderer<DataviewTask>;
