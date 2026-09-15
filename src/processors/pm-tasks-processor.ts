@@ -8,10 +8,11 @@ import { ByProjectView } from "./pm-tasks-by-project";
 import { TaskQuery } from "../services/entity-query";
 import { DashboardRenderChild } from "./dashboard-render-child";
 import type { DashboardViewFactory } from "./dashboard-render-child";
-import { FrontmatterViewStore } from "./view-state-store";
+import { FrontmatterViewStore, KEY_PATH_SEPARATOR } from "./view-state-store";
 import type { ViewState, ViewStateStore } from "./view-state-store";
 import { ObsidianFrontmatterIO } from "./frontmatter-io";
 import { renderError } from "./dom-helpers";
+import { hashString } from "../utils/hash-utils";
 import { CODEBLOCK, FM_KEY, LOG_CONTEXT, PM_TASKS_MODE, PM_TASKS_MSG, VAULT_EVENT } from "../constants";
 
 /**
@@ -30,7 +31,8 @@ import { CODEBLOCK, FM_KEY, LOG_CONTEXT, PM_TASKS_MODE, PM_TASKS_MSG, VAULT_EVEN
  *
  * Both modes are hosted by the generic {@link DashboardRenderChild}, which owns
  * the vault-modify lifecycle and routes filter-state persistence through a
- * {@link FrontmatterViewStore} under the flat `pm-tasks-filters` frontmatter key.
+ * {@link FrontmatterViewStore} under a per-block `pm-view-state.<blockKey>` key
+ * (migrated forward from the legacy flat `pm-tasks-filters` key on first load).
  */
 export function registerPmTasksProcessor(
   services: TaskProcessorServices,
@@ -46,8 +48,9 @@ export function registerPmTasksProcessor(
       new ObsidianFrontmatterIO(services.app),
       () => fileAtPath(services, ctx.sourcePath)
     );
+    const stateKey = blockStateKey(config, source);
 
-    const createView = buildViewFactory(config, services, store);
+    const createView = buildViewFactory(config, services, store, stateKey);
     if (!createView) {
       const msg = PM_TASKS_MSG.UNKNOWN_MODE(String(config.mode));
       services.loggerService.warn(msg, LOG_CONTEXT.TASKS_PROCESSOR);
@@ -63,8 +66,8 @@ export function registerPmTasksProcessor(
     const child = new DashboardRenderChild(el, {
       createView,
       store,
-      stateKey: FM_KEY.TASKS_FILTERS,
-      readModifiedState: (file) => readSavedFilters(services, file),
+      stateKey,
+      readModifiedState: () => store.load(stateKey),
       registerModify: (handler) =>
         services.app.vault.on(VAULT_EVENT.MODIFY, (file) => {
           if (file instanceof TFile) handler(file);
@@ -113,14 +116,18 @@ type ViewFactory = DashboardViewFactory;
 function buildViewFactory(
   config: PmTasksConfig,
   services: TaskProcessorServices,
-  store: ViewStateStore
+  store: ViewStateStore,
+  stateKey: string
 ): ViewFactory | null {
+  const onMigrationError = (err: unknown): void =>
+    services.loggerService.warn(PM_TASKS_MSG.MIGRATION_FAILED(String(err)), LOG_CONTEXT.TASKS_PROCESSOR);
+
   if (config.mode === PM_TASKS_MODE.DASHBOARD) {
     const entityQuery = new TaskQuery(
       () => services.queryService.dv(),
       () => services.settings.folders.utility
     );
-    const savedFilters = store.load(FM_KEY.TASKS_FILTERS) as SavedDashboardFilters | null;
+    const savedFilters = loadWithMigration(store, stateKey, onMigrationError) as SavedDashboardFilters | null;
     return (persist, container, component) =>
       new DashboardView(
         container,
@@ -135,7 +142,7 @@ function buildViewFactory(
   }
 
   if (config.mode === PM_TASKS_MODE.BY_PROJECT) {
-    const savedFilters = store.load(FM_KEY.TASKS_FILTERS) as SavedByProjectFilters | null;
+    const savedFilters = loadWithMigration(store, stateKey, onMigrationError) as SavedByProjectFilters | null;
     return (persist, container, component) =>
       new ByProjectView(
         container,
@@ -151,9 +158,41 @@ function buildViewFactory(
   return null;
 }
 
-/** Reads the persisted filter subset from a file's frontmatter (flat key), or null. */
-function readSavedFilters(services: TaskProcessorServices, file: TFile): unknown {
-  return services.app.metadataCache.getFileCache(file)?.frontmatter?.[FM_KEY.TASKS_FILTERS] ?? null;
+/**
+ * The per-block dot-path key this block persists its state under:
+ * `pm-view-state.<blockKey>`, where `blockKey` is the explicit `id:` or a hash
+ * of the block source. Structurally-different blocks hash apart automatically;
+ * byte-identical blocks share a key unless given distinct `id:`s.
+ */
+export function blockStateKey(config: PmTasksConfig, source: string): string {
+  const explicitId = config.id?.trim();
+  const blockKey = explicitId ? explicitId : hashString(source);
+  return `${FM_KEY.VIEW_STATE}${KEY_PATH_SEPARATOR}${blockKey}`;
+}
+
+/**
+ * Loads this block's persisted state, migrating a legacy flat `pm-tasks-filters`
+ * value forward on first load: if the per-block entry is absent but the legacy
+ * key holds a value, it is **copied** into the per-block entry (leaving the
+ * legacy key in place as a read-only fallback so sibling blocks never reset) and
+ * returned.
+ */
+export function loadWithMigration(
+  store: ViewStateStore,
+  stateKey: string,
+  onMigrationError?: (err: unknown) => void
+): ViewState | null {
+  const perBlock = store.load(stateKey);
+  if (perBlock !== null) return perBlock;
+
+  const legacy = store.load(FM_KEY.TASKS_FILTERS);
+  if (legacy !== null) {
+    // Fire-and-forget copy: the legacy key is retained, so a failed write simply
+    // retries on the next load — but surface the failure rather than swallow it.
+    void store.save(stateKey, legacy).catch((err) => onMigrationError?.(err));
+    return legacy;
+  }
+  return null;
 }
 
 /** Resolves the code block's host note as a `TFile`, or null when absent. */
