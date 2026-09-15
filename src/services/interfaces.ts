@@ -57,6 +57,37 @@ export interface IQueryService {
   getTopicDescendants(topicName: string): string[];
 }
 
+/**
+ * Options controlling how a single entity note is materialized on disk.
+ * All fields are optional; omitting one skips that step.
+ */
+export interface MaterializeEntityOptions {
+  /** Extra template variables merged over the defaults and the entity name. */
+  extraVars?: Record<string, string>;
+  /** Transforms the rendered template content before the file is written (e.g. task injection). */
+  contentTransform?: (content: string) => string;
+  /** Mutates the file's frontmatter via processFrontMatter after creation. */
+  frontmatter?: (fm: Record<string, unknown>) => void;
+  /** When true, signals successful creation through the injected notification service. */
+  notice?: boolean;
+  /** When true, opens the newly created file via the navigation service. */
+  open?: boolean;
+}
+
+/**
+ * Narrow capability for turning an entity type + name + folder into a note on
+ * disk, owning the folder/template/notification policy. Consumed by bulk
+ * generators (e.g. test-data) that reuse the real creation pipeline.
+ */
+export interface IEntityMaterializer {
+  materializeEntity(
+    type: EntityType,
+    name: string,
+    folder: string,
+    options?: MaterializeEntityOptions
+  ): Promise<TFile>;
+}
+
 export interface IEntityCreationService {
   createClient(name: string): Promise<TFile>;
   createEngagement(name: string, clientName?: string): Promise<TFile>;
@@ -69,6 +100,12 @@ export interface IEntityCreationService {
   createRecurringMeetingEvent(meetingName: string, options?: { date?: string; attendees?: string[]; notesContent?: string; open?: boolean }): Promise<TFile>;
   createRaidItem(name: string, raidType: string, engagement?: string, owner?: string): Promise<TFile>;
   createReferenceTopic(name: string, parentName?: string): Promise<TFile>;
+  /**
+   * Assigns or clears the parent of an existing reference topic. Resolves the
+   * topic note from the configured referenceTopics folder and writes (or, when
+   * parentName is omitted, removes) the parent wikilink via processFrontMatter.
+   */
+  setReferenceTopicParent(topicName: string, parentName?: string): Promise<void>;
   createReference(name: string, topics: string[], client?: string, engagement?: string): Promise<TFile>;
   validateResult(result: CreateFileResult): void;
 }
@@ -80,6 +117,11 @@ export interface IEntityConversionService {
 
 export interface INavigationService {
   openFile(file: TFile): Promise<void>;
+}
+
+/** Displays user-facing notifications, keeping UI construction out of the services layer. */
+export interface INotificationService {
+  notify(message: string): void;
 }
 
 export interface ICommandExecutor {

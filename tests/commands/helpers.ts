@@ -49,6 +49,8 @@ export function createMockPlugin(overrides: {
     createRecurringMeetingEvent: vi.fn().mockResolvedValue({}),
     convertSingleToRecurring: vi.fn().mockResolvedValue({}),
     createRaidItem: vi.fn().mockResolvedValue({}),
+    createReferenceTopic: vi.fn().mockResolvedValue({}),
+    setReferenceTopicParent: vi.fn().mockResolvedValue(undefined),
     createReference: vi.fn().mockResolvedValue({}),
   };
 
