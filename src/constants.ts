@@ -484,6 +484,9 @@ export const MD_EXTENSION = ".md";
 /** Success-notice label shown when an entity note is created. */
 export const CREATED_LABEL = "Created";
 
+/** Newline character used when composing multi-line note content. */
+export const NL = "\n";
+
 /** Display label for the "no value" option prepended to nullable select fields. */
 export const SELECT_NONE_LABEL = "(none)";
 /** Sentinel value marking the "no value" option / an unset nullable select field. */

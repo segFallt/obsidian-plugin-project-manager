@@ -9,7 +9,8 @@ import type {
 import { generateProjectNotesPath } from "../utils/path-utils";
 import { toWikilink } from "../utils/link-utils";
 import { todayISO } from "../utils/date-utils";
-import { FM_KEY, NOTES_MARKER } from "../constants";
+import { insertIntoNotesSection } from "../utils/notes-section";
+import { FM_KEY } from "../constants";
 import {
   TEST_PREFIX,
   CLIENT_NAMES,
@@ -485,20 +486,9 @@ export class TestDataService implements ITestDataService {
     return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
   }
 
-  /**
-   * Injects a task block into file content at the # Notes section.
-   * - WITH_DASH (`# Notes\n-`): replaces the dash marker
-   * - BASE (`# Notes\n`): inserts tasks after the heading
-   * - No heading: appends a new # Notes section at the end
-   */
+  /** Injects a task block into file content at the # Notes section. */
   private injectTasksIntoContent(content: string, taskBlock: string): string {
-    if (content.includes(NOTES_MARKER.WITH_DASH)) {
-      return content.replace(NOTES_MARKER.WITH_DASH, `# Notes\n${taskBlock}`);
-    }
-    if (content.includes(NOTES_MARKER.BASE)) {
-      return content.replace(NOTES_MARKER.BASE, `# Notes\n${taskBlock}\n`);
-    }
-    return `${content}\n# Notes\n${taskBlock}`;
+    return insertIntoNotesSection(content, taskBlock);
   }
 
   // ─── Utilities ────────────────────────────────────────────────────────────

@@ -3,7 +3,8 @@ import type { ProjectManagerSettings } from "../settings";
 import type { IEntityConversionService, IEntityCreationService } from "./interfaces";
 import { toWikilink, normalizeToName } from "../utils/link-utils";
 import { getFrontmatter } from "../utils/frontmatter-utils";
-import { STATUS, FM_KEY, ISO_DATE_LENGTH, NOTES_MARKER } from "../constants";
+import { extractNotesSection } from "../utils/notes-section";
+import { STATUS, FM_KEY, ISO_DATE_LENGTH } from "../constants";
 
 /**
  * Handles entity conversion operations.
@@ -73,14 +74,7 @@ export class EntityConversionService implements IEntityConversionService {
       : [];
 
     const content = await this.app.vault.read(singleFile);
-    const notesIdx = content.indexOf(NOTES_MARKER.PREFIX);
-    const notesContent =
-      notesIdx >= 0
-        ? content
-            .slice(notesIdx + NOTES_MARKER.PREFIX.length)
-            .replace(/^\n-(?= *\n|$)/, "")
-            .trim()
-        : "";
+    const notesContent = extractNotesSection(content);
 
     const singleDate = String(fm[FM_KEY.DATE] ?? "").slice(0, ISO_DATE_LENGTH) || undefined;
 

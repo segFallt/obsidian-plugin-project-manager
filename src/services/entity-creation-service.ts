@@ -16,8 +16,9 @@ import {
 } from "../utils/path-utils";
 import { toWikilink, normalizeToName } from "../utils/link-utils";
 import { getFrontmatter } from "../utils/frontmatter-utils";
-import { FM_KEY, ISO_DATE_LENGTH, NOTES_MARKER, MD_EXTENSION, CREATED_LABEL } from "../constants";
+import { FM_KEY, ISO_DATE_LENGTH, MD_EXTENSION, CREATED_LABEL } from "../constants";
 import { todayISO } from "../utils/date-utils";
+import { insertIntoNotesSection } from "../utils/notes-section";
 
 /**
  * Handles all entity creation operations.
@@ -234,15 +235,7 @@ export class EntityCreationService implements IEntityCreationService, IEntityMat
     // Step 8: Inject notes content if provided.
     if (options?.notesContent) {
       const content = await this.app.vault.read(file);
-      let updated: string;
-      if (content.includes(NOTES_MARKER.WITH_DASH)) {
-        updated = content.replace(NOTES_MARKER.WITH_DASH, `# Notes\n${options.notesContent}`);
-      } else if (content.includes(NOTES_MARKER.BASE)) {
-        updated = content.replace(NOTES_MARKER.BASE, `# Notes\n${options.notesContent}\n`);
-      } else {
-        updated = content;
-      }
-      await this.app.vault.modify(file, updated);
+      await this.app.vault.modify(file, insertIntoNotesSection(content, options.notesContent));
     }
 
     // Step 9: Open the newly created file (skipped when called internally with open: false).
