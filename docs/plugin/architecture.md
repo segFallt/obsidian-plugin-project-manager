@@ -141,6 +141,8 @@ Returns template strings for all 9 entity types via a static lookup map. Templat
 ### `TaskFilterService` / `TaskSortService` (`src/services/task-filter-service.ts`, `task-sort-service.ts`)
 Injected into `TaskProcessorServices`. Previously constructed inline inside processors (DIP violation); now wired in `main.ts` and injected.
 
+`TaskFilterService`'s matching logic is decomposed into a generic, dependency-free **Filter capability** (`src/services/filter-engine.ts`): a `FilterEngine.apply(items, spec, state)` pure function driven by a static `FilterSpec` (a catalog of keyed `Facet`s — each an `accessor` or a closure-captured `predicate`, with an optional `appliesWhen(viewMode)` view-gate) and a dynamic `FilterState` (`selections` + `viewMode`). Any per-facet dependency (`dv`, `hierarchyService`, `folders`) is captured in the predicate closure, so the engine touches none. Facets are addressable by key, and `spec.specWithout(key)` yields a reduced catalog — the dashboard shell uses this to compute all-other-facet counts for an interactive renderer that declares `ownsFacet` (e.g. the RAID matrix). The public `TaskFilterService` methods are thin adapters that build the task spec/state and delegate to the engine, so the API surface is unchanged.
+
 ### `TaskParser` (`src/services/task-parser.ts`)
 Regex-based parser for the Tasks plugin emoji format. Does not depend on the Tasks plugin API. Used by `pm-tasks` processor when checkbox state is toggled.
 
