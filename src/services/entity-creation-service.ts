@@ -1,5 +1,5 @@
 import { App, TFile } from "obsidian";
-import type { EntityType, CreateFileResult } from "../types";
+import type { EntityType } from "../types";
 import type { ProjectManagerSettings } from "../settings";
 import type {
   IEntityCreationService,
@@ -344,11 +344,4 @@ export class EntityCreationService implements IEntityCreationService, IEntityMat
     return file;
   }
 
-  // ─── Validation ──────────────────────────────────────────────────────────
-
-  validateResult(result: CreateFileResult): void {
-    if (!result.success) {
-      throw new Error(result.error ?? "Entity creation failed");
-    }
-  }
 }
