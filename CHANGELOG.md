@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- The `ReferenceProcessorServices` object is now built through a single `buildReferenceProcessorServices(plugin)` factory co-located with its interface, instead of hand-maintaining the identical field-for-field literal in both the Reference Dashboard item view and the processor registrar ([#20](https://gitlab.n3.pingleberry.com/obsidian/obsidiantemplates-claude-code/-/issues/20)).
 - Extracted the hand-rolled debounced-refresh lifecycle (`debounceTimer` + `setTimeout`/`clearTimeout`) into a single shared `debounced(fn, ms)` helper (`src/utils/debounce.ts`) and adopted it across every processor and view that auto-refreshes or throttles input ([#8](https://gitlab.n3.pingleberry.com/obsidian/obsidiantemplates-claude-code/-/issues/8)).
 - `LoggerService` now accesses the vault adapter through a single typed `IVaultFileAdapter` port, replacing the three divergent inline `as unknown as {...}` casts that were duplicated across its log read/write/list/prune paths. The adapter contract is declared once and cast in one place, mirroring the `CommandExecutor` boundary precedent ([#16](https://gitlab.n3.pingleberry.com/obsidian/obsidiantemplates-claude-code/-/issues/16)).
 
