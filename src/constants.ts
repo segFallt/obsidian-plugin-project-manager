@@ -318,7 +318,8 @@ export const FM_KEY = {
   REPORTS_TO: "reports-to",
   PRIORITY: "priority",
   DESCRIPTION: "description",
-  TASKS_FILTERS: "pm-tasks-filters", // Persisted to vault frontmatter — do NOT change this value without a migration
+  TASKS_FILTERS: "pm-tasks-filters", // Legacy flat key — read-only fallback; migrated forward into VIEW_STATE (do NOT change without a migration)
+  VIEW_STATE: "pm-view-state", // Namespaced parent holding per-block dashboard state (pm-view-state.<blockKey>)
   TOPICS: "topics",
   PM_REFERENCES_FILTERS: "pm-references-filters",
   RAID_DASHBOARD_FILTERS: "pm-raid-dashboard-filters",
@@ -507,6 +508,7 @@ export const PM_TASKS_MSG = {
   INVALID_CONFIG: "Invalid pm-tasks config.",
   REQUIRES_MODE: "pm-tasks requires a `mode` field (dashboard or by-project).",
   UNKNOWN_MODE: (mode: string): string => `Unknown pm-tasks mode: ${mode}`,
+  MIGRATION_FAILED: (detail: string): string => `pm-tasks filter-state migration failed: ${detail}`,
 } as const;
 
 // ─── Command layer: names, modals, error labels ───────────────────────────

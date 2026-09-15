@@ -179,6 +179,12 @@ export interface SortKey {
 
 export interface PmTasksConfig {
   mode: TaskViewMode;
+  /**
+   * Optional explicit per-block state key. Disambiguates two byte-identical
+   * blocks in one note (which otherwise share a hash-derived key); existing
+   * blocks need none.
+   */
+  id?: string;
   // Dashboard-specific defaults
   viewMode?: "context" | "date" | "priority" | "tag";
   sortBy?: SortKey[];

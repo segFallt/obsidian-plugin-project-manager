@@ -59,7 +59,7 @@ function canonicalSerialize(value: unknown): string {
 // ─── Dot-path helpers ────────────────────────────────────────────────────────
 
 /** Separator for the store's dot-path keys (a flat `key` or a nested `parent.child`). */
-const KEY_PATH_SEPARATOR = ".";
+export const KEY_PATH_SEPARATOR = ".";
 
 function splitKey(key: string): string[] {
   return key.split(KEY_PATH_SEPARATOR);

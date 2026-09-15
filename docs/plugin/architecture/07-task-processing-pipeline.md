@@ -8,7 +8,7 @@ flowchart TD
 
     B["pm-tasks handler\nparseYaml(source) → PmTasksConfig\nbuild FrontmatterViewStore + DashboardRenderChild"] --> C
 
-    C["store.load('pm-tasks-filters')\nViewStateStore reads the flat\nfrontmatter key (via FrontmatterIO)"] --> D
+    C["store.load('pm-view-state.<blockKey>')\nper-block key (id: or source hash);\nlazy copy-forward from legacy\n'pm-tasks-filters' on first load"] --> D
 
     D["new DashboardView(\n  containerEl, config, services,\n  sortService, renderer,\n  savedFilters, onSaveFilters\n)"] --> E
 
@@ -55,7 +55,7 @@ flowchart TD
     M --> N["User changes a filter control"]
     N --> O["DashboardView filter handler\nupdates filters object → persist(saved)"]
     O --> P["DashboardRenderChild.persist()\ndebounced (DEBOUNCE_MS.PROPERTIES ms)"]
-    P --> Q["store.save('pm-tasks-filters', state)\nFrontmatterViewStore diff-before-write\n→ processFrontMatter (via FrontmatterIO)"]
+    P --> Q["store.save('pm-view-state.<blockKey>', state)\nFrontmatterViewStore diff-before-write\n→ serialized processFrontMatter (via FrontmatterIO)"]
     Q --> R["vault 'modify' event fires"]
     R --> S{"store.isOwnWrite(file, value)?\n(matches the pending write-echo)"}
     S -->|"No"| T["debouncedAutoRefresh()\n(DEBOUNCE_MS.TASKS ms — allows\nDataview to re-index first)"]
