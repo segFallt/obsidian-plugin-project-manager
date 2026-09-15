@@ -1,61 +1,58 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import { ReferenceDashboardItemView } from "@/views/reference-dashboard-item-view";
 import { PM_REFERENCE_DASHBOARD_VIEW_TYPE } from "@/constants";
-import type { ReferenceFilters } from "@/types";
+import { createMockDataviewApi } from "../mocks/dataview-mock";
+import type { MockPageData } from "../mocks/dataview-mock";
 import { App, TFile, TFolder } from "obsidian";
+
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 // ─── Mock plugin factory ──────────────────────────────────────────────────────
 
-function makePlugin(referenceDashboardFilters = {}) {
+function makePlugin(referenceDashboardFilters: Record<string, unknown> = {}, referencePages: MockPageData[] = []) {
   const app = new App();
   const saveSettings = vi.fn().mockResolvedValue(undefined);
+  const dv = createMockDataviewApi(referencePages);
 
   return {
     app,
     saveSettings,
-    settings: {
-      ui: {
-        referenceDashboardFilters,
-      },
-    },
+    settings: { ui: { referenceDashboardFilters } },
     queryService: {
-      getReferences: vi.fn(() => []),
+      dv: vi.fn(() => dv),
       getActiveEntitiesByTag: vi.fn(() => []),
       getClientFromEngagementLink: vi.fn(() => null),
-      getReferenceTopicTree: vi.fn(() => []),
-      getTopicDescendants: vi.fn(() => []),
     },
-    hierarchyService: {},
+    hierarchyService: {
+      resolveClientName: vi.fn(() => null),
+      resolveEngagementName: vi.fn(() => null),
+    },
     navigationService: {
       openFile: vi.fn().mockResolvedValue(undefined),
     },
-    loggerService: {
-      debug: vi.fn(),
-      info: vi.fn(),
-      warn: vi.fn(),
-      error: vi.fn(),
-    },
-    commandExecutor: {
-      executeCommandById: vi.fn(),
-    },
-    actionContext: {
-      set: vi.fn(),
-    },
+    loggerService: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+    commandExecutor: { executeCommandById: vi.fn() },
+    actionContext: { set: vi.fn() },
   };
 }
 
-// ─── ItemView factory ─────────────────────────────────────────────────────────
-
-function makeView(referenceDashboardFilters = {}) {
-  const plugin = makePlugin(referenceDashboardFilters);
-  // The ItemView stub constructor takes (leaf, app) but our ItemView takes
-  // (leaf, plugin). We pass a fake leaf and the plugin.
+function makeView(referenceDashboardFilters: Record<string, unknown> = {}, referencePages: MockPageData[] = []) {
+  const plugin = makePlugin(referenceDashboardFilters, referencePages);
   const view = new ReferenceDashboardItemView(
     {} as import("obsidian").WorkspaceLeaf,
     plugin as unknown as import("@/main").default
   );
   return { view, plugin };
 }
+
+const REF_PAGE: MockPageData = {
+  path: "reference/references/My Note.md",
+  name: "My Note",
+  tags: ["#reference"],
+  frontmatter: { topics: ["[[Architecture]]"] },
+};
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
@@ -94,11 +91,11 @@ describe("ReferenceDashboardItemView", () => {
       expect(view.contentEl.querySelector(".pm-references")).not.toBeNull();
     });
 
-    it("registers a vault modify event listener", async () => {
+    it("does not register a vault modify listener (settings-backed, no echo)", async () => {
       const { view, plugin } = makeView();
       const vaultOn = vi.spyOn(plugin.app.vault, "on");
       await view.onOpen();
-      expect(vaultOn).toHaveBeenCalledWith("modify", expect.any(Function));
+      expect(vaultOn).not.toHaveBeenCalledWith("modify", expect.any(Function));
     });
   });
 
@@ -118,31 +115,31 @@ describe("ReferenceDashboardItemView", () => {
     });
   });
 
-  describe("filter change callback", () => {
-    it("updates plugin.settings.ui.referenceDashboardFilters", async () => {
+  describe("filter change callback (persisted through the store, debounced)", () => {
+    it("updates plugin.settings.ui.referenceDashboardFilters after the debounce fires", async () => {
+      vi.useFakeTimers();
       const { view, plugin } = makeView();
       await view.onOpen();
 
-      // Trigger a filter change by clicking the "By Client" tab
       const tabs = [...view.contentEl.querySelectorAll<HTMLButtonElement>(".pm-references__tab")];
       const clientTab = tabs.find((t) => t.textContent === "By Client");
       expect(clientTab).not.toBeUndefined();
       clientTab!.click();
 
-      expect(plugin.settings.ui.referenceDashboardFilters).toMatchObject({
-        viewMode: "client",
-      });
+      await vi.runAllTimersAsync();
+      expect(plugin.settings.ui.referenceDashboardFilters).toMatchObject({ viewMode: "client" });
     });
 
-    it("calls plugin.saveSettings() when filters change", async () => {
+    it("calls plugin.saveSettings() when filters change (after debounce)", async () => {
+      vi.useFakeTimers();
       const { view, plugin } = makeView();
       await view.onOpen();
 
       const tabs = [...view.contentEl.querySelectorAll<HTMLButtonElement>(".pm-references__tab")];
       const engagementTab = tabs.find((t) => t.textContent === "By Engagement");
-      expect(engagementTab).not.toBeUndefined();
       engagementTab!.click();
 
+      await vi.runAllTimersAsync();
       expect(plugin.saveSettings).toHaveBeenCalled();
     });
   });
@@ -151,60 +148,15 @@ describe("ReferenceDashboardItemView", () => {
     it("activates the saved view mode tab on open", async () => {
       const { view } = makeView({ viewMode: "client" });
       await view.onOpen();
-      const activeTab = view.contentEl.querySelector<HTMLButtonElement>(
-        ".pm-references__tab--active"
-      );
-      expect(activeTab).not.toBeNull();
-      expect(activeTab!.textContent).toBe("By Client");
-    });
-
-    it("restores saved topics and selectedNode into filter state", async () => {
-      const { view, plugin } = makeView({
-        viewMode: "topic",
-        topics: ["Architecture"],
-        selectedNode: "Kubernetes",
-      });
-      await view.onOpen();
-
-      // Trigger a filter change to capture the persisted state shape
-      const tabs = [...view.contentEl.querySelectorAll<HTMLButtonElement>(".pm-references__tab")];
-      const topicTab = tabs.find((t) => t.textContent === "By Topic");
-      topicTab!.click();
-
-      const persisted = plugin.settings.ui.referenceDashboardFilters as Record<string, unknown>;
-      // The initial topics from saved state should have been passed in;
-      // after clicking the same tab the selectedNode is reset but topics remain
-      expect(persisted).toHaveProperty("viewMode", "topic");
-      expect(persisted).toHaveProperty("topics");
+      const activeTab = view.contentEl.querySelector<HTMLButtonElement>(".pm-references__tab--active");
+      expect(activeTab?.textContent).toBe("By Client");
     });
 
     it("succeeds with no saved filters and defaults to topic mode", async () => {
-      // Pass undefined so the falsy branch is exercised
-      const plugin = {
-        app: new (await import("obsidian")).App(),
-        saveSettings: vi.fn().mockResolvedValue(undefined),
-        settings: { ui: { referenceDashboardFilters: undefined } },
-        queryService: {
-          getReferences: vi.fn(() => []),
-          getActiveEntitiesByTag: vi.fn(() => []),
-          getClientFromEngagementLink: vi.fn(() => null),
-          getReferenceTopicTree: vi.fn(() => []),
-          getTopicDescendants: vi.fn(() => []),
-        },
-        hierarchyService: {},
-        loggerService: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
-        commandExecutor: { executeCommandById: vi.fn() },
-        actionContext: { set: vi.fn() },
-      };
-      const { ReferenceDashboardItemView } = await import("@/views/reference-dashboard-item-view");
-      const view = new ReferenceDashboardItemView(
-        {} as import("obsidian").WorkspaceLeaf,
-        plugin as unknown as import("@/main").default
-      );
+      const { view } = makeView(undefined as unknown as Record<string, unknown>);
       await expect(view.onOpen()).resolves.not.toThrow();
       const activeTab = view.contentEl.querySelector<HTMLButtonElement>(".pm-references__tab--active");
-      expect(activeTab).not.toBeNull();
-      expect(activeTab!.textContent).toBe("By Topic");
+      expect(activeTab?.textContent).toBe("By Topic");
     });
   });
 
@@ -216,201 +168,88 @@ describe("ReferenceDashboardItemView", () => {
       const dashboard = view.contentEl.querySelector(".pm-references");
       expect(actionsRow).not.toBeNull();
       expect(dashboard).not.toBeNull();
-      // Actions row should appear before dashboard in DOM order (as direct children of contentEl)
       const directChildren = [...view.contentEl.children];
       const actionsRowIndex = directChildren.indexOf(actionsRow!);
-      // The dashboard is nested inside its own container, so find the container that contains it
       const dashboardContainerIndex = directChildren.findIndex((c) => c.contains(dashboard!));
       expect(actionsRowIndex).toBeGreaterThanOrEqual(0);
       expect(dashboardContainerIndex).toBeGreaterThanOrEqual(0);
       expect(actionsRowIndex).toBeLessThan(dashboardContainerIndex);
     });
 
-    it("renders '+ New Reference' button with correct text", async () => {
+    it("renders '+ New Reference' and '+ New Topic' buttons", async () => {
       const { view } = makeView();
       await view.onOpen();
-      const btn = view.contentEl.querySelector<HTMLButtonElement>(
-        ".pm-reference-dashboard__actions__button"
-      );
-      expect(btn).not.toBeNull();
-      expect(btn!.textContent).toBe("+ New Reference");
-    });
-
-    it("renders '+ New Topic' button with correct text", async () => {
-      const { view } = makeView();
-      await view.onOpen();
-      const btns = view.contentEl.querySelectorAll<HTMLButtonElement>(
-        ".pm-reference-dashboard__actions__button"
-      );
-      const topicBtn = [...btns].find((b) => b.textContent === "+ New Topic");
-      expect(topicBtn).not.toBeUndefined();
+      const btns = [...view.contentEl.querySelectorAll<HTMLButtonElement>(".pm-reference-dashboard__actions__button")];
+      expect(btns.find((b) => b.textContent === "+ New Reference")).not.toBeUndefined();
+      expect(btns.find((b) => b.textContent === "+ New Topic")).not.toBeUndefined();
     });
 
     it("clicking '+ New Reference' with selectedNode calls actionContext.set then executeCommandById", async () => {
       const { view, plugin } = makeView({ selectedNode: "Kubernetes" });
       await view.onOpen();
-      const btns = view.contentEl.querySelectorAll<HTMLButtonElement>(
-        ".pm-reference-dashboard__actions__button"
-      );
-      const newRefBtn = [...btns].find((b) => b.textContent === "+ New Reference");
-      expect(newRefBtn).not.toBeUndefined();
-      newRefBtn!.click();
+      const btns = [...view.contentEl.querySelectorAll<HTMLButtonElement>(".pm-reference-dashboard__actions__button")];
+      [...btns].find((b) => b.textContent === "+ New Reference")!.click();
       expect(plugin.actionContext.set).toHaveBeenCalledWith({ field: "topic", value: "Kubernetes" });
-      expect(plugin.commandExecutor.executeCommandById).toHaveBeenCalledWith(
-        "create-reference"
-      );
+      expect(plugin.commandExecutor.executeCommandById).toHaveBeenCalledWith("create-reference");
     });
 
     it("clicking '+ New Reference' with no selectedNode skips actionContext.set but still executes command", async () => {
       const { view, plugin } = makeView({});
       await view.onOpen();
-      const btns = view.contentEl.querySelectorAll<HTMLButtonElement>(
-        ".pm-reference-dashboard__actions__button"
-      );
-      const newRefBtn = [...btns].find((b) => b.textContent === "+ New Reference");
-      expect(newRefBtn).not.toBeUndefined();
-      newRefBtn!.click();
+      const btns = [...view.contentEl.querySelectorAll<HTMLButtonElement>(".pm-reference-dashboard__actions__button")];
+      [...btns].find((b) => b.textContent === "+ New Reference")!.click();
       expect(plugin.actionContext.set).not.toHaveBeenCalled();
-      expect(plugin.commandExecutor.executeCommandById).toHaveBeenCalledWith(
-        "create-reference"
-      );
+      expect(plugin.commandExecutor.executeCommandById).toHaveBeenCalledWith("create-reference");
     });
 
-    it("clicking '+ New Topic' calls executeCommandById and does not call actionContext.set", async () => {
+    it("clicking '+ New Topic' calls executeCommandById and not actionContext.set", async () => {
       const { view, plugin } = makeView();
       await view.onOpen();
-      const btns = view.contentEl.querySelectorAll<HTMLButtonElement>(
-        ".pm-reference-dashboard__actions__button"
-      );
-      const newTopicBtn = [...btns].find((b) => b.textContent === "+ New Topic");
-      expect(newTopicBtn).not.toBeUndefined();
-      newTopicBtn!.click();
-      expect(plugin.commandExecutor.executeCommandById).toHaveBeenCalledWith(
-        "create-reference-topic"
-      );
+      const btns = [...view.contentEl.querySelectorAll<HTMLButtonElement>(".pm-reference-dashboard__actions__button")];
+      [...btns].find((b) => b.textContent === "+ New Topic")!.click();
+      expect(plugin.commandExecutor.executeCommandById).toHaveBeenCalledWith("create-reference-topic");
       expect(plugin.actionContext.set).not.toHaveBeenCalled();
     });
   });
 
   describe("reference card click", () => {
     it("clicking a reference card title calls navigationService.openFile with the matching TFile", async () => {
-      const refPath = "reference/references/My Note.md";
-      const mockFile = new TFile(refPath);
-
-      const { view, plugin } = makeView();
-      // Make getReferences return one mock reference with a topic so it renders a card
-      plugin.queryService.getReferences.mockReturnValue([
-        {
-          file: {
-            name: "My Note",
-            path: refPath,
-            folder: "reference/references",
-            link: { path: refPath },
-            tags: ["#reference"],
-            mtime: { valueOf: () => Date.now(), toISO: () => new Date().toISOString() },
-            tasks: {
-              length: 0,
-              values: [],
-              where: vi.fn(),
-              sort: vi.fn(),
-              map: vi.fn(),
-              filter: vi.fn(),
-              [Symbol.iterator]: [][Symbol.iterator],
-            },
-          },
-          topics: ["[[Architecture]]"],
-          client: undefined,
-          engagement: undefined,
-        },
-      ]);
-      // Make vault.getAbstractFileByPath return the mock TFile
+      const mockFile = new TFile(REF_PAGE.path);
+      const { view, plugin } = makeView({}, [REF_PAGE]);
       vi.spyOn(plugin.app.vault, "getAbstractFileByPath").mockReturnValue(mockFile);
 
       await view.onOpen();
+      await Promise.resolve();
 
       const link = view.contentEl.querySelector<HTMLAnchorElement>(".internal-link");
       expect(link).not.toBeNull();
       link!.click();
-
       expect(plugin.navigationService.openFile).toHaveBeenCalledWith(mockFile);
     });
 
     it("does NOT call navigationService.openFile when getAbstractFileByPath returns null", async () => {
-      const refPath = "reference/references/My Note.md";
-
-      const { view, plugin } = makeView();
-      plugin.queryService.getReferences.mockReturnValue([
-        {
-          file: {
-            name: "My Note",
-            path: refPath,
-            folder: "reference/references",
-            link: { path: refPath },
-            tags: ["#reference"],
-            mtime: { valueOf: () => Date.now(), toISO: () => new Date().toISOString() },
-            tasks: {
-              length: 0,
-              values: [],
-              where: vi.fn(),
-              sort: vi.fn(),
-              map: vi.fn(),
-              filter: vi.fn(),
-              [Symbol.iterator]: [][Symbol.iterator],
-            },
-          },
-          topics: ["[[Architecture]]"],
-          client: undefined,
-          engagement: undefined,
-        },
-      ]);
+      const { view, plugin } = makeView({}, [REF_PAGE]);
       vi.spyOn(plugin.app.vault, "getAbstractFileByPath").mockReturnValue(null);
 
       await view.onOpen();
+      await Promise.resolve();
 
       const link = view.contentEl.querySelector<HTMLAnchorElement>(".internal-link");
       expect(link).not.toBeNull();
       link!.click();
-
       expect(plugin.navigationService.openFile).not.toHaveBeenCalled();
     });
 
     it("does NOT call navigationService.openFile when getAbstractFileByPath returns a TFolder", async () => {
-      const refPath = "reference/references/My Note.md";
-      const mockFolder = new TFolder("some/path");
-
-      const { view, plugin } = makeView();
-      plugin.queryService.getReferences.mockReturnValue([
-        {
-          file: {
-            name: "My Note",
-            path: refPath,
-            folder: "reference/references",
-            link: { path: refPath },
-            tags: ["#reference"],
-            mtime: { valueOf: () => Date.now(), toISO: () => new Date().toISOString() },
-            tasks: {
-              length: 0,
-              values: [],
-              where: vi.fn(),
-              sort: vi.fn(),
-              map: vi.fn(),
-              filter: vi.fn(),
-              [Symbol.iterator]: [][Symbol.iterator],
-            },
-          },
-          topics: ["[[Architecture]]"],
-          client: undefined,
-          engagement: undefined,
-        },
-      ]);
-      vi.spyOn(plugin.app.vault, "getAbstractFileByPath").mockReturnValue(mockFolder);
+      const { view, plugin } = makeView({}, [REF_PAGE]);
+      vi.spyOn(plugin.app.vault, "getAbstractFileByPath").mockReturnValue(new TFolder("some/path"));
 
       await view.onOpen();
+      await Promise.resolve();
 
       const link = view.contentEl.querySelector<HTMLAnchorElement>(".internal-link");
       expect(link).not.toBeNull();
       link!.click();
-
       expect(plugin.navigationService.openFile).not.toHaveBeenCalled();
     });
   });

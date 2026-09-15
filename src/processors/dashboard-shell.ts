@@ -24,14 +24,27 @@ export interface DashboardShellDeps<TItem, THelpers, TFilters = DashboardFilters
   buildSpec: () => FilterSpec<TItem>;
   /** Builds the dynamic selection state to filter with. */
   buildState: () => FilterState;
-  /** Precomputes the read-only render helpers from the filtered item set. */
-  buildHelpers: (items: TItem[]) => THelpers;
+  /**
+   * Precomputes the read-only render helpers. Receives the filtered item set and,
+   * second, the full unfiltered set — so a consumer can build filter-independent
+   * chrome (e.g. the References sidebar) without re-resolving the base query.
+   */
+  buildHelpers: (items: TItem[], allItems: TItem[]) => THelpers;
   /** An interactive renderer emits filter patches through this. */
   onFilterChange: (patch: Partial<TFilters>) => void;
   /** Text shown when nothing matches the current filters. */
   emptyMessage: string;
   /** Draws the fallback when the active view mode has no registered renderer. */
   onUnknownMode: (outputEl: HTMLElement, mode: string) => void;
+  /**
+   * When true, the shell dispatches to the renderer even with an empty filtered
+   * set instead of short-circuiting to {@link emptyMessage}. A dashboard whose
+   * renderer draws filter-independent chrome (e.g. the References sidebar built
+   * from the unfiltered node-set) sets this so that chrome survives a filter that
+   * excludes every item; the renderer then owns its own empty-state. Defaults to
+   * false — the emptyMessage short-circuit.
+   */
+  renderWhenEmpty?: boolean;
 }
 
 /**
@@ -56,12 +69,12 @@ export class DashboardShell<TItem, THelpers, TFilters = DashboardFilters> {
     const spec = deps.buildSpec();
     const filtered = FilterEngine.apply(items, spec, state);
 
-    if (filtered.length === 0) {
+    if (filtered.length === 0 && !deps.renderWhenEmpty) {
       outputEl.createEl(HTML_TAG.EM, { text: deps.emptyMessage });
       return;
     }
 
-    const helpers = deps.buildHelpers(filtered);
+    const helpers = deps.buildHelpers(filtered, items);
     const mode = deps.getViewMode();
     const renderer = deps.views[mode];
     if (!renderer) {

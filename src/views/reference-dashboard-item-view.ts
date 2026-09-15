@@ -1,120 +1,64 @@
-import { ItemView, WorkspaceLeaf } from "obsidian";
+import type { WorkspaceLeaf } from "obsidian";
 import type ProjectManagerPlugin from "../main";
 import { buildReferenceProcessorServices } from "../plugin-context";
 import { ReferenceDashboardView } from "../processors/pm-references-dashboard";
-import { PM_REFERENCE_DASHBOARD_VIEW_TYPE, DEBOUNCE_MS } from "../constants";
-import { debounced } from "../utils/debounce";
-import { COMMAND_IDS } from "../command-ids";
-import type { ReferenceFilters, SavedReferenceFilters } from "../types";
+import { DashboardItemViewHost } from "../processors/dashboard-item-view-host";
+import type { DashboardItemViewConfig } from "../processors/dashboard-item-view-host";
+import { SettingsViewStore } from "../processors/view-state-store";
+import type { ViewState } from "../processors/view-state-store";
+import {
+  PM_REFERENCE_DASHBOARD_VIEW_TYPE,
+  REFERENCE_DASHBOARD_ICON,
+  REFERENCE_DASHBOARD_STATE_KEY,
+  REFERENCES_DASHBOARD_TEXT,
+  CSS_CLS,
+} from "../constants";
+import type { SavedReferenceFilters } from "../types";
 
 /**
  * ItemView panel for the Reference Dashboard.
  *
- * Hosts the full ReferenceDashboardView component in an Obsidian sidebar leaf,
- * eliminating the .markdown-rendered CSS context interference of the pm-references
- * code block processor. Filter state is persisted to plugin settings rather than
- * note frontmatter.
+ * Hosts the {@link ReferenceDashboardView} component in an Obsidian leaf on the
+ * generic capability spine: {@link DashboardItemViewHost} owns the
+ * `onOpen`/`onClose` lifecycle and debounced persistence, and a
+ * {@link SettingsViewStore} persists the durable filter subset into plugin
+ * settings (`settings.ui.referenceDashboardFilters`) — no host note, so there is
+ * no metadata-cache echo and the host registers no vault-modify listener.
  */
-export class ReferenceDashboardItemView extends ItemView {
+export class ReferenceDashboardItemView extends DashboardItemViewHost {
   static readonly VIEW_TYPE = PM_REFERENCE_DASHBOARD_VIEW_TYPE;
 
-  private dashboardView: ReferenceDashboardView | null = null;
-  private readonly refresh = debounced(() => this.dashboardView?.refreshOutput(), DEBOUNCE_MS.TASKS);
-
-  constructor(
-    leaf: WorkspaceLeaf,
-    private readonly plugin: ProjectManagerPlugin
-  ) {
-    super(leaf);
-  }
-
-  getViewType(): string {
-    return ReferenceDashboardItemView.VIEW_TYPE;
-  }
-
-  getDisplayText(): string {
-    return "Reference Dashboard";
-  }
-
-  getIcon(): string {
-    return "book-open";
-  }
-
-  // eslint-disable-next-line @typescript-eslint/require-await
-  async onOpen(): Promise<void> {
-    this.contentEl.addClass("pm-reference-dashboard-view");
-
-    const services = buildReferenceProcessorServices(this.plugin);
-
-    const actionsRow = this.contentEl.createDiv({ cls: 'pm-reference-dashboard__actions' });
-
-    const newRefBtn = actionsRow.createEl('button', {
-      cls: 'pm-reference-dashboard__actions__button',
-      text: '+ New Reference',
-    });
-    newRefBtn.addEventListener('click', () => {
-      const selectedNode = this.plugin.settings.ui.referenceDashboardFilters?.selectedNode;
-      if (selectedNode) {
-        services.actionContext.set({ field: 'topic', value: selectedNode });
-      }
-      services.commandExecutor.executeCommandById(COMMAND_IDS.CREATE_REFERENCE);
-    });
-
-    const newTopicBtn = actionsRow.createEl('button', {
-      cls: 'pm-reference-dashboard__actions__button',
-      text: '+ New Topic',
-    });
-    newTopicBtn.addEventListener('click', () => {
-      services.commandExecutor.executeCommandById(COMMAND_IDS.CREATE_REFERENCE_TOPIC);
-    });
-
-    const saved = this.plugin.settings.ui.referenceDashboardFilters;
-    const savedFilters: ReferenceFilters | null = saved
-      ? {
-          viewMode: saved.viewMode ?? "topic",
-          topics: saved.topics ?? [],
-          clients: saved.clients ?? [],
-          engagements: saved.engagements ?? [],
-          searchText: "",
-          selectedNode: saved.selectedNode,
-        }
-      : null;
-
-    const dashboardContainer = this.contentEl.createDiv();
-
-    this.dashboardView = new ReferenceDashboardView(
-      dashboardContainer,
-      services,
-      {},
-      savedFilters,
-      (filters) => this.onFiltersChange(filters)
+  constructor(leaf: WorkspaceLeaf, plugin: ProjectManagerPlugin) {
+    const store = new SettingsViewStore(
+      () => plugin.settings.ui as unknown as Record<string, unknown>,
+      () => plugin.saveSettings()
     );
-    this.dashboardView.render();
+    const stateKey = REFERENCE_DASHBOARD_STATE_KEY;
 
-    this.registerEvent(
-      this.plugin.app.vault.on("modify", () => {
-        this.refresh.trigger();
-      })
-    );
-  }
-
-  // eslint-disable-next-line @typescript-eslint/require-await
-  async onClose(): Promise<void> {
-    this.refresh.cancel();
-    this.dashboardView?.destroy();
-    this.dashboardView = null;
-    this.contentEl.empty();
-  }
-
-  private onFiltersChange(filters: ReferenceFilters): void {
-    const saved: SavedReferenceFilters = {
-      viewMode: filters.viewMode,
-      topics: filters.topics,
-      clients: filters.clients,
-      engagements: filters.engagements,
-      selectedNode: filters.selectedNode,
+    const config: DashboardItemViewConfig = {
+      viewType: ReferenceDashboardItemView.VIEW_TYPE,
+      displayText: REFERENCES_DASHBOARD_TEXT.TITLE,
+      icon: REFERENCE_DASHBOARD_ICON,
+      store,
+      stateKey,
+      createView: (persist, container) => {
+        const services = buildReferenceProcessorServices(plugin);
+        const saved = store.load(stateKey) as SavedReferenceFilters | null;
+        return new ReferenceDashboardView(
+          container,
+          services,
+          {},
+          saved,
+          (filters) => persist(filters as ViewState | null)
+        );
+      },
     };
-    this.plugin.settings.ui.referenceDashboardFilters = saved;
-    void this.plugin.saveSettings();
+
+    super(leaf, config);
+  }
+
+  async onOpen(): Promise<void> {
+    this.contentEl.addClass(CSS_CLS.REFERENCE_DASHBOARD_VIEW);
+    await super.onOpen();
   }
 }
