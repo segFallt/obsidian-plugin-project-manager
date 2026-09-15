@@ -2,6 +2,7 @@ import type { TaskProcessorServices } from "../plugin-context";
 import type {
   PmTasksConfig,
   DataviewTask,
+  DataviewApi,
   DashboardFilters,
   SavedDashboardFilters,
   DueDateFilter,
@@ -29,7 +30,8 @@ import { ContextViewRenderer } from "./dashboard-views/context-view-renderer";
 import { DateViewRenderer } from "./dashboard-views/date-view-renderer";
 import { PriorityViewRenderer } from "./dashboard-views/priority-view-renderer";
 import { TagViewRenderer } from "./dashboard-views/tag-view-renderer";
-import { getTaskContext } from "../utils/task-utils";
+import { getTaskContext, getParentProjectPath, getParentRecurringMeetingPath } from "../utils/task-utils";
+import type { TaskRenderHelpers, ViewRenderContext } from "./view-renderer";
 
 // ─── Legacy sort migration map ────────────────────────────────────────────────
 
@@ -57,10 +59,10 @@ export class DashboardView {
   private filtersBtnEl: HTMLButtonElement | null = null;
   private filtersBadgeEl: HTMLElement | null = null;
   private drawerComponents: Array<{ destroy(): void }> = [];
-  private readonly contextRenderer: ContextViewRenderer;
-  private readonly dateRenderer: DateViewRenderer;
-  private readonly priorityRenderer: PriorityViewRenderer;
-  private readonly tagRenderer: TagViewRenderer;
+  private readonly contextRenderer = new ContextViewRenderer();
+  private readonly dateRenderer = new DateViewRenderer();
+  private readonly priorityRenderer = new PriorityViewRenderer();
+  private readonly tagRenderer = new TagViewRenderer();
 
   constructor(
     private readonly containerEl: HTMLElement,
@@ -72,12 +74,7 @@ export class DashboardView {
     private readonly entityQuery: IEntityQuery<DataviewTask>,
     private readonly savedFilters?: SavedDashboardFilters | null,
     private readonly onSaveFilters?: ((filters: SavedDashboardFilters | null) => void) | null
-  ) {
-    this.contextRenderer = new ContextViewRenderer(services, sortService, renderer);
-    this.dateRenderer = new DateViewRenderer(sortService, renderer);
-    this.priorityRenderer = new PriorityViewRenderer(sortService, renderer);
-    this.tagRenderer = new TagViewRenderer(sortService, renderer);
-  }
+  ) {}
 
   render(): void {
     this.services.loggerService.debug(`pm-tasks-dashboard rendering, mode: "${this.config.mode}"`, LOG_CONTEXT.TASKS_DASHBOARD);
@@ -703,11 +700,24 @@ export class DashboardView {
       const contextMap = new Map(allTasks.map((t) => [t.path, getTaskContext(t, folders)]));
       const mtimeMap = new Map(allTasks.map((t) => [t.path, dv.page(t.path)?.file.mtime.valueOf() ?? 0]));
 
-      const viewRenderers: Record<string, () => Promise<void>> = {
-        [VIEW_MODE.CONTEXT]: () => this.contextRenderer.render(outputEl, allTasks, f, dv, contextMap, mtimeMap),
-        [VIEW_MODE.DATE]: () => this.dateRenderer.render(outputEl, allTasks, f, contextMap, mtimeMap),
-        [VIEW_MODE.PRIORITY]: () => this.priorityRenderer.render(outputEl, allTasks, f, contextMap, mtimeMap),
-        [VIEW_MODE.TAG]: () => this.tagRenderer.render(outputEl, allTasks, f, contextMap, mtimeMap),
+      const helpers = this.buildTaskRenderHelpers(allTasks, dv, contextMap, mtimeMap);
+      const makeCtx = (): ViewRenderContext<DataviewTask> => ({
+        container: outputEl,
+        items: allTasks,
+        filters: f,
+        onFilterChange: (patch) => {
+          Object.assign(this.filters, patch);
+          this.persistFilters();
+          void this.refreshDashboardOutput(outputEl);
+        },
+        helpers,
+      });
+
+      const viewRenderers: Record<string, () => void | Promise<void>> = {
+        [VIEW_MODE.CONTEXT]: () => this.contextRenderer.render(makeCtx()),
+        [VIEW_MODE.DATE]: () => this.dateRenderer.render(makeCtx()),
+        [VIEW_MODE.PRIORITY]: () => this.priorityRenderer.render(makeCtx()),
+        [VIEW_MODE.TAG]: () => this.tagRenderer.render(makeCtx()),
       };
       const viewRenderer = viewRenderers[f.viewMode];
       if (viewRenderer) {
@@ -720,6 +730,47 @@ export class DashboardView {
       outputEl.empty();
       renderError(outputEl, `pm-tasks error: ${String(err)}`);
     }
+  }
+
+  /**
+   * Pre-resolves every Dataview read the read-pure view renderers need into a
+   * `TaskRenderHelpers`: the parent-path map (context-appropriate parent per
+   * task, with an entry for every task — the path is built from front-matter
+   * without an existence check, preserving the lazy semantic) and the
+   * display-name map (with the raw path substituted for a missing page).
+   */
+  private buildTaskRenderHelpers(
+    allTasks: DataviewTask[],
+    dv: DataviewApi,
+    contextMap: Map<string, string>,
+    mtimeMap: Map<string, number>
+  ): TaskRenderHelpers {
+    const folders = this.services.settings.folders;
+    const parentPathMap = new Map<string, string | null>();
+    for (const t of allTasks) {
+      const taskContext = contextMap.get(t.path);
+      let parentPath: string | null = null;
+      if (taskContext === CONTEXT.PROJECT) {
+        parentPath = getParentProjectPath(t.link.path, dv, folders.projects);
+      } else if (taskContext === CONTEXT.RECURRING_MEETING) {
+        parentPath = getParentRecurringMeetingPath(t.link.path, dv, folders.meetingsRecurring);
+      }
+      parentPathMap.set(t.link.path, parentPath);
+    }
+    const namePaths = new Set<string>();
+    for (const t of allTasks) namePaths.add(t.link.path);
+    for (const p of parentPathMap.values()) if (p) namePaths.add(p);
+    const nameMap = new Map<string, string>();
+    for (const p of namePaths) nameMap.set(p, dv.page(p)?.file.name ?? p);
+
+    return {
+      sortService: this.sortService,
+      taskRenderer: this.renderer,
+      contextMap,
+      mtimeMap,
+      parentPathMap,
+      nameMap,
+    };
   }
 
   private persistFilters(): void {

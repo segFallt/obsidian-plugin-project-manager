@@ -54,6 +54,8 @@ main.ts (Plugin)
 
 > **Entity read axis.** The pm-tasks dashboard does not read Dataview directly; it resolves its data through the `IEntityQuery<TItem>` contract (`src/services/entity-query.ts`), with `TaskQuery` built per-block in the pm-tasks processor. This is the read primitive the dashboard shell composes — `RaidQuery`/`RefQuery` implement the same one-`resolve()` contract as their dashboards migrate onto the shell.
 
+> **View-render axis.** The pluggable "body" a dashboard renders is an `IViewRenderer<TItem>` (`src/processors/view-renderer.ts`): a read-pure renderer given a `ViewRenderContext` (already-filtered items + precomputed lookups + an `onFilterChange` hook), optionally declaring the filter facet it `ownsFacet`. The four pm-tasks views are the first implementors; the shell selects and drives them without touching Dataview.
+
 ## Narrow Interface Pattern
 
 Consumers declare only the services they actually need:
@@ -171,12 +173,14 @@ Delegates to `QueryService` for data. Renders an HTML `<table>` with Obsidian-st
 Maps `type` strings to plugin command IDs. Calls `commandExecutor.executeCommandById()` on click. Sets `actionContext` when an action button carries a `context` field, so the invoked command can skip its selection modal and use the pre-selected value.
 
 ### `pm-tasks` (dashboard mode)
-Filter state is a plain JS object local to the render child — no frontmatter writes. Resolves its tasks through the entity read axis `IEntityQuery<TItem>` (`src/services/entity-query.ts`) — `TaskQuery` wraps the utility-excluded `dv.pages()` scan and is the first implementor of the contract the dashboard shell composes (RAID/Reference queries join it later). It then applies multi-stage filtering via `TaskFilterService`, then delegates to one of four view renderers in `src/processors/dashboard-views/`:
+Filter state is a plain JS object local to the render child — no frontmatter writes. Resolves its tasks through the entity read axis `IEntityQuery<TItem>` (`src/services/entity-query.ts`) — `TaskQuery` wraps the utility-excluded `dv.pages()` scan and is the first implementor of the contract the dashboard shell composes (RAID/Reference queries join it later). It then applies multi-stage filtering via `TaskFilterService`, then delegates to one of four **read-pure** view renderers — each implementing `IViewRenderer<TItem>` (`src/processors/view-renderer.ts`) — in `src/processors/dashboard-views/`. The dashboard pre-resolves every Dataview read into a `ViewRenderContext`: the filtered items, the sort context/mtime maps, and a parent-path map plus a display-name map (which replace `ContextViewRenderer`'s former `dv` reads), so the renderers draw only from their context and never touch `dv`:
 
 - `ContextViewRenderer` — groups by context (Project / Person / Meeting / Inbox / etc.)
 - `DateViewRenderer` — groups into Overdue / Today / Tomorrow / This Week / Upcoming / No Date
 - `PriorityViewRenderer` — groups by priority level 1–4 (Urgent → Low)
 - `TagViewRenderer` — groups by tag, Untagged last
+
+An `IViewRenderer` may declare `ownsFacet` (an interactive renderer naming the single filter facet it drives) and receive an `onFilterChange` callback; the four task views are passive and declare neither. This is the render axis the dashboard shell composes alongside the entity-read axis.
 
 Checkbox toggle reads the source file, updates the task line, and writes back via `vault.modify()`.
 

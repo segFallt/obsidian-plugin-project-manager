@@ -3,7 +3,8 @@ import { TagViewRenderer } from "../../../src/processors/dashboard-views/tag-vie
 import { createMockTask } from "../../mocks/dataview-mock";
 import type { ITaskSortService } from "../../../src/services/interfaces";
 import type { TaskListRenderer } from "../../../src/processors/task-list-renderer";
-import type { DashboardFilters } from "../../../src/types";
+import type { DashboardFilters, DataviewTask } from "../../../src/types";
+import type { TaskRenderHelpers, ViewRenderContext } from "../../../src/processors/view-renderer";
 import { DEFAULT_DUE_DATE_FILTER } from "../../../src/constants";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -34,86 +35,112 @@ function createRenderer() {
   const renderTaskList = vi.fn();
   const sortTasks = vi.fn((tasks) => tasks);
   const sortService = { sortTasks } as unknown as ITaskSortService;
-  const renderer = { renderTaskList } as unknown as TaskListRenderer;
-  return { tagRenderer: new TagViewRenderer(sortService, renderer), renderTaskList };
+  const taskRenderer = { renderTaskList } as unknown as TaskListRenderer;
+
+  const makeCtx = (
+    container: HTMLElement,
+    items: DataviewTask[],
+    filters: DashboardFilters
+  ): ViewRenderContext<DataviewTask> => ({
+    container,
+    items,
+    filters,
+    onFilterChange: () => {},
+    helpers: {
+      sortService,
+      taskRenderer,
+      contextMap: new Map(),
+      mtimeMap: new Map(),
+      parentPathMap: new Map(),
+      nameMap: new Map(),
+    } as TaskRenderHelpers,
+  });
+
+  return { tagRenderer: new TagViewRenderer(), renderTaskList, makeCtx };
 }
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
 describe("TagViewRenderer", () => {
   it("renders nothing when there are no tasks", async () => {
-    const { tagRenderer } = createRenderer();
+    const { tagRenderer, makeCtx } = createRenderer();
     const el = document.createElement("div");
-    await tagRenderer.render(el, [], makeFilters());
+    await tagRenderer.render(makeCtx(el, [], makeFilters()));
     expect(el.innerHTML).toBe("");
   });
 
   it("renders 'Untagged' section for tasks with no tags", async () => {
-    const { tagRenderer } = createRenderer();
+    const { tagRenderer, makeCtx } = createRenderer();
     const el = document.createElement("div");
     await tagRenderer.render(
-      el,
-      [createMockTask({ path: "p.md", tags: [] })],
-      makeFilters()
+      makeCtx(el, [createMockTask({ path: "p.md", tags: [] })], makeFilters())
     );
     const headings = [...el.querySelectorAll("h2")].map((h) => h.textContent);
     expect(headings).toContain("📌 Untagged");
   });
 
   it("renders a section per unique tag (sorted alphabetically)", async () => {
-    const { tagRenderer } = createRenderer();
+    const { tagRenderer, makeCtx } = createRenderer();
     const el = document.createElement("div");
     await tagRenderer.render(
-      el,
-      [
-        createMockTask({ path: "p.md", tags: ["#work"] }),
-        createMockTask({ path: "p.md", tags: ["#home"] }),
-      ],
-      makeFilters()
+      makeCtx(
+        el,
+        [
+          createMockTask({ path: "p.md", tags: ["#work"] }),
+          createMockTask({ path: "p.md", tags: ["#home"] }),
+        ],
+        makeFilters()
+      )
     );
     const headings = [...el.querySelectorAll("h2")].map((h) => h.textContent);
     expect(headings).toEqual(["#home", "#work"]);
   });
 
   it("places Untagged after all tag sections", async () => {
-    const { tagRenderer } = createRenderer();
+    const { tagRenderer, makeCtx } = createRenderer();
     const el = document.createElement("div");
     await tagRenderer.render(
-      el,
-      [
-        createMockTask({ path: "p.md", tags: ["#work"] }),
-        createMockTask({ path: "p.md", tags: [] }),
-      ],
-      makeFilters()
+      makeCtx(
+        el,
+        [
+          createMockTask({ path: "p.md", tags: ["#work"] }),
+          createMockTask({ path: "p.md", tags: [] }),
+        ],
+        makeFilters()
+      )
     );
     const headings = [...el.querySelectorAll("h2")].map((h) => h.textContent);
     expect(headings[headings.length - 1]).toBe("📌 Untagged");
   });
 
   it("calls renderTaskList once per non-empty section", async () => {
-    const { tagRenderer, renderTaskList } = createRenderer();
+    const { tagRenderer, renderTaskList, makeCtx } = createRenderer();
     const el = document.createElement("div");
     await tagRenderer.render(
-      el,
-      [
-        createMockTask({ path: "p.md", tags: ["#work"] }),
-        createMockTask({ path: "p.md", tags: [] }),
-      ],
-      makeFilters()
+      makeCtx(
+        el,
+        [
+          createMockTask({ path: "p.md", tags: ["#work"] }),
+          createMockTask({ path: "p.md", tags: [] }),
+        ],
+        makeFilters()
+      )
     );
     expect(renderTaskList).toHaveBeenCalledTimes(2);
   });
 
   it("groups tasks sharing the same tag into one section", async () => {
-    const { tagRenderer, renderTaskList } = createRenderer();
+    const { tagRenderer, renderTaskList, makeCtx } = createRenderer();
     const el = document.createElement("div");
     await tagRenderer.render(
-      el,
-      [
-        createMockTask({ path: "p.md", tags: ["#work"] }),
-        createMockTask({ path: "p.md", tags: ["#work"] }),
-      ],
-      makeFilters()
+      makeCtx(
+        el,
+        [
+          createMockTask({ path: "p.md", tags: ["#work"] }),
+          createMockTask({ path: "p.md", tags: ["#work"] }),
+        ],
+        makeFilters()
+      )
     );
     expect(renderTaskList).toHaveBeenCalledTimes(1);
     const [, tasks] = renderTaskList.mock.calls[0] as [HTMLElement, unknown[]];
