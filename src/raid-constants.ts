@@ -14,6 +14,12 @@ export const RAID_STATUSES: RaidStatus[] = ["Open", "In Progress", "Resolved", "
 /** Statuses a fresh dashboard shows by default (the still-active ones). */
 export const RAID_DEFAULT_ACTIVE_STATUSES: RaidStatus[] = ["Open", "In Progress"];
 
+/** Statuses whose selection auto-sets a RAID item's closed-date. */
+export const RAID_CLOSED_STATUSES: ReadonlySet<RaidStatus> = new Set(["Resolved", "Closed"]);
+
+/** Statuses whose selection clears a RAID item's closed-date (the still-active ones). */
+export const RAID_OPEN_STATUSES: ReadonlySet<RaidStatus> = new Set(RAID_DEFAULT_ACTIVE_STATUSES);
+
 /** Likelihood levels, high→low — the order used at every site (matrix rows and field config agree). */
 export const LIKELIHOODS: RaidLikelihood[] = ["High", "Medium", "Low"];
 

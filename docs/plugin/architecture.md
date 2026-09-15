@@ -166,7 +166,10 @@ All processors follow the same pattern:
 5. Error boundary wraps the render call
 
 ### `pm-properties`
-Reads the current file's frontmatter via `metadataCache`. Renders form fields via `renderField()` (in `property-field-renderers.ts`). Field type configuration lives in `entity-field-config.ts`. Changes persist immediately via `processFrontMatter`. Auto-refreshes on vault `modify` events (500ms debounce). An `isUpdating` flag suppresses re-render during the component's own writes to prevent infinite loops.
+Reads the current file's frontmatter via `metadataCache`. Renders form fields via `renderField()` (in `property-field-renderers.ts`). Field type configuration lives in `entity-field-config.ts`. Changes persist immediately via `processFrontMatter`. Auto-refreshes on vault `modify` events (500ms debounce). An `isUpdating` flag suppresses re-render during the component's own writes to prevent infinite loops. The editor is fully entity-agnostic: entity-specific field side-effects are co-located with each entity's field schema as an `ENTITY_FIELD_HOOKS` `onFieldChange` (e.g. the RAID item auto-sets/clears `closed-date` on a status change), which the editor dispatches generically — it never branches on entity type.
+
+### Entity registry (`entity-registry.ts`)
+One thin identity catalog and one query registry, both keyed by the existing `EntityType`. `ENTITY_KINDS` maps each kind to its optional Dataview tag, optional default folder, and field schema (the three underlying key-sets — `EntityType`, `ENTITY_TAGS`, `DEFAULT_FOLDERS` — do not align, so this catalog is the one reconciling map). `ENTITY_QUERIES` (an `EntityQueryRegistry`) is a **runtime-populated factory table** — a kind resolves to a freshly built `IEntityQuery` given a live Dataview accessor, never a static import-time instance — populated during init by back-filling the shipped `RaidQuery`/`RefQuery`. It is `Partial`-tolerant: an unregistered kind resolves to `null`, so a generic by-kind consumer never breaks while the migration is in flight.
 
 ### `pm-table`
 Delegates to `QueryService` for data. Renders an HTML `<table>` with Obsidian-style internal links.
