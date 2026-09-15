@@ -1,6 +1,8 @@
-import { App, Modal } from "obsidian";
+import { App } from "obsidian";
 import type { DataviewPage } from "../../types";
-import { FOCUS_DELAY_MS } from "../../constants";
+import { FOCUS_DELAY_MS, ACTION_LABEL } from "../../constants";
+import { PromiseModal } from "./promise-modal";
+import { createModalButtonRow, registerSubmitCancelKeys } from "./modal-controls";
 
 export interface EntityCreationResult {
   name: string;
@@ -12,8 +14,7 @@ export interface EntityCreationResult {
  *
  * Replaces the combination of QuickAdd inputPrompt + suggester for entity creation flows.
  */
-export class EntityCreationModal extends Modal {
-  private resolvePromise!: (value: EntityCreationResult | null) => void;
+export class EntityCreationModal extends PromiseModal<EntityCreationResult> {
   private nameInput!: HTMLInputElement;
   private parentSelect!: HTMLSelectElement;
 
@@ -26,14 +27,6 @@ export class EntityCreationModal extends Modal {
     private readonly preselectedParent?: string
   ) {
     super(app);
-  }
-
-  /** Opens the modal and returns a promise with the user's input. */
-  prompt(): Promise<EntityCreationResult | null> {
-    return new Promise((resolve) => {
-      this.resolvePromise = resolve;
-      this.open();
-    });
   }
 
   onOpen(): void {
@@ -93,36 +86,18 @@ export class EntityCreationModal extends Modal {
     }
 
     // Buttons
-    const buttonRow = contentEl.createDiv({ cls: "pm-modal-buttons" });
-    buttonRow.style.display = "flex";
-    buttonRow.style.justifyContent = "flex-end";
-    buttonRow.style.gap = "8px";
-    buttonRow.style.marginTop = "16px";
-
-    const cancelBtn = buttonRow.createEl("button", { text: "Cancel" });
-    cancelBtn.addEventListener("click", () => this.cancel());
-
-    const createBtn = buttonRow.createEl("button", {
-      text: "Create",
-      cls: "mod-cta",
+    createModalButtonRow(contentEl, {
+      submitText: ACTION_LABEL.CREATE,
+      onSubmit: () => this.submit(),
+      onCancel: () => this.cancel(),
     });
-    createBtn.addEventListener("click", () => this.submit());
 
-    this.nameInput.addEventListener("keydown", (e: KeyboardEvent) => {
-      if (e.key === "Enter") {
-        e.preventDefault();
-        this.submit();
-      } else if (e.key === "Escape") {
-        this.cancel();
-      }
+    registerSubmitCancelKeys(this.nameInput, {
+      onSubmit: () => this.submit(),
+      onCancel: () => this.cancel(),
     });
 
     setTimeout(() => this.nameInput.focus(), FOCUS_DELAY_MS);
-  }
-
-  onClose(): void {
-    this.resolvePromise?.(null);
-    this.contentEl.empty();
   }
 
   private submit(): void {
@@ -130,14 +105,10 @@ export class EntityCreationModal extends Modal {
     if (!name) return;
 
     const parentName = this.parentSelect?.value || null;
-    this.resolvePromise({ name, parentName });
-    this.resolvePromise = () => {};
-    this.close();
+    this.settle({ name, parentName });
   }
 
   private cancel(): void {
-    this.resolvePromise(null);
-    this.resolvePromise = () => {};
-    this.close();
+    this.settle(null);
   }
 }

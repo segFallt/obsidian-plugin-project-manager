@@ -324,6 +324,14 @@ export type SavedRaidDashboardFilters = Omit<RaidDashboardFilters, "searchText" 
 
 // ─── Plugin Internal Types ─────────────────────────────────────────────────
 
+/** A selectable option for autocomplete/suggest widgets. */
+export interface AutocompleteOption {
+  /** Stored value (e.g. entity name) */
+  value: string;
+  /** Text shown in the dropdown and input after selection */
+  displayText: string;
+}
+
 /** Represents a created or existing entity for display in suggesters. */
 export interface EntityOption {
   name: string;
