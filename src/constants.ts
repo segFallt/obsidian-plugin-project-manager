@@ -299,11 +299,22 @@ export const CSS_CLS = {
   TASKS_DASHBOARD_OUTPUT: "pm-tasks-dashboard__output",
   TASKS_BY_PROJECT: "pm-tasks-by-project",
   TASKS_BY_PROJECT_OUTPUT: "pm-tasks-by-project__output",
+  // Task dashboard filter drawer
+  TASKS_DRAWER_SECTION: "pm-tasks-drawer__section",
+  TASKS_DRAWER_SECTION_LABEL: "pm-tasks-drawer__section-label",
   // Obsidian built-in task classes (NOT plugin pm-* classes). Obsidian emits
   // these on rendered markdown task lists; we reuse them so checkbox lookup
   // and persistence stay in sync with Obsidian's own DOM output.
   TASK_LIST_ITEM: "task-list-item",
   TASK_LIST_ITEM_CHECKBOX: "task-list-item-checkbox",
+} as const;
+
+/** User-facing text for the task dashboard filter drawer's tag section. */
+export const TASK_DRAWER_TEXT = {
+  TAGS_LABEL: "🏷 TAGS",
+  TAG_FILTER_PLACEHOLDER: "type…",
+  TAG_FILTER_ARIA: "Filter by tag",
+  INCLUDE_UNTAGGED_LABEL: "Include untagged",
 } as const;
 
 /** Composed DOM selector strings built from Obsidian's built-in task classes. */

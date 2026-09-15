@@ -52,6 +52,8 @@ main.ts (Plugin)
   └── processors/* → TaskProcessorServices | PropertyProcessorServices | ActionProcessorServices | RaidProcessorServices
 ```
 
+> **Entity read axis.** The pm-tasks dashboard does not read Dataview directly; it resolves its data through the `IEntityQuery<TItem>` contract (`src/services/entity-query.ts`), with `TaskQuery` built per-block in the pm-tasks processor. This is the read primitive the dashboard shell composes — `RaidQuery`/`RefQuery` implement the same one-`resolve()` contract as their dashboards migrate onto the shell.
+
 ## Narrow Interface Pattern
 
 Consumers declare only the services they actually need:
@@ -169,7 +171,7 @@ Delegates to `QueryService` for data. Renders an HTML `<table>` with Obsidian-st
 Maps `type` strings to plugin command IDs. Calls `commandExecutor.executeCommandById()` on click. Sets `actionContext` when an action button carries a `context` field, so the invoked command can skip its selection modal and use the pre-selected value.
 
 ### `pm-tasks` (dashboard mode)
-Filter state is a plain JS object local to the render child — no frontmatter writes. Queries all tasks from `dv.pages()`, applies multi-stage filtering via `TaskFilterService`, then delegates to one of four view renderers in `src/processors/dashboard-views/`:
+Filter state is a plain JS object local to the render child — no frontmatter writes. Resolves its tasks through the entity read axis `IEntityQuery<TItem>` (`src/services/entity-query.ts`) — `TaskQuery` wraps the utility-excluded `dv.pages()` scan and is the first implementor of the contract the dashboard shell composes (RAID/Reference queries join it later). It then applies multi-stage filtering via `TaskFilterService`, then delegates to one of four view renderers in `src/processors/dashboard-views/`:
 
 - `ContextViewRenderer` — groups by context (Project / Person / Meeting / Inbox / etc.)
 - `DateViewRenderer` — groups into Overdue / Today / Tomorrow / This Week / Upcoming / No Date

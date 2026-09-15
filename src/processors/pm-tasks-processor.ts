@@ -5,6 +5,7 @@ import type { PmTasksConfig, SavedDashboardFilters, SavedByProjectFilters } from
 import { TaskListRenderer } from "./task-list-renderer";
 import { DashboardView } from "./pm-tasks-dashboard";
 import { ByProjectView } from "./pm-tasks-by-project";
+import { TaskQuery } from "../services/entity-query";
 import { renderError } from "./dom-helpers";
 import { DEBOUNCE_MS, CODEBLOCK, FM_KEY, LOG_CONTEXT } from "../constants";
 import { debounced } from "../utils/debounce";
@@ -98,6 +99,10 @@ class PmTasksRenderChild extends MarkdownRenderChild {
     const savedFilters = this.loadSavedFilters();
 
     if (this.config.mode === "dashboard") {
+      const entityQuery = new TaskQuery(
+        () => this.services.queryService.dv(),
+        () => this.services.settings.folders.utility
+      );
       this.activeView = new DashboardView(
         this.containerEl,
         this.config,
@@ -105,6 +110,7 @@ class PmTasksRenderChild extends MarkdownRenderChild {
         filterService,
         sortService,
         renderer,
+        entityQuery,
         savedFilters as SavedDashboardFilters | null,
         (filters) => this.debouncedSaveFilters(filters)
       );

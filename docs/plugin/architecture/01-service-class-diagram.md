@@ -32,6 +32,17 @@ classDiagram
         +getReferences(filters?) DataviewPage[]
     }
 
+    class IEntityQuery~TItem~ {
+        <<interface>>
+        +resolve() TItem[]
+    }
+
+    class TaskQuery {
+        -getDv() DataviewApi|null
+        -getUtilityFolder() string
+        +resolve() DataviewTask[]
+    }
+
     class IEntityCreationService {
         <<interface>>
         +createClient(name) Promise~TFile~
@@ -238,6 +249,8 @@ classDiagram
     IEntityService --|> IEntityConversionService
 
     QueryService ..|> IQueryService
+    TaskQuery ..|> IEntityQuery
+    TaskQuery ..> QueryService : dv()
     EntityCreationService ..|> IEntityCreationService
     EntityConversionService ..|> IEntityConversionService
     EntityService ..|> IEntityService
