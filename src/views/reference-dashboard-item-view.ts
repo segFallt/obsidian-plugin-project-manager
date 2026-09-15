@@ -3,6 +3,7 @@ import type ProjectManagerPlugin from "../main";
 import type { ReferenceProcessorServices } from "../plugin-context";
 import { ReferenceDashboardView } from "../processors/pm-references-dashboard";
 import { PM_REFERENCE_DASHBOARD_VIEW_TYPE, DEBOUNCE_MS } from "../constants";
+import { debounced } from "../utils/debounce";
 import { COMMAND_IDS } from "../command-ids";
 import type { ReferenceFilters, SavedReferenceFilters } from "../types";
 
@@ -18,7 +19,7 @@ export class ReferenceDashboardItemView extends ItemView {
   static readonly VIEW_TYPE = PM_REFERENCE_DASHBOARD_VIEW_TYPE;
 
   private dashboardView: ReferenceDashboardView | null = null;
-  private debounceTimer: ReturnType<typeof setTimeout> | null = null;
+  private readonly refresh = debounced(() => this.dashboardView?.refreshOutput(), DEBOUNCE_MS.TASKS);
 
   constructor(
     leaf: WorkspaceLeaf,
@@ -102,17 +103,15 @@ export class ReferenceDashboardItemView extends ItemView {
 
     this.registerEvent(
       this.plugin.app.vault.on("modify", () => {
-        this.debouncedRefresh();
+        this.refresh.trigger();
       })
     );
   }
 
   // eslint-disable-next-line @typescript-eslint/require-await
   async onClose(): Promise<void> {
-    if (this.debounceTimer !== null) {
-      clearTimeout(this.debounceTimer);
-      this.debounceTimer = null;
-    }
+    this.refresh.cancel();
+    this.dashboardView?.destroy();
     this.dashboardView = null;
     this.contentEl.empty();
   }
@@ -127,12 +126,5 @@ export class ReferenceDashboardItemView extends ItemView {
     };
     this.plugin.settings.ui.referenceDashboardFilters = saved;
     void this.plugin.saveSettings();
-  }
-
-  private debouncedRefresh(): void {
-    if (this.debounceTimer) clearTimeout(this.debounceTimer);
-    this.debounceTimer = setTimeout(() => {
-      this.dashboardView?.refreshOutput();
-    }, DEBOUNCE_MS.TASKS);
   }
 }

@@ -11,7 +11,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Extracted the hand-rolled debounced-refresh lifecycle (`debounceTimer` + `setTimeout`/`clearTimeout`) into a single shared `debounced(fn, ms)` helper (`src/utils/debounce.ts`) and adopted it across every processor and view that auto-refreshes or throttles input ([#8](https://gitlab.n3.pingleberry.com/obsidian/obsidiantemplates-claude-code/-/issues/8)).
 - `LoggerService` now accesses the vault adapter through a single typed `IVaultFileAdapter` port, replacing the three divergent inline `as unknown as {...}` casts that were duplicated across its log read/write/list/prune paths. The adapter contract is declared once and cast in one place, mirroring the `CommandExecutor` boundary precedent ([#16](https://gitlab.n3.pingleberry.com/obsidian/obsidiantemplates-claude-code/-/issues/16)).
+
+### Fixed
+
+- Fixed a leaked debounce timer in the task dashboard, tasks-by-project, and reference dashboard views: their search-input throttle timer had no teardown path and could fire after the view was torn down. Each view now exposes a `destroy()` that cancels the pending refresh, invoked from its owner (`pm-tasks` processor unload and the Reference Dashboard panel close) ([#8](https://gitlab.n3.pingleberry.com/obsidian/obsidiantemplates-claude-code/-/issues/8)).
 
 ## [0.4.1] - 2026-07-06
 

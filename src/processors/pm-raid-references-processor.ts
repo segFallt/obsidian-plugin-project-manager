@@ -4,6 +4,7 @@ import type { Plugin } from "obsidian";
 import type { IQueryService, ILoggerService, RaidProcessorServices } from "../services/interfaces";
 import type { RaidType, RaidReferenceEntry, PmRaidReferencesConfig } from "../types";
 import { CODEBLOCK, DEBOUNCE_MS, CSS_CLS } from "../constants";
+import { debounced } from "../utils/debounce";
 import { renderError } from "./dom-helpers";
 import { DIRECTION_LABELS, DIRECTION_ICONS, DEFAULT_RAID_TYPE, RAID_SCOPE } from "./raid-constants";
 import { parseRaidReferences } from "./raid-reference-parser";
@@ -34,7 +35,7 @@ export function registerPmRaidReferencesProcessor(
 // ─── Render child ───────────────────────────────────────────────────────────
 
 class PmRaidReferencesRenderChild extends MarkdownRenderChild {
-  private debounceTimer: ReturnType<typeof setTimeout> | null = null;
+  private readonly refresh = debounced(() => { void this.render(); }, DEBOUNCE_MS.PROPERTIES);
   private readonly sortField: "modified-date" | "created-date";
   private readonly sortDirection: "asc" | "desc";
 
@@ -55,16 +56,13 @@ class PmRaidReferencesRenderChild extends MarkdownRenderChild {
   onload(): void {
     this.registerEvent(
       this.app.vault.on("modify", () => {
-        this.debouncedRefresh();
+        this.refresh.trigger();
       })
     );
   }
 
   onunload(): void {
-    if (this.debounceTimer !== null) {
-      clearTimeout(this.debounceTimer);
-      this.debounceTimer = null;
-    }
+    this.refresh.cancel();
   }
 
   async render(): Promise<void> {
@@ -223,10 +221,4 @@ class PmRaidReferencesRenderChild extends MarkdownRenderChild {
     fragment.appendChild(container);
   }
 
-  private debouncedRefresh(): void {
-    if (this.debounceTimer) clearTimeout(this.debounceTimer);
-    this.debounceTimer = setTimeout(() => {
-      void this.render();
-    }, DEBOUNCE_MS.PROPERTIES);
-  }
 }

@@ -7,6 +7,7 @@ import { DashboardView } from "./pm-tasks-dashboard";
 import { ByProjectView } from "./pm-tasks-by-project";
 import { renderError } from "./dom-helpers";
 import { DEBOUNCE_MS, CODEBLOCK, FM_KEY, LOG_CONTEXT } from "../constants";
+import { debounced } from "../utils/debounce";
 
 /**
  * Renders the task dashboard and tasks-by-project views.
@@ -41,8 +42,9 @@ export function registerPmTasksProcessor(
 class PmTasksRenderChild extends MarkdownRenderChild {
   private config!: PmTasksConfig;
   private activeView: DashboardView | ByProjectView | null = null;
-  private debounceTimer: ReturnType<typeof setTimeout> | null = null;
-  private saveDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+  private readonly autoRefresh = debounced(() => this.activeView?.refreshOutput(), DEBOUNCE_MS.TASKS);
+  private readonly saveFilters = debounced(() => { void this.persistFilters(this.pendingFilters); }, DEBOUNCE_MS.PROPERTIES);
+  private pendingFilters: SavedDashboardFilters | SavedByProjectFilters | null = null;
   private isUpdating = false;
 
   constructor(
@@ -59,20 +61,15 @@ class PmTasksRenderChild extends MarkdownRenderChild {
     // Uses a 1 second debounce to allow Dataview to re-index before querying.
     this.registerEvent(
       this.services.app.vault.on("modify", () => {
-        if (!this.isUpdating) this.debouncedAutoRefresh();
+        if (!this.isUpdating) this.autoRefresh.trigger();
       })
     );
   }
 
   onunload(): void {
-    if (this.debounceTimer !== null) {
-      clearTimeout(this.debounceTimer);
-      this.debounceTimer = null;
-    }
-    if (this.saveDebounceTimer !== null) {
-      clearTimeout(this.saveDebounceTimer);
-      this.saveDebounceTimer = null;
-    }
+    this.autoRefresh.cancel();
+    this.saveFilters.cancel();
+    this.activeView?.destroy();
   }
 
   render(): void {
@@ -137,10 +134,8 @@ class PmTasksRenderChild extends MarkdownRenderChild {
   }
 
   private debouncedSaveFilters(filters: SavedDashboardFilters | SavedByProjectFilters | null): void {
-    if (this.saveDebounceTimer) clearTimeout(this.saveDebounceTimer);
-    this.saveDebounceTimer = setTimeout(() => {
-      void this.persistFilters(filters);
-    }, DEBOUNCE_MS.PROPERTIES);
+    this.pendingFilters = filters;
+    this.saveFilters.trigger();
   }
 
   private async persistFilters(filters: SavedDashboardFilters | SavedByProjectFilters | null): Promise<void> {
@@ -163,14 +158,4 @@ class PmTasksRenderChild extends MarkdownRenderChild {
     }
   }
 
-  /**
-   * Triggered by vault 'modify' events.
-   * Uses a longer debounce (1 s) to allow Dataview to re-index before re-querying.
-   */
-  private debouncedAutoRefresh(): void {
-    if (this.debounceTimer) clearTimeout(this.debounceTimer);
-    this.debounceTimer = setTimeout(() => {
-      this.activeView?.refreshOutput();
-    }, DEBOUNCE_MS.TASKS);
-  }
 }
