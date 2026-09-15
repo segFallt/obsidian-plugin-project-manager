@@ -413,4 +413,17 @@ classDiagram
     ReferenceDashboardView ..|> DashboardViewComponent
     ReferenceDashboardView ..> DashboardShell : builds
     ReferenceDashboardView ..> RefQuery : query
+
+    class EntityQueryRegistry {
+        <<factory table, Partial-tolerant>>
+        +register(type, factory) void
+        +resolve(type, getDv) IEntityQuery|null
+    }
+    class ENTITY_KINDS {
+        <<identity catalog, keyed by EntityType>>
+        tag? / folder? / fields
+    }
+    EntityQueryRegistry ..> IEntityQuery : factory builds
+    EntityQueryRegistry ..> RaidQuery : back-fill
+    EntityQueryRegistry ..> RefQuery : back-fill
 ```

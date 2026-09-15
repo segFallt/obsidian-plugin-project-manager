@@ -2,7 +2,7 @@
  * Shared constants for the Project Manager plugin.
  * Mirrors the vault's constants.js for consistency.
  */
-import type { DueDatePreset, DueDateFilter } from "./types";
+import type { DueDatePreset, DueDateFilter, EntityType } from "./types";
 
 export const CLIENT_STATUSES = ["Active", "Inactive"] as const;
 export const ENGAGEMENT_STATUSES = ["Active", "Inactive"] as const;
@@ -329,6 +329,26 @@ export const ENTITY_TAGS = {
   referenceTopic: "#reference-topic",
   raid: "#raid",
 } as const;
+
+/**
+ * Centralized names for each {@link EntityType} — the entity kinds are a domain
+ * concept, so their string identifiers are named here rather than inlined.
+ * `satisfies` keeps each value a valid `EntityType` (drift is a compile error).
+ */
+export const ENTITY_TYPE = {
+  CLIENT: "client",
+  ENGAGEMENT: "engagement",
+  PROJECT: "project",
+  PERSON: "person",
+  INBOX: "inbox",
+  SINGLE_MEETING: "single-meeting",
+  RECURRING_MEETING: "recurring-meeting",
+  RECURRING_MEETING_EVENT: "recurring-meeting-event",
+  PROJECT_NOTE: "project-note",
+  RAID_ITEM: "raid-item",
+  REFERENCE: "reference",
+  REFERENCE_TOPIC: "reference-topic",
+} as const satisfies Record<string, EntityType>;
 
 // ─── Frontmatter keys ─────────────────────────────────────────────────────
 

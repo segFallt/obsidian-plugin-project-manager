@@ -35,6 +35,7 @@ import type {
 } from "./services/interfaces";
 import { registerAllCommands } from "./commands";
 import { registerAllProcessors } from "./processors";
+import { registerBuiltInEntityQueries } from "./entity-registry";
 import type { DataviewApi } from "./types";
 import { DATAVIEW_PLUGIN_ID, TASKS_PLUGIN_ID, NOTICE_DURATION_MS, COMMAND_NAMES } from "./constants";
 
@@ -90,6 +91,7 @@ export default class ProjectManagerPlugin extends Plugin {
         });
       }
       registerAllProcessors(this);
+      registerBuiltInEntityQueries();
     });
 
     this.addSettingTab(new ProjectManagerSettingTab(this.app, this));

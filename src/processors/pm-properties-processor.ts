@@ -1,17 +1,12 @@
 import { MarkdownRenderChild, TFile, TAbstractFile, parseYaml } from "obsidian";
 import type { MarkdownPostProcessorContext } from "obsidian";
 import type { PropertyProcessorServices, RegisterProcessorFn } from "../plugin-context";
-import type { PmPropertiesConfig } from "../types";
+import type { PmPropertiesConfig, EntityType } from "../types";
 import { DEBOUNCE_MS, CODEBLOCK, LOG_CONTEXT, CACHE_RETRY_MAX, CSS_CLS } from "../constants";
 import { debounced } from "../utils/debounce";
 import { renderError } from "./dom-helpers";
-import { ENTITY_FIELDS } from "./entity-field-config";
+import { ENTITY_FIELDS, ENTITY_FIELD_HOOKS } from "./entity-field-config";
 import { renderField } from "./property-field-renderers";
-
-// RAID statuses that trigger setting a closed-date
-const RAID_CLOSED_STATUSES = new Set(["Resolved", "Closed"]);
-// RAID statuses that trigger clearing a closed-date
-const RAID_OPEN_STATUSES = new Set(["Open", "In Progress"]);
 
 /**
  * Renders interactive frontmatter property editors.
@@ -175,15 +170,9 @@ class PmPropertiesRenderChild extends MarkdownRenderChild {
             fm[key] = value;
           }
 
-          // RAID item side-effect: auto-set or clear closed-date when status changes.
-          if (entityType === "raid-item" && key === "status") {
-            const statusValue = String(value ?? "");
-            if (RAID_CLOSED_STATUSES.has(statusValue) && !fm["closed-date"]) {
-              fm["closed-date"] = new Date().toISOString().slice(0, 10);
-            } else if (RAID_OPEN_STATUSES.has(statusValue)) {
-              delete fm["closed-date"];
-            }
-          }
+          // Entity-specific field side-effects are co-located with the field
+          // schema and dispatched generically — the editor never branches on type.
+          if (entityType) ENTITY_FIELD_HOOKS[entityType as EntityType]?.(fm, key, value);
         }
       );
     } finally {
