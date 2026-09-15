@@ -1,8 +1,6 @@
 import type { App } from "obsidian";
 import { PropertySuggest } from "./property-suggest";
-import type { AutocompleteOption } from "./property-suggest";
-
-export type { AutocompleteOption };
+import type { AutocompleteOption } from "../../types";
 
 export interface FilterChipSelectConfig {
   options: AutocompleteOption[];

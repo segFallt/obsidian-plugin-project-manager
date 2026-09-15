@@ -2,7 +2,7 @@ import { describe, it, expect, vi, afterEach } from "vitest";
 import { App } from "../../mocks/obsidian-mock";
 import { FilterChipSelect } from "../../../src/ui/components/filter-chip-select";
 import type { FilterChipSelectConfig } from "../../../src/ui/components/filter-chip-select";
-import type { AutocompleteOption } from "../../../src/ui/components/property-suggest";
+import type { AutocompleteOption } from "../../../src/types";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 

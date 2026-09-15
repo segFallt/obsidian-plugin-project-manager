@@ -1,9 +1,11 @@
-import { App, Modal } from "obsidian";
+import { App } from "obsidian";
 import type { DataviewPage } from "../../types";
-import { FOCUS_DELAY_MS } from "../../constants";
+import { FOCUS_DELAY_MS, ACTION_LABEL } from "../../constants";
 import { FilterChipSelect } from "../components/filter-chip-select";
 import { PropertySuggest } from "../components/property-suggest";
-import type { AutocompleteOption } from "../components/property-suggest";
+import type { AutocompleteOption } from "../../types";
+import { PromiseModal } from "./promise-modal";
+import { createModalButtonRow, registerSubmitCancelKeys } from "./modal-controls";
 
 // ─── Result type ─────────────────────────────────────────────────────────────
 
@@ -24,8 +26,7 @@ export interface ReferenceCreationResult {
  *
  * Supports pre-selection of topics, client, and engagement from actionContext.
  */
-export class ReferenceCreationModal extends Modal {
-  private resolvePromise!: (value: ReferenceCreationResult | null) => void;
+export class ReferenceCreationModal extends PromiseModal<ReferenceCreationResult> {
   private nameInput!: HTMLInputElement;
   private selectedTopics: string[];
   private selectedClientName: string | undefined;
@@ -47,14 +48,6 @@ export class ReferenceCreationModal extends Modal {
     this.selectedTopics = [...preselectedTopics];
     this.selectedClientName = preselectedClient;
     this.selectedEngagementName = preselectedEngagement;
-  }
-
-  /** Opens the modal and returns a promise that resolves with the user's input, or null if cancelled. */
-  prompt(): Promise<ReferenceCreationResult | null> {
-    return new Promise((resolve) => {
-      this.resolvePromise = resolve;
-      this.open();
-    });
   }
 
   onOpen(): void {
@@ -151,36 +144,24 @@ export class ReferenceCreationModal extends Modal {
     );
 
     // Buttons
-    const buttonRow = contentEl.createDiv({ cls: "pm-modal-buttons" });
-    buttonRow.style.display = "flex";
-    buttonRow.style.justifyContent = "flex-end";
-    buttonRow.style.gap = "8px";
-    buttonRow.style.marginTop = "16px";
+    createModalButtonRow(contentEl, {
+      submitText: ACTION_LABEL.CREATE,
+      onSubmit: () => this.submit(),
+      onCancel: () => this.cancel(),
+    });
 
-    const cancelBtn = buttonRow.createEl("button", { text: "Cancel" });
-    cancelBtn.addEventListener("click", () => this.cancel());
-
-    const createBtn = buttonRow.createEl("button", { text: "Create", cls: "mod-cta" });
-    createBtn.addEventListener("click", () => this.submit());
-
-    this.nameInput.addEventListener("keydown", (e: KeyboardEvent) => {
-      if (e.key === "Enter") {
-        e.preventDefault();
-        this.submit();
-      } else if (e.key === "Escape") {
-        this.cancel();
-      }
+    registerSubmitCancelKeys(this.nameInput, {
+      onSubmit: () => this.submit(),
+      onCancel: () => this.cancel(),
     });
 
     setTimeout(() => this.nameInput.focus(), FOCUS_DELAY_MS);
   }
 
-  onClose(): void {
+  protected onDismiss(): void {
     this.topicChipSelect?.destroy();
     this.clientSuggest?.destroy();
     this.engagementSuggest?.destroy();
-    this.resolvePromise?.(null);
-    this.contentEl.empty();
   }
 
   private submit(): void {
@@ -193,14 +174,10 @@ export class ReferenceCreationModal extends Modal {
     const clientName = this.selectedClientName;
     const engagementName = this.selectedEngagementName;
 
-    this.resolvePromise({ name, topics, clientName, engagementName });
-    this.resolvePromise = () => {};
-    this.close();
+    this.settle({ name, topics, clientName, engagementName });
   }
 
   private cancel(): void {
-    this.resolvePromise(null);
-    this.resolvePromise = () => {};
-    this.close();
+    this.settle(null);
   }
 }

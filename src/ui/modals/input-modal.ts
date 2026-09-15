@@ -1,5 +1,7 @@
-import { App, Modal } from "obsidian";
-import { FOCUS_DELAY_MS } from "../../constants";
+import { App } from "obsidian";
+import { FOCUS_DELAY_MS, ACTION_LABEL } from "../../constants";
+import { PromiseModal } from "./promise-modal";
+import { createModalButtonRow, registerSubmitCancelKeys } from "./modal-controls";
 
 /**
  * A simple text input modal with Enter to submit.
@@ -7,8 +9,7 @@ import { FOCUS_DELAY_MS } from "../../constants";
  *
  * Replaces QuickAdd's `inputPrompt()`.
  */
-export class InputModal extends Modal {
-  private resolvePromise!: (value: string | null) => void;
+export class InputModal extends PromiseModal<string> {
   private inputEl!: HTMLInputElement;
 
   constructor(
@@ -18,14 +19,6 @@ export class InputModal extends Modal {
     private readonly defaultValue: string = ""
   ) {
     super(app);
-  }
-
-  /** Opens the modal and returns a promise that resolves when the user submits or cancels. */
-  prompt(): Promise<string | null> {
-    return new Promise((resolve) => {
-      this.resolvePromise = resolve;
-      this.open();
-    });
   }
 
   onOpen(): void {
@@ -43,30 +36,16 @@ export class InputModal extends Modal {
     this.inputEl.style.width = "100%";
     this.inputEl.style.marginTop = "8px";
 
-    this.inputEl.addEventListener("keydown", (e: KeyboardEvent) => {
-      if (e.key === "Enter") {
-        e.preventDefault();
-        this.submit();
-      } else if (e.key === "Escape") {
-        this.cancel();
-      }
+    registerSubmitCancelKeys(this.inputEl, {
+      onSubmit: () => this.submit(),
+      onCancel: () => this.cancel(),
     });
 
-    // Button row
-    const buttonRow = contentEl.createDiv({ cls: "pm-input-modal__buttons" });
-    buttonRow.style.display = "flex";
-    buttonRow.style.justifyContent = "flex-end";
-    buttonRow.style.gap = "8px";
-    buttonRow.style.marginTop = "16px";
-
-    const cancelBtn = buttonRow.createEl("button", { text: "Cancel" });
-    cancelBtn.addEventListener("click", () => this.cancel());
-
-    const submitBtn = buttonRow.createEl("button", {
-      text: "OK",
-      cls: "mod-cta",
+    createModalButtonRow(contentEl, {
+      submitText: ACTION_LABEL.OK,
+      onSubmit: () => this.submit(),
+      onCancel: () => this.cancel(),
     });
-    submitBtn.addEventListener("click", () => this.submit());
 
     // Focus and select default value
     setTimeout(() => {
@@ -75,21 +54,12 @@ export class InputModal extends Modal {
     }, FOCUS_DELAY_MS);
   }
 
-  onClose(): void {
-    this.resolvePromise?.(null);
-    this.contentEl.empty();
-  }
-
   private submit(): void {
     const value = this.inputEl.value.trim();
-    this.resolvePromise(value || null);
-    this.resolvePromise = () => {}; // prevent double-resolve on close
-    this.close();
+    this.settle(value || null);
   }
 
   private cancel(): void {
-    this.resolvePromise(null);
-    this.resolvePromise = () => {};
-    this.close();
+    this.settle(null);
   }
 }

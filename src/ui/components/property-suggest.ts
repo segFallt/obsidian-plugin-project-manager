@@ -14,13 +14,7 @@
  */
 
 import { AbstractInputSuggest, App } from "obsidian";
-
-export interface AutocompleteOption {
-  /** Stored value (e.g. entity name) */
-  value: string;
-  /** Text shown in the dropdown and input after selection */
-  displayText: string;
-}
+import type { AutocompleteOption } from "../../types";
 
 export interface AutocompleteConfig {
   placeholder?: string;
