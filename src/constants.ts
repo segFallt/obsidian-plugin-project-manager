@@ -409,6 +409,7 @@ export const CSS_SELECTOR = {
 /** HTML element tag names used when building DOM (createEl / createElement). */
 export const HTML_TAG = {
   ANCHOR: "a",
+  EM: "em",
   H2: "h2",
   H3: "h3",
   H4: "h4",
@@ -425,6 +426,11 @@ export const DOM_ATTR = {
 export const DOM_EVENT = {
   CLICK: "click",
   KEYDOWN: "keydown",
+} as const;
+
+/** Obsidian vault event names. */
+export const VAULT_EVENT = {
+  MODIFY: "modify",
 } as const;
 
 /** User-facing action-button labels shared across modals. */
@@ -481,6 +487,26 @@ export const MSG = {
     `Tagged section "${heading}" as RAID reference.`,
   TASK_TOGGLE_FAILED: "Project Manager: failed to save task change to the event note.",
   VAULT_SETUP_SUCCESS: "Project Manager: Vault structure set up successfully.",
+} as const;
+
+/** Task-dashboard output messages (empty state, unknown view mode, error banner). */
+export const TASK_DASHBOARD_MSG = {
+  NO_TASKS_MATCH: "No tasks match the current filters.",
+  UNKNOWN_VIEW_MODE: (mode: string): string => `Unknown view mode: ${mode}`,
+  ERROR: (detail: string): string => `pm-tasks error: ${detail}`,
+} as const;
+
+/** pm-tasks code-block `mode` values. */
+export const PM_TASKS_MODE = {
+  DASHBOARD: "dashboard",
+  BY_PROJECT: "by-project",
+} as const;
+
+/** pm-tasks processor config-validation error messages. */
+export const PM_TASKS_MSG = {
+  INVALID_CONFIG: "Invalid pm-tasks config.",
+  REQUIRES_MODE: "pm-tasks requires a `mode` field (dashboard or by-project).",
+  UNKNOWN_MODE: (mode: string): string => `Unknown pm-tasks mode: ${mode}`,
 } as const;
 
 // ─── Command layer: names, modals, error labels ───────────────────────────
