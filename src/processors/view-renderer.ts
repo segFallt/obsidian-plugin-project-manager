@@ -37,6 +37,13 @@ export interface ViewRenderContext<TItem, THelpers = TaskRenderHelpers> {
   /** Interactive renderers push filter changes through this; passive ones never call it. */
   onFilterChange: (patch: FilterPatch) => void;
   helpers: THelpers;
+  /**
+   * The item set filtered by every facet EXCEPT the one this renderer owns.
+   * Populated by the shell only for a renderer that declares `ownsFacet` (e.g.
+   * the RAID matrix), so it can show excluded-facet counts. Passive renderers
+   * leave it unset and ignore it.
+   */
+  facetItems?: TItem[];
 }
 
 /** A dashboard view renderer: draws items into a container from its context alone. */
