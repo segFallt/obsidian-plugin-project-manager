@@ -7,6 +7,7 @@ import { EntityService } from "./services/entity-service";
 import { EntityCreationService } from "./services/entity-creation-service";
 import { EntityConversionService } from "./services/entity-conversion-service";
 import { NavigationService } from "./services/navigation-service";
+import { NotificationService } from "./services/notification-service";
 import { ActionContextManager } from "./services/action-context-manager";
 import { CommandExecutor } from "./services/command-executor";
 import { COMMAND_IDS } from "./command-ids";
@@ -152,12 +153,13 @@ export default class ProjectManagerPlugin extends Plugin {
     this.hierarchyService = new EntityHierarchyService(this.queryService);
 
     this.navigationService = new NavigationService(this.app);
-    const creationService = new EntityCreationService(this.app, this.settings, this.templateService, this.navigationService);
+    const notificationService = new NotificationService();
+    const creationService = new EntityCreationService(this.app, this.settings, this.templateService, this.navigationService, notificationService);
     const conversionService = new EntityConversionService(this.app, this.settings, creationService);
     this.entityService = new EntityService(creationService, conversionService);
 
     this.taskParser = new TaskParser();
-    this.scaffoldService = new VaultScaffoldService(this.app, this.settings);
+    this.scaffoldService = new VaultScaffoldService(this.app, this.settings, notificationService);
     this.actionContext = new ActionContextManager();
     this.commandExecutor = new CommandExecutor(this.app, this.manifest.id);
     this.filterService = new TaskFilterService(this.settings.folders);
@@ -165,7 +167,7 @@ export default class ProjectManagerPlugin extends Plugin {
     this.testDataService = new TestDataService(
       this.app,
       this.settings,
-      this.templateService,
+      creationService,
       this.loggerService
     );
   }

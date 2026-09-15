@@ -1,7 +1,8 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { VaultScaffoldService } from "../../src/services/vault-scaffold-service";
 import { createMockApp } from "../mocks/app-mock";
 import { DEFAULT_SETTINGS } from "../../src/settings";
+import type { INotificationService } from "../../src/services/interfaces";
 
 function createService(existingPaths: string[] = []) {
   const app = createMockApp();
@@ -16,12 +17,14 @@ function createService(existingPaths: string[] = []) {
     return new TFile(path) as unknown as import("obsidian").TFile;
   };
 
+  const notification: INotificationService = { notify: vi.fn() };
   const svc = new VaultScaffoldService(
     app as unknown as import("obsidian").App,
-    DEFAULT_SETTINGS
+    DEFAULT_SETTINGS,
+    notification
   );
 
-  return { svc, app, createdFolders, createdFiles };
+  return { svc, app, createdFolders, createdFiles, notification };
 }
 
 describe("VaultScaffoldService", () => {
@@ -68,6 +71,12 @@ describe("VaultScaffoldService", () => {
       expect(createdFiles).toContain("views/Inbox.md");
       expect(createdFiles).toContain("views/Single Meeting.md");
       expect(createdFiles).toContain("views/Recurring Meeting.md");
+    });
+
+    it("reports success via the injected notification service", async () => {
+      const { svc, notification } = createService();
+      await svc.scaffoldVault();
+      expect(notification.notify).toHaveBeenCalledOnce();
     });
 
     it("skips existing files (idempotent)", async () => {
@@ -214,7 +223,8 @@ describe("VaultScaffoldService", () => {
 
       const svc = new VaultScaffoldService(
         app as unknown as import("obsidian").App,
-        customSettings
+        customSettings,
+        { notify: vi.fn() }
       );
       await svc.scaffoldVault();
 

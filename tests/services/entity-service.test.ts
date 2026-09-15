@@ -12,7 +12,8 @@ function createEntityService(existingFiles: Parameters<typeof createMockApp>[0] 
   const templates = new TemplateService();
   const obsidianApp = app as unknown as import("obsidian").App;
   const navigation = new NavigationService(obsidianApp);
-  const creation = new EntityCreationService(obsidianApp, DEFAULT_SETTINGS, templates, navigation);
+  const notification = { notify: vi.fn() };
+  const creation = new EntityCreationService(obsidianApp, DEFAULT_SETTINGS, templates, navigation, notification);
   const conversion = new EntityConversionService(obsidianApp, DEFAULT_SETTINGS, creation);
   const svc = new EntityService(creation, conversion);
   return { svc, app };

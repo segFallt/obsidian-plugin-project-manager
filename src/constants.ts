@@ -388,6 +388,7 @@ export const MSG = {
   RAID_REFERENCE_TAGGED_SECTION: (heading: string) =>
     `Tagged section "${heading}" as RAID reference.`,
   TASK_TOGGLE_FAILED: "Project Manager: failed to save task change to the event note.",
+  VAULT_SETUP_SUCCESS: "Project Manager: Vault structure set up successfully.",
 } as const;
 
 // ─── Command layer: names, modals, error labels ───────────────────────────
@@ -479,6 +480,9 @@ export const NOTES_MARKER = {
 
 /** Markdown file extension. */
 export const MD_EXTENSION = ".md";
+
+/** Success-notice label shown when an entity note is created. */
+export const CREATED_LABEL = "Created";
 
 /** Display label for the "no value" option prepended to nullable select fields. */
 export const SELECT_NONE_LABEL = "(none)";

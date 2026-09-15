@@ -68,6 +68,10 @@ export class EntityService implements IEntityService {
     return this.creation.createReferenceTopic(name, parentName);
   }
 
+  setReferenceTopicParent(topicName: string, parentName?: string): Promise<void> {
+    return this.creation.setReferenceTopicParent(topicName, parentName);
+  }
+
   createReference(name: string, topics: string[], client?: string, engagement?: string): Promise<TFile> {
     return this.creation.createReference(name, topics, client, engagement);
   }
