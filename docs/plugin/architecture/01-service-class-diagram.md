@@ -64,7 +64,6 @@ classDiagram
         +createInboxNote(name, engagementName?) Promise~TFile~
         +createRecurringMeetingEvent(meetingName, options?) Promise~TFile~
         +createRaidItem(name, raidType, engagement?, owner?) Promise~TFile~
-        +validateResult(result) void
     }
 
     class EntityCreationService {

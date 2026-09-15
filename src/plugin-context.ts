@@ -74,6 +74,17 @@ export interface ActionProcessorServices {
   actionContext: IActionContextManager;
 }
 
+/** The action-service keys the entity-view processor forwards to its action buttons. */
+export const ENTITY_VIEW_ACTION_KEYS = ["commandExecutor", "actionContext"] as const;
+
+/**
+ * Narrow interface for the entity-view processor: the property/table reads plus
+ * the action-button collaborators (`commandExecutor`/`actionContext`) — nothing
+ * more. The concrete plugin satisfies it structurally.
+ */
+export type EntityViewProcessorServices = PropertyProcessorServices &
+  Pick<ActionProcessorServices, (typeof ENTITY_VIEW_ACTION_KEYS)[number]>;
+
 /** Narrow interface for scaffold command consumers. */
 export interface ScaffoldCommandServices {
   scaffoldService: IScaffoldService;

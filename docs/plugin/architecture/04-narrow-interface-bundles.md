@@ -127,6 +127,10 @@ classDiagram
         <<processor>>
     }
 
+    class EntityViewProcessorServices {
+        <<interface>>
+    }
+
     PluginServices ..> CommandServices : narrows to
     PluginServices ..> TaskProcessorServices : narrows to
     PluginServices ..> PropertyProcessorServices : narrows to
@@ -134,6 +138,7 @@ classDiagram
     PluginServices ..> ScaffoldCommandServices : narrows to
     PluginServices ..> RaidProcessorServices : narrows to
     PluginServices ..> ReferenceProcessorServices : narrows to
+    PropertyProcessorServices ..> EntityViewProcessorServices : composed into
 
     CreateProjectCommand ..> CommandServices : consumes
     CreateClientCommand ..> CommandServices : consumes
@@ -155,5 +160,5 @@ classDiagram
 
     PmReferencesProcessor ..> ReferenceProcessorServices : consumes
 
-    PmEntityViewProcessor ..> PluginServices : consumes
+    PmEntityViewProcessor ..> EntityViewProcessorServices : consumes
 ```

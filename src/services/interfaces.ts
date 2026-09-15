@@ -1,4 +1,5 @@
 import type { App, TFile } from "obsidian";
+import type { ContextFilterField } from "../constants";
 import type {
   DataviewApi,
   DataviewPage,
@@ -9,7 +10,6 @@ import type {
   InboxStatusFilter,
   ParsedTask,
   EntityType,
-  CreateFileResult,
   SortKey,
 } from "../types";
 
@@ -101,7 +101,6 @@ export interface IEntityCreationService {
    */
   setReferenceTopicParent(topicName: string, parentName?: string): Promise<void>;
   createReference(name: string, topics: string[], client?: string, engagement?: string): Promise<TFile>;
-  validateResult(result: CreateFileResult): void;
 }
 
 export interface IEntityConversionService {
@@ -156,7 +155,7 @@ export interface ITaskFilterService {
   ): DataviewTask[];
   applyContextSpecificFilters(
     tasks: DataviewTask[],
-    f: Pick<DashboardFilters, "projectStatusFilter" | "inboxStatusFilter" | "meetingDateFilter">,
+    f: Pick<DashboardFilters, ContextFilterField>,
     dv: DataviewApi
   ): DataviewTask[];
   matchesDueDateFilter(task: DataviewTask, filter: DueDateFilter): boolean;

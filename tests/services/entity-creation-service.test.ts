@@ -246,20 +246,4 @@ describe("EntityCreationService", () => {
     });
   });
 
-  describe("validateResult", () => {
-    it("does not throw when success is true", () => {
-      const { svc } = createSvc();
-      expect(() => svc.validateResult({ success: true })).not.toThrow();
-    });
-
-    it("throws with the provided error message when success is false", () => {
-      const { svc } = createSvc();
-      expect(() => svc.validateResult({ success: false, error: "oops" })).toThrow("oops");
-    });
-
-    it("throws a default message when error is not provided", () => {
-      const { svc } = createSvc();
-      expect(() => svc.validateResult({ success: false })).toThrow("Entity creation failed");
-    });
-  });
 });
