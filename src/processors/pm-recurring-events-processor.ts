@@ -3,6 +3,7 @@ import type { MarkdownPostProcessorContext } from "obsidian";
 import type { RecurringEventsProcessorServices, RegisterProcessorFn } from "../plugin-context";
 import type { DataviewPage } from "../types";
 import { normalizeToName } from "../utils/link-utils";
+import { createInternalLink } from "./dom-helpers";
 import { DEBOUNCE_MS, CODEBLOCK, CSS_CLS, CSS_SELECTOR, ISO_DATETIME_INPUT_LENGTH, NOTES_MARKER, LOG_CONTEXT, MSG } from "../constants";
 import { debounced } from "../utils/debounce";
 
@@ -169,12 +170,7 @@ class PmRecurringEventsRenderChild extends MarkdownRenderChild {
 
     // Header with internal link
     const header = tile.createDiv({ cls: "pm-recurring-events__tile-header" });
-    const link = header.createEl("a", {
-      cls: CSS_CLS.INTERNAL_LINK,
-      text: dateDisplay,
-    });
-    link.setAttribute("data-href", event.file.path);
-    link.setAttribute("href", event.file.path);
+    createInternalLink(header, event.file.path, dateDisplay);
 
     // Attendees (only if present)
     if (attendees.length > 0) {

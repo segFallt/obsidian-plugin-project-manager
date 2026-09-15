@@ -5,7 +5,7 @@ import type { IQueryService, ILoggerService, RaidProcessorServices } from "../se
 import type { RaidType, RaidReferenceEntry, PmRaidReferencesConfig } from "../types";
 import { CODEBLOCK, DEBOUNCE_MS, CSS_CLS } from "../constants";
 import { debounced } from "../utils/debounce";
-import { renderError } from "./dom-helpers";
+import { renderError, createInternalLink } from "./dom-helpers";
 import { DIRECTION_LABELS, DIRECTION_ICONS, DEFAULT_RAID_TYPE, RAID_SCOPE } from "./raid-constants";
 import { parseRaidReferences } from "./raid-reference-parser";
 
@@ -166,12 +166,7 @@ class PmRaidReferencesRenderChild extends MarkdownRenderChild {
       // Source note heading with internal link
       const heading = document.createElement("h4");
       heading.className = "pm-raid-references__group-heading";
-      const link = document.createElement("a");
-      link.className = CSS_CLS.INTERNAL_LINK;
-      link.textContent = file.basename;
-      link.setAttribute("data-href", file.path);
-      link.setAttribute("href", file.path);
-      heading.appendChild(link);
+      createInternalLink(heading, file.path, file.basename);
       group.appendChild(heading);
 
       const list = document.createElement("ul");

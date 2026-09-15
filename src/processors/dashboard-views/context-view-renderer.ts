@@ -1,6 +1,7 @@
 import type { TaskProcessorServices } from "../../plugin-context";
 import type { DataviewTask, DataviewApi, DashboardFilters } from "../../types";
-import { TASK_CONTEXTS, CSS_CLS, CONTEXT } from "../../constants";
+import { TASK_CONTEXTS, CONTEXT, HTML_TAG } from "../../constants";
+import { createInternalLink } from "../dom-helpers";
 import { getTaskContext, getParentProjectPath, getParentRecurringMeetingPath } from "../../utils/task-utils";
 import type { ITaskSortService } from "../../services/interfaces";
 import type { TaskListRenderer } from "../task-list-renderer";
@@ -31,7 +32,7 @@ export class ContextViewRenderer {
       );
       if (ctxTasks.length === 0) continue;
 
-      container.createEl("h2", { text: context });
+      container.createEl(HTML_TAG.H2, { text: context });
 
       const byFile: Record<string, DataviewTask[]> = {};
       const projectNoteMapping: Record<string, Record<string, DataviewTask[]>> = {};
@@ -85,8 +86,7 @@ export class ContextViewRenderer {
       for (const { filePath, tasks: fileTasks } of fileGroups) {
         const page = dv.page(filePath);
         const name = page?.file.name ?? filePath;
-        container.createEl("h3").innerHTML =
-          `<a class="${CSS_CLS.INTERNAL_LINK}" data-href="${filePath}" href="${filePath}">${name}</a>`;
+        createInternalLink(container.createEl(HTML_TAG.H3), filePath, name);
 
         if (context === CONTEXT.PROJECT && projectNoteMapping[filePath]) {
           const directTasks = fileTasks.filter((t) => t.link.path === filePath);
@@ -99,8 +99,7 @@ export class ContextViewRenderer {
           for (const [notePath, noteTasks] of Object.entries(projectNoteMapping[filePath])) {
             const notePage = dv.page(notePath);
             const noteName = notePage?.file.name ?? notePath;
-            container.createEl("h4").innerHTML =
-              `<a class="${CSS_CLS.INTERNAL_LINK}" data-href="${notePath}" href="${notePath}">${noteName}</a>`;
+            createInternalLink(container.createEl(HTML_TAG.H4), notePath, noteName);
             await this.renderer.renderTaskList(
               container,
               this.sortService.sortTasks(noteTasks, f.sortBy, contextMap, mtimeMap)
@@ -110,8 +109,7 @@ export class ContextViewRenderer {
           for (const [eventPath, eventTasks] of Object.entries(recurringMeetingMapping[filePath])) {
             const eventPage = dv.page(eventPath);
             const eventName = eventPage?.file.name ?? eventPath;
-            container.createEl("h4").innerHTML =
-              `<a class="${CSS_CLS.INTERNAL_LINK}" data-href="${eventPath}" href="${eventPath}">${eventName}</a>`;
+            createInternalLink(container.createEl(HTML_TAG.H4), eventPath, eventName);
             await this.renderer.renderTaskList(
               container,
               this.sortService.sortTasks(eventTasks, f.sortBy, contextMap, mtimeMap)

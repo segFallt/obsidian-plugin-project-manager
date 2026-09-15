@@ -11,13 +11,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Consolidated the hand-built internal-link anchors across the RAID dashboard, RAID references, recurring events, topic, task-by-project, and context views behind a single shared `createInternalLink` DOM helper, keeping the standard class, `data-href`, and custom click navigation consistent ([#19](https://gitlab.n3.pingleberry.com/obsidian/obsidiantemplates-claude-code/-/issues/19)).
 - The `ReferenceProcessorServices` object is now built through a single `buildReferenceProcessorServices(plugin)` factory co-located with its interface, instead of hand-maintaining the identical field-for-field literal in both the Reference Dashboard item view and the processor registrar ([#20](https://gitlab.n3.pingleberry.com/obsidian/obsidiantemplates-claude-code/-/issues/20)).
 - Extracted the hand-rolled debounced-refresh lifecycle (`debounceTimer` + `setTimeout`/`clearTimeout`) into a single shared `debounced(fn, ms)` helper (`src/utils/debounce.ts`) and adopted it across every processor and view that auto-refreshes or throttles input ([#8](https://gitlab.n3.pingleberry.com/obsidian/obsidiantemplates-claude-code/-/issues/8)).
 - `LoggerService` now accesses the vault adapter through a single typed `IVaultFileAdapter` port, replacing the three divergent inline `as unknown as {...}` casts that were duplicated across its log read/write/list/prune paths. The adapter contract is declared once and cast in one place, mirroring the `CommandExecutor` boundary precedent ([#16](https://gitlab.n3.pingleberry.com/obsidian/obsidiantemplates-claude-code/-/issues/16)).
 
 ### Fixed
 
+- Fixed a latent HTML-injection hazard in internal-note links: several views built anchors by interpolating the raw file name/path into `innerHTML`, so a note whose name contained `<`, `>`, or `&` broke or injected markup. Link text is now set via `textContent`, rendering such names as literal text ([#19](https://gitlab.n3.pingleberry.com/obsidian/obsidiantemplates-claude-code/-/issues/19)).
 - Fixed a leaked debounce timer in the task dashboard, tasks-by-project, and reference dashboard views: their search-input throttle timer had no teardown path and could fire after the view was torn down. Each view now exposes a `destroy()` that cancels the pending refresh, invoked from its owner (`pm-tasks` processor unload and the Reference Dashboard panel close) ([#8](https://gitlab.n3.pingleberry.com/obsidian/obsidiantemplates-claude-code/-/issues/8)).
+
 
 ## [0.4.1] - 2026-07-06
 

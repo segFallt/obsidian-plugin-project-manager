@@ -291,6 +291,27 @@ export const CSS_SELECTOR = {
   TASK_LIST_CHECKBOX: `li.${CSS_CLS.TASK_LIST_ITEM} input.${CSS_CLS.TASK_LIST_ITEM_CHECKBOX}`,
 } as const;
 
+// ─── DOM primitives ───────────────────────────────────────────────────────
+
+/** HTML element tag names used when building DOM (createEl / createElement). */
+export const HTML_TAG = {
+  ANCHOR: "a",
+  H2: "h2",
+  H3: "h3",
+  H4: "h4",
+} as const;
+
+/** DOM attribute names set when building elements. */
+export const DOM_ATTR = {
+  HREF: "href",
+  DATA_HREF: "data-href",
+} as const;
+
+/** DOM event names passed to addEventListener. */
+export const DOM_EVENT = {
+  CLICK: "click",
+} as const;
+
 // ─── Codeblock identifiers ────────────────────────────────────────────────
 
 /** Markdown code block language identifiers registered by the plugin. */
