@@ -1,14 +1,15 @@
 import { App, TFile } from "obsidian";
 import type { ProjectManagerSettings } from "../settings";
-import type { ITemplateService, ILoggerService, ITestDataService, TestDataResult } from "./interfaces";
-import {
-  ensureFolderExists,
-  resolveConflictPath,
-  generateProjectNotesPath,
-} from "../utils/path-utils";
+import type {
+  IEntityMaterializer,
+  ILoggerService,
+  ITestDataService,
+  TestDataResult,
+} from "./interfaces";
+import { generateProjectNotesPath } from "../utils/path-utils";
 import { toWikilink } from "../utils/link-utils";
 import { todayISO } from "../utils/date-utils";
-import { FM_KEY, NOTES_MARKER, MD_EXTENSION } from "../constants";
+import { FM_KEY, NOTES_MARKER } from "../constants";
 import {
   TEST_PREFIX,
   CLIENT_NAMES,
@@ -46,7 +47,7 @@ export class TestDataService implements ITestDataService {
   constructor(
     private readonly app: App,
     private readonly settings: ProjectManagerSettings,
-    private readonly templateService: ITemplateService,
+    private readonly materializer: IEntityMaterializer,
     private readonly loggerService: ILoggerService
   ) {}
 
@@ -431,8 +432,9 @@ export class TestDataService implements ITestDataService {
   // ─── File creation helpers ────────────────────────────────────────────────
 
   /**
-   * Creates a single entity file with template content and injected tasks.
-   * Optionally applies frontmatter overrides via processFrontMatter.
+   * Creates a single entity file through the shared materialization pipeline,
+   * injecting demo tasks into the note body. Notifications are suppressed so
+   * bulk generation stays silent. Optionally applies frontmatter overrides.
    */
   private async createEntityFile(
     type: EntityType,
@@ -441,35 +443,12 @@ export class TestDataService implements ITestDataService {
     extraVars: Record<string, string> = {},
     frontmatterOverrides?: (fm: Record<string, unknown>) => void
   ): Promise<TFile> {
-    await ensureFolderExists(this.app, folder);
-
-    const basePath = `${folder}/${name}${MD_EXTENSION}`;
-    const path = await resolveConflictPath(this.app, basePath);
-
-    const vars: Record<string, string> = {
-      ...this.templateService.defaultVars(),
-      name,
-      ...extraVars,
-    };
-
-    const rawContent = this.templateService.processTemplate(
-      this.templateService.getTemplate(type),
-      vars
-    );
-
-    const taskBlock = this.generateTaskBlock();
-    const content = this.injectTasksIntoContent(rawContent, taskBlock);
-
-    const file = await this.app.vault.create(path, content);
-
-    if (frontmatterOverrides) {
-      await this.app.fileManager.processFrontMatter(
-        file,
-        frontmatterOverrides as (fm: Record<string, unknown>) => void
-      );
-    }
-
-    return file;
+    return this.materializer.materializeEntity(type, name, folder, {
+      extraVars,
+      contentTransform: (rendered) =>
+        this.injectTasksIntoContent(rendered, this.generateTaskBlock()),
+      frontmatter: frontmatterOverrides,
+    });
   }
 
   // ─── Task generation ──────────────────────────────────────────────────────

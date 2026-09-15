@@ -36,17 +36,18 @@ Mermaid diagrams for deep structural reference, located in [`docs/plugin/archite
 main.ts (Plugin)
   ├── queryService: QueryService(app, getDataviewApi)
   ├── navigationService: NavigationService(app)
+  ├── notificationService: NotificationService()  ← INotificationService (Notice wrapper)
   ├── templateService: TemplateService()
-  ├── creationService: EntityCreationService(app, settings, templateService, navigationService)
+  ├── creationService: EntityCreationService(app, settings, templateService, navigationService, notificationService)
   ├── conversionService: EntityConversionService(app, settings, creationService)
   ├── entityService: EntityService(creationService, conversionService)  ← thin facade
-  ├── scaffoldService: VaultScaffoldService(app, settings)
+  ├── scaffoldService: VaultScaffoldService(app, settings, notificationService)
   ├── taskParser: TaskParser()
   ├── filterService: TaskFilterService(settings.folders)
   ├── sortService: TaskSortService()
   ├── actionContext: ActionContextManager()
   ├── commandExecutor: CommandExecutor(app)
-  ├── testDataService: TestDataService(app, settings, templateService, loggerService)
+  ├── testDataService: TestDataService(app, settings, creationService as IEntityMaterializer, loggerService)
   ├── commands/*   → CommandServices (narrow subset of services)
   └── processors/* → TaskProcessorServices | PropertyProcessorServices | ActionProcessorServices | RaidProcessorServices
 ```
@@ -90,7 +91,9 @@ Vault API (create/modify)
 ## Key Services
 
 ### `EntityCreationService` (`src/services/entity-creation-service.ts`)
-Handles all vault file creation. Reads templates from `TemplateService`, resolves path conflicts, creates folders, sets frontmatter via `processFrontMatter`. Delegates navigation to `NavigationService`.
+Handles all vault file creation. Reads templates from `TemplateService`, resolves path conflicts, creates folders, sets frontmatter via `processFrontMatter`. Delegates navigation to `NavigationService` and success notifications to `NotificationService`.
+
+The `materializeEntity(type, name, folder, options)` primitive owns the folder/template/notification policy for a single note. Its options — `extraVars`, `contentTransform`, `frontmatter`, `notice`, and `open` — gate each optional step. `createEntity()` is a thin wrapper (notice on), and `TestDataService` reuses the same primitive through the narrow `IEntityMaterializer` interface with notifications suppressed. This keeps a single creation pipeline instead of duplicating it in the test-data generator.
 
 **Wikilink frontmatter convention**: Fields that hold wikilinks (e.g. `engagement`, `client`, `convertedFrom`) are never baked into template content via string substitution. Instead they are always set via `processFrontMatter` after file creation. This avoids YAML parsing issues caused by unquoted `[[...]]` sequences in raw template text.
 
@@ -102,6 +105,9 @@ Thin facade combining `EntityCreationService` and `EntityConversionService`. Mai
 
 ### `NavigationService` (`src/services/navigation-service.ts`)
 Encapsulates `workspace.getLeaf().openFile(file)`. Extracted from `EntityService` to satisfy SRP and enable isolated testing.
+
+### `NotificationService` (`src/services/notification-service.ts`)
+Thin wrapper over Obsidian's `Notice`, injected as `INotificationService` so the services layer signals user-facing messages without constructing UI directly. Consumed by `EntityCreationService` (success notices) and `VaultScaffoldService` (scaffold-complete notice); no `new Notice(...)` remains in `src/services/`.
 
 ### `ActionContextManager` (`src/services/action-context-manager.ts`)
 Replaces the former mutable `pendingActionContext` field on `PluginServices`. Provides `set()`, `get()`, and `consume()` (read-and-clear) for passing a pre-selected entity context from an action button click to the subsequent command invocation.
@@ -139,6 +145,8 @@ Generates realistic sample vault data for development and demo purposes. All gen
 
 - `generateTestData()` — creates 90 files (10 per entity type) in parent-first order so all foreign-key wikilinks reference already-created entities. Each file gets 5 tasks injected under its `# Notes` heading, with 2 past and 3 future due dates. Returns `{ totalFiles, totalTasks, errors }`.
 - `cleanTestData()` — deletes all vault files whose basename starts with `[TEST]`. Returns count deleted.
+
+Generation routes every file through `EntityCreationService.materializeEntity` (via the narrow `IEntityMaterializer` interface) with notifications suppressed, injecting the demo task block through the `contentTransform` option rather than duplicating the creation pipeline.
 
 Name pools and task descriptions live in `src/services/test-data-constants.ts`. Entity generation order: Clients → People, Engagements → Projects, Inbox, Single Meetings, Recurring Meetings → Project Notes, Recurring Meeting Events.
 
