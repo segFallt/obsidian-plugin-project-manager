@@ -48,6 +48,13 @@ classDiagram
         +resolve() DataviewPage[]
     }
 
+    class RefQuery {
+        -getDv() DataviewApi|null
+        +resolve() DataviewPage[]
+        +getReferenceTopicTree() TopicNode[]
+        +getTopicDescendants(name) string[]
+    }
+
     class IEntityCreationService {
         <<interface>>
         +createClient(name) Promise~TFile~
@@ -294,6 +301,8 @@ classDiagram
     TaskQuery ..> QueryService : dv()
     RaidQuery ..|> IEntityQuery
     RaidQuery ..> QueryService : dv()
+    RefQuery ..|> IEntityQuery
+    RefQuery ..> QueryService : dv()
     EntityCreationService ..|> IEntityCreationService
     EntityConversionService ..|> IEntityConversionService
     EntityService ..|> IEntityService
@@ -335,6 +344,8 @@ classDiagram
     RaidDashboardRenderer ..|> IViewRenderer
     RaidDashboardRenderer --> RaidMatrixRenderer : composes
     RaidDashboardRenderer --> RaidItemGroupRenderer : composes
+    TopicViewRenderer ..|> IViewRenderer
+    FlatGroupedViewRenderer ..|> IViewRenderer
     IViewRenderer ..> ViewRenderContext : render(ctx)
 
     class Facet~Item~ {
@@ -382,6 +393,14 @@ classDiagram
         +onOpen() Promise~void~
         +onClose() Promise~void~
     }
+    class ReferenceDashboardItemView {
+        +onOpen() Promise~void~
+    }
+    class ReferenceDashboardView {
+        +render() void
+        +refreshOutput() void
+        +destroy() void
+    }
     DashboardShell ..> IEntityQuery : resolve()
     DashboardShell ..> FilterEngine : apply()
     DashboardShell ..> IViewRenderer : render(ctx)
@@ -389,4 +408,9 @@ classDiagram
     DashboardItemViewHost ..> DashboardViewComponent : hosts
     DashboardRenderChild ..> ViewStateStore : persist / isOwnWrite
     DashboardItemViewHost ..> ViewStateStore : persist
+    ReferenceDashboardItemView --|> DashboardItemViewHost
+    ReferenceDashboardItemView ..> SettingsViewStore : persist
+    ReferenceDashboardView ..|> DashboardViewComponent
+    ReferenceDashboardView ..> DashboardShell : builds
+    ReferenceDashboardView ..> RefQuery : query
 ```

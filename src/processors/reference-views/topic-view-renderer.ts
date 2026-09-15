@@ -1,49 +1,66 @@
-import { TFile } from "obsidian";
-import type { App } from "obsidian";
-import type { DataviewPage, TopicNode } from "../../types";
-import type { ReferenceProcessorServices } from "../../plugin-context";
-import type { INavigationService } from "../../services/interfaces";
+import type { DataviewPage, TopicNode, ReferenceFilters } from "../../types";
 import { normalizeToName } from "../../utils/link-utils";
-import { createInternalLink } from "../dom-helpers";
-import { CSS_VAR } from "../../constants";
-
-/** Minimal service subset required by {@link renderReferenceCard}. */
-type CardNavigationServices = { app: App; navigationService: INavigationService };
-
-// ─── Public entry point ──────────────────────────────────────────────────────
+import { CSS_CLS, DOM_ATTR, DOM_EVENT, HTML_TAG, FM_KEY, REFERENCE_VIEW_MODE, REFERENCES_DASHBOARD_TEXT } from "../../constants";
+import type { IViewRenderer, ViewRenderContext } from "../view-renderer";
+import {
+  renderCollapsibleGroup,
+  renderReferenceCard,
+  renderEmptyState,
+} from "./reference-card-renderer";
+import type { CardNavigationServices, RefRenderHelpers } from "./reference-card-renderer";
 
 /**
- * Renders the topic sidebar (tree) and content panel (nested collapsible groups).
+ * The References "By Topic" view: a sidebar tree plus a content panel of nested
+ * collapsible groups mirroring the topic hierarchy. It reads the topic tree from
+ * `ctx.helpers` (no self-query), renders the (already filtered) `ctx.items`
+ * scoped to the selected subtree, and emits `selectedNode` patches on node click.
  */
-export function renderTopicView(
-  sidebar: HTMLElement,
-  panel: HTMLElement,
-  references: DataviewPage[],
-  services: ReferenceProcessorServices,
-  selectedNode: string | undefined,
-  onNodeSelect: (node: string | undefined) => void
-): void {
-  const tree = services.queryService.getReferenceTopicTree();
+export class TopicViewRenderer
+  implements IViewRenderer<DataviewPage, RefRenderHelpers, ReferenceFilters>
+{
+  readonly mode = REFERENCE_VIEW_MODE.TOPIC;
 
-  // Render sidebar tree
-  renderTopicSidebar(sidebar, tree, selectedNode, onNodeSelect);
+  render(ctx: ViewRenderContext<DataviewPage, RefRenderHelpers, ReferenceFilters>): void {
+    const sidebar = ctx.container.createDiv({ cls: CSS_CLS.REFERENCES_SIDEBAR });
+    const panel = ctx.container.createDiv({ cls: CSS_CLS.REFERENCES_PANEL });
 
-  // Render content panel
-  if (selectedNode) {
-    const rootNode = findNodeInTree(tree, selectedNode);
-    const descendants = rootNode ? collectDescendantNames(rootNode) : [];
-    const scope = new Set([selectedNode, ...descendants]);
-    const scoped = references.filter((ref) => {
-      const topics = Array.isArray(ref.topics) ? ref.topics : ref.topics ? [ref.topics] : [];
-      return topics.some((t) => {
-        const name = normalizeToName(t);
-        return name ? scope.has(name) : false;
+    const tree = ctx.helpers.topicTree;
+    const cardServices = ctx.helpers.cardServices;
+    const selectedNode = ctx.filters.selectedNode
+      ? (normalizeToName(ctx.filters.selectedNode) ?? undefined)
+      : undefined;
+    const onNodeSelect = (node: string | undefined): void => ctx.onFilterChange({ selectedNode: node });
+
+    renderTopicSidebar(sidebar, tree, selectedNode, onNodeSelect);
+
+    if (selectedNode) {
+      const rootNode = findNodeInTree(tree, selectedNode);
+      const descendants = rootNode ? collectDescendantNames(rootNode) : [];
+      const scope = new Set([selectedNode, ...descendants]);
+      const scoped = ctx.items.filter((ref) => {
+        const topics = topicNamesOf(ref);
+        return topics.some((name) => scope.has(name));
       });
-    });
-    renderScopedTopicContent(panel, scoped, selectedNode, tree, services);
-  } else {
-    renderHierarchicalTopicContent(panel, references, tree, services);
+      renderScopedTopicContent(panel, scoped, selectedNode, tree, cardServices);
+    } else {
+      renderHierarchicalTopicContent(panel, ctx.items, tree, cardServices);
+    }
   }
+}
+
+// ─── Frontmatter helpers ─────────────────────────────────────────────────────
+
+/** The reference's raw `topics` frontmatter as an array (single value ⇒ singleton). */
+function rawTopics(ref: DataviewPage): unknown[] {
+  const topics = ref[FM_KEY.TOPICS];
+  return Array.isArray(topics) ? topics : topics ? [topics] : [];
+}
+
+/** The reference's normalized topic display names (drops entries that fail to resolve). */
+function topicNamesOf(ref: DataviewPage): string[] {
+  return rawTopics(ref)
+    .map((t) => normalizeToName(t))
+    .filter((name): name is string => name !== null);
 }
 
 // ─── Tree traversal helpers ──────────────────────────────────────────────────
@@ -81,7 +98,7 @@ function renderTopicSidebar(
   onNodeSelect: (node: string | undefined) => void
 ): void {
   if (tree.length === 0) {
-    sidebar.createEl("p", { cls: "pm-ref-empty", text: "No topics." });
+    sidebar.createEl(HTML_TAG.P, { cls: CSS_CLS.REF_EMPTY, text: REFERENCES_DASHBOARD_TEXT.NO_TOPICS });
     return;
   }
   for (const node of tree) {
@@ -100,39 +117,39 @@ function renderTreeNode(
   const hasChildren = node.children.length > 0;
 
   // Block-level wrapper that holds the label row and (optionally) the children container
-  const itemEl = container.createDiv({ cls: "pm-ref-tree__item" });
-  itemEl.setAttribute("data-depth", String(depth));
+  const itemEl = container.createDiv({ cls: CSS_CLS.REF_TREE_ITEM });
+  itemEl.setAttribute(DOM_ATTR.DATA_DEPTH, String(depth));
 
   // Label row (flex) — contains only the toggle span and name span
   const nodeEl = itemEl.createDiv({
-    cls: `pm-ref-tree__node${isSelected ? " pm-ref-tree__node--selected" : ""}`,
+    cls: isSelected ? `${CSS_CLS.REF_TREE_NODE} ${CSS_CLS.REF_TREE_NODE_SELECTED}` : CSS_CLS.REF_TREE_NODE,
   });
 
   // Toggle icon
-  const toggleEl = nodeEl.createSpan({ cls: "pm-ref-tree__toggle" });
+  const toggleEl = nodeEl.createSpan({ cls: CSS_CLS.REF_TREE_TOGGLE });
   if (hasChildren) {
-    toggleEl.setText("▾"); // start expanded
+    toggleEl.setText(REFERENCES_DASHBOARD_TEXT.TOGGLE_EXPANDED); // start expanded
   } else {
-    toggleEl.setText(" ");
+    toggleEl.setText(REFERENCES_DASHBOARD_TEXT.TOGGLE_LEAF);
   }
 
   nodeEl.createSpan({ text: node.name });
 
-  nodeEl.addEventListener("click", (e) => {
+  nodeEl.addEventListener(DOM_EVENT.CLICK, (e) => {
     e.stopPropagation();
     onNodeSelect(isSelected ? undefined : node.name);
   });
 
   if (hasChildren) {
     // Children container is a sibling of the label row inside the item wrapper, NOT inside the flex label row
-    const childrenEl = itemEl.createDiv({ cls: "pm-ref-tree__children" });
+    const childrenEl = itemEl.createDiv({ cls: CSS_CLS.REF_TREE_CHILDREN });
     childrenEl.style.display = "block";
 
-    toggleEl.addEventListener("click", (e) => {
+    toggleEl.addEventListener(DOM_EVENT.CLICK, (e) => {
       e.stopPropagation();
       const isExpanded = childrenEl.style.display !== "none";
       childrenEl.style.display = isExpanded ? "none" : "block";
-      toggleEl.setText(isExpanded ? "▶" : "▾");
+      toggleEl.setText(isExpanded ? REFERENCES_DASHBOARD_TEXT.TOGGLE_COLLAPSED : REFERENCES_DASHBOARD_TEXT.TOGGLE_EXPANDED);
     });
 
     for (const child of node.children) {
@@ -152,22 +169,22 @@ function renderHierarchicalTopicContent(
   panel: HTMLElement,
   references: DataviewPage[],
   tree: TopicNode[],
-  services: ReferenceProcessorServices
+  cardServices: CardNavigationServices
 ): void {
   if (references.length === 0) {
-    renderEmptyState(panel, "No references found.");
+    renderEmptyState(panel, REFERENCES_DASHBOARD_TEXT.NO_REFERENCES);
     return;
   }
 
   if (tree.length === 0) {
     // No topic tree — fall back to flat alphabetical groups
-    renderFlatTopicContent(panel, references, services);
+    renderFlatTopicContent(panel, references, cardServices);
     return;
   }
 
   // Render each root node as a nested group
   for (const rootNode of tree) {
-    renderNestedGroup(panel, rootNode, references, 0, services);
+    renderNestedGroup(panel, rootNode, references, 0, cardServices);
   }
 
   // Render any references whose topics are not in the tree (orphans)
@@ -179,16 +196,13 @@ function renderHierarchicalTopicContent(
   tree.forEach(collectTreeNames);
 
   const orphanRefs = references.filter((ref) => {
-    const topics = Array.isArray(ref.topics) ? ref.topics : ref.topics ? [ref.topics] : [];
-    return topics.length === 0 || topics.every((t) => {
-      const name = normalizeToName(t);
-      return !name || !treeNames.has(name);
-    });
+    const topics = topicNamesOf(ref);
+    return topics.length === 0 || topics.every((name) => !treeNames.has(name));
   });
 
   if (orphanRefs.length > 0) {
-    const groupBody = renderCollapsibleGroup(panel, "Other", orphanRefs.length);
-    for (const ref of orphanRefs) renderReferenceCard(groupBody, ref, services);
+    const groupBody = renderCollapsibleGroup(panel, REFERENCES_DASHBOARD_TEXT.OTHER, orphanRefs.length);
+    for (const ref of orphanRefs) renderReferenceCard(groupBody, ref, cardServices);
   }
 }
 
@@ -198,14 +212,11 @@ function renderHierarchicalTopicContent(
 function renderFlatTopicContent(
   panel: HTMLElement,
   references: DataviewPage[],
-  services: ReferenceProcessorServices
+  cardServices: CardNavigationServices
 ): void {
   const groups = new Map<string, DataviewPage[]>();
   for (const ref of references) {
-    const topics = Array.isArray(ref.topics) ? ref.topics : ref.topics ? [ref.topics] : [];
-    for (const t of topics) {
-      const name = normalizeToName(t) ?? "";
-      if (!name) continue;
+    for (const name of topicNamesOf(ref)) {
       let bucket = groups.get(name);
       if (!bucket) { bucket = []; groups.set(name, bucket); }
       bucket.push(ref);
@@ -215,19 +226,17 @@ function renderFlatTopicContent(
   const sortedGroups = [...groups.entries()].sort(([a], [b]) => a.localeCompare(b));
 
   if (sortedGroups.length === 0) {
-    renderEmptyState(panel, "No references found.");
+    renderEmptyState(panel, REFERENCES_DASHBOARD_TEXT.NO_REFERENCES);
     return;
   }
 
   for (const [topicName, refs] of sortedGroups) {
     const groupBody = renderCollapsibleGroup(panel, topicName, refs.length);
     for (const ref of refs) {
-      const primaryTopic =
-        Array.isArray(ref.topics) && ref.topics.length > 0
-          ? (normalizeToName(ref.topics[0]) ?? "")
-          : ref.topics ? (normalizeToName(ref.topics) ?? "") : "";
+      const raw = rawTopics(ref);
+      const primaryTopic = raw.length > 0 ? (normalizeToName(raw[0]) ?? "") : "";
       const isSecondary = primaryTopic !== topicName && primaryTopic !== "";
-      renderReferenceCard(groupBody, ref, services, isSecondary ? `also in ${primaryTopic}` : undefined);
+      renderReferenceCard(groupBody, ref, cardServices, isSecondary ? REFERENCES_DASHBOARD_TEXT.alsoIn(primaryTopic) : undefined);
     }
   }
 }
@@ -242,10 +251,10 @@ function renderScopedTopicContent(
   references: DataviewPage[],
   selectedNode: string,
   tree: TopicNode[],
-  services: ReferenceProcessorServices
+  cardServices: CardNavigationServices
 ): void {
   if (references.length === 0) {
-    renderEmptyState(panel, "No references found.");
+    renderEmptyState(panel, REFERENCES_DASHBOARD_TEXT.NO_REFERENCES);
     return;
   }
 
@@ -253,11 +262,11 @@ function renderScopedTopicContent(
   if (!rootNode) {
     // Fallback: show as flat group
     const groupBody = renderCollapsibleGroup(panel, selectedNode, references.length);
-    for (const ref of references) renderReferenceCard(groupBody, ref, services);
+    for (const ref of references) renderReferenceCard(groupBody, ref, cardServices);
     return;
   }
 
-  renderNestedGroup(panel, rootNode, references, 0, services);
+  renderNestedGroup(panel, rootNode, references, 0, cardServices);
 }
 
 function renderNestedGroup(
@@ -265,13 +274,10 @@ function renderNestedGroup(
   node: TopicNode,
   allReferences: DataviewPage[],
   depth = 0,
-  services: ReferenceProcessorServices
+  cardServices: CardNavigationServices
 ): void {
   // Direct references for this node only
-  const directRefs = allReferences.filter((ref) => {
-    const topics = Array.isArray(ref.topics) ? ref.topics : ref.topics ? [ref.topics] : [];
-    return topics.some((t) => normalizeToName(t) === node.name);
-  });
+  const directRefs = allReferences.filter((ref) => topicNamesOf(ref).includes(node.name));
 
   // Total count = direct + all in subtree
   const subtreeNames = new Set([node.name]);
@@ -280,103 +286,18 @@ function renderNestedGroup(
     n.children.forEach(collectNames);
   };
   node.children.forEach(collectNames);
-  const totalRefs = allReferences.filter((ref) => {
-    const topics = Array.isArray(ref.topics) ? ref.topics : ref.topics ? [ref.topics] : [];
-    return topics.some((t) => {
-      const name = normalizeToName(t);
-      return name ? subtreeNames.has(name) : false;
-    });
-  });
+  const totalRefs = allReferences.filter((ref) =>
+    topicNamesOf(ref).some((name) => subtreeNames.has(name))
+  );
 
   const groupBody = renderCollapsibleGroup(container, node.name, totalRefs.length);
-  groupBody.parentElement?.setAttribute("data-depth", String(depth));
+  groupBody.parentElement?.setAttribute(DOM_ATTR.DATA_DEPTH, String(depth));
 
   // Direct references first
-  for (const ref of directRefs) renderReferenceCard(groupBody, ref, services);
+  for (const ref of directRefs) renderReferenceCard(groupBody, ref, cardServices);
 
   // Then nested child groups
   for (const child of node.children) {
-    renderNestedGroup(groupBody, child, allReferences, depth + 1, services);
+    renderNestedGroup(groupBody, child, allReferences, depth + 1, cardServices);
   }
-}
-
-// ─── Shared helpers ──────────────────────────────────────────────────────────
-
-/**
- * Renders a collapsible group header (title + count badge + arrow).
- * Returns the body element for card insertion.
- */
-export function renderCollapsibleGroup(
-  container: HTMLElement,
-  title: string,
-  count: number
-): HTMLElement {
-  const details = container.createEl("details", { cls: "pm-ref-group" });
-  details.setAttribute("open", "");
-
-  const summary = details.createEl("summary", { cls: "pm-ref-group__header" });
-  summary.createSpan({ cls: "pm-ref-group__title", text: title });
-  summary.createSpan({ cls: "pm-ref-group__count", text: String(count) });
-
-  const body = details.createDiv({ cls: "pm-ref-group__body" });
-  return body;
-}
-
-/**
- * Renders a single reference card with title link, context chips, and optional hint tag.
- */
-export function renderReferenceCard(
-  container: HTMLElement,
-  ref: DataviewPage,
-  services: CardNavigationServices,
-  hint?: string
-): void {
-  const card = container.createDiv({ cls: "pm-ref-card" });
-
-  // Title row: document icon + internal link
-  const titleRow = card.createDiv({ cls: "pm-ref-card__title-row" });
-  titleRow.createSpan({ cls: "pm-ref-card__icon", text: "📄" });
-  createInternalLink(titleRow, ref.file.path, ref.file.name, {
-    onClick: () => {
-      const file = services.app.vault.getAbstractFileByPath(ref.file.path);
-      if (file instanceof TFile) void services.navigationService.openFile(file).catch(() => { /* silent */ });
-    },
-  });
-
-  if (hint) {
-    titleRow.createSpan({ cls: "pm-ref-card__hint", text: hint });
-  }
-
-  // Context chips row
-  const chipsRow = card.createDiv({ cls: "pm-ref-card__chips" });
-
-  // Topic chips
-  const topics = Array.isArray(ref.topics) ? ref.topics : ref.topics ? [ref.topics] : [];
-  for (const t of topics) {
-    const name = normalizeToName(t);
-    if (name) {
-      chipsRow.createSpan({ cls: "pm-ref-chip pm-ref-chip--topic", text: name });
-    }
-  }
-
-  // Client chip
-  const clientName = normalizeToName(ref.client);
-  if (clientName) {
-    chipsRow.createSpan({ cls: "pm-ref-chip pm-ref-chip--client", text: clientName });
-  }
-
-  // Engagement chip
-  const engagementName = normalizeToName(ref.engagement);
-  if (engagementName) {
-    chipsRow.createSpan({ cls: "pm-ref-chip pm-ref-chip--engagement", text: engagementName });
-  }
-}
-
-/**
- * Renders a muted "empty state" message when no references match.
- */
-export function renderEmptyState(container: HTMLElement, message: string): void {
-  const el = container.createEl("p", { cls: "pm-ref-empty", text: message });
-  el.style.color = CSS_VAR.TEXT_MUTED;
-  el.style.fontStyle = "italic";
 }

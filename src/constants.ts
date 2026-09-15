@@ -98,6 +98,18 @@ export const RAID_FACET_KEY = {
   MATRIX_CELL: "matrixCell",
 } as const;
 
+/**
+ * Filter facet keys for the References dashboard. `selectedNode` is deliberately
+ * absent: it is renderer display/scoping state (the active sidebar node), not a
+ * `FilterEngine` facet, and `viewMode` selects the renderer rather than filtering.
+ */
+export const REF_FACET_KEY = {
+  TOPICS: "topics",
+  CLIENTS: "clients",
+  ENGAGEMENTS: "engagements",
+  SEARCH_TEXT: "searchText",
+} as const;
+
 /** The facet keys gated to the "context" view mode. */
 export const CONTEXT_FACET_KEYS = [
   FACET_KEY.PROJECT_STATUS,
@@ -258,6 +270,7 @@ export const LOG_CONTEXT = {
   CREATE_REFERENCE_TOPIC: "create-reference-topic",
   TAG_RAID_REFERENCE: "tag-raid-reference",
   REFERENCE_DASHBOARD_VIEW: "pm-reference-dashboard-view",
+  REFERENCES_PROCESSOR: "pm-references-processor",
   RECURRING_EVENTS: "pm-recurring-events",
   CREATE_CLIENT: "create-client",
   CREATE_ENGAGEMENT: "create-engagement",
@@ -352,7 +365,6 @@ export const FM_KEY = {
   TASKS_FILTERS: "pm-tasks-filters", // Legacy flat key — read-only fallback; migrated forward into VIEW_STATE (do NOT change without a migration)
   VIEW_STATE: "pm-view-state", // Namespaced parent holding per-block dashboard state (pm-view-state.<blockKey>)
   TOPICS: "topics",
-  PM_REFERENCES_FILTERS: "pm-references-filters",
   RAID_DASHBOARD_FILTERS: "pm-raid-dashboard-filters",
   PARENT: "parent",
 } as const;
@@ -364,6 +376,7 @@ export const ACTION_CTX_FIELD = {
   CLIENT: "client",
   ENGAGEMENT: "engagement",
   RECURRING_MEETING: "recurring-meeting",
+  TOPIC: "topic",
 } as const;
 
 // ─── CSS classes ──────────────────────────────────────────────────────────
@@ -454,6 +467,52 @@ export const CSS_CLS = {
   // Task dashboard filter drawer
   TASKS_DRAWER_SECTION: "pm-tasks-drawer__section",
   TASKS_DRAWER_SECTION_LABEL: "pm-tasks-drawer__section-label",
+  // References dashboard (ItemView panel + view components)
+  REFERENCE_DASHBOARD_VIEW: "pm-reference-dashboard-view",
+  REFERENCE_DASHBOARD_ACTIONS: "pm-reference-dashboard__actions",
+  REFERENCE_DASHBOARD_ACTIONS_BUTTON: "pm-reference-dashboard__actions__button",
+  REFERENCES_SUMMARY: "pm-references-summary",
+  REFERENCES_SUMMARY_OPEN_BTN: "pm-references-summary__open-btn",
+  REFERENCES: "pm-references",
+  REFERENCES_TOOLBAR: "pm-references__toolbar",
+  REFERENCES_TABS: "pm-references__tabs",
+  REFERENCES_TAB: "pm-references__tab",
+  REFERENCES_TAB_ACTIVE: "pm-references__tab--active",
+  REFERENCES_FILTERS_TOGGLE: "pm-references__filters-toggle",
+  REFERENCES_SEARCH: "pm-references__search",
+  REFERENCES_FILTER_PANEL: "pm-references__filter-panel",
+  REFERENCES_FILTER_PANEL_OPEN: "pm-references__filter-panel--open",
+  REFERENCES_FILTER_ROW: "pm-references__filter-row",
+  REFERENCES_FILTER_ROW_TOPIC: "pm-references__filter-row--topic",
+  REFERENCES_FILTER_ROW_CLIENT: "pm-references__filter-row--client",
+  REFERENCES_FILTER_ROW_ENGAGEMENT: "pm-references__filter-row--engagement",
+  REFERENCES_FILTER_LABEL: "pm-references__filter-label",
+  REFERENCES_CLEAR_FILTERS: "pm-references__clear-filters",
+  REFERENCES_BODY: "pm-references__body",
+  REFERENCES_SIDEBAR: "pm-references__sidebar",
+  REFERENCES_PANEL: "pm-references__panel",
+  REF_SIDEBAR_ITEM: "pm-ref-sidebar__item",
+  REF_SIDEBAR_ITEM_SELECTED: "pm-ref-sidebar__item--selected",
+  REF_TREE_ITEM: "pm-ref-tree__item",
+  REF_TREE_NODE: "pm-ref-tree__node",
+  REF_TREE_NODE_SELECTED: "pm-ref-tree__node--selected",
+  REF_TREE_TOGGLE: "pm-ref-tree__toggle",
+  REF_TREE_CHILDREN: "pm-ref-tree__children",
+  REF_GROUP: "pm-ref-group",
+  REF_GROUP_HEADER: "pm-ref-group__header",
+  REF_GROUP_TITLE: "pm-ref-group__title",
+  REF_GROUP_COUNT: "pm-ref-group__count",
+  REF_GROUP_BODY: "pm-ref-group__body",
+  REF_CARD: "pm-ref-card",
+  REF_CARD_TITLE_ROW: "pm-ref-card__title-row",
+  REF_CARD_ICON: "pm-ref-card__icon",
+  REF_CARD_HINT: "pm-ref-card__hint",
+  REF_CARD_CHIPS: "pm-ref-card__chips",
+  REF_CHIP: "pm-ref-chip",
+  REF_CHIP_TOPIC: "pm-ref-chip--topic",
+  REF_CHIP_CLIENT: "pm-ref-chip--client",
+  REF_CHIP_ENGAGEMENT: "pm-ref-chip--engagement",
+  REF_EMPTY: "pm-ref-empty",
   // Obsidian built-in task classes (NOT plugin pm-* classes). Obsidian emits
   // these on rendered markdown task lists; we reuse them so checkbox lookup
   // and persistence stay in sync with Obsidian's own DOM output.
@@ -485,8 +544,11 @@ export const HTML_TAG = {
   H3: "h3",
   H4: "h4",
   H5: "h5",
+  P: "p",
   BUTTON: "button",
   INPUT: "input",
+  DETAILS: "details",
+  SUMMARY: "summary",
   TABLE: "table",
   THEAD: "thead",
   TBODY: "tbody",
@@ -499,6 +561,8 @@ export const HTML_TAG = {
 export const DOM_ATTR = {
   HREF: "href",
   DATA_HREF: "data-href",
+  DATA_DEPTH: "data-depth",
+  OPEN: "open",
 } as const;
 
 /** Input element `type` attribute values. */
@@ -624,6 +688,59 @@ export const RAID_DASHBOARD_TEXT = {
     `${likelihood.charAt(0)}×${impact.charAt(0)}`,
 } as const;
 
+/**
+ * References dashboard view modes. Each selects the shell-dispatched renderer
+ * (topic tree / flat client / flat engagement) — unlike RAID's single composite.
+ */
+export const REFERENCE_VIEW_MODE = {
+  TOPIC: "topic",
+  CLIENT: "client",
+  ENGAGEMENT: "engagement",
+} as const;
+
+/** User-facing messages for the References dashboard. */
+export const REFERENCES_DASHBOARD_MSG = {
+  INVALID_CONFIG: "Invalid pm-references config.",
+  UNKNOWN_VIEW_MODE: (mode: string): string => `Unknown view mode: ${mode}`,
+  ERROR: (detail: string): string => `pm-references error: ${detail}`,
+} as const;
+
+/** User-facing labels, icons, and text formatters for the References dashboard UI. */
+export const REFERENCES_DASHBOARD_TEXT = {
+  TITLE: "Reference Dashboard",
+  TAB_TOPIC: "By Topic",
+  TAB_CLIENT: "By Client",
+  TAB_ENGAGEMENT: "By Engagement",
+  FILTERS_COLLAPSED: "Filters ▾",
+  FILTERS_EXPANDED: "Filters ▴",
+  SEARCH_PLACEHOLDER: "Search references…",
+  TOPICS_LABEL: "Topics",
+  CLIENTS_LABEL: "Clients",
+  ENGAGEMENTS_LABEL: "Engagements",
+  TOPIC_FILTER_PLACEHOLDER: "Filter by topic…",
+  TOPIC_FILTER_ARIA: "Filter by topic",
+  CLIENT_FILTER_PLACEHOLDER: "Filter by client…",
+  CLIENT_FILTER_ARIA: "Filter by client",
+  ENGAGEMENT_FILTER_PLACEHOLDER: "Filter by engagement…",
+  ENGAGEMENT_FILTER_ARIA: "Filter by engagement",
+  CLEAR_FILTERS: "Clear filters",
+  UNASSIGNED: "Unassigned",
+  OTHER: "Other",
+  NO_REFERENCES: "No references found.",
+  NO_TOPICS: "No topics.",
+  CARD_ICON: "📄",
+  TOGGLE_EXPANDED: "▾",
+  TOGGLE_COLLAPSED: "▶",
+  TOGGLE_LEAF: " ",
+  NEW_REFERENCE: "+ New Reference",
+  NEW_TOPIC: "+ New Topic",
+  SUMMARY_ICON: "📚",
+  OPEN_DASHBOARD: "Open Dashboard →",
+  alsoIn: (topic: string): string => `also in ${topic}`,
+  referenceCount: (count: number): string =>
+    `${count} reference${count === 1 ? "" : "s"} in your vault`,
+} as const;
+
 /** pm-tasks processor config-validation error messages. */
 export const PM_TASKS_MSG = {
   INVALID_CONFIG: "Invalid pm-tasks config.",
@@ -746,3 +863,12 @@ export const TASKS_PLUGIN_ID = "obsidian-tasks-plugin";
 
 /** Obsidian view type for the Reference Dashboard ItemView panel. */
 export const PM_REFERENCE_DASHBOARD_VIEW_TYPE = "pm-reference-dashboard";
+
+/** Ribbon / tab icon id for the Reference Dashboard ItemView panel. */
+export const REFERENCE_DASHBOARD_ICON = "book-open";
+
+/**
+ * Settings dot-path key the References dashboard persists its filter state under
+ * (within the `settings.ui` bag), consumed by the {@link SettingsViewStore}.
+ */
+export const REFERENCE_DASHBOARD_STATE_KEY = "referenceDashboardFilters";

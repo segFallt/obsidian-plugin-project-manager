@@ -143,6 +143,28 @@ describe("DashboardShell", () => {
     expect(lastCtx()).toBeNull();
   });
 
+  it("dispatches to the renderer on an empty set when renderWhenEmpty is set", async () => {
+    const { renderer, lastCtx } = passiveRenderer("main");
+    const container = document.createElement("div");
+
+    const shell = new DashboardShell<Item, Helpers>(
+      baseDeps({
+        views: { main: renderer },
+        // No item matches → filtered set is empty, but renderWhenEmpty keeps the renderer running.
+        buildState: () => ({ selections: { kind: ["zzz"] }, viewMode: "main" }),
+        renderWhenEmpty: true,
+      })
+    );
+
+    await shell.render(container);
+
+    // No empty-message short-circuit; the renderer ran with an empty item set.
+    expect(container.querySelector("em")).toBeNull();
+    const ctx = lastCtx();
+    expect(ctx).not.toBeNull();
+    expect(ctx!.items).toEqual([]);
+  });
+
   it("invokes onUnknownMode when the active view mode has no renderer", async () => {
     const onUnknownMode = vi.fn();
     const container = document.createElement("div");

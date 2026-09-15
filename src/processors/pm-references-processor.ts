@@ -1,16 +1,29 @@
 import { MarkdownRenderChild, parseYaml } from "obsidian";
 import type { MarkdownPostProcessorContext, Plugin } from "obsidian";
 import type { ReferenceProcessorServices } from "../plugin-context";
-import type { PmReferencesConfig } from "../types";
+import type { DataviewPage, PmReferencesConfig, SavedReferenceFilters } from "../types";
 import { renderError } from "./dom-helpers";
-import { CODEBLOCK } from "../constants";
+import {
+  CODEBLOCK,
+  CSS_CLS,
+  HTML_TAG,
+  DOM_EVENT,
+  FM_KEY,
+  LOG_CONTEXT,
+  REFERENCE_DASHBOARD_STATE_KEY,
+  REFERENCES_DASHBOARD_MSG,
+  REFERENCES_DASHBOARD_TEXT,
+} from "../constants";
 import { COMMAND_IDS } from "../command-ids";
 import { normalizeToName } from "../utils/link-utils";
+import { RefQuery } from "../services/ref-query";
+import { SettingsViewStore } from "./view-state-store";
+import type { ViewState } from "./view-state-store";
 
 /**
  * Renders a compact summary card for the pm-references code block.
  *
- * The full dashboard is now hosted in the Reference Dashboard ItemView panel
+ * The full dashboard is hosted in the Reference Dashboard ItemView panel
  * (see `src/views/reference-dashboard-item-view.ts`). This processor renders a
  * lightweight card showing the reference count and a button to open the panel.
  *
@@ -36,12 +49,22 @@ export function registerPmReferencesProcessor(
 // ─── Render child ─────────────────────────────────────────────────────────────
 
 class PmReferencesRenderChild extends MarkdownRenderChild {
+  private readonly refQuery: RefQuery;
+  private readonly store: SettingsViewStore;
+
   constructor(
     containerEl: HTMLElement,
     private readonly source: string,
     private readonly services: ReferenceProcessorServices
   ) {
     super(containerEl);
+    this.refQuery = new RefQuery(() => services.queryService.dv());
+    // Shares the item view's state key so the summary card and the dashboard are
+    // one writer (read-modify-write), never racing over `referenceDashboardFilters`.
+    this.store = new SettingsViewStore(
+      () => this.services.settings.ui as unknown as Record<string, unknown>,
+      () => this.services.saveSettings()
+    );
   }
 
   render(): void {
@@ -53,9 +76,8 @@ class PmReferencesRenderChild extends MarkdownRenderChild {
         config = parseYaml(this.source) as PmReferencesConfig;
       }
     } catch {
-      const msg = "Invalid pm-references config.";
-      this.services.loggerService.warn(msg, "pm-references-processor");
-      renderError(this.containerEl, msg);
+      this.services.loggerService.warn(REFERENCES_DASHBOARD_MSG.INVALID_CONFIG, LOG_CONTEXT.REFERENCES_PROCESSOR);
+      renderError(this.containerEl, REFERENCES_DASHBOARD_MSG.INVALID_CONFIG);
       return;
     }
 
@@ -64,36 +86,50 @@ class PmReferencesRenderChild extends MarkdownRenderChild {
         ? config.filter.topics
         : undefined;
 
-    const references = this.services.queryService.getReferences(
-      topicFilter ? { topics: topicFilter } : {}
-    );
-    const count = references.length;
+    const count = this.countReferences(topicFilter);
 
-    const card = this.containerEl.createDiv({ cls: "pm-references-summary" });
-    card.createSpan({ text: "📚" });
-    card.createEl("h3", { text: "Reference Dashboard" });
-    card.createEl("p", {
-      text: `${count} reference${count === 1 ? "" : "s"} in your vault`,
+    const card = this.containerEl.createDiv({ cls: CSS_CLS.REFERENCES_SUMMARY });
+    card.createSpan({ text: REFERENCES_DASHBOARD_TEXT.SUMMARY_ICON });
+    card.createEl(HTML_TAG.H3, { text: REFERENCES_DASHBOARD_TEXT.TITLE });
+    card.createEl(HTML_TAG.P, { text: REFERENCES_DASHBOARD_TEXT.referenceCount(count) });
+
+    const openBtn = card.createEl(HTML_TAG.BUTTON, {
+      cls: `${CSS_CLS.REFERENCES_SUMMARY_OPEN_BTN} ${CSS_CLS.MOD_CTA}`,
+      text: REFERENCES_DASHBOARD_TEXT.OPEN_DASHBOARD,
     });
-
-    const openBtn = card.createEl("button", {
-      cls: "pm-references-summary__open-btn mod-cta",
-      text: "Open Dashboard →",
-    });
-    openBtn.addEventListener("click", () => {
-      void (async () => {
-        if (topicFilter) {
-          const plainName = normalizeToName(topicFilter[0]);
-          if (plainName) {
-            this.services.settings.ui.referenceDashboardFilters.selectedNode = plainName;
-            await this.services.saveSettings();
-          }
-        }
-
-        // Route through the injected executor so the manifest-id prefix is applied
-        // in one place (no local app.commands cast — that concern lives in CommandExecutor).
-        this.services.commandExecutor.executeCommandById(COMMAND_IDS.OPEN_REFERENCE_DASHBOARD);
-      })();
+    openBtn.addEventListener(DOM_EVENT.CLICK, () => {
+      void this.openDashboard(topicFilter);
     });
   }
+
+  /** Total references, narrowed to the config topic filter when present (OR within the dimension). */
+  private countReferences(topicFilter: string[] | undefined): number {
+    const references = this.refQuery.resolve();
+    if (!topicFilter) return references.length;
+    return references.filter((ref) => referenceMatchesTopics(ref, topicFilter)).length;
+  }
+
+  /**
+   * Persists the config topic as the pre-selected sidebar node (read-modify-write
+   * on the shared state key, so the dashboard's other saved fields survive), then
+   * routes through the injected executor so the manifest-id prefix is applied in
+   * one place.
+   */
+  private async openDashboard(topicFilter: string[] | undefined): Promise<void> {
+    if (topicFilter) {
+      const plainName = normalizeToName(topicFilter[0]);
+      if (plainName) {
+        const current = (this.store.load(REFERENCE_DASHBOARD_STATE_KEY) as SavedReferenceFilters | null) ?? {};
+        await this.store.save(REFERENCE_DASHBOARD_STATE_KEY, { ...current, selectedNode: plainName } as ViewState);
+      }
+    }
+    this.services.commandExecutor.executeCommandById(COMMAND_IDS.OPEN_REFERENCE_DASHBOARD);
+  }
+}
+
+/** Whether any of the reference's topics matches one of the filter topics (normalized both sides). */
+function referenceMatchesTopics(ref: DataviewPage, topicFilter: string[]): boolean {
+  const rawTopics = ref[FM_KEY.TOPICS];
+  const topics = Array.isArray(rawTopics) ? (rawTopics as unknown[]) : [];
+  return topicFilter.some((ft) => topics.some((t) => normalizeToName(t) === normalizeToName(ft)));
 }
