@@ -305,4 +305,23 @@ classDiagram
     SettingsViewStore ..|> ViewStateStore
     ObsidianFrontmatterIO ..|> FrontmatterIO
     FrontmatterViewStore --> FrontmatterIO : read / write
+
+    class IViewRenderer~TItem~ {
+        <<interface>>
+        +mode string
+        +ownsFacet? string
+        +render(ctx) void
+    }
+    class ViewRenderContext~TItem~ {
+        +container HTMLElement
+        +items TItem[]
+        +filters DashboardFilters
+        +onFilterChange(patch) void
+        +helpers TaskRenderHelpers
+    }
+    ContextViewRenderer ..|> IViewRenderer
+    DateViewRenderer ..|> IViewRenderer
+    PriorityViewRenderer ..|> IViewRenderer
+    TagViewRenderer ..|> IViewRenderer
+    IViewRenderer ..> ViewRenderContext : render(ctx)
 ```

@@ -50,6 +50,21 @@ export const PRIORITY_DISPLAY: Record<number, string> = {
   5: "⏬ Someday",
 };
 
+/** Section headings for the task dashboard's date view. */
+export const DATE_BUCKET_LABEL = {
+  OVERDUE: "⚠️ Overdue",
+  TODAY: "📅 Today",
+  TOMORROW: "📆 Tomorrow",
+  THIS_WEEK: "📋 This Week",
+  UPCOMING: "🔮 Upcoming",
+  NO_DUE_DATE: "📝 No Due Date",
+} as const;
+
+/** Section heading for untagged tasks in the task dashboard's tag view. */
+export const TAG_VIEW_LABEL = {
+  UNTAGGED: "📌 Untagged",
+} as const;
+
 /** Maps Tasks plugin emoji to numeric priority. Medium (3) has no emoji. */
 export const PRIORITY_EMOJI: Record<string, number> = {
   "⏫": 1, // Highest

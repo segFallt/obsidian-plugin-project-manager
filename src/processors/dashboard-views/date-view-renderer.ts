@@ -1,27 +1,20 @@
-import type { DataviewTask, DashboardFilters, SortField, SortDirection } from "../../types";
-import { ISO_DATE_LENGTH, WEEK_DAYS } from "../../constants";
+import type { DataviewTask, SortField, SortDirection } from "../../types";
+import { ISO_DATE_LENGTH, WEEK_DAYS, HTML_TAG, DATE_BUCKET_LABEL, VIEW_MODE } from "../../constants";
 import { addDays } from "../../utils/task-utils";
 import { todayISO } from "../../utils/date-utils";
-import type { ITaskSortService } from "../../services/interfaces";
-import type { TaskListRenderer } from "../task-list-renderer";
+import type { IViewRenderer, ViewRenderContext } from "../view-renderer";
 
 /**
  * Renders tasks grouped by due-date bucket:
  * Overdue → Today → Tomorrow → This Week → Upcoming → No Due Date.
  */
-export class DateViewRenderer {
-  constructor(
-    private readonly sortService: ITaskSortService,
-    private readonly renderer: TaskListRenderer
-  ) {}
+export class DateViewRenderer implements IViewRenderer<DataviewTask> {
+  readonly mode = VIEW_MODE.DATE;
 
-  async render(
-    container: HTMLElement,
-    tasks: DataviewTask[],
-    f: DashboardFilters,
-    contextMap?: Map<string, string>,
-    mtimeMap?: Map<string, number>
-  ): Promise<void> {
+  async render(ctx: ViewRenderContext<DataviewTask>): Promise<void> {
+    const { container, items: tasks, filters: f, helpers } = ctx;
+    const { sortService, taskRenderer, contextMap, mtimeMap } = helpers;
+
     const today = todayISO();
     const tomorrow = addDays(today, 1);
     const weekEnd = addDays(today, WEEK_DAYS);
@@ -49,45 +42,45 @@ export class DateViewRenderer {
     const priorityAsc = f.sortBy.length > 0 ? f.sortBy : [{ field: "priority" as SortField, direction: "asc" as SortDirection }];
 
     if (overdue.length > 0) {
-      container.createEl("h2", { text: "⚠️ Overdue" });
-      await this.renderer.renderTaskList(
+      container.createEl(HTML_TAG.H2, { text: DATE_BUCKET_LABEL.OVERDUE });
+      await taskRenderer.renderTaskList(
         container,
-        this.sortService.sortTasks(overdue, dueDateAsc, contextMap, mtimeMap)
+        sortService.sortTasks(overdue, dueDateAsc, contextMap, mtimeMap)
       );
     }
     if (todayTasks.length > 0) {
-      container.createEl("h2", { text: "📅 Today" });
-      await this.renderer.renderTaskList(
+      container.createEl(HTML_TAG.H2, { text: DATE_BUCKET_LABEL.TODAY });
+      await taskRenderer.renderTaskList(
         container,
-        this.sortService.sortTasks(todayTasks, priorityAsc, contextMap, mtimeMap)
+        sortService.sortTasks(todayTasks, priorityAsc, contextMap, mtimeMap)
       );
     }
     if (tomorrowTasks.length > 0) {
-      container.createEl("h2", { text: "📆 Tomorrow" });
-      await this.renderer.renderTaskList(
+      container.createEl(HTML_TAG.H2, { text: DATE_BUCKET_LABEL.TOMORROW });
+      await taskRenderer.renderTaskList(
         container,
-        this.sortService.sortTasks(tomorrowTasks, priorityAsc, contextMap, mtimeMap)
+        sortService.sortTasks(tomorrowTasks, priorityAsc, contextMap, mtimeMap)
       );
     }
     if (thisWeek.length > 0) {
-      container.createEl("h2", { text: "📋 This Week" });
-      await this.renderer.renderTaskList(
+      container.createEl(HTML_TAG.H2, { text: DATE_BUCKET_LABEL.THIS_WEEK });
+      await taskRenderer.renderTaskList(
         container,
-        this.sortService.sortTasks(thisWeek, dueDateAsc, contextMap, mtimeMap)
+        sortService.sortTasks(thisWeek, dueDateAsc, contextMap, mtimeMap)
       );
     }
     if (upcoming.length > 0) {
-      container.createEl("h2", { text: "🔮 Upcoming" });
-      await this.renderer.renderTaskList(
+      container.createEl(HTML_TAG.H2, { text: DATE_BUCKET_LABEL.UPCOMING });
+      await taskRenderer.renderTaskList(
         container,
-        this.sortService.sortTasks(upcoming, dueDateAsc, contextMap, mtimeMap)
+        sortService.sortTasks(upcoming, dueDateAsc, contextMap, mtimeMap)
       );
     }
     if (noDue.length > 0) {
-      container.createEl("h2", { text: "📝 No Due Date" });
-      await this.renderer.renderTaskList(
+      container.createEl(HTML_TAG.H2, { text: DATE_BUCKET_LABEL.NO_DUE_DATE });
+      await taskRenderer.renderTaskList(
         container,
-        this.sortService.sortTasks(noDue, priorityAsc, contextMap, mtimeMap)
+        sortService.sortTasks(noDue, priorityAsc, contextMap, mtimeMap)
       );
     }
   }
