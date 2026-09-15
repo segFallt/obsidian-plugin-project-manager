@@ -324,4 +324,29 @@ classDiagram
     PriorityViewRenderer ..|> IViewRenderer
     TagViewRenderer ..|> IViewRenderer
     IViewRenderer ..> ViewRenderContext : render(ctx)
+
+    class Facet~Item~ {
+        +key string
+        +accessor?(item) unknown
+        +predicate?(item, selected) boolean
+        +appliesWhen?(viewMode) boolean
+    }
+    class FilterSpec~Item~ {
+        <<interface>>
+        +facets Facet[]
+        +specWithout(key) FilterSpec
+    }
+    class FilterState {
+        +selections Record~string,unknown~
+        +viewMode string
+    }
+    class FilterEngine {
+        <<pure>>
+        +apply(items, spec, state) Item[]
+    }
+    FilterSpec *-- Facet
+    FilterEngine ..> FilterSpec : catalog
+    FilterEngine ..> FilterState : selections + viewMode
+    TaskFilterService ..> FilterEngine : delegates
+    TaskFilterService ..> FilterSpec : buildTaskFilterSpec
 ```

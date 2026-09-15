@@ -65,6 +65,42 @@ export const TAG_VIEW_LABEL = {
   UNTAGGED: "📌 Untagged",
 } as const;
 
+/**
+ * Stable identifiers for the task filter facets. Each keys a `FilterSpec` facet
+ * and the matching `FilterState.selections` entry — sharing one source keeps the
+ * facet definition and the selection builder from drifting.
+ */
+export const FACET_KEY = {
+  SHOW_COMPLETED: "showCompleted",
+  CONTEXT: "context",
+  SEARCH_TEXT: "searchText",
+  DUE_DATE: "dueDate",
+  PRIORITY: "priority",
+  CLIENT: "client",
+  ENGAGEMENT: "engagement",
+  TAG: "tag",
+  PROJECT_STATUS: "projectStatus",
+  INBOX_STATUS: "inboxStatus",
+  MEETING_DATE: "meetingDate",
+} as const;
+
+/** The facet keys gated to the "context" view mode. */
+export const CONTEXT_FACET_KEYS = [
+  FACET_KEY.PROJECT_STATUS,
+  FACET_KEY.INBOX_STATUS,
+  FACET_KEY.MEETING_DATE,
+] as const;
+
+/** The `DashboardFilters` fields that hold the context-view-gated filters. */
+export const CONTEXT_FILTER_FIELDS = [
+  "projectStatusFilter",
+  "inboxStatusFilter",
+  "meetingDateFilter",
+] as const;
+
+/** Union of the context-view-gated `DashboardFilters` field names. */
+export type ContextFilterField = (typeof CONTEXT_FILTER_FIELDS)[number];
+
 /** Maps Tasks plugin emoji to numeric priority. Medium (3) has no emoji. */
 export const PRIORITY_EMOJI: Record<string, number> = {
   "⏫": 1, // Highest
@@ -79,8 +115,33 @@ export const COMPLETION_DATE_EMOJI = "✅";
 /** Recurrence emoji. */
 export const RECURRENCE_EMOJI = "🔁";
 
+/** Named due-date preset values (a `DueDatePreset` each). */
+export const DUE_DATE_PRESET = {
+  TODAY: "Today",
+  TOMORROW: "Tomorrow",
+  THIS_WEEK: "This Week",
+  NEXT_WEEK: "Next Week",
+  OVERDUE: "Overdue",
+  NO_DATE: "No Date",
+} as const;
+
+/** Named meeting-date filter values (a `MeetingDateFilter` each; `ALL` = no filter). */
+export const MEETING_DATE_FILTER = {
+  ALL: "All",
+  TODAY: "Today",
+  THIS_WEEK: "This Week",
+  PAST: "Past",
+} as const;
+
+/** Named inbox-status filter values (an `InboxStatusFilter` each; `ALL` = no filter). */
+export const INBOX_STATUS_FILTER = {
+  ALL: "All",
+  ACTIVE: "Active",
+  COMPLETE: "Complete",
+} as const;
+
 /** All available due date preset options in display order. */
-export const DUE_DATE_PRESETS: readonly DueDatePreset[] = ["Today", "Tomorrow", "This Week", "Next Week", "Overdue", "No Date"];
+export const DUE_DATE_PRESETS: readonly DueDatePreset[] = Object.values(DUE_DATE_PRESET);
 
 /** Default (empty) due date filter — no presets selected, no range set. */
 export const DEFAULT_DUE_DATE_FILTER: DueDateFilter = Object.freeze({
