@@ -2,7 +2,8 @@ import { Notice } from "obsidian";
 import { COMMAND_IDS } from "../command-ids";
 import type { CommandServices, AddCommandFn } from "../plugin-context";
 import { ReferenceTopicCreationModal } from "../ui/modals/reference-topic-creation-modal";
-import { ENTITY_TAGS, MSG, LOG_CONTEXT } from "../constants";
+import { ENTITY_TAGS, MSG, LOG_CONTEXT, COMMAND_NAMES, CMD_ERROR_LABEL } from "../constants";
+import { withCommandErrorNotice } from "./command-error-notice";
 
 /**
  * PM: Create Reference Topic
@@ -14,7 +15,7 @@ export function registerCreateReferenceTopicCommand(
 ): void {
   addCommand({
     id: COMMAND_IDS.CREATE_REFERENCE_TOPIC,
-    name: "PM: Create Reference Topic",
+    name: COMMAND_NAMES.CREATE_REFERENCE_TOPIC,
     callback: async () => {
       const existingTopics = services.queryService.getEntitiesByTag(ENTITY_TAGS.referenceTopic);
 
@@ -26,15 +27,15 @@ export function registerCreateReferenceTopicCommand(
       }
 
       services.loggerService.debug(
-        `create-reference-topic invoked: "${result.name}", parent: "${result.parentName ?? "none"}"`,
+        `${LOG_CONTEXT.CREATE_REFERENCE_TOPIC} invoked: "${result.name}", parent: "${result.parentName ?? "none"}"`,
         LOG_CONTEXT.CREATE_REFERENCE_TOPIC
       );
-      try {
-        await services.entityService.createReferenceTopic(result.name, result.parentName ?? undefined);
-      } catch (err) {
-        services.loggerService.error(String(err), LOG_CONTEXT.CREATE_REFERENCE_TOPIC, err);
-        new Notice(`Error: ${String(err)}`);
-      }
+      await withCommandErrorNotice(
+        services.loggerService,
+        LOG_CONTEXT.CREATE_REFERENCE_TOPIC,
+        (err) => `${CMD_ERROR_LABEL.GENERIC}: ${String(err)}`,
+        () => services.entityService.createReferenceTopic(result.name, result.parentName ?? undefined)
+      );
     },
   });
 }

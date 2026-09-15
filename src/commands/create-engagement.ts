@@ -1,45 +1,11 @@
-import { Notice } from "obsidian";
-import { COMMAND_IDS } from "../command-ids";
 import type { CommandServices, AddCommandFn } from "../plugin-context";
-import { EntityCreationModal } from "../ui/modals/entity-creation-modal";
-import { ENTITY_TAGS, MSG } from "../constants";
+import { registerEntityCreateCommand } from "./register-entity-create-command";
+import { CREATE_ENGAGEMENT_DESCRIPTOR } from "./entity-command-descriptors";
 
 /**
  * PM: Create Engagement
  * Prompts for a name and optional active client, then creates an engagement note.
  */
 export function registerCreateEngagementCommand(services: CommandServices, addCommand: AddCommandFn): void {
-  addCommand({
-    id: COMMAND_IDS.CREATE_ENGAGEMENT,
-    name: "PM: Create Engagement",
-    callback: async () => {
-      const pendingCtx = services.actionContext.consume();
-
-      const activeClients = services.queryService.getActiveEntitiesByTag(ENTITY_TAGS.client);
-      const preselected = pendingCtx?.field === "client" ? pendingCtx.value : undefined;
-
-      const modal = new EntityCreationModal(
-        services.app,
-        "New Engagement",
-        "Engagement name",
-        activeClients.length > 0 ? "Client (optional)" : null,
-        activeClients,
-        preselected
-      );
-
-      const result = await modal.prompt();
-      if (!result?.name) {
-        new Notice(MSG.NO_NAME);
-        return;
-      }
-
-      services.loggerService.debug(`create-engagement invoked: "${result.name}", client: "${result.parentName ?? 'none'}"`, 'create-engagement');
-      try {
-        await services.entityService.createEngagement(result.name, result.parentName ?? undefined);
-      } catch (err) {
-        services.loggerService.error(String(err), "create-engagement", err);
-        new Notice(`Error creating engagement: ${String(err)}`);
-      }
-    },
-  });
+  registerEntityCreateCommand(services, addCommand, CREATE_ENGAGEMENT_DESCRIPTOR);
 }

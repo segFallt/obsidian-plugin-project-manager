@@ -2,7 +2,8 @@ import { Notice } from "obsidian";
 import { COMMAND_IDS } from "../command-ids";
 import type { CommandServices, AddCommandFn } from "../plugin-context";
 import { ReferenceCreationModal } from "../ui/modals/reference-creation-modal";
-import { ENTITY_TAGS, MSG, LOG_CONTEXT } from "../constants";
+import { ENTITY_TAGS, MSG, LOG_CONTEXT, COMMAND_NAMES, CMD_ERROR_LABEL } from "../constants";
+import { withCommandErrorNotice } from "./command-error-notice";
 
 /**
  * PM: Create Reference
@@ -17,7 +18,7 @@ export function registerCreateReferenceCommand(
 ): void {
   addCommand({
     id: COMMAND_IDS.CREATE_REFERENCE,
-    name: "PM: Create Reference",
+    name: COMMAND_NAMES.CREATE_REFERENCE,
     callback: async () => {
       const pendingCtx = services.actionContext.consume();
 
@@ -52,21 +53,22 @@ export function registerCreateReferenceCommand(
       }
 
       services.loggerService.debug(
-        `create-reference: name: "${result.name}", topics: ${result.topics.join(", ")}, client: "${result.clientName ?? "none"}", engagement: "${result.engagementName ?? "none"}"`,
+        `${LOG_CONTEXT.CREATE_REFERENCE}: name: "${result.name}", topics: ${result.topics.join(", ")}, client: "${result.clientName ?? "none"}", engagement: "${result.engagementName ?? "none"}"`,
         LOG_CONTEXT.CREATE_REFERENCE
       );
 
-      try {
-        await services.entityService.createReference(
-          result.name,
-          result.topics,
-          result.clientName,
-          result.engagementName
-        );
-      } catch (err) {
-        services.loggerService.error(String(err), LOG_CONTEXT.CREATE_REFERENCE, err);
-        new Notice(`Error creating reference: ${String(err)}`);
-      }
+      await withCommandErrorNotice(
+        services.loggerService,
+        LOG_CONTEXT.CREATE_REFERENCE,
+        (err) => `${CMD_ERROR_LABEL.CREATE_REFERENCE}: ${String(err)}`,
+        () =>
+          services.entityService.createReference(
+            result.name,
+            result.topics,
+            result.clientName,
+            result.engagementName
+          )
+      );
     },
   });
 }

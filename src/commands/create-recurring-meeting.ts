@@ -1,46 +1,11 @@
-import { Notice } from "obsidian";
-import { COMMAND_IDS } from "../command-ids";
 import type { CommandServices, AddCommandFn } from "../plugin-context";
-import { EntityCreationModal } from "../ui/modals/entity-creation-modal";
-import { ENTITY_TAGS, MSG } from "../constants";
+import { registerEntityCreateCommand } from "./register-entity-create-command";
+import { CREATE_RECURRING_MEETING_DESCRIPTOR } from "./entity-command-descriptors";
 
 /**
  * PM: Create Recurring Meeting
  * Prompts for a name and optional engagement, then creates a recurring meeting note.
  */
 export function registerCreateRecurringMeetingCommand(services: CommandServices, addCommand: AddCommandFn): void {
-  addCommand({
-    id: COMMAND_IDS.CREATE_RECURRING_MEETING,
-    name: "PM: Create Recurring Meeting",
-    callback: async () => {
-      const activeEngagements = services.queryService.getActiveEntitiesByTag(
-        ENTITY_TAGS.engagement
-      );
-
-      const modal = new EntityCreationModal(
-        services.app,
-        "New Recurring Meeting",
-        "Meeting name",
-        activeEngagements.length > 0 ? "Engagement (optional)" : null,
-        activeEngagements
-      );
-
-      const result = await modal.prompt();
-      if (!result?.name) {
-        new Notice(MSG.NO_NAME);
-        return;
-      }
-
-      services.loggerService.debug(`create-recurring-meeting invoked: "${result.name}", engagement: "${result.parentName ?? 'none'}"`, 'create-recurring-meeting');
-      try {
-        await services.entityService.createRecurringMeeting(
-          result.name,
-          result.parentName ?? undefined
-        );
-      } catch (err) {
-        services.loggerService.error(String(err), "create-recurring-meeting", err);
-        new Notice(`Error creating recurring meeting: ${String(err)}`);
-      }
-    },
-  });
+  registerEntityCreateCommand(services, addCommand, CREATE_RECURRING_MEETING_DESCRIPTOR);
 }
