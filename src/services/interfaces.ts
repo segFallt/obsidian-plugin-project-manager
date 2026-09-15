@@ -11,7 +11,6 @@ import type {
   EntityType,
   CreateFileResult,
   SortKey,
-  TopicNode,
 } from "../types";
 
 /**
@@ -41,8 +40,6 @@ export interface IQueryService {
   getRecurringMeetingEvents(meetingName: string): DataviewPage[];
   getActiveRaidItems(): DataviewPage[];
   getRaidItemsForContext(clientName?: string, engagementName?: string): DataviewPage[];
-  getReferencesByTopic(topicName: string): DataviewPage[];
-  getReferences(filters?: { topics?: string[]; clients?: string[]; engagements?: string[] }): DataviewPage[];
   /**
    * Resolves the client name for a page using the dual-path traversal chain:
    *   1. normalizeToName(page.client) — direct client frontmatter link
@@ -52,8 +49,6 @@ export interface IQueryService {
    * Returns null if neither path yields a name.
    */
   resolveClientName(page: DataviewPage): string | null;
-  getReferenceTopicTree(): TopicNode[];
-  getTopicDescendants(topicName: string): string[];
 }
 
 /**

@@ -60,8 +60,6 @@ export function createMockPlugin(overrides: {
     getActiveRecurringMeetings: vi.fn().mockReturnValue([]),
     getActiveRaidItems: vi.fn().mockReturnValue([]),
     getRaidItemsForContext: vi.fn().mockReturnValue([]),
-    getReferenceTopicTree: vi.fn().mockReturnValue([]),
-    getTopicDescendants: vi.fn().mockReturnValue([]),
   };
 
   const scaffoldService = {
