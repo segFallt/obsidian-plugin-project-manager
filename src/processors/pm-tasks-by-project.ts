@@ -7,9 +7,9 @@ import type {
   SavedByProjectFilters,
   ProjectStatus,
 } from "../types";
-import { DEFAULT_TASK_VIEW_STATUSES, PRIORITY_FALLBACK, DEBOUNCE_MS, ENTITY_TAGS, CSS_CLS, MSG, LOG_CONTEXT } from "../constants";
+import { DEFAULT_TASK_VIEW_STATUSES, PRIORITY_FALLBACK, DEBOUNCE_MS, ENTITY_TAGS, CSS_CLS, MSG, LOG_CONTEXT, HTML_TAG } from "../constants";
 import { debounced } from "../utils/debounce";
-import { renderError } from "./dom-helpers";
+import { renderError, createInternalLink } from "./dom-helpers";
 import type { ITaskSortService } from "../services/interfaces";
 import type { TaskListRenderer } from "./task-list-renderer";
 import { FilterChipSelect } from "../ui/components/filter-chip-select";
@@ -272,9 +272,10 @@ export class ByProjectView {
     if (!hasIncomplete && !hasComplete) return;
 
     const projectEl = container.createDiv({ cls: "pm-tasks-project-group" });
-    projectEl.createEl("h2", {
+    const projectTitle = projectEl.createEl(HTML_TAG.H2, {
       cls: "pm-tasks-project-group__title",
-    }).innerHTML = `<a class="${CSS_CLS.INTERNAL_LINK}" data-href="${project.file.path}" href="${project.file.path}">${project.file.name}</a>`;
+    });
+    createInternalLink(projectTitle, project.file.path, project.file.name);
 
     if (incompleteTasks.length > 0) {
       await this.renderer.renderTaskList(projectEl, incompleteTasks);
@@ -283,7 +284,7 @@ export class ByProjectView {
     for (const note of projectNotes) {
       const noteTasks = [...note.file.tasks].filter((t) => !t.completed);
       if (noteTasks.length > 0) {
-        projectEl.createEl("h3").innerHTML = `<a class="${CSS_CLS.INTERNAL_LINK}" data-href="${note.file.path}" href="${note.file.path}">${note.file.name}</a>`;
+        createInternalLink(projectEl.createEl(HTML_TAG.H3), note.file.path, note.file.name);
         await this.renderer.renderTaskList(projectEl, noteTasks);
       }
     }

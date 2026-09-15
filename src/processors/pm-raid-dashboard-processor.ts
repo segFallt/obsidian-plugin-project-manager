@@ -3,9 +3,9 @@ import type { App, MarkdownPostProcessorContext } from "obsidian";
 import type { Plugin } from "obsidian";
 import type { IQueryService, ILoggerService, IEntityHierarchyService, RaidProcessorServices } from "../services/interfaces";
 import type { RaidDashboardFilters, RaidType, RaidStatus, RaidLikelihood, RaidImpact, DataviewPage, SavedRaidDashboardFilters } from "../types";
-import { CODEBLOCK, DEBOUNCE_MS, CSS_CLS, ENTITY_TAGS, FM_KEY } from "../constants";
+import { CODEBLOCK, DEBOUNCE_MS, ENTITY_TAGS, FM_KEY } from "../constants";
 import { debounced } from "../utils/debounce";
-import { renderError } from "./dom-helpers";
+import { renderError, createInternalLink } from "./dom-helpers";
 import { normalizeToName } from "../utils/link-utils";
 import { FilterChipSelect } from "../ui/components/filter-chip-select";
 import { buildEntityOptions } from "../utils/filter-utils";
@@ -438,12 +438,7 @@ class PmRaidDashboardRenderChild extends MarkdownRenderChild {
 
     // Title (internal link)
     const titleCell = row.createEl("td");
-    const link = titleCell.createEl("a", {
-      cls: CSS_CLS.INTERNAL_LINK,
-      text: item.file.name,
-    });
-    link.setAttribute("data-href", item.file.path);
-    link.setAttribute("href", item.file.path);
+    createInternalLink(titleCell, item.file.path, item.file.name);
 
     // Status badge
     const status = String(item.status ?? "");

@@ -4,7 +4,8 @@ import type { DataviewPage, TopicNode } from "../../types";
 import type { ReferenceProcessorServices } from "../../plugin-context";
 import type { INavigationService } from "../../services/interfaces";
 import { normalizeToName } from "../../utils/link-utils";
-import { CSS_CLS, CSS_VAR } from "../../constants";
+import { createInternalLink } from "../dom-helpers";
+import { CSS_VAR } from "../../constants";
 
 /** Minimal service subset required by {@link renderReferenceCard}. */
 type CardNavigationServices = { app: App; navigationService: INavigationService };
@@ -335,16 +336,11 @@ export function renderReferenceCard(
   // Title row: document icon + internal link
   const titleRow = card.createDiv({ cls: "pm-ref-card__title-row" });
   titleRow.createSpan({ cls: "pm-ref-card__icon", text: "📄" });
-  const link = titleRow.createEl("a", {
-    cls: CSS_CLS.INTERNAL_LINK,
-    text: ref.file.name,
-  });
-  link.setAttribute("data-href", ref.file.path);
-  link.setAttribute("href", ref.file.path);
-  link.addEventListener("click", (e) => {
-    e.preventDefault();
-    const file = services.app.vault.getAbstractFileByPath(ref.file.path);
-    if (file instanceof TFile) void services.navigationService.openFile(file).catch(() => { /* silent */ });
+  createInternalLink(titleRow, ref.file.path, ref.file.name, {
+    onClick: () => {
+      const file = services.app.vault.getAbstractFileByPath(ref.file.path);
+      if (file instanceof TFile) void services.navigationService.openFile(file).catch(() => { /* silent */ });
+    },
   });
 
   if (hint) {
