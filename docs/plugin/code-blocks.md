@@ -215,7 +215,9 @@ Clicking a checkbox:
 
 ### Filter state
 
-Filter state is persisted to the note's frontmatter under the `pm-tasks-filters` key and restored on page reload. Defaults can be set in the code block YAML (see options above).
+Filter state is persisted to the note's frontmatter under a **per-block** `pm-view-state.<blockKey>` key and restored on page reload, so multiple `pm-tasks` blocks in one note keep independent state. The `blockKey` is the block's `id:` option (see below) when set, otherwise a hash of the block source. A legacy flat `pm-tasks-filters` value is migrated forward automatically (copy-not-delete) on first load and kept as a read-only fallback. Defaults can be set in the code block YAML (see options above).
+
+**Optional `id:` option** — an explicit block identifier used as the persistence key. It is **not required**: structurally different blocks in the same note already get distinct source hashes. Add `id:` only to keep two byte-identical `pm-tasks` blocks in the same note from sharing one state entry.
 
 **Note on backward compatibility:** The old `dueDateFilter: "Today"` string format is still supported for existing notes and will be automatically migrated to the new structured format.
 
@@ -263,7 +265,7 @@ filter:
 
 ### Filter state
 
-Filter state (active chips, search text, view mode) is persisted to the note's frontmatter under the `pm-references-filters` key and restored on page reload.
+Filter state (active chips and view mode) is persisted to **plugin settings** (`settings.ui.referenceDashboardFilters`, via the shared `SettingsViewStore`) and restored on next load; the search text is intentionally ephemeral and clears on reload. The References dashboard is a note-less side panel with no host note, so it does **not** write to note frontmatter; there is no `pm-references-filters` frontmatter key.
 
 ---
 
@@ -358,7 +360,7 @@ The dashboard renders an interactive filter panel at the top:
 
 ### Risk matrix
 
-A likelihood × impact grid (High / Medium / Low × Low / Medium / High) shows a count of filtered items per cell. Clicking a cell applies a matrix-cell filter; clicking it again clears it. Cells are colour-coded by risk severity.
+A likelihood × impact grid (High / Medium / Low × Low / Medium / High) shows a count of filtered items per cell. Clicking a cell applies a matrix-cell filter; clicking it again clears it. Cells are colour-coded by risk severity. While a cell is selected, every cell still shows its count under all active facets **except** the matrix-cell selection — selecting a cell no longer zeroes the other cells.
 
 ### Item groups
 
@@ -367,5 +369,5 @@ Below the matrix, items are grouped by RAID type and rendered as tables with col
 ### Behaviour
 
 - Queries all vault RAID items tagged `#raid` via the `RaidQuery` entity read (`IEntityQuery`); status narrowing happens in the RAID `FilterSpec`, not the query.
-- Filter state (type, status, matrix cell, search) is ephemeral and resets on page reload; use the YAML config to set persistent defaults.
-- The component auto-refreshes (500 ms debounce) when any vault file is modified, allowing Dataview to re-index before re-querying.
+- Filter state is split: the **type, status, client, and engagement** filters persist to the note's frontmatter under the `pm-raid-dashboard-filters` key and are restored on reload, while the **matrix cell and search text** are intentionally ephemeral and reset on re-render. Use the YAML config to set persistent defaults.
+- The component auto-refreshes (1 s debounce) when any vault file is modified, allowing Dataview to re-index before re-querying.

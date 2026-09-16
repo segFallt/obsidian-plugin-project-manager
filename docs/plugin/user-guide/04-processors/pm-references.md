@@ -52,7 +52,7 @@ filter:
 
 ## Filter State Persistence
 
-Filter state (active chips, search text, view mode) is persisted to the note's frontmatter under the `pm-references-filters` key and restored on next load. Defaults set in the code block YAML apply only when no saved state exists.
+Filter state (active chips, view mode, and the selected topic-tree node) is persisted to the plugin's own settings, not to note frontmatter, so it is restored whenever you re-open the References panel. The search text is not saved — it clears each time. Because the References dashboard is a side panel with no host note, there is no `pm-references-filters` frontmatter key. Defaults set in the code block YAML apply only when no saved state exists.
 
 ---
 

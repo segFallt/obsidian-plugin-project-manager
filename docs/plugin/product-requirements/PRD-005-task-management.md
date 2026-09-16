@@ -148,8 +148,10 @@ The `TaskParser` (regex-based, Tasks plugin emoji format, no Tasks plugin API de
 
 ### 3.7 Filter State Persistence
 
-- Filter state is serialised to the note's frontmatter under the `pm-tasks-filters` key.
+- Filter state is serialised to the note's frontmatter under a **per-block** `pm-view-state.<blockKey>` key, so multiple `pm-tasks` blocks in one note keep independent state.
+- The `blockKey` is the block's optional `id:` YAML option when set, otherwise a hash of the block source. `id:` is only needed to separate two byte-identical blocks in the same note; structurally different blocks get distinct hashes automatically.
 - State is restored from frontmatter when the code block re-renders (e.g. on page reload).
+- A legacy flat `pm-tasks-filters` value is migrated forward automatically (copy-not-delete) into the per-block entry on first load, and retained as a read-only fallback.
 - Defaults specified in the code block YAML are applied when no persisted state exists.
 
 ---
@@ -196,7 +198,7 @@ The `TaskParser` (regex-based, Tasks plugin emoji format, no Tasks plugin API de
 - [ ] Tag filter buttons appear only when tasks have tags; OR logic applies across selected tags.
 - [ ] "Include untagged" checkbox includes untagged tasks when checked.
 - [ ] Checkbox toggle updates the source file (toggles `[ ]`/`[x]`, adds/removes completion date).
-- [ ] Filter state is saved to frontmatter under `pm-tasks-filters` and restored on reload.
+- [ ] Filter state is saved to frontmatter under a per-block `pm-view-state.<blockKey>` key (block `id:` or source hash) and restored on reload; a legacy flat `pm-tasks-filters` value migrates forward automatically.
 - [ ] Old `dueDateFilter: "Today"` string format is automatically migrated to structured format.
 - [ ] Context view renders a "Recurring Meeting" h2 header for tasks from `meetings/recurring-events/`, distinct from the "Meeting" header for single-meeting and recurring-meeting-definition tasks.
 - [ ] Selecting "Recurring Meeting" in the context-type filter shows only recurring meeting event tasks; selecting "Meeting" shows only single-meeting and recurring-meeting-definition tasks.
