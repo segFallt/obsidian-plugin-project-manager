@@ -58,8 +58,12 @@ export function createMockPlugin(overrides: {
     getActiveEntitiesByTag: vi.fn().mockReturnValue([]),
     getEntitiesByTag: vi.fn().mockReturnValue([]),
     getActiveRecurringMeetings: vi.fn().mockReturnValue([]),
-    getActiveRaidItems: vi.fn().mockReturnValue([]),
-    getRaidItemsForContext: vi.fn().mockReturnValue([]),
+    dv: vi.fn().mockReturnValue(null),
+  };
+
+  const hierarchyService = {
+    resolveClientName: vi.fn().mockReturnValue(null),
+    resolveEngagementName: vi.fn().mockReturnValue(null),
   };
 
   const scaffoldService = {
@@ -110,7 +114,8 @@ export function createMockPlugin(overrides: {
     app: app as unknown as import("obsidian").App,
     settings: DEFAULT_SETTINGS,
     entityService: entityService as unknown as import("../../src/services/interfaces").IEntityService,
-    queryService: queryService as unknown as import("../../src/services/interfaces").IQueryService,
+    queryService: queryService as unknown as import("../../src/services/interfaces").IEntityQueryService,
+    hierarchyService: hierarchyService as unknown as import("../../src/services/interfaces").IEntityHierarchyService,
     scaffoldService: scaffoldService as unknown as import("../../src/services/interfaces").IScaffoldService,
     taskParser: {} as unknown as import("../../src/services/interfaces").ITaskParser,
     loggerService: loggerService as unknown as import("../../src/services/interfaces").ILoggerService,
@@ -131,6 +136,7 @@ export function createMockPlugin(overrides: {
     commands,
     entityService,
     queryService,
+    hierarchyService,
     scaffoldService,
     loggerService,
     actionContext,

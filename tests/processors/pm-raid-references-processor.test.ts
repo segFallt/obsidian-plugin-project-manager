@@ -72,7 +72,6 @@ function createMockServices(
       dv: vi.fn(() => ({
         pages: vi.fn(() => ({ [Symbol.iterator]: () => mockPages[Symbol.iterator]() })),
       })),
-      getActiveRaidItems: vi.fn(() => []),
     } as unknown as RaidProcessorServices["queryService"],
     loggerService: {
       debug: vi.fn(),

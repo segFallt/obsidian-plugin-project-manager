@@ -21,7 +21,7 @@ import type {
  * makes mocking in tests trivial.
  */
 
-export interface IQueryService {
+export interface IEntityQueryService {
   /** Returns the live Dataview API, or null if Dataview is not available. */
   dv(): DataviewApi | null;
   getEntitiesByTag(tag: string, folder?: string): DataviewPage[];
@@ -30,25 +30,9 @@ export interface IQueryService {
   getLinkedEntities(folder: string, tag: string, property: string, targetFile: TFile): DataviewPage[];
   getMentions(targetFile: TFile): DataviewPage[];
   getProjectNotes(projectFile: TFile): DataviewPage[];
-  getEngagementForEntity(file: TFile): DataviewPage | null;
-  getClientForEntity(file: TFile): DataviewPage | null;
-  getParentProject(file: TFile): DataviewPage | null;
-  getEngagementNameForPath(path: string): string | null;
-  getClientFromEngagementLink(engagementLink: unknown): string | null;
   getPage(path: string): DataviewPage | null;
   getActiveRecurringMeetings(): DataviewPage[];
   getRecurringMeetingEvents(meetingName: string): DataviewPage[];
-  getActiveRaidItems(): DataviewPage[];
-  getRaidItemsForContext(clientName?: string, engagementName?: string): DataviewPage[];
-  /**
-   * Resolves the client name for a page using the dual-path traversal chain:
-   *   1. normalizeToName(page.client) — direct client frontmatter link
-   *   2. getEngagementNameForPath → getClientFromEngagementLink — covers direct
-   *      engagement, relatedProject → project.engagement, and
-   *      recurring-meeting-event → meeting.engagement chains
-   * Returns null if neither path yields a name.
-   */
-  resolveClientName(page: DataviewPage): string | null;
 }
 
 /**
@@ -221,7 +205,7 @@ export interface IEntityHierarchyService {
 /** Narrow service bundle consumed by RAID processors. */
 export interface RaidProcessorServices {
   app: App;
-  queryService: IQueryService;
+  queryService: IEntityQueryService;
   hierarchyService: IEntityHierarchyService;
   loggerService: ILoggerService;
 }

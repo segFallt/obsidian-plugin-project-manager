@@ -452,11 +452,11 @@ describe("TaskFilterService.matchesClientFilter", () => {
       },
     ]);
     const task = createMockTask({ path: "projects/notes/foo/Note.md" });
-    // Note page has no client/engagement; parent project page has a direct client.
-    // The fallback branch in matchesClientFilter loads the parent project and calls
-    // resolveClientName on it — so the mock must return "Acme" for that page.
+    // The parent-project fallback now lives inside resolveClientName, so the
+    // traversal is internal: matchesClientFilter simply calls resolveClientName
+    // on the note page and the mock resolves it directly to "Acme".
     const hs = makeHierarchyService({
-      resolveClientName: (page) => page.file.path === "projects/Foo.md" ? "Acme" : null,
+      resolveClientName: (page) => page.file.path === "projects/notes/foo/Note.md" ? "Acme" : null,
     });
     expect(service.matchesClientFilter(task, ["Acme"], false, dv, hs)).toBe(true);
   });

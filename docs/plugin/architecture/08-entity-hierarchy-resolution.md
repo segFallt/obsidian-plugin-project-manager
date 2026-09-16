@@ -1,7 +1,8 @@
 # Entity Hierarchy Resolution
 
-Dual-path client and engagement resolution in `EntityHierarchyService`,
-which delegates all traversal to `QueryService`.
+Dual-path client and engagement resolution owned entirely by
+`EntityHierarchyService` (it reads Dataview and the folder settings directly; it
+no longer delegates to `QueryService`).
 
 ```mermaid
 flowchart TD
@@ -11,7 +12,7 @@ flowchart TD
 
     C -->|"Yes"| D["return clientName"]
 
-    C -->|"No"| E["queryService.getEngagementNameForPath\n(page.file.path)"]
+    C -->|"No"| E["getEngagementNameForPath(page.file.path)"]
 
     E --> F["getEngagementNameForPath(path)"]
 
@@ -40,14 +41,28 @@ flowchart TD
     FF --> G
     FG --> H["engName is null"]
 
-    G --> I["queryService.getClientFromEngagementLink(engName)"]
+    G --> I["getClientFromEngagementLink(engName)"]
     I --> J["normalizeToName(engagementLink) → engName\ndv.page(engagements/engName)\n→ normalizeToName(engPage.client)"]
     J --> K{client found?}
     K -->|"Yes"| L["return clientName"]
-    K -->|"No"| M["return null"]
+    K -->|"No"| P
 
-    H --> M
+    H --> P
 
-    N["resolveEngagementName(page)"] --> O["queryService.getEngagementNameForPath\n(page.file.path)"]
+    P{page.relatedProject\nset?}
+    P -->|"Yes"| Q["load parent project page\n→ resolve its direct/engagement client (single-level)"]
+    P -->|"No"| M["return null"]
+    Q --> R{client found?}
+    R -->|"Yes"| S["return clientName"]
+    R -->|"No"| M
+
+    N["resolveEngagementName(page)"] --> O["getEngagementNameForPath(page.file.path)"]
     O --> EngagementPaths
 ```
+
+The parent-project fallback (path `P`) is what a project note whose parent
+project carries a direct client — but no engagement — relies on: when the direct
+and engagement chains yield nothing, `resolveClientName` resolves the parent
+project's own direct/engagement client. This is single-level and bounded — it
+does not follow another `relatedProject` hop on the parent — so a malformed
+parent chain cannot recurse without end.

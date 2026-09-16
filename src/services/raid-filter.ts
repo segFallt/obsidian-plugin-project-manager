@@ -1,5 +1,7 @@
 import type { DataviewPage, RaidDashboardFilters, RaidLikelihood, RaidImpact } from "../types";
 import { RAID_FACET_KEY, RAID_VIEW_MODE, FM_KEY } from "../constants";
+import { RAID_CLOSED_STATUSES } from "../raid-constants";
+import { normalizeToName } from "../utils/link-utils";
 import type { IEntityHierarchyService } from "./interfaces";
 import { createFilterSpec } from "./filter-engine";
 import type { Facet, FilterSpec, FilterState } from "./filter-engine";
@@ -61,6 +63,40 @@ export function buildRaidFacets(deps: RaidFacetDeps): Facet<DataviewPage>[] {
 /** Full RAID FilterSpec (facet catalog + specWithout). */
 export function buildRaidFilterSpec(deps: RaidFacetDeps): FilterSpec<DataviewPage> {
   return createFilterSpec(buildRaidFacets(deps));
+}
+
+/**
+ * ─── Standalone RAID predicates ───────────────────────────────────────────────
+ *
+ * Reusable single-item predicates for callers outside the dashboard (e.g. the
+ * tag-RAID-reference command) that need the "active" and "current context"
+ * distinctions without a full `FilterSpec`.
+ */
+
+/** Whether a RAID item is still active — its status is not Resolved or Closed. */
+export function isActiveRaid(item: DataviewPage): boolean {
+  return !RAID_CLOSED_STATUSES.has(String(item[FM_KEY.STATUS] ?? ""));
+}
+
+/**
+ * Whether a RAID item matches the given client/engagement context (OR semantics):
+ * the client leg resolves the item's client via the full hierarchy traversal;
+ * the engagement leg compares the item's direct engagement field. An empty leg
+ * never matches. Names are normalised so wikilink/plain formats compare equal.
+ */
+export function matchesRaidContext(
+  item: DataviewPage,
+  clientName: string | undefined,
+  engagementName: string | undefined,
+  hierarchyService: IEntityHierarchyService
+): boolean {
+  const normalizedClient = normalizeToName(clientName) ?? "";
+  const normalizedEngagement = normalizeToName(engagementName) ?? "";
+  const clientLeg =
+    normalizedClient !== "" && hierarchyService.resolveClientName(item) === normalizedClient;
+  const engagementLeg =
+    normalizedEngagement !== "" && normalizeToName(item[FM_KEY.ENGAGEMENT]) === normalizedEngagement;
+  return clientLeg || engagementLeg;
 }
 
 /**

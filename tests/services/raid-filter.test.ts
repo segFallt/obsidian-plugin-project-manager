@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { buildRaidFilterSpec, buildRaidFilterState } from "@/services/raid-filter";
+import {
+  buildRaidFilterSpec,
+  buildRaidFilterState,
+  isActiveRaid,
+  matchesRaidContext,
+} from "@/services/raid-filter";
 import { FilterEngine } from "@/services/filter-engine";
 import type { DataviewPage, RaidDashboardFilters } from "@/types";
 import type { IEntityHierarchyService } from "@/services/interfaces";
@@ -105,5 +110,57 @@ describe("RAID FilterSpec", () => {
     const spec = buildRaidFilterSpec(deps).specWithout("matrixCell");
     const kept = FilterEngine.apply([hiHi, loLo], spec, buildRaidFilterState(filters));
     expect(kept.map((p) => p.file.name)).toEqual(["HiHi", "LoLo"]);
+  });
+});
+
+// ─── Standalone predicates ─────────────────────────────────────────────────
+
+describe("isActiveRaid", () => {
+  it("treats Open and In Progress as active", () => {
+    expect(isActiveRaid(makeItem({ status: "Open" }))).toBe(true);
+    expect(isActiveRaid(makeItem({ status: "In Progress" }))).toBe(true);
+  });
+
+  it("treats Resolved and Closed as inactive", () => {
+    expect(isActiveRaid(makeItem({ status: "Resolved" }))).toBe(false);
+    expect(isActiveRaid(makeItem({ status: "Closed" }))).toBe(false);
+  });
+
+  it("treats a missing status as active", () => {
+    const item = { file: { name: "NoStatus", path: "raid/NoStatus.md" } } as unknown as DataviewPage;
+    expect(isActiveRaid(item)).toBe(true);
+  });
+});
+
+describe("matchesRaidContext", () => {
+  it("matches on the client leg via resolved client name", () => {
+    const item = makeItem({ client: "Acme Corp" });
+    expect(matchesRaidContext(item, "Acme Corp", undefined, hierarchyService)).toBe(true);
+    expect(matchesRaidContext(item, "Other Co", undefined, hierarchyService)).toBe(false);
+  });
+
+  it("matches on the engagement leg via the direct engagement field", () => {
+    const item = makeItem({ engagement: "Alpha Project" });
+    expect(matchesRaidContext(item, undefined, "Alpha Project", hierarchyService)).toBe(true);
+    expect(matchesRaidContext(item, undefined, "Gamma Project", hierarchyService)).toBe(false);
+  });
+
+  it("is an OR: either leg matching passes", () => {
+    const item = makeItem({ client: "Acme Corp", engagement: "Alpha Project" });
+    // client mismatches but engagement matches → still passes
+    expect(matchesRaidContext(item, "Other Co", "Alpha Project", hierarchyService)).toBe(true);
+    // engagement mismatches but client matches → still passes
+    expect(matchesRaidContext(item, "Acme Corp", "Gamma Project", hierarchyService)).toBe(true);
+  });
+
+  it("does not match when both names are empty/undefined", () => {
+    const item = makeItem({ client: "Acme Corp", engagement: "Alpha Project" });
+    expect(matchesRaidContext(item, undefined, undefined, hierarchyService)).toBe(false);
+    expect(matchesRaidContext(item, "", "", hierarchyService)).toBe(false);
+  });
+
+  it("compares names normalised, so wikilink and plain formats match", () => {
+    const item = makeItem({ engagement: "Alpha Project" });
+    expect(matchesRaidContext(item, undefined, "[[Alpha Project]]", hierarchyService)).toBe(true);
   });
 });

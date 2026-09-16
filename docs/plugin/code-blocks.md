@@ -366,6 +366,6 @@ Below the matrix, items are grouped by RAID type and rendered as tables with col
 
 ### Behaviour
 
-- Queries all vault RAID items tagged `#raid` via `QueryService.getActiveRaidItems()`.
+- Queries all vault RAID items tagged `#raid` via the `RaidQuery` entity read (`IEntityQuery`); status narrowing happens in the RAID `FilterSpec`, not the query.
 - Filter state (type, status, matrix cell, search) is ephemeral and resets on page reload; use the YAML config to set persistent defaults.
 - The component auto-refreshes (500 ms debounce) when any vault file is modified, allowing Dataview to re-index before re-querying.
