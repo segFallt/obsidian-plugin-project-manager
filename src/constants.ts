@@ -243,8 +243,17 @@ export const JS_TYPE = {
   STRING: "string",
 } as const;
 
-/** Dataview sort-order argument values. */
-export const SORT_ORDER = {
+/** Task sort-field values (declaration order drives the sort-key UI pill list). */
+export const SORT_FIELD = {
+  DUE_DATE: "dueDate",
+  PRIORITY: "priority",
+  ALPHABETICAL: "alphabetical",
+  CONTEXT: "context",
+  CREATED_DATE: "createdDate",
+} as const;
+
+/** Sort-direction values — the domain sort direction and the Dataview `.sort` order argument. */
+export const SORT_DIRECTION = {
   ASC: "asc",
   DESC: "desc",
 } as const;

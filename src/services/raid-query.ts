@@ -1,5 +1,5 @@
 import type { DataviewApi, DataviewPage } from "../types";
-import { ENTITY_TAGS, FM_KEY, SORT_ORDER } from "../constants";
+import { ENTITY_TAGS, FM_KEY, SORT_DIRECTION } from "../constants";
 import type { IEntityQuery } from "./entity-query";
 
 /**
@@ -20,7 +20,7 @@ export class RaidQuery implements IEntityQuery<DataviewPage> {
     return [
       ...dv
         .pages(ENTITY_TAGS.raid)
-        .sort((p: DataviewPage) => p[FM_KEY.RAISED_DATE], SORT_ORDER.DESC),
+        .sort((p: DataviewPage) => p[FM_KEY.RAISED_DATE], SORT_DIRECTION.DESC),
     ];
   }
 }

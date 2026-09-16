@@ -1,5 +1,5 @@
-import type { DataviewTask, SortField, SortDirection } from "../../types";
-import { ISO_DATE_LENGTH, WEEK_DAYS, HTML_TAG, DATE_BUCKET_LABEL, VIEW_MODE } from "../../constants";
+import type { DataviewTask } from "../../types";
+import { ISO_DATE_LENGTH, WEEK_DAYS, HTML_TAG, DATE_BUCKET_LABEL, VIEW_MODE, SORT_FIELD, SORT_DIRECTION } from "../../constants";
 import { addDays } from "../../utils/task-utils";
 import { todayISO } from "../../utils/date-utils";
 import type { IViewRenderer, ViewRenderContext } from "../view-renderer";
@@ -38,8 +38,8 @@ export class DateViewRenderer implements IViewRenderer<DataviewTask> {
     );
     const noDue = tasks.filter((t) => !t.due);
 
-    const dueDateAsc = f.sortBy.length > 0 ? f.sortBy : [{ field: "dueDate" as SortField, direction: "asc" as SortDirection }];
-    const priorityAsc = f.sortBy.length > 0 ? f.sortBy : [{ field: "priority" as SortField, direction: "asc" as SortDirection }];
+    const dueDateAsc = f.sortBy.length > 0 ? f.sortBy : [{ field: SORT_FIELD.DUE_DATE, direction: SORT_DIRECTION.ASC }];
+    const priorityAsc = f.sortBy.length > 0 ? f.sortBy : [{ field: SORT_FIELD.PRIORITY, direction: SORT_DIRECTION.ASC }];
 
     if (overdue.length > 0) {
       container.createEl(HTML_TAG.H2, { text: DATE_BUCKET_LABEL.OVERDUE });

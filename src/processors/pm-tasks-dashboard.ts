@@ -10,13 +10,11 @@ import type {
   MeetingDateFilter,
   InboxStatusFilter,
   SortKey,
-  SortField,
-  SortDirection,
   ProjectStatus,
   TaskContext,
   TaskPriority,
 } from "../types";
-import { CONTEXT, ENTITY_TAGS, TASK_CONTEXTS, DUE_DATE_PRESETS, DEFAULT_DUE_DATE_FILTER, DEBOUNCE_MS, MSG, TASK_DASHBOARD_MSG, LOG_CONTEXT, VIEW_MODE, CSS_CLS, HTML_TAG, TASK_DRAWER_TEXT } from "../constants";
+import { CONTEXT, ENTITY_TAGS, TASK_CONTEXTS, DUE_DATE_PRESETS, DEFAULT_DUE_DATE_FILTER, DEBOUNCE_MS, MSG, TASK_DASHBOARD_MSG, LOG_CONTEXT, VIEW_MODE, CSS_CLS, HTML_TAG, TASK_DRAWER_TEXT, SORT_FIELD, SORT_DIRECTION } from "../constants";
 import { debounced } from "../utils/debounce";
 import { renderError } from "./dom-helpers";
 import type { ITaskSortService } from "../services/interfaces";
@@ -37,13 +35,24 @@ import type { DashboardShellDeps } from "./dashboard-shell";
 
 // ─── Legacy sort migration map ────────────────────────────────────────────────
 
-/** Maps legacy sortBy string values to the current SortKey[] format. */
+/**
+ * Maps legacy sortBy string values to the current SortKey[] format. The keys are
+ * the pre-refactor composite strings persisted in saved data and must stay byte-identical.
+ */
 const LEGACY_SORT_MAP: Record<string, SortKey[]> = {
-  "dueDate-asc": [{ field: "dueDate" as SortField, direction: "asc" as SortDirection }],
-  "dueDate-desc": [{ field: "dueDate" as SortField, direction: "desc" as SortDirection }],
-  "priority-asc": [{ field: "priority" as SortField, direction: "asc" as SortDirection }],
-  "priority-desc": [{ field: "priority" as SortField, direction: "desc" as SortDirection }],
+  "dueDate-asc": [{ field: SORT_FIELD.DUE_DATE, direction: SORT_DIRECTION.ASC }],
+  "dueDate-desc": [{ field: SORT_FIELD.DUE_DATE, direction: SORT_DIRECTION.DESC }],
+  "priority-asc": [{ field: SORT_FIELD.PRIORITY, direction: SORT_DIRECTION.ASC }],
+  "priority-desc": [{ field: SORT_FIELD.PRIORITY, direction: SORT_DIRECTION.DESC }],
 };
+
+/** Migrates a persisted `sortBy` value (legacy string or current array) to `SortKey[]`. */
+export function migrateLegacySortBy(raw: unknown): SortKey[] {
+  if (!raw) return [];
+  if (Array.isArray(raw)) return raw as SortKey[];
+  if (typeof raw === "string") return LEGACY_SORT_MAP[raw] ?? [];
+  return [];
+}
 
 /**
  * Renders the full dashboard mode: filter controls and all four view renderers
@@ -98,7 +107,7 @@ export class DashboardView {
 
     // Migrate legacy sortBy string → SortKey[]
     const rawSortBy = saved?.sortBy ?? cfg.sortBy;
-    const sortBy: SortKey[] = this.migrateLegacySortBy(rawSortBy as unknown);
+    const sortBy: SortKey[] = migrateLegacySortBy(rawSortBy as unknown);
 
     // Backward-compat migration: legacy saved state may be a string, an old
     // object with mode/presets fields, the old rangeFrom/rangeTo/includeNoDate shape,
@@ -207,13 +216,6 @@ export class DashboardView {
     ) {
       this.filters.contextFilter = [...this.filters.contextFilter, CONTEXT.RECURRING_MEETING];
     }
-  }
-
-  private migrateLegacySortBy(raw: unknown): SortKey[] {
-    if (!raw) return [];
-    if (Array.isArray(raw)) return raw as SortKey[];
-    if (typeof raw === "string") return LEGACY_SORT_MAP[raw] ?? [];
-    return [];
   }
 
   // ─── Controls rendering ───────────────────────────────────────────────────
