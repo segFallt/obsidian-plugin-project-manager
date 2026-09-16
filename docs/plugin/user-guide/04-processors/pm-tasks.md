@@ -104,4 +104,8 @@ Filters available: status checkboxes, project name text filter, show completed t
 
 ## Filter State Persistence
 
-Filter state (view mode, active filters, sort order) is persisted to the note's frontmatter under the `pm-tasks-filters` key. The state is restored automatically when you re-open the note. Defaults set in the code block YAML apply only when no saved state exists for the note.
+Filter state (view mode, active filters, sort order) is persisted to the note's frontmatter under a per-block `pm-view-state.<blockKey>` key, so each `pm-tasks` block in a note keeps its own saved state instead of sharing one. The state is restored automatically when you re-open the note. Defaults set in the code block YAML apply only when no saved state exists for that block.
+
+If you have two `pm-tasks` blocks in the same note that are worded identically, add an `id:` line to the YAML of one of them (e.g. `id: my-open-tasks`) so they don't share a saved state entry. You don't need `id:` otherwise — blocks that differ in any way already save separately.
+
+**Upgrading:** if you used an earlier version that saved filters under a single `pm-tasks-filters` key, those filters migrate automatically the first time each block renders — no action needed, and nothing is lost.
