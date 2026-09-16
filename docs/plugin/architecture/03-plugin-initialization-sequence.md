@@ -20,8 +20,8 @@ sequenceDiagram
     initServices->>initServices: loggerService.cleanOldLogs()
 
     Note over initServices: Phase 2 — Data Access
-    initServices->>initServices: new QueryService(app, getDataviewApi, settings.folders)
-    initServices->>initServices: new EntityHierarchyService(queryService)
+    initServices->>initServices: new QueryService(getDataviewApi, settings.folders)
+    initServices->>initServices: new EntityHierarchyService(getDataviewApi, settings.folders)
 
     Note over initServices: Phase 3 — Entity Operations
     initServices->>initServices: new TemplateService()

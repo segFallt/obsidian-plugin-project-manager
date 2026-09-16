@@ -19,7 +19,7 @@ import { VaultScaffoldService } from "./services/vault-scaffold-service";
 import { LoggerService } from "./services/logger-service";
 import { TestDataService } from "./services/test-data-service";
 import type {
-  IQueryService,
+  IEntityQueryService,
   IEntityService,
   IEntityHierarchyService,
   INavigationService,
@@ -51,7 +51,7 @@ export default class ProjectManagerPlugin extends Plugin {
 
   // Services declared as interface types (DIP boundary).
   // Concrete classes are only referenced inside initServices().
-  queryService!: IQueryService;
+  queryService!: IEntityQueryService;
   hierarchyService!: IEntityHierarchyService;
   entityService!: IEntityService;
   navigationService!: INavigationService;
@@ -151,8 +151,8 @@ export default class ProjectManagerPlugin extends Plugin {
     }
 
     this.templateService = new TemplateService();
-    this.queryService = new QueryService(this.app, getDataviewApi, this.settings.folders);
-    this.hierarchyService = new EntityHierarchyService(this.queryService);
+    this.queryService = new QueryService(getDataviewApi, this.settings.folders);
+    this.hierarchyService = new EntityHierarchyService(getDataviewApi, this.settings.folders);
 
     this.navigationService = new NavigationService(this.app);
     const notificationService = new NotificationService();

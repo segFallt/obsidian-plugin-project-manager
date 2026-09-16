@@ -4,32 +4,33 @@
 classDiagram
     direction TB
 
-    class IQueryService {
+    class IEntityQueryService {
         <<interface>>
         +dv() DataviewApi|null
         +getEntitiesByTag(tag, folder?) DataviewPage[]
+        +getEntitiesByStatus(tag, status) DataviewPage[]
         +getActiveEntitiesByTag(tag) DataviewPage[]
         +getLinkedEntities(folder, tag, property, targetFile) DataviewPage[]
-        +getEngagementNameForPath(path) string|null
-        +getClientFromEngagementLink(engagementLink) string|null
-        +resolveClientName(page) string|null
-        +getRaidItemsForContext(clientName?, engagementName?) DataviewPage[]
-        +getReferences(filters?) DataviewPage[]
+        +getMentions(targetFile) DataviewPage[]
+        +getProjectNotes(projectFile) DataviewPage[]
+        +getPage(path) DataviewPage|null
+        +getActiveRecurringMeetings() DataviewPage[]
+        +getRecurringMeetingEvents(meetingName) DataviewPage[]
     }
 
     class QueryService {
-        -app App
         -getApi() DataviewApi|null
         -folders FolderSettings
         +dv() DataviewApi|null
         +getEntitiesByTag(tag, folder?) DataviewPage[]
+        +getEntitiesByStatus(tag, status) DataviewPage[]
         +getActiveEntitiesByTag(tag) DataviewPage[]
         +getLinkedEntities(folder, tag, property, targetFile) DataviewPage[]
-        +getEngagementNameForPath(path) string|null
-        +getClientFromEngagementLink(engagementLink) string|null
-        +resolveClientName(page) string|null
-        +getRaidItemsForContext(clientName?, engagementName?) DataviewPage[]
-        +getReferences(filters?) DataviewPage[]
+        +getMentions(targetFile) DataviewPage[]
+        +getProjectNotes(projectFile) DataviewPage[]
+        +getPage(path) DataviewPage|null
+        +getActiveRecurringMeetings() DataviewPage[]
+        +getRecurringMeetingEvents(meetingName) DataviewPage[]
     }
 
     class IEntityQuery~TItem~ {
@@ -114,9 +115,15 @@ classDiagram
     }
 
     class EntityHierarchyService {
-        -queryService IQueryService
+        -getDv() DataviewApi|null
+        -folders FolderSettings
         +resolveClientName(page) string|null
         +resolveEngagementName(page) string|null
+        +getEngagementForEntity(file) DataviewPage|null
+        +getClientForEntity(file) DataviewPage|null
+        +getParentProject(file) DataviewPage|null
+        +getEngagementNameForPath(path) string|null
+        +getClientFromEngagementLink(engagementLink) string|null
     }
 
     class ITemplateService {
@@ -295,7 +302,7 @@ classDiagram
         +write(file, mutate) Promise~void~
     }
 
-    QueryService ..|> IQueryService
+    QueryService ..|> IEntityQueryService
     TaskQuery ..|> IEntityQuery
     TaskQuery ..> QueryService : dv()
     RaidQuery ..|> IEntityQuery

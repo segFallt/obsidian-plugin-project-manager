@@ -1,7 +1,7 @@
 import { MarkdownRenderChild, MarkdownRenderer, TFile, parseYaml } from "obsidian";
 import type { App, MarkdownPostProcessorContext } from "obsidian";
 import type { Plugin } from "obsidian";
-import type { IQueryService, ILoggerService, RaidProcessorServices } from "../services/interfaces";
+import type { IEntityQueryService, ILoggerService, RaidProcessorServices } from "../services/interfaces";
 import type { RaidType, RaidReferenceEntry, PmRaidReferencesConfig } from "../types";
 import { CODEBLOCK, DEBOUNCE_MS, CSS_CLS } from "../constants";
 import { debounced } from "../utils/debounce";
@@ -44,7 +44,7 @@ class PmRaidReferencesRenderChild extends MarkdownRenderChild {
     private readonly source: string,
     private readonly app: App,
     private readonly sourcePath: string,
-    private readonly queryService: IQueryService,
+    private readonly queryService: IEntityQueryService,
     private readonly loggerService: ILoggerService
   ) {
     super(containerEl);

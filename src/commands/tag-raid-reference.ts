@@ -5,8 +5,10 @@ import type { CommandServices, AddCommandFn } from "../plugin-context";
 import { SuggesterModal } from "../ui/modals/suggester-modal";
 import type { DataviewPage, RaidType, RaidDirection } from "../types";
 import { DIRECTION_LABELS, DIRECTION_ICONS, ATX_HEADING_RE, formatRaidBadge } from "../raid-constants";
-import { MSG, LOG_CONTEXT, COMMAND_NAMES, CMD_ERROR_LABEL } from "../constants";
+import { MSG, LOG_CONTEXT, COMMAND_NAMES, CMD_ERROR_LABEL, ENTITY_TYPE } from "../constants";
 import { normalizeToName } from "../utils/link-utils";
+import { ENTITY_QUERIES } from "../entity-registry";
+import { isActiveRaid, matchesRaidContext } from "../services/raid-filter";
 import { isSectionHeadingLine } from "../processors/raid-reference-parser";
 import { withCommandErrorNotice } from "./command-error-notice";
 
@@ -77,12 +79,18 @@ export function registerTagRaidReferenceCommand(
       const clientName = fm["client"] as string | undefined;
       const engagementName = fm["engagement"] as string | undefined;
 
-      // Fetch all active RAID items and context-matched items.
-      // Skip context lookup when neither key is present (or both are empty strings) —
-      // no frontmatter context means no items can match, so contextItems stays empty.
-      const allItems = services.queryService.getActiveRaidItems();
+      // Fetch all active RAID items (base read sorted raised-date desc, then
+      // narrowed to active) and, when the current note carries client/engagement
+      // context, the subset matching that context. Skip the context filter when
+      // neither key is present (or both are empty strings) — no frontmatter
+      // context means no items can match, so contextItems stays empty.
+      const baseItems =
+        ENTITY_QUERIES.resolve(ENTITY_TYPE.RAID_ITEM, () => services.queryService.dv())?.resolve() ?? [];
+      const allItems = baseItems.filter(isActiveRaid);
       const contextItems = (clientName || engagementName)
-        ? services.queryService.getRaidItemsForContext(clientName, engagementName)
+        ? allItems.filter((item) =>
+            matchesRaidContext(item, clientName, engagementName, services.hierarchyService)
+          )
         : [];
 
       if (allItems.length === 0) {

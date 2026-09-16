@@ -34,7 +34,8 @@ Mermaid diagrams for deep structural reference, located in [`docs/plugin/archite
 
 ```
 main.ts (Plugin)
-  ├── queryService: QueryService(app, getDataviewApi)
+  ├── queryService: QueryService(getDataviewApi, settings.folders)
+  ├── hierarchyService: EntityHierarchyService(getDataviewApi, settings.folders)
   ├── navigationService: NavigationService(app)
   ├── notificationService: NotificationService()  ← INotificationService (Notice wrapper)
   ├── templateService: TemplateService()
@@ -62,7 +63,7 @@ Consumers declare only the services they actually need:
 
 | Consumer type         | Interface                   | Key fields                                          |
 |-----------------------|-----------------------------|-----------------------------------------------------|
-| Command handlers      | `CommandServices`           | app, settings, queryService, entityService, actionContext |
+| Command handlers      | `CommandServices`           | app, settings, queryService, entityService, hierarchyService, actionContext |
 | Task processors       | `TaskProcessorServices`     | app, settings, queryService, taskParser, filterService, sortService |
 | Property processors   | `PropertyProcessorServices` | app, settings, queryService, loggerService          |
 | Action processors     | `ActionProcessorServices`   | app, settings, commandExecutor, actionContext        |
@@ -127,13 +128,15 @@ Key methods:
 - `getLinkedEntities(folder, tag, property, file)` — powers pm-table relationships
 - `getProjectNotes(file)` — resolves project-note files linked to a project
 - `getActiveRecurringMeetings()` — folders-based query for recurring meeting files
-- `resolveClientName(page)` — dual-path client resolution: direct `page.client` field or `getEngagementNameForPath → getClientFromEngagementLink` chain (covers direct engagement, `relatedProject → project.engagement`, and `recurring-meeting-event → meeting.engagement`)
+
+Implements the narrow `IEntityQueryService` interface. Hierarchy resolution (client/engagement traversal) is **not** here — it lives in `EntityHierarchyService`.
 
 ### `EntityHierarchyService` (`src/services/entity-hierarchy-service.ts`)
-Canonical resolver for entity hierarchy (client and engagement) from a `DataviewPage`. All consumers — RAID dashboard, task filter, reference views — should use this service rather than calling `QueryService` primitive methods directly.
+Canonical resolver for entity hierarchy (client and engagement) from a `DataviewPage`. All consumers — RAID dashboard, task filter, reference views — use this service. It reads Dataview (via a lazy `getDv()` accessor) and the folder settings directly; it owns the traversal outright rather than delegating.
 
-- `resolveClientName(page)` — delegates to `queryService.resolveClientName(page)`. `QueryService` owns the traversal logic; `EntityHierarchyService` provides the stable, interface-level entry point for all higher-layer consumers.
-- `resolveEngagementName(page)` — delegates to `queryService.getEngagementNameForPath(page.file.path)`.
+- `resolveClientName(page)` — dual-path client resolution: (1) direct `page.client` field; (2) `getEngagementNameForPath → getClientFromEngagementLink` chain (covers direct engagement, `relatedProject → project.engagement`, and `recurring-meeting-event → meeting.engagement`); (3) parent-project fallback — a project note whose parent project carries a direct client recurses on the parent project page.
+- `resolveEngagementName(page)` — runs `getEngagementNameForPath(page.file.path)`.
+- `getEngagementForEntity` / `getClientForEntity` / `getParentProject` / `getEngagementNameForPath` / `getClientFromEngagementLink` — the underlying traversal primitives (class methods, off the narrow interface).
 
 ### `TemplateService` (`src/services/template-service.ts`)
 Returns template strings for all 9 entity types via a static lookup map. Template strings are defined as named exports in `src/services/template-constants.ts`. Templates use `{{variable}}` placeholders processed by `processTemplate()`.

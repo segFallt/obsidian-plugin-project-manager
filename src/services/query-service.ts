@@ -1,12 +1,9 @@
-import { App, TFile } from "obsidian";
+import type { TFile } from "obsidian";
 import type { DataviewApi, DataviewPage } from "../types";
 import { normalizeToName } from "../utils/link-utils";
-import { STATUS, ENTITY_TAGS } from "../constants";
+import { STATUS } from "../constants";
 import type { FolderSettings } from "../settings";
-import type { IQueryService } from "./interfaces";
-
-/** RAID item statuses considered inactive — excluded from active item queries. */
-const RAID_INACTIVE_STATUSES = new Set(["Resolved", "Closed"]);
+import type { IEntityQueryService } from "./interfaces";
 
 /**
  * Wraps the Dataview plugin API to provide typed entity queries.
@@ -17,9 +14,8 @@ const RAID_INACTIVE_STATUSES = new Set(["Resolved", "Closed"]);
  * The Dataview API reference is obtained lazily (via `getApi()`) so the
  * service can be constructed before Dataview has fully initialised.
  */
-export class QueryService implements IQueryService {
+export class QueryService implements IEntityQueryService {
   constructor(
-    private readonly app: App,
     private readonly getApi: () => DataviewApi | null,
     private readonly folders: FolderSettings
   ) {}
@@ -28,11 +24,6 @@ export class QueryService implements IQueryService {
 
   dv(): DataviewApi | null {
     return this.getApi();
-  }
-
-  /** Converts a TFile into a source string usable in dv.pages("[[Name]]"). */
-  private fileToSource(file: TFile): string {
-    return `"${file.path}"`;
   }
 
   // ─── Tag + folder queries ────────────────────────────────────────────────
@@ -125,125 +116,6 @@ export class QueryService implements IQueryService {
     ];
   }
 
-  // ─── Hierarchy traversal ─────────────────────────────────────────────────
-
-  /**
-   * Walks the frontmatter chain to find the engagement linked to a file.
-   * Supports: file.engagement, (for project notes) file.relatedProject → project.engagement,
-   *           or (for recurring meeting events) file["recurring-meeting"] → meeting.engagement
-   */
-  getEngagementForEntity(file: TFile): DataviewPage | null {
-    const dv = this.dv();
-    if (!dv) return null;
-
-    const engName = this.getEngagementNameForPath(file.path);
-    if (!engName) return null;
-
-    return dv.page(`${this.folders.engagements}/${engName}`) ?? null;
-  }
-
-  /**
-   * Walks the hierarchy to find the client linked to a file.
-   * Chain: file.client → file.engagement.client → file.relatedProject.engagement.client
-   */
-  getClientForEntity(file: TFile): DataviewPage | null {
-    const dv = this.dv();
-    if (!dv) return null;
-
-    const page = dv.page(file.path);
-    if (!page) return null;
-
-    // Direct client link
-    if (page.client) {
-      const clientName = normalizeToName(page.client);
-      if (clientName) return dv.page(`${this.folders.clients}/${clientName}`);
-    }
-
-    // Through engagement
-    const engagement = this.getEngagementForEntity(file);
-    if (engagement?.client) {
-      const clientName = normalizeToName(engagement.client);
-      if (clientName) return dv.page(`${this.folders.clients}/${clientName}`);
-    }
-
-    return null;
-  }
-
-  /**
-   * Returns the parent project page for a project note file.
-   * Returns null if the file is not a project note.
-   */
-  getParentProject(file: TFile): DataviewPage | null {
-    const dv = this.dv();
-    if (!dv) return null;
-
-    const page = dv.page(file.path);
-    if (!page?.relatedProject) return null;
-
-    const projectName = normalizeToName(page.relatedProject);
-    if (!projectName) return null;
-
-    return dv.page(`${this.folders.projects}/${projectName}`);
-  }
-
-  /**
-   * Returns the engagement name for any entity file by path.
-   * Walks the same traversal chains as getEngagementForEntity but accepts a
-   * path string and returns the name rather than the full page — suitable for
-   * use in task filter methods that only have a path available.
-   *
-   * Chains: direct engagement, relatedProject → project.engagement,
-   *         recurring-meeting → recurring meeting.engagement
-   */
-  getEngagementNameForPath(path: string): string | null {
-    const dv = this.dv();
-    if (!dv) return null;
-
-    const page = dv.page(path);
-    if (!page) return null;
-
-    // Direct engagement link
-    const direct = normalizeToName(page.engagement);
-    if (direct) return direct;
-
-    // For project notes: resolve via parent project
-    if (page.relatedProject) {
-      const projectName = normalizeToName(page.relatedProject);
-      if (projectName) {
-        const project = dv.page(`${this.folders.projects}/${projectName}`);
-        const engName = project ? normalizeToName(project.engagement) : null;
-        if (engName) return engName;
-      }
-    }
-
-    // For recurring meeting events: resolve via parent recurring meeting
-    if (page["recurring-meeting"]) {
-      const meetingName = normalizeToName(page["recurring-meeting"]);
-      if (meetingName) {
-        const meeting = dv.page(`${this.folders.meetingsRecurring}/${meetingName}`);
-        const engName = meeting ? normalizeToName(meeting.engagement) : null;
-        if (engName) return engName;
-      }
-    }
-
-    return null;
-  }
-
-  /**
-   * Returns the client name string for an engagement link (any format).
-   * Used during task filtering to traverse engagement → client.
-   */
-  getClientFromEngagementLink(engagementLink: unknown): string | null {
-    const dv = this.dv();
-    if (!dv) return null;
-
-    const engName = normalizeToName(engagementLink);
-    if (!engName) return null;
-
-    const engPage = dv.page(`${this.folders.engagements}/${engName}`);
-    return engPage ? (normalizeToName(engPage.client) ?? null) : null;
-  }
-
   /**
    * Returns the Dataview page for a given vault path.
    */
@@ -274,63 +146,5 @@ export class QueryService implements IQueryService {
         .pages(`"${this.folders.meetingsRecurringEvents}"`)
         .where((p) => normalizeToName(p["recurring-meeting"]) === meetingName),
     ];
-  }
-
-  /**
-   * Returns active RAID items (status not Resolved or Closed), sorted by raised-date descending.
-   */
-  getActiveRaidItems(): DataviewPage[] {
-    const dv = this.dv();
-    if (!dv) return [];
-    return [
-      ...dv
-        .pages(ENTITY_TAGS.raid)
-        .where((p: DataviewPage) => !RAID_INACTIVE_STATUSES.has(String(p.status ?? "")))
-        .sort((p: DataviewPage) => p["raised-date"], "desc"),
-    ];
-  }
-
-  /**
-   * Returns active RAID items (status not Resolved or Closed) optionally filtered
-   * by client or engagement name. If neither filter is provided, returns all active items.
-   *
-   * Client matching uses dual-path resolution: direct page.client field OR
-   * page.engagement → engagement.client traversal.
-   */
-  getRaidItemsForContext(clientName?: string, engagementName?: string): DataviewPage[] {
-    const dv = this.dv();
-    if (!dv) return [];
-    const pages = [
-      ...dv
-        .pages(ENTITY_TAGS.raid)
-        .where((p: DataviewPage) => !RAID_INACTIVE_STATUSES.has(String(p.status ?? ""))),
-    ] as DataviewPage[];
-    if (!clientName && !engagementName) return pages;
-    const normalizedClientName = normalizeToName(clientName) ?? "";
-    const normalizedEngagementName = normalizeToName(engagementName) ?? "";
-    return pages.filter((p: DataviewPage) => {
-      const client = this.resolveClientName(p) ?? "";
-      const engagement = normalizeToName(p.engagement) ?? "";
-      return (
-        (normalizedClientName && client === normalizedClientName) ||
-        (normalizedEngagementName && engagement === normalizedEngagementName)
-      );
-    });
-  }
-
-  /**
-   * Resolves the client name for a page using the dual-path traversal chain:
-   *   1. normalizeToName(page.client) — direct client frontmatter link
-   *   2. getEngagementNameForPath → getClientFromEngagementLink — covers direct
-   *      engagement, relatedProject → project.engagement, and
-   *      recurring-meeting-event → meeting.engagement chains
-   * Returns null if neither path yields a name.
-   */
-  resolveClientName(page: DataviewPage): string | null {
-    const direct = normalizeToName(page.client);
-    if (direct) return direct;
-    const engName = this.getEngagementNameForPath(page.file?.path ?? "");
-    if (engName) return this.getClientFromEngagementLink(engName);
-    return null;
   }
 }
