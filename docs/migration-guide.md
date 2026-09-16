@@ -93,7 +93,13 @@ If you have custom content in your template files that you want to preserve:
 
 ## Step 4: Migrate Frontmatter
 
-The plugin uses the same frontmatter properties as the original vault. No migration needed.
+The plugin uses the same entity frontmatter properties as the original vault, so entity notes need no migration.
+
+One dashboard filter-state migration runs **automatically** on upgrade — no user action, and no saved filters are lost:
+
+- **`pm-tasks` blocks** — filters previously saved under a single flat `pm-tasks-filters` frontmatter key now save per block under `pm-view-state.<blockKey>`. The first time each block renders, its filters are copied forward from the legacy key (copy-not-delete). The old `pm-tasks-filters` value is left in place as a harmless read-only fallback. In a note with **multiple `pm-tasks` blocks**, every block inherits the previously-shared filters on first load; adjust each block independently afterwards.
+
+The **References dashboard** needs no migration: it has always persisted to plugin settings (`settings.ui.referenceDashboardFilters`, now via the shared `SettingsViewStore`) rather than note frontmatter, and it reads and writes the same settings key — nothing is reshaped or moved.
 
 ---
 

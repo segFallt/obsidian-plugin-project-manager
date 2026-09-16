@@ -49,7 +49,7 @@ At the top of the dashboard:
 
 A **likelihood × impact** grid (High / Medium / Low on each axis) shows the count of filtered items in each cell. Cells are colour-coded by risk severity — high likelihood + high impact cells are shown in red, low-risk cells in green.
 
-Click a cell to apply a matrix filter (only items in that likelihood/impact combination are shown). Click the cell again to clear the filter.
+Click a cell to apply a matrix filter (only items in that likelihood/impact combination are shown). Click the cell again to clear the filter. While a cell is selected, the other cells keep showing their own counts (under whatever other filters are active) rather than dropping to zero, so the matrix stays readable as an overview.
 
 ### Count strip
 
@@ -79,8 +79,8 @@ Below the matrix, items are grouped by RAID type and rendered as sortable tables
 ## Behaviour
 
 - Queries all RAID items tagged `#raid` in the vault via Dataview
-- Filter state (type chips, status chips, matrix cell selection, search text) resets on page reload — it is not persisted to frontmatter. Use the YAML config to set persistent defaults.
-- Auto-refreshes (500 ms debounce) when any vault file is modified
+- Filter state is split: the **type, status, client, and engagement** filters are saved to the note's frontmatter (under `pm-raid-dashboard-filters`) and restored on reload, while the **matrix-cell selection and search text** are not saved and reset on reload. Use the YAML config to set persistent defaults.
+- Auto-refreshes (1 s debounce) when any vault file is modified
 
 ---
 

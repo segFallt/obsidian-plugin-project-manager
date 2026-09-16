@@ -554,11 +554,11 @@ All three component instances must have `destroy()` called in `onClose()` to rel
 - [ ] Cross-dimension filter logic is AND; same-dimension is OR
 - [ ] Search field filters reference cards by title (case-insensitive substring)
 - [ ] `"also in <Primary Topic>"` hint appears on cards in non-primary topic groups
-- [ ] Filter state persisted to `pm-references-filters` frontmatter; restored on page reload
+- [ ] Filter state persisted to plugin settings (`settings.ui.referenceDashboardFilters`, via `SettingsViewStore`); restored on next load
 - [ ] When Dataview is unavailable, a `.pm-error` element is shown (not a thrown error)
 - [ ] By Topic view renders a topic-tree sidebar using the hierarchy from `getReferenceTopicTree()`; nested topics are indented under their parent (issue #70)
 - [ ] Clicking a tree node sets `selectedNode` and filters the reference list to that topic and all its descendants via `getTopicDescendants()`; clicking the active node again clears the selection (issue #70)
-- [ ] `selectedNode` is persisted to `pm-references-filters` frontmatter and restored on page reload (issue #70)
+- [ ] `selectedNode` is persisted to plugin settings (`settings.ui.referenceDashboardFilters`, via `SettingsViewStore`) and restored on next load (issue #70)
 
 ### Settings & Scaffold
 
