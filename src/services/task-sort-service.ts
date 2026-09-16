@@ -1,6 +1,6 @@
 import type { DataviewTask, SortKey, SortField } from "../types";
 import { getTaskPriority } from "../utils/task-utils";
-import { SORT_SENTINEL, ISO_DATE_LENGTH } from "../constants";
+import { SORT_SENTINEL, ISO_DATE_LENGTH, SORT_FIELD, SORT_DIRECTION } from "../constants";
 import type { ITaskSortService } from "./interfaces";
 
 /**
@@ -76,29 +76,29 @@ type ComparatorFn = (
 
 /** Registry of per-field comparators. satisfies ensures all SortField values are covered. */
 const SORT_COMPARATORS = {
-  dueDate: (a, b, key) => {
-    const dir = key.direction === "desc" ? -1 : 1;
-    const sentinel = key.direction === "desc" ? SORT_SENTINEL.MIN : SORT_SENTINEL.MAX;
+  [SORT_FIELD.DUE_DATE]: (a, b, key) => {
+    const dir = key.direction === SORT_DIRECTION.DESC ? -1 : 1;
+    const sentinel = key.direction === SORT_DIRECTION.DESC ? SORT_SENTINEL.MIN : SORT_SENTINEL.MAX;
     const aDate = a.due ? String(a.due).substring(0, ISO_DATE_LENGTH) : sentinel;
     const bDate = b.due ? String(b.due).substring(0, ISO_DATE_LENGTH) : sentinel;
     return dir * aDate.localeCompare(bDate);
   },
-  priority: (a, b, key) => {
-    const dir = key.direction === "desc" ? -1 : 1;
+  [SORT_FIELD.PRIORITY]: (a, b, key) => {
+    const dir = key.direction === SORT_DIRECTION.DESC ? -1 : 1;
     return dir * (getTaskPriority(a) - getTaskPriority(b));
   },
-  alphabetical: (a, b, key) => {
-    const dir = key.direction === "desc" ? -1 : 1;
+  [SORT_FIELD.ALPHABETICAL]: (a, b, key) => {
+    const dir = key.direction === SORT_DIRECTION.DESC ? -1 : 1;
     return dir * a.text.toLowerCase().localeCompare(b.text.toLowerCase());
   },
-  context: (a, b, key, contextMap) => {
-    const dir = key.direction === "desc" ? -1 : 1;
+  [SORT_FIELD.CONTEXT]: (a, b, key, contextMap) => {
+    const dir = key.direction === SORT_DIRECTION.DESC ? -1 : 1;
     const aCtx = contextMap?.get(a.path) ?? "";
     const bCtx = contextMap?.get(b.path) ?? "";
     return dir * aCtx.localeCompare(bCtx);
   },
-  createdDate: (a, b, key, _contextMap, mtimeMap) => {
-    const dir = key.direction === "desc" ? -1 : 1;
+  [SORT_FIELD.CREATED_DATE]: (a, b, key, _contextMap, mtimeMap) => {
+    const dir = key.direction === SORT_DIRECTION.DESC ? -1 : 1;
     const aMtime = mtimeMap?.get(a.path) ?? 0;
     const bMtime = mtimeMap?.get(b.path) ?? 0;
     return dir * (aMtime - bMtime);

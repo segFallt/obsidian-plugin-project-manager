@@ -3,7 +3,7 @@ import type { App, MarkdownPostProcessorContext } from "obsidian";
 import type { Plugin } from "obsidian";
 import type { IEntityQueryService, ILoggerService, RaidProcessorServices } from "../services/interfaces";
 import type { RaidType, RaidReferenceEntry, PmRaidReferencesConfig } from "../types";
-import { CODEBLOCK, DEBOUNCE_MS, CSS_CLS } from "../constants";
+import { CODEBLOCK, DEBOUNCE_MS, CSS_CLS, SORT_DIRECTION } from "../constants";
 import { debounced } from "../utils/debounce";
 import { renderError, createInternalLink } from "./dom-helpers";
 import { DIRECTION_LABELS, DIRECTION_ICONS, DEFAULT_RAID_TYPE, RAID_SCOPE } from "../raid-constants";
@@ -50,7 +50,7 @@ class PmRaidReferencesRenderChild extends MarkdownRenderChild {
     super(containerEl);
     const rawConfig = parseYaml(this.source) as PmRaidReferencesConfig | null;
     this.sortField = rawConfig?.sort?.field === "modified-date" ? "modified-date" : "created-date";
-    this.sortDirection = rawConfig?.sort?.direction === "asc" ? "asc" : "desc";
+    this.sortDirection = rawConfig?.sort?.direction === SORT_DIRECTION.ASC ? SORT_DIRECTION.ASC : SORT_DIRECTION.DESC;
   }
 
   onload(): void {
@@ -155,7 +155,7 @@ class PmRaidReferencesRenderChild extends MarkdownRenderChild {
     const sortedEntries = [...referencesByFile.entries()].sort(([a], [b]) => {
       const aVal = this.sortField === "created-date" ? (a.stat.ctime ?? 0) : (a.stat.mtime ?? 0);
       const bVal = this.sortField === "created-date" ? (b.stat.ctime ?? 0) : (b.stat.mtime ?? 0);
-      return this.sortDirection === "asc" ? aVal - bVal : bVal - aVal;
+      return this.sortDirection === SORT_DIRECTION.ASC ? aVal - bVal : bVal - aVal;
     });
 
     for (const [file, entries] of sortedEntries) {

@@ -3,6 +3,10 @@
  * Includes entity types, task types, code block configs, and Dataview API stubs.
  */
 
+// `import type` keeps this a type-only edge: constants.ts already imports from
+// this module the same way, so both edges are erased by tsc/esbuild — no runtime cycle.
+import type { SORT_FIELD, SORT_DIRECTION } from "./constants";
+
 // ─── Entity Types ──────────────────────────────────────────────────────────
 
 export type ClientStatus = "Active" | "Inactive";
@@ -170,8 +174,8 @@ export interface DueDateFilter {
 export type MeetingDateFilter = "All" | "Today" | "This Week" | "Past";
 export type InboxStatusFilter = "All" | "Active" | "Complete";
 
-export type SortField = "dueDate" | "priority" | "alphabetical" | "context" | "createdDate";
-export type SortDirection = "asc" | "desc";
+export type SortField = (typeof SORT_FIELD)[keyof typeof SORT_FIELD];
+export type SortDirection = (typeof SORT_DIRECTION)[keyof typeof SORT_DIRECTION];
 export interface SortKey {
   field: SortField;
   direction: SortDirection;
