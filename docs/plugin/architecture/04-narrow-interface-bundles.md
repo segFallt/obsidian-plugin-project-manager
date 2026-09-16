@@ -10,7 +10,7 @@ classDiagram
         <<superset>>
         +app App
         +settings ProjectManagerSettings
-        +queryService IQueryService
+        +queryService IEntityQueryService
         +entityService IEntityService
         +taskParser ITaskParser
         +scaffoldService IScaffoldService
@@ -26,8 +26,9 @@ classDiagram
     class CommandServices {
         +app App
         +settings ProjectManagerSettings
-        +queryService IQueryService
+        +queryService IEntityQueryService
         +entityService IEntityService
+        +hierarchyService IEntityHierarchyService
         +loggerService ILoggerService
         +actionContext IActionContextManager
     }
@@ -35,7 +36,7 @@ classDiagram
     class TaskProcessorServices {
         +app App
         +settings ProjectManagerSettings
-        +queryService IQueryService
+        +queryService IEntityQueryService
         +hierarchyService IEntityHierarchyService
         +taskParser ITaskParser
         +loggerService ILoggerService
@@ -46,7 +47,7 @@ classDiagram
     class PropertyProcessorServices {
         +app App
         +settings ProjectManagerSettings
-        +queryService IQueryService
+        +queryService IEntityQueryService
         +loggerService ILoggerService
     }
 
@@ -65,7 +66,7 @@ classDiagram
 
     class RaidProcessorServices {
         +app App
-        +queryService IQueryService
+        +queryService IEntityQueryService
         +hierarchyService IEntityHierarchyService
         +loggerService ILoggerService
     }
@@ -73,7 +74,7 @@ classDiagram
     class ReferenceProcessorServices {
         +app App
         +settings ProjectManagerSettings
-        +queryService IQueryService
+        +queryService IEntityQueryService
         +hierarchyService IEntityHierarchyService
         +loggerService ILoggerService
     }

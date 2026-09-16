@@ -1,6 +1,6 @@
 import type { App, Command, MarkdownPostProcessorContext } from "obsidian";
 import type {
-  IQueryService,
+  IEntityQueryService,
   IEntityService,
   IEntityHierarchyService,
   INavigationService,
@@ -27,8 +27,9 @@ import type ProjectManagerPlugin from "./main";
 export interface CommandServices {
   app: App;
   settings: ProjectManagerSettings;
-  queryService: IQueryService;
+  queryService: IEntityQueryService;
   entityService: IEntityService;
+  hierarchyService: IEntityHierarchyService;
   loggerService: ILoggerService;
   actionContext: IActionContextManager;
 }
@@ -37,7 +38,7 @@ export interface CommandServices {
 export interface TaskProcessorServices {
   app: App;
   settings: ProjectManagerSettings;
-  queryService: IQueryService;
+  queryService: IEntityQueryService;
   hierarchyService: IEntityHierarchyService;
   taskParser: ITaskParser;
   loggerService: ILoggerService;
@@ -49,7 +50,7 @@ export interface TaskProcessorServices {
 export interface PropertyProcessorServices {
   app: App;
   settings: ProjectManagerSettings;
-  queryService: IQueryService;
+  queryService: IEntityQueryService;
   loggerService: ILoggerService;
 }
 
@@ -99,7 +100,7 @@ export interface ScaffoldCommandServices {
 export interface PluginServices {
   app: App;
   settings: ProjectManagerSettings;
-  queryService: IQueryService;
+  queryService: IEntityQueryService;
   entityService: IEntityService;
   taskParser: ITaskParser;
   scaffoldService: IScaffoldService;
@@ -116,7 +117,7 @@ export interface PluginServices {
 export interface ReferenceProcessorServices {
   app: App;
   settings: ProjectManagerSettings;
-  queryService: IQueryService;
+  queryService: IEntityQueryService;
   hierarchyService: IEntityHierarchyService;
   navigationService: INavigationService;
   loggerService: ILoggerService;

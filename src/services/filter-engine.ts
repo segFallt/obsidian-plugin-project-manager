@@ -7,7 +7,6 @@ import type {
   ProjectStatus,
   InboxStatusFilter,
 } from "../types";
-import { normalizeToName } from "../utils/link-utils";
 import { todayISO } from "../utils/date-utils";
 import { getTaskContext, getTaskPriority, addDays } from "../utils/task-utils";
 import {
@@ -221,26 +220,14 @@ export function inboxStatusMatches(pageStatus: unknown, filter: InboxStatusFilte
 /** Whether a task's resolved client is in the selection; resolves the client via the passed deps. */
 export function clientMatches(task: DataviewTask, sel: EntitySelection, deps: TaskFacetDeps): boolean {
   const { names, includeUnassigned } = sel;
-  const { folders, dv, hierarchyService } = deps;
+  const { dv, hierarchyService } = deps;
 
   if (names.length === 0 && !includeUnassigned) return true;
 
   const page = dv.page(task.path);
   if (!page) return false;
 
-  let taskClient = hierarchyService.resolveClientName(page);
-
-  // Edge-case fallback: project note whose parent project has a direct client
-  // field but no engagement field.
-  if (!taskClient && page.relatedProject) {
-    const parentProjectName = normalizeToName(page.relatedProject);
-    if (parentProjectName) {
-      const parentProject = dv.page(`${folders.projects}/${parentProjectName}`);
-      if (parentProject) {
-        taskClient = hierarchyService.resolveClientName(parentProject);
-      }
-    }
-  }
+  const taskClient = hierarchyService.resolveClientName(page);
 
   if (includeUnassigned && !taskClient) return true;
   if (names.length === 0) return includeUnassigned ? !taskClient : false;

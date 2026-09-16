@@ -63,7 +63,7 @@ classDiagram
     class PmRaidReferencesRenderChild {
         -source string
         -sourcePath string
-        -queryService IQueryService
+        -queryService IEntityQueryService
         -loggerService ILoggerService
         +render() Promise~void~
     }
@@ -71,7 +71,7 @@ classDiagram
     class PmRaidDashboardRenderChild {
         -source string
         -sourcePath string
-        -queryService IQueryService
+        -queryService IEntityQueryService
         -hierarchyService IEntityHierarchyService
         -loggerService ILoggerService
         +render() void
