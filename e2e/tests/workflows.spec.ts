@@ -1,7 +1,10 @@
 import { test, expect } from '@playwright/test';
-import { launchObsidian, closeObsidian } from '../helpers/obsidian-app';
-import { createTempVault, removeTempVault } from '../helpers/vault-manager';
-import { dismissFirstLaunchDialogs } from '../helpers/first-launch';
+import { Page } from '@playwright/test';
+import {
+  ObsidianSpecContext,
+  setupObsidianSpec,
+  teardownObsidianSpec,
+} from '../helpers/obsidian-spec-setup';
 import { executeCommandById, selectCommand } from '../helpers/command-palette';
 import {
   waitForModal,
@@ -9,31 +12,29 @@ import {
   fillEntityCreationModal,
   submitModal,
 } from '../helpers/modal-helpers';
-import { Page } from '@playwright/test';
-import { ObsidianApp } from '../helpers/obsidian-app';
 import { waitForDataviewIndex } from '../helpers/dataview-helpers';
 import { ObsidianWindow } from '../helpers/types';
+import {
+  CREATE_CLIENT_COMMAND_ID,
+  CREATE_ENGAGEMENT_COMMAND_ID,
+  CREATE_PROJECT_COMMAND_ID,
+  SCAFFOLD_VAULT_COMMAND_ID,
+} from '../helpers/constants';
 
-let vaultPath: string;
-let app: ObsidianApp;
+let ctx: ObsidianSpecContext;
 let window: Page;
 
 test.beforeAll(async () => {
-  vaultPath = createTempVault();
-  const launched = await launchObsidian();
-  app = launched;
-  window = launched.window;
-  await dismissFirstLaunchDialogs(window);
-  await window.waitForSelector('.workspace', { timeout: 30_000 });
+  ctx = await setupObsidianSpec();
+  window = await ctx.getPage();
 });
 
 test.afterAll(async () => {
-  if (app) await closeObsidian(app);
-  if (vaultPath) removeTempVault(vaultPath);
+  await teardownObsidianSpec(ctx);
 });
 
 test.beforeEach(async () => {
-  window = await app.getVaultPage();
+  window = await ctx.getPage();
 });
 
 /**
@@ -47,7 +48,7 @@ test.beforeEach(async () => {
  */
 test('Sequential entity creation: Client, Engagement, and Project commands each create a note', async () => {
   // 1. Create a Client
-  await executeCommandById(window, 'project-manager:create-client');
+  await executeCommandById(window, CREATE_CLIENT_COMMAND_ID);
   await waitForModal(window);
   await fillModalInput(window, 'e.g. Acme Corp', 'Workflow Client');
   await submitModal(window);
@@ -59,7 +60,7 @@ test('Sequential entity creation: Client, Engagement, and Project commands each 
   expect(clientFile).toContain('Workflow Client');
 
   // 2. Create an Engagement for that client
-  await executeCommandById(window, 'project-manager:create-engagement');
+  await executeCommandById(window, CREATE_ENGAGEMENT_COMMAND_ID);
   await waitForModal(window);
 
   // Parent selection via <select> is skipped: EntityCreationModal only renders the select when
@@ -75,7 +76,7 @@ test('Sequential entity creation: Client, Engagement, and Project commands each 
   expect(engagementFile).toContain('Workflow Engagement');
 
   // 3. Create a Project under that engagement
-  await executeCommandById(window, 'project-manager:create-project');
+  await executeCommandById(window, CREATE_PROJECT_COMMAND_ID);
   await waitForModal(window);
 
   // Same as above: parent <select> is absent in a fresh vault; project is created without
@@ -106,7 +107,7 @@ test('Sequential entity creation: Client, Engagement, and Project commands each 
 });
 
 test('Scaffold Vault command creates expected folder structure', async () => {
-  await executeCommandById(window, 'project-manager:scaffold-vault');
+  await executeCommandById(window, SCAFFOLD_VAULT_COMMAND_ID);
 
   // Give the command time to create directories
   await window.waitForTimeout(2_000);
@@ -129,7 +130,7 @@ test('Relationship chain: parent links are written when parent entities are pre-
   await waitForDataviewIndex(window, '#client');
 
   // 2. Create an engagement with the seeded client as parent
-  await executeCommandById(window, 'project-manager:create-engagement');
+  await executeCommandById(window, CREATE_ENGAGEMENT_COMMAND_ID);
   await waitForModal(window);
   await fillEntityCreationModal(window, { 'Engagement name': 'Chain Engagement' });
   await window.waitForSelector('.modal select', { timeout: 5_000 });
@@ -156,7 +157,7 @@ test('Relationship chain: parent links are written when parent entities are pre-
   await waitForDataviewIndex(window, '#engagement');
 
   // 5. Create a project with the seeded engagement as parent
-  await executeCommandById(window, 'project-manager:create-project');
+  await executeCommandById(window, CREATE_PROJECT_COMMAND_ID);
   await waitForModal(window);
   await fillEntityCreationModal(window, { 'Project name': 'Chain Project' });
   await window.waitForSelector('.modal select', { timeout: 5_000 });

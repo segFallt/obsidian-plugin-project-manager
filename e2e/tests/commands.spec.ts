@@ -1,41 +1,44 @@
 import { test, expect } from '@playwright/test';
-import { launchObsidian, closeObsidian } from '../helpers/obsidian-app';
-import { createTempVault, removeTempVault } from '../helpers/vault-manager';
-import { dismissFirstLaunchDialogs } from '../helpers/first-launch';
+import { Page } from '@playwright/test';
+import {
+  ObsidianSpecContext,
+  setupObsidianSpec,
+  teardownObsidianSpec,
+} from '../helpers/obsidian-spec-setup';
 import { executeCommandById, selectCommand } from '../helpers/command-palette';
+import { ObsidianWindow } from '../helpers/types';
 import {
   waitForModal,
   fillModalInput,
   submitModal,
   closeModal,
 } from '../helpers/modal-helpers';
-import { Page } from '@playwright/test';
-import { ObsidianApp } from '../helpers/obsidian-app';
+import {
+  COMMAND_PREFIX,
+  CREATE_CLIENT_COMMAND_ID,
+  CREATE_ENGAGEMENT_COMMAND_ID,
+  CREATE_PROJECT_COMMAND_ID,
+  SCAFFOLD_VAULT_COMMAND_ID,
+} from '../helpers/constants';
 
-let vaultPath: string;
-let app: ObsidianApp;
+let ctx: ObsidianSpecContext;
 let window: Page;
 
 test.beforeAll(async () => {
-  vaultPath = createTempVault();
-  const launched = await launchObsidian();
-  app = launched;
-  window = launched.window;
-  await dismissFirstLaunchDialogs(window);
-  await window.waitForSelector('.workspace', { timeout: 30_000 });
+  ctx = await setupObsidianSpec();
+  window = await ctx.getPage();
 });
 
 test.afterAll(async () => {
-  if (app) await closeObsidian(app);
-  if (vaultPath) removeTempVault(vaultPath);
+  await teardownObsidianSpec(ctx);
 });
 
 test.beforeEach(async () => {
-  window = await app.getVaultPage();
+  window = await ctx.getPage();
 });
 
 test('Create Client command opens EntityCreationModal', async () => {
-  await executeCommandById(window, 'project-manager:create-client');
+  await executeCommandById(window, CREATE_CLIENT_COMMAND_ID);
   await waitForModal(window);
 
   const modal = await window.$('.modal');
@@ -54,13 +57,13 @@ test('Create Client via command palette creates a note', async () => {
   // Verify note was created — the active file should reference the client
   await window.waitForTimeout(1_000);
   const activeFile = await window.evaluate(() => {
-    return (window as any).app.workspace.getActiveFile()?.basename;
+    return (window as unknown as ObsidianWindow).app?.workspace?.getActiveFile()?.basename;
   });
   expect(activeFile).toContain('Test Client E2E');
 });
 
 test('Create Engagement command opens modal', async () => {
-  await executeCommandById(window, 'project-manager:create-engagement');
+  await executeCommandById(window, CREATE_ENGAGEMENT_COMMAND_ID);
   await waitForModal(window);
 
   const modal = await window.$('.modal');
@@ -70,7 +73,7 @@ test('Create Engagement command opens modal', async () => {
 });
 
 test('Create Project command opens modal', async () => {
-  await executeCommandById(window, 'project-manager:create-project');
+  await executeCommandById(window, CREATE_PROJECT_COMMAND_ID);
   await waitForModal(window);
 
   const modal = await window.$('.modal');
@@ -80,12 +83,12 @@ test('Create Project command opens modal', async () => {
 });
 
 test('Scaffold Vault command is registered', async () => {
-  const commands = await window.evaluate(() => {
-    const obsApp = (window as any).app;
+  const commands = await window.evaluate((prefix: string) => {
+    const obsApp = (window as unknown as ObsidianWindow).app;
     return Object.keys(obsApp?.commands?.commands ?? {}).filter((id) =>
-      id.startsWith('project-manager:'),
+      id.startsWith(prefix),
     );
-  });
+  }, COMMAND_PREFIX);
 
-  expect(commands).toContain('project-manager:scaffold-vault');
+  expect(commands).toContain(SCAFFOLD_VAULT_COMMAND_ID);
 });
