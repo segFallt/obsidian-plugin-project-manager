@@ -3,6 +3,8 @@ import type {
   DataviewApi,
   DashboardFilters,
   DueDateFilter,
+  StartDateFilter,
+  ScheduledDateFilter,
   MeetingDateFilter,
   InboxStatusFilter,
 } from "../types";
@@ -17,6 +19,8 @@ import {
   buildContextFilterState,
   createFilterSpec,
   dueDateMatches,
+  startDateMatches,
+  scheduledDateMatches,
   tagMatches,
   meetingDateMatches,
   inboxStatusMatches,
@@ -81,6 +85,16 @@ export class TaskFilterService implements ITaskFilterService {
   /** Returns true if the task's due date matches the given filter (OR logic across presets). */
   matchesDueDateFilter(task: DataviewTask, filter: DueDateFilter): boolean {
     return dueDateMatches(task, filter);
+  }
+
+  /** Returns true if the task's start date matches the given filter (no-date preset or inclusive range). */
+  matchesStartDateFilter(task: DataviewTask, filter: StartDateFilter): boolean {
+    return startDateMatches(task, filter);
+  }
+
+  /** Returns true if the task's scheduled date matches the given filter (no-date preset or inclusive range). */
+  matchesScheduledDateFilter(task: DataviewTask, filter: ScheduledDateFilter): boolean {
+    return scheduledDateMatches(task, filter);
   }
 
   /** Returns true if the task matches the tag filter. */

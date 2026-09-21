@@ -5,7 +5,7 @@
 
 // `import type` keeps this a type-only edge: constants.ts already imports from
 // this module the same way, so both edges are erased by tsc/esbuild — no runtime cycle.
-import type { SORT_FIELD, SORT_DIRECTION } from "./constants";
+import type { SORT_FIELD, SORT_DIRECTION, START_DATE_PRESET, SCHEDULED_DATE_PRESET } from "./constants";
 
 // ─── Entity Types ──────────────────────────────────────────────────────────
 
@@ -171,6 +171,31 @@ export interface DueDateFilter {
   /** ISO date "YYYY-MM-DD", or null */
   rangeTo: string | null;
 }
+
+/** The single no-date preset value for the start-date filter. */
+export type StartDatePreset = (typeof START_DATE_PRESET)[keyof typeof START_DATE_PRESET];
+/** Start-date filter: a single no-date preset plus a custom From/To range (like {@link DueDateFilter}). */
+export interface StartDateFilter {
+  /** Active no-date preset(s) — at most the single "No Start Date" value. */
+  selectedPresets: StartDatePreset[];
+  /** ISO date "YYYY-MM-DD", or null */
+  rangeFrom: string | null;
+  /** ISO date "YYYY-MM-DD", or null */
+  rangeTo: string | null;
+}
+
+/** The single no-date preset value for the scheduled-date filter. */
+export type ScheduledDatePreset = (typeof SCHEDULED_DATE_PRESET)[keyof typeof SCHEDULED_DATE_PRESET];
+/** Scheduled-date filter: a single no-date preset plus a custom From/To range (like {@link DueDateFilter}). */
+export interface ScheduledDateFilter {
+  /** Active no-date preset(s) — at most the single "No Scheduled Date" value. */
+  selectedPresets: ScheduledDatePreset[];
+  /** ISO date "YYYY-MM-DD", or null */
+  rangeFrom: string | null;
+  /** ISO date "YYYY-MM-DD", or null */
+  rangeTo: string | null;
+}
+
 export type MeetingDateFilter = "All" | "Today" | "This Week" | "Past";
 export type InboxStatusFilter = "All" | "Active" | "Complete";
 
@@ -196,6 +221,8 @@ export interface PmTasksConfig {
   // Filtering defaults
   contextFilter?: TaskContext[];
   dueDateFilter?: DueDateFilter;
+  startDateFilter?: StartDateFilter;
+  scheduledDateFilter?: ScheduledDateFilter;
   priorityFilter?: TaskPriority[];
   projectStatusFilter?: ProjectStatus[];
   inboxStatusFilter?: InboxStatusFilter;
@@ -299,6 +326,8 @@ export interface DashboardFilters {
   showCompleted: boolean;
   contextFilter: TaskContext[];
   dueDateFilter: DueDateFilter;
+  startDateFilter: StartDateFilter;
+  scheduledDateFilter: ScheduledDateFilter;
   priorityFilter: TaskPriority[];
   projectStatusFilter: ProjectStatus[];
   inboxStatusFilter: InboxStatusFilter;

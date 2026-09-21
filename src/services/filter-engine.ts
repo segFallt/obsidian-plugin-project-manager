@@ -3,6 +3,8 @@ import type {
   DataviewApi,
   DashboardFilters,
   DueDateFilter,
+  StartDateFilter,
+  ScheduledDateFilter,
   MeetingDateFilter,
   ProjectStatus,
   InboxStatusFilter,
@@ -20,6 +22,8 @@ import {
   NEXT_WEEK_END_OFFSET,
   FACET_KEY,
   DUE_DATE_PRESET,
+  START_DATE_PRESET,
+  SCHEDULED_DATE_PRESET,
   MEETING_DATE_FILTER,
   INBOX_STATUS_FILTER,
 } from "../constants";
@@ -184,6 +188,66 @@ export function dueDateMatches(task: DataviewTask, filter: DueDateFilter): boole
   return false;
 }
 
+/**
+ * Shared shape for the start/scheduled date filters: a single no-date preset
+ * plus an optional inclusive From/To range. Reads accept either concrete filter
+ * via structural typing (both narrow `selectedPresets` to a preset union).
+ */
+interface NoDateRangeFilter {
+  selectedPresets: readonly string[];
+  rangeFrom: string | null;
+  rangeTo: string | null;
+}
+
+/** Whether a no-date-preset-plus-range filter carries any active constraint. */
+function isNoDateRangeFilterActive(filter: NoDateRangeFilter): boolean {
+  return filter.selectedPresets.length > 0 || filter.rangeFrom !== null || filter.rangeTo !== null;
+}
+
+/**
+ * Core matcher for the start/scheduled filters: an inactive filter matches all;
+ * an undated task matches only via the no-date preset; a dated task matches when
+ * it falls inside the inclusive range (undated tasks are never range-matched).
+ */
+function noDateRangeMatches(dateValue: unknown, filter: NoDateRangeFilter, noDatePreset: string): boolean {
+  if (!isNoDateRangeFilterActive(filter)) return true;
+
+  const date = dateValue ? String(dateValue).substring(0, ISO_DATE_LENGTH) : null;
+
+  if (date === null) {
+    return filter.selectedPresets.includes(noDatePreset);
+  }
+
+  if (filter.rangeFrom !== null || filter.rangeTo !== null) {
+    return (
+      (filter.rangeFrom === null || date >= filter.rangeFrom) &&
+      (filter.rangeTo === null || date <= filter.rangeTo)
+    );
+  }
+
+  return false;
+}
+
+/** Whether the start-date filter carries any active constraint (no-date preset or range). */
+export function isStartDateFilterActive(filter: StartDateFilter): boolean {
+  return isNoDateRangeFilterActive(filter);
+}
+
+/** Whether a task's start date satisfies the start-date filter (no-date preset or inclusive range). */
+export function startDateMatches(task: DataviewTask, filter: StartDateFilter): boolean {
+  return noDateRangeMatches(task.start, filter, START_DATE_PRESET.NO_DATE);
+}
+
+/** Whether the scheduled-date filter carries any active constraint (no-date preset or range). */
+export function isScheduledDateFilterActive(filter: ScheduledDateFilter): boolean {
+  return isNoDateRangeFilterActive(filter);
+}
+
+/** Whether a task's scheduled date satisfies the scheduled-date filter (no-date preset or inclusive range). */
+export function scheduledDateMatches(task: DataviewTask, filter: ScheduledDateFilter): boolean {
+  return noDateRangeMatches(task.scheduled, filter, SCHEDULED_DATE_PRESET.NO_DATE);
+}
+
 /** Whether a task's tags satisfy the tag filter (or it is untagged and untagged are included). */
 export function tagMatches(task: DataviewTask, tagFilter: string[], includeUntagged: boolean): boolean {
   if (tagFilter.length === 0 && !includeUntagged) return true;
@@ -327,6 +391,8 @@ export function buildTaskFacets(deps: TaskFacetDeps): Facet<DataviewTask>[] {
     { key: FACET_KEY.CONTEXT, accessor: (task) => getTaskContext(task, folders) },
     { key: FACET_KEY.SEARCH_TEXT, predicate: (task, text) => task.text.toLowerCase().includes(text as string) },
     { key: FACET_KEY.DUE_DATE, predicate: (task, filter) => dueDateMatches(task, filter as DueDateFilter) },
+    { key: FACET_KEY.START_DATE, predicate: (task, filter) => startDateMatches(task, filter as StartDateFilter) },
+    { key: FACET_KEY.SCHEDULED_DATE, predicate: (task, filter) => scheduledDateMatches(task, filter as ScheduledDateFilter) },
     { key: FACET_KEY.PRIORITY, accessor: (task) => getTaskPriority(task) },
     {
       key: FACET_KEY.CLIENT,
@@ -361,6 +427,8 @@ export function buildTaskFilterState(f: DashboardFilters): FilterState {
   if (f.contextFilter.length > 0) selections[FACET_KEY.CONTEXT] = f.contextFilter;
   if (f.searchText) selections[FACET_KEY.SEARCH_TEXT] = f.searchText;
   if (isDueDateFilterActive(f.dueDateFilter)) selections[FACET_KEY.DUE_DATE] = f.dueDateFilter;
+  if (isStartDateFilterActive(f.startDateFilter)) selections[FACET_KEY.START_DATE] = f.startDateFilter;
+  if (isScheduledDateFilterActive(f.scheduledDateFilter)) selections[FACET_KEY.SCHEDULED_DATE] = f.scheduledDateFilter;
   if (f.priorityFilter.length > 0) selections[FACET_KEY.PRIORITY] = f.priorityFilter;
   if (f.clientFilter.length > 0 || f.includeUnassignedClients) {
     selections[FACET_KEY.CLIENT] = { names: f.clientFilter, includeUnassigned: f.includeUnassignedClients };

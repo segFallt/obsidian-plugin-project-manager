@@ -2,7 +2,7 @@
  * Shared constants for the Project Manager plugin.
  * Mirrors the vault's constants.js for consistency.
  */
-import type { DueDatePreset, DueDateFilter, EntityType } from "./types";
+import type { DueDatePreset, DueDateFilter, StartDateFilter, ScheduledDateFilter, EntityType } from "./types";
 
 export const CLIENT_STATUSES = ["Active", "Inactive"] as const;
 export const ENGAGEMENT_STATUSES = ["Active", "Inactive"] as const;
@@ -75,6 +75,8 @@ export const FACET_KEY = {
   CONTEXT: "context",
   SEARCH_TEXT: "searchText",
   DUE_DATE: "dueDate",
+  START_DATE: "startDate",
+  SCHEDULED_DATE: "scheduledDate",
   PRIORITY: "priority",
   CLIENT: "client",
   ENGAGEMENT: "engagement",
@@ -155,6 +157,16 @@ export const DUE_DATE_PRESET = {
   NO_DATE: "No Date",
 } as const;
 
+/** Named start-date preset value (the single no-date preset; follows `DUE_DATE_PRESET`). */
+export const START_DATE_PRESET = {
+  NO_DATE: "No Start Date",
+} as const;
+
+/** Named scheduled-date preset value (the single no-date preset; follows `DUE_DATE_PRESET`). */
+export const SCHEDULED_DATE_PRESET = {
+  NO_DATE: "No Scheduled Date",
+} as const;
+
 /** Named meeting-date filter values (a `MeetingDateFilter` each; `ALL` = no filter). */
 export const MEETING_DATE_FILTER = {
   ALL: "All",
@@ -175,6 +187,20 @@ export const DUE_DATE_PRESETS: readonly DueDatePreset[] = Object.values(DUE_DATE
 
 /** Default (empty) due date filter — no presets selected, no range set. */
 export const DEFAULT_DUE_DATE_FILTER: DueDateFilter = Object.freeze({
+  selectedPresets: [],
+  rangeFrom: null,
+  rangeTo: null,
+});
+
+/** Default (empty) start date filter — no preset selected, no range set. */
+export const DEFAULT_START_DATE_FILTER: StartDateFilter = Object.freeze({
+  selectedPresets: [],
+  rangeFrom: null,
+  rangeTo: null,
+});
+
+/** Default (empty) scheduled date filter — no preset selected, no range set. */
+export const DEFAULT_SCHEDULED_DATE_FILTER: ScheduledDateFilter = Object.freeze({
   selectedPresets: [],
   rangeFrom: null,
   rangeTo: null,
@@ -502,6 +528,18 @@ export const CSS_CLS = {
   // Task dashboard filter drawer
   TASKS_DRAWER_SECTION: "pm-tasks-drawer__section",
   TASKS_DRAWER_SECTION_LABEL: "pm-tasks-drawer__section-label",
+  TASKS_DRAWER_GRID: "pm-tasks-drawer__grid",
+  TASKS_DRAWER_DIVIDER: "pm-tasks-drawer__divider",
+  // Task dashboard filter pills, date-range inputs, and active-filter chips
+  TASKS_PILL_GROUP: "pm-tasks-pill-group",
+  TASKS_PILL: "pm-tasks-pill",
+  TASKS_PILL_ACTIVE: "pm-tasks-pill--active",
+  TASKS_PILL_WARN: "pm-tasks-pill--warn",
+  TASKS_DATE_RANGE: "pm-date-range",
+  TASKS_DATE_RANGE_INPUT: "pm-date-range-input",
+  TASKS_CHIPS_BAR: "pm-tasks-chips-bar",
+  TASKS_FILTER_CHIP: "pm-tasks-filter-chip",
+  TASKS_FILTER_CHIP_REMOVE: "pm-tasks-filter-chip__remove",
   // References dashboard (ItemView panel + view components)
   REFERENCE_DASHBOARD_VIEW: "pm-reference-dashboard-view",
   REFERENCE_DASHBOARD_ACTIONS: "pm-reference-dashboard__actions",
@@ -555,12 +593,57 @@ export const CSS_CLS = {
   TASK_LIST_ITEM_CHECKBOX: "task-list-item-checkbox",
 } as const;
 
-/** User-facing text for the task dashboard filter drawer's tag section. */
+/** Numeric priority → coloured pill/chip label for the task dashboard. */
+export const TASK_PRIORITY_PILL_LABEL: Record<number, string> = {
+  1: "🔴 Urgent",
+  2: "🟠 High",
+  3: "🟡 Medium",
+  4: "🔵 Low",
+};
+
+/** User-facing text for the task dashboard filter drawer and active-filter chips. */
 export const TASK_DRAWER_TEXT = {
   TAGS_LABEL: "🏷 TAGS",
   TAG_FILTER_PLACEHOLDER: "type…",
   TAG_FILTER_ARIA: "Filter by tag",
   INCLUDE_UNTAGGED_LABEL: "Include untagged",
+  // Date-filter drawer section labels (emoji sourced from the *_DATE_EMOJI constants).
+  DUE_DATE_LABEL: `${DUE_DATE_EMOJI} DUE DATE`,
+  START_DATE_LABEL: `${START_DATE_EMOJI} START DATE`,
+  SCHEDULED_DATE_LABEL: `${SCHEDULED_DATE_EMOJI} SCHEDULED DATE`,
+  // Non-date drawer section labels.
+  SORT_ORDER_LABEL: "↕ SORT ORDER",
+  COMPLETED_TASKS_LABEL: "✓ COMPLETED TASKS",
+  PRIORITY_LABEL: "⚡ PRIORITY",
+  CONTEXT_TYPE_LABEL: "📁 CONTEXT TYPE",
+  CLIENT_LABEL: "🏢 CLIENT",
+  ENGAGEMENT_LABEL: "📎 ENGAGEMENT",
+  CONTEXT_SPECIFIC_LABEL: "⚙ CONTEXT-SPECIFIC FILTERS",
+  PROJECT_STATUS_LABEL: "Project Status:",
+  INBOX_STATUS_LABEL: "Inbox Status:",
+  MEETING_DATE_LABEL: "Meeting Date:",
+  // Custom From/To date-range row.
+  RANGE_FROM_LABEL: "From:",
+  RANGE_SEPARATOR: "→",
+  DUE_RANGE_FROM_ARIA: "Filter from date",
+  DUE_RANGE_TO_ARIA: "Filter to date",
+  START_RANGE_FROM_ARIA: "Filter from start date",
+  START_RANGE_TO_ARIA: "Filter to start date",
+  SCHEDULED_RANGE_FROM_ARIA: "Filter from scheduled date",
+  SCHEDULED_RANGE_TO_ARIA: "Filter to scheduled date",
+  // Active-filter chips bar.
+  CHIPS_LABEL: "Filters:",
+  CHIP_REMOVE: "×",
+  COMPLETED_CHIP: "✓ Completed",
+  dueDateChip: (label: string): string => `${DUE_DATE_EMOJI} ${label}`,
+  startDateChip: (label: string): string => `${START_DATE_EMOJI} ${label}`,
+  scheduledDateChip: (label: string): string => `${SCHEDULED_DATE_EMOJI} ${label}`,
+  priorityChip: (label: string): string => `⚡ ${label}`,
+  contextChip: (label: string): string => `📁 ${label}`,
+  clientChip: (label: string): string => `🏢 ${label}`,
+  engagementChip: (label: string): string => `📎 ${label}`,
+  tagChip: (label: string): string => `🏷 ${label}`,
+  rangeLabel: (from: string | null, to: string | null): string => `${from ?? "…"} → ${to ?? "…"}`,
 } as const;
 
 /** Composed DOM selector strings built from Obsidian's built-in task classes. */
@@ -580,6 +663,7 @@ export const HTML_TAG = {
   H4: "h4",
   H5: "h5",
   P: "p",
+  HR: "hr",
   BUTTON: "button",
   INPUT: "input",
   DETAILS: "details",
@@ -598,11 +682,13 @@ export const DOM_ATTR = {
   DATA_HREF: "data-href",
   DATA_DEPTH: "data-depth",
   OPEN: "open",
+  ARIA_LABEL: "aria-label",
 } as const;
 
 /** Input element `type` attribute values. */
 export const INPUT_TYPE = {
   TEXT: "text",
+  DATE: "date",
 } as const;
 
 /** DOM event names passed to addEventListener. */
@@ -610,6 +696,7 @@ export const DOM_EVENT = {
   CLICK: "click",
   KEYDOWN: "keydown",
   INPUT: "input",
+  CHANGE: "change",
 } as const;
 
 /** Obsidian vault event names. */
