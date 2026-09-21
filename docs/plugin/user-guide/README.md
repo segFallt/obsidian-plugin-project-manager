@@ -1,6 +1,6 @@
-# Project Manager Plugin — User Guide
+# Engagement Project Manager Plugin — User Guide
 
-Project Manager is an Obsidian plugin that turns your vault into a structured project management workspace. It introduces a client → engagement → project hierarchy, a RAID tracker, a task dashboard, and a reference knowledge base — all built on standard Obsidian notes and frontmatter.
+Engagement Project Manager is an Obsidian plugin that turns your vault into a structured project management workspace. It introduces a client → engagement → project hierarchy, a RAID tracker, a task dashboard, and a reference knowledge base — all built on standard Obsidian notes and frontmatter.
 
 ---
 

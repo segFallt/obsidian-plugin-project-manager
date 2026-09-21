@@ -1,4 +1,4 @@
-# Project Manager — Obsidian Plugin
+# Engagement Project Manager — Obsidian Plugin
 
 A first-class Obsidian plugin implementing a **Client → Engagement → Project** hierarchy for consulting and contracting project management.
 
@@ -118,7 +118,7 @@ All filter state is component-local — no frontmatter writes on filter change.
 ### Manual installation
 
 1. Download `main.js`, `manifest.json`, and `styles.css` from the latest [GitHub release](https://github.com/segFallt/obsidian-plugin-project-manager/releases)
-2. Copy to `<vault>/.obsidian/plugins/project-manager/`
+2. Copy to `<vault>/.obsidian/plugins/engagement-project-manager/`
 3. Enable in **Settings → Community Plugins**
 
 ---
@@ -151,7 +151,7 @@ views/            ← Dashboard views created by scaffold command
 
 ## Settings
 
-Access via **Settings → Project Manager**.
+Access via **Settings → Engagement Project Manager**.
 
 - **Folder Paths** — configure where each entity type is stored
 - **Default Values** — default statuses for new entities
