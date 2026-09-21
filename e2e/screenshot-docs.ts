@@ -28,6 +28,23 @@ import {
 import { tmpdir } from 'os';
 import { resolve } from 'path';
 import { spawn } from 'child_process';
+import { waitOnLivePage } from './helpers/obsidian-app';
+import {
+  awaitPluginCommandsRegistered,
+  dismissFirstLaunchDialogs,
+  enableProjectManagerPlugin,
+} from './helpers/first-launch';
+import {
+  CREATE_CLIENT_COMMAND_ID,
+  CREATE_ENGAGEMENT_COMMAND_ID,
+  CREATE_PERSON_COMMAND_ID,
+  CREATE_PROJECT_COMMAND_ID,
+  CREATE_RAID_ITEM_COMMAND_ID,
+  CREATE_REFERENCE_COMMAND_ID,
+  REACQUIRE_BACKOFF_MS,
+  WORKSPACE_READY_TIMEOUT_MS,
+  WORKSPACE_SELECTOR,
+} from './helpers/constants';
 
 // ─── Paths ────────────────────────────────────────────────────────────────────
 
@@ -37,6 +54,18 @@ const DATAVIEW_CACHE = resolve(__dirname, 'fixtures', '.dataview-cache');
 const ASSETS_DIR = resolve(PROJECT_ROOT, 'docs', 'plugin', 'user-guide', 'assets');
 const OBSIDIAN_CONFIG_DIR = '/tmp/screenshot-obsidian-config';
 const CDP_TIMEOUT_MS = 20_000;
+
+/** Settle time after plugin load for Dataview to build its index (ms). */
+const DATAVIEW_INDEX_SETTLE_MS = 2_000;
+
+/** Handle for the launched Obsidian instance, able to re-acquire its live page. */
+interface ScreenshotApp {
+  browser: Browser;
+  page: Page;
+  kill: () => void;
+  /** Re-acquires the current live renderer page after a renderer replacement. */
+  getVaultPage(): Promise<Page>;
+}
 
 // ─── Vault setup ─────────────────────────────────────────────────────────────
 
@@ -77,7 +106,7 @@ function createVault(): string {
 
 // ─── Obsidian launch ─────────────────────────────────────────────────────────
 
-async function launchObsidian(): Promise<{ browser: Browser; page: Page; kill: () => void }> {
+async function launchObsidian(): Promise<ScreenshotApp> {
   const executablePath = process.env.OBSIDIAN_EXECUTABLE;
   if (!executablePath) throw new Error('OBSIDIAN_EXECUTABLE is not set');
 
@@ -131,45 +160,42 @@ async function launchObsidian(): Promise<{ browser: Browser; page: Page; kill: (
 
   await page.waitForLoadState('domcontentloaded');
 
+  const getVaultPage = async (): Promise<Page> => {
+    const pages = browser.contexts()[0]?.pages() ?? [];
+    const candidate = pages[pages.length - 1];
+    if (candidate && !candidate.isClosed()) {
+      return candidate;
+    }
+    // Renderer may be mid-navigation — wait briefly and retry once.
+    await sleep(REACQUIRE_BACKOFF_MS);
+    const refreshed = browser.contexts()[0]?.pages() ?? [];
+    const last = refreshed[refreshed.length - 1];
+    if (!last || last.isClosed()) {
+      throw new Error('getVaultPage: no open page available');
+    }
+    return last;
+  };
+
   return {
     browser,
     page,
     kill: () => { try { browser.close(); } finally { child.kill(); } },
+    getVaultPage,
   };
 }
 
 // ─── Plugin initialisation ────────────────────────────────────────────────────
 
-async function initPlugin(page: Page): Promise<void> {
-  // Dismiss any modal overlays
-  for (const selector of [
-    'button:has-text("Accept")',
-    'button:has-text("I Agree")',
-    '.modal-close-button',
-    'button:has-text("Turn on community plugins")',
-  ]) {
-    const el = await page.$(selector).catch(() => null);
-    if (el) { await el.click(); await sleep(300); }
-  }
+async function initPlugin(app: ScreenshotApp): Promise<void> {
+  await dismissFirstLaunchDialogs(app.page);
+  await enableProjectManagerPlugin(app.page);
+  await awaitPluginCommandsRegistered(app);
 
-  // Enable and load the plugin
-  await page.evaluate(async () => {
-    const app = (window as any).app;
-    if (app?.plugins) {
-      app.plugins.setEnable('project-manager', true);
-      await app.plugins.loadPlugin('project-manager');
-    }
-  });
-
-  // Wait for plugin commands to be registered
-  await page.waitForFunction(
-    () => !!(window as any).app?.commands?.commands?.['project-manager:create-client'],
-    { timeout: 15_000 },
+  // Wait for the workspace to render on the live page, then let Dataview index.
+  await waitOnLivePage(app, (page) =>
+    page.waitForSelector(WORKSPACE_SELECTOR, { timeout: WORKSPACE_READY_TIMEOUT_MS }),
   );
-
-  // Wait for workspace to be ready
-  await page.waitForSelector('.workspace', { timeout: 30_000 });
-  await sleep(2000); // Let Dataview index
+  await sleep(DATAVIEW_INDEX_SETTLE_MS);
 }
 
 // ─── Navigation helpers ───────────────────────────────────────────────────────
@@ -253,14 +279,15 @@ async function main(): Promise<void> {
   console.log(`  Vault: ${vaultPath}`);
 
   console.log('[screenshot-docs] Launching Obsidian...');
-  const { browser, page, kill } = await launchObsidian();
+  const app = await launchObsidian();
+  const { page, kill } = app;
 
   try {
     // Set a comfortable viewport
     await page.setViewportSize({ width: 1280, height: 900 });
 
     console.log('[screenshot-docs] Initialising plugin...');
-    await initPlugin(page);
+    await initPlugin(app);
 
     // ── Settings screenshots ─────────────────────────────────────────────────
     console.log('\n[screenshot-docs] Settings screenshots...');
@@ -416,12 +443,12 @@ async function main(): Promise<void> {
     await sleep(500);
 
     const commandModals: Array<{ commandId: string; filename: string; waitFor?: string }> = [
-      { commandId: 'project-manager:create-client', filename: 'modal-create-client.png', waitFor: '.modal-container' },
-      { commandId: 'project-manager:create-engagement', filename: 'modal-create-engagement.png', waitFor: '.modal-container' },
-      { commandId: 'project-manager:create-project', filename: 'modal-create-project.png', waitFor: '.modal-container' },
-      { commandId: 'project-manager:create-person', filename: 'modal-create-person.png', waitFor: '.modal-container' },
-      { commandId: 'project-manager:create-raid-item', filename: 'modal-create-raid-item.png', waitFor: '.modal-container' },
-      { commandId: 'project-manager:create-reference', filename: 'modal-create-reference.png', waitFor: '.modal-container' },
+      { commandId: CREATE_CLIENT_COMMAND_ID, filename: 'modal-create-client.png', waitFor: '.modal-container' },
+      { commandId: CREATE_ENGAGEMENT_COMMAND_ID, filename: 'modal-create-engagement.png', waitFor: '.modal-container' },
+      { commandId: CREATE_PROJECT_COMMAND_ID, filename: 'modal-create-project.png', waitFor: '.modal-container' },
+      { commandId: CREATE_PERSON_COMMAND_ID, filename: 'modal-create-person.png', waitFor: '.modal-container' },
+      { commandId: CREATE_RAID_ITEM_COMMAND_ID, filename: 'modal-create-raid-item.png', waitFor: '.modal-container' },
+      { commandId: CREATE_REFERENCE_COMMAND_ID, filename: 'modal-create-reference.png', waitFor: '.modal-container' },
     ];
 
     for (const { commandId, filename, waitFor } of commandModals) {

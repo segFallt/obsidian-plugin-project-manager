@@ -40,7 +40,7 @@ check(
     const plugins = parseJson(
       "e2e/fixtures/test-vault/.obsidian/community-plugins.json"
     );
-    for (const id of ["dataview", "project-manager"]) {
+    for (const id of ["dataview", "engagement-project-manager"]) {
       if (!plugins.includes(id)) throw new Error(`Missing plugin: ${id}`);
     }
   }
