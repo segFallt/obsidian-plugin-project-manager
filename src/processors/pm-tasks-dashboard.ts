@@ -12,11 +12,12 @@ import type {
   MeetingDateFilter,
   InboxStatusFilter,
   SortKey,
+  GroupByDateField,
   ProjectStatus,
   TaskContext,
   TaskPriority,
 } from "../types";
-import { CONTEXT, ENTITY_TAGS, TASK_CONTEXTS, TASK_PRIORITIES, DUE_DATE_PRESET, DUE_DATE_PRESETS, DEFAULT_DUE_DATE_FILTER, DEFAULT_START_DATE_FILTER, DEFAULT_SCHEDULED_DATE_FILTER, START_DATE_PRESET, SCHEDULED_DATE_PRESET, INBOX_STATUS_FILTER, MEETING_DATE_FILTER, TASK_PRIORITY_PILL_LABEL, DEBOUNCE_MS, MSG, TASK_DASHBOARD_MSG, LOG_CONTEXT, VIEW_MODE, CSS_CLS, HTML_TAG, INPUT_TYPE, DOM_EVENT, DOM_ATTR, TASK_DRAWER_TEXT, SORT_FIELD, SORT_DIRECTION } from "../constants";
+import { CONTEXT, ENTITY_TAGS, TASK_CONTEXTS, TASK_PRIORITIES, DUE_DATE_PRESET, DUE_DATE_PRESETS, DEFAULT_DUE_DATE_FILTER, DEFAULT_START_DATE_FILTER, DEFAULT_SCHEDULED_DATE_FILTER, START_DATE_PRESET, SCHEDULED_DATE_PRESET, INBOX_STATUS_FILTER, MEETING_DATE_FILTER, TASK_PRIORITY_PILL_LABEL, DEBOUNCE_MS, MSG, TASK_DASHBOARD_MSG, LOG_CONTEXT, VIEW_MODE, CSS_CLS, HTML_TAG, INPUT_TYPE, DOM_EVENT, DOM_ATTR, TASK_DRAWER_TEXT, SORT_FIELD, SORT_DIRECTION, GROUP_BY_DATE_FIELD, GROUP_BY_DATE_OPTIONS, TASKS_TOOLBAR_TEXT, CSS_DISPLAY } from "../constants";
 import { debounced } from "../utils/debounce";
 import { renderError } from "./dom-helpers";
 import type { ITaskSortService } from "../services/interfaces";
@@ -89,6 +90,7 @@ export class DashboardView {
   private drawerEl: HTMLElement | null = null;
   private filtersBtnEl: HTMLButtonElement | null = null;
   private filtersBadgeEl: HTMLElement | null = null;
+  private groupByControlEl: HTMLElement | null = null;
   private drawerComponents: Array<{ destroy(): void }> = [];
   private readonly contextRenderer = new ContextViewRenderer();
   private readonly dateRenderer = new DateViewRenderer();
@@ -211,6 +213,8 @@ export class DashboardView {
     this.filters = {
       viewMode: saved?.viewMode ?? cfg.viewMode ?? this.services.settings.ui.defaultTaskViewMode,
       sortBy,
+      // Absent (pre-feature state or unset config) ⇒ Due, preserving existing grouping.
+      groupByDateField: saved?.groupByDateField ?? cfg.groupByDateField ?? GROUP_BY_DATE_FIELD.DUE,
       showCompleted: saved?.showCompleted ?? cfg.showCompleted ?? this.services.settings.ui.showCompletedByDefault,
       contextFilter: saved?.contextFilter ?? cfg.contextFilter ?? [],
       dueDateFilter,
@@ -253,69 +257,107 @@ export class DashboardView {
     };
 
     // === TOOLBAR ===
-    const toolbar = root.createDiv({ cls: "pm-tasks-toolbar" });
+    const toolbar = root.createDiv({ cls: CSS_CLS.TASKS_TOOLBAR });
 
     // View mode tabs
-    const tabsEl = toolbar.createDiv({ cls: "pm-tasks-toolbar__view-tabs" });
+    const tabsEl = toolbar.createDiv({ cls: CSS_CLS.TASKS_TOOLBAR_VIEW_TABS });
     const viewModes: Array<{ value: typeof f.viewMode; label: string }> = [
-      { value: VIEW_MODE.CONTEXT, label: "Context" },
-      { value: VIEW_MODE.DATE, label: "Date" },
-      { value: VIEW_MODE.PRIORITY, label: "Priority" },
-      { value: VIEW_MODE.TAG, label: "Tag" },
+      { value: VIEW_MODE.CONTEXT, label: TASKS_TOOLBAR_TEXT.VIEW_CONTEXT },
+      { value: VIEW_MODE.DATE, label: TASKS_TOOLBAR_TEXT.VIEW_DATE },
+      { value: VIEW_MODE.PRIORITY, label: TASKS_TOOLBAR_TEXT.VIEW_PRIORITY },
+      { value: VIEW_MODE.TAG, label: TASKS_TOOLBAR_TEXT.VIEW_TAG },
     ];
     for (const { value, label } of viewModes) {
-      const tab = tabsEl.createEl("button", {
-        cls: value === f.viewMode ? "pm-tasks-toolbar__tab pm-tasks-toolbar__tab--active" : "pm-tasks-toolbar__tab",
+      const tab = tabsEl.createEl(HTML_TAG.BUTTON, {
+        cls:
+          value === f.viewMode
+            ? `${CSS_CLS.TASKS_TOOLBAR_TAB} ${CSS_CLS.TASKS_TOOLBAR_TAB_ACTIVE}`
+            : CSS_CLS.TASKS_TOOLBAR_TAB,
         text: label,
       });
-      tab.addEventListener("click", () => {
+      tab.addEventListener(DOM_EVENT.CLICK, () => {
         f.viewMode = value;
-        tabsEl.querySelectorAll(".pm-tasks-toolbar__tab").forEach((t) => {
-          t.classList.toggle("pm-tasks-toolbar__tab--active", t === tab);
+        tabsEl.querySelectorAll(`.${CSS_CLS.TASKS_TOOLBAR_TAB}`).forEach((t) => {
+          t.classList.toggle(CSS_CLS.TASKS_TOOLBAR_TAB_ACTIVE, t === tab);
         });
+        this.syncGroupByVisibility();
         this.persistFilters();
         this.debouncedRefresh(root);
       });
     }
 
+    // Group-by-date-field dropdown (only meaningful in the Date view)
+    this.renderGroupByControl(toolbar, f, onChange);
+
     // Search input (flex-grows)
-    const searchInput = toolbar.createEl("input", {
-      type: "text",
-      placeholder: "Search tasks…",
-      cls: "pm-tasks-toolbar__search",
+    const searchInput = toolbar.createEl(HTML_TAG.INPUT, {
+      type: INPUT_TYPE.TEXT,
+      placeholder: TASKS_TOOLBAR_TEXT.SEARCH_PLACEHOLDER,
+      cls: CSS_CLS.TASKS_TOOLBAR_SEARCH,
     });
-    searchInput.setAttribute("aria-label", "Search tasks");
+    searchInput.setAttribute(DOM_ATTR.ARIA_LABEL, TASKS_TOOLBAR_TEXT.SEARCH_ARIA);
     searchInput.value = f.searchText;
-    searchInput.addEventListener("input", () => {
+    searchInput.addEventListener(DOM_EVENT.INPUT, () => {
       f.searchText = searchInput.value.toLowerCase();
       this.debouncedRefresh(root);
     });
 
     // Filters button
-    this.filtersBtnEl = toolbar.createEl("button", {
-      cls: "pm-tasks-toolbar__filters-btn",
+    this.filtersBtnEl = toolbar.createEl(HTML_TAG.BUTTON, {
+      cls: CSS_CLS.TASKS_TOOLBAR_FILTERS_BTN,
     });
-    this.filtersBtnEl.createSpan({ text: "⚙ Filters " });
-    this.filtersBadgeEl = this.filtersBtnEl.createSpan({ cls: "pm-tasks-filter-badge" });
-    this.filtersBtnEl.addEventListener("click", () => {
+    this.filtersBtnEl.createSpan({ text: TASKS_TOOLBAR_TEXT.FILTERS_BTN });
+    this.filtersBadgeEl = this.filtersBtnEl.createSpan({ cls: CSS_CLS.TASKS_FILTER_BADGE });
+    this.filtersBtnEl.addEventListener(DOM_EVENT.CLICK, () => {
       this.isDrawerOpen = !this.isDrawerOpen;
       if (this.drawerEl) {
-        this.drawerEl.style.display = this.isDrawerOpen ? "" : "none";
+        this.drawerEl.style.display = this.isDrawerOpen ? CSS_DISPLAY.DEFAULT : CSS_DISPLAY.NONE;
       }
     });
 
     // === CHIPS BAR (placeholder — filled by updateChipsBar) ===
     this.chipsBarEl = root.createDiv({ cls: CSS_CLS.TASKS_CHIPS_BAR });
-    this.chipsBarEl.style.display = "none";
+    this.chipsBarEl.style.display = CSS_DISPLAY.NONE;
 
     // === DRAWER ===
-    this.drawerEl = root.createDiv({ cls: "pm-tasks-drawer" });
-    this.drawerEl.style.display = this.isDrawerOpen ? "" : "none";
+    this.drawerEl = root.createDiv({ cls: CSS_CLS.TASKS_DRAWER });
+    this.drawerEl.style.display = this.isDrawerOpen ? CSS_DISPLAY.DEFAULT : CSS_DISPLAY.NONE;
     this.renderDrawer(this.drawerEl, f, onChange, root);
 
     // Initial badge and chips update
     this.updateFiltersBadge();
     this.updateChipsBar();
+  }
+
+  /**
+   * Renders the Date-view group-by dropdown (Group by: [Due ▾]). Threads the
+   * selection into `groupByDateField`; the control is only shown while the Date
+   * view is active (toggled by `syncGroupByVisibility`).
+   */
+  private renderGroupByControl(toolbar: HTMLElement, f: DashboardFilters, onChange: () => void): void {
+    const wrap = toolbar.createDiv({ cls: CSS_CLS.TASKS_GROUP_BY });
+    wrap.createSpan({ cls: CSS_CLS.TASKS_GROUP_BY_LABEL, text: TASKS_TOOLBAR_TEXT.GROUP_BY_LABEL });
+
+    const select = wrap.createEl(HTML_TAG.SELECT, { cls: CSS_CLS.TASKS_GROUP_BY_SELECT });
+    select.setAttribute(DOM_ATTR.ARIA_LABEL, TASKS_TOOLBAR_TEXT.GROUP_BY_ARIA);
+    for (const option of GROUP_BY_DATE_OPTIONS) {
+      select.createEl(HTML_TAG.OPTION, { value: option.value, text: option.label });
+    }
+    select.value = f.groupByDateField;
+    select.addEventListener(DOM_EVENT.CHANGE, () => {
+      f.groupByDateField = select.value as GroupByDateField;
+      onChange();
+    });
+
+    this.groupByControlEl = wrap;
+    this.syncGroupByVisibility();
+  }
+
+  /** Shows the group-by dropdown only while the Date view mode is active. */
+  private syncGroupByVisibility(): void {
+    if (!this.groupByControlEl) return;
+    this.groupByControlEl.style.display =
+      this.filters.viewMode === VIEW_MODE.DATE ? CSS_DISPLAY.DEFAULT : CSS_DISPLAY.NONE;
   }
 
   // ─── Drawer rendering ─────────────────────────────────────────────────────
@@ -915,6 +957,7 @@ export class DashboardView {
     const toSave: SavedDashboardFilters = {
       viewMode: f.viewMode,
       sortBy: f.sortBy,
+      groupByDateField: f.groupByDateField,
       showCompleted: f.showCompleted,
       contextFilter: f.contextFilter,
       dueDateFilter: f.dueDateFilter,

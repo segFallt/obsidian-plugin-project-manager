@@ -54,7 +54,8 @@ Displays all vault tasks, excluding tasks in the `utility/` folder.
 
 | Panel | Options |
 |-------|---------|
-| View Mode | Context, Due Date, Priority, Tag |
+| View Mode | Context, Date, Priority, Tag |
+| Group by (Date view only) | Due (default), Start, Scheduled |
 | Sort | None, Due Date ↑, Due Date ↓, Start Date ↑, Start Date ↓, Scheduled Date ↑, Scheduled Date ↓, Priority ↑, Priority ↓ |
 | Show Completed | Toggle (include/exclude completed tasks) |
 | Search | Free-text filter against task content |
@@ -87,9 +88,17 @@ For the Recurring Meeting context type, tasks from recurring meeting event files
 
 Recurring meeting event tasks appear under a distinct **"Recurring Meeting"** header, separate from single-meeting and recurring-meeting-definition tasks (which appear under "Meeting").
 
-#### View Mode: Due Date
+#### View Mode: Date
 
-Groups tasks into buckets: Overdue / Today / Tomorrow / This Week / Upcoming / No Date.
+Groups tasks into six date buckets — Overdue / Today / Tomorrow / This Week / Upcoming / No Date — by a chosen date field. A **Group by** dropdown (shown only in the Date view) selects which field drives the bucketing:
+
+| Group by | Buckets on | Bucket labels |
+|----------|------------|---------------|
+| Due (default) | 📅 due date | ⚠️ Overdue / 📅 Today / 📆 Tomorrow / 📋 This Week / 🔮 Upcoming / 📝 No Due Date |
+| Start | 🛫 start date | 🛫 Started / Starts Today / Starts Tomorrow / Starts This Week / Starts Later / No Start Date |
+| Scheduled | ⏳ scheduled date | ⏳ Past Scheduled / Scheduled Today / Scheduled Tomorrow / Scheduled This Week / Scheduled Later / No Scheduled Date |
+
+All three fields use the **same six boundaries**; only the labels differ. The selection defaults to **Due** (so existing blocks are unchanged) and persists via the per-block view-state frontmatter (§3.7). A task with no value for the chosen field falls in the field's "No … Date" bucket.
 
 #### View Mode: Priority
 

@@ -5,7 +5,7 @@
 
 // `import type` keeps this a type-only edge: constants.ts already imports from
 // this module the same way, so both edges are erased by tsc/esbuild — no runtime cycle.
-import type { SORT_FIELD, SORT_DIRECTION, START_DATE_PRESET, SCHEDULED_DATE_PRESET } from "./constants";
+import type { SORT_FIELD, SORT_DIRECTION, START_DATE_PRESET, SCHEDULED_DATE_PRESET, GROUP_BY_DATE_FIELD } from "./constants";
 
 // ─── Entity Types ──────────────────────────────────────────────────────────
 
@@ -200,6 +200,24 @@ export type MeetingDateFilter = "All" | "Today" | "This Week" | "Past";
 export type InboxStatusFilter = "All" | "Active" | "Complete";
 
 export type SortField = (typeof SORT_FIELD)[keyof typeof SORT_FIELD];
+
+/** The date field the Date view groups by (`due` / `start` / `scheduled`). */
+export type GroupByDateField = (typeof GROUP_BY_DATE_FIELD)[keyof typeof GROUP_BY_DATE_FIELD];
+
+/**
+ * The six per-boundary section headings for one Date-view group-by field.
+ * All three label sets (`DATE_BUCKET_LABEL`, `START_BUCKET_LABEL`,
+ * `SCHEDULED_BUCKET_LABEL`) satisfy this shape, so the single parameterised
+ * bucketer can accept any of them.
+ */
+export interface DateBucketLabels {
+  OVERDUE: string;
+  TODAY: string;
+  TOMORROW: string;
+  THIS_WEEK: string;
+  UPCOMING: string;
+  NO_DUE_DATE: string;
+}
 export type SortDirection = (typeof SORT_DIRECTION)[keyof typeof SORT_DIRECTION];
 export interface SortKey {
   field: SortField;
@@ -217,6 +235,8 @@ export interface PmTasksConfig {
   // Dashboard-specific defaults
   viewMode?: "context" | "date" | "priority" | "tag";
   sortBy?: SortKey[];
+  /** Date field the Date view groups by; absent ⇒ Due (unchanged behaviour). */
+  groupByDateField?: GroupByDateField;
   showCompleted?: boolean;
   // Filtering defaults
   contextFilter?: TaskContext[];
@@ -323,6 +343,8 @@ export interface DataviewDate {
 export interface DashboardFilters {
   viewMode: "context" | "date" | "priority" | "tag";
   sortBy: SortKey[];
+  /** Date field the Date view groups by. Required; defaults to Due in `initFilters`. */
+  groupByDateField: GroupByDateField;
   showCompleted: boolean;
   contextFilter: TaskContext[];
   dueDateFilter: DueDateFilter;
