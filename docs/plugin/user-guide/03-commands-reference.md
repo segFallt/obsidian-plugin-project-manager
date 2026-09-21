@@ -22,7 +22,7 @@ PM commands can be triggered in three ways:
 
 > **`pm-actions` coverage**
 >
-> The `pm-actions` code block processor supports action buttons for all creation, conversion, and infrastructure commands. The one exception is `PM: Tag Line as RAID Reference` — it has no corresponding `pm-actions` action type because it requires an active editor context that action buttons cannot provide.
+> The `pm-actions` code block processor provides an action button for each of the entity creation, conversion, and infrastructure commands wired into its action map. Three documented commands have no `pm-actions` action type: `PM: Tag Line as RAID Reference` (it requires an active editor context that action buttons cannot provide), `PM: Update Reference Topic`, and `PM: Open Reference Dashboard` (a view-activation command).
 
 ---
 
@@ -192,6 +192,22 @@ Creates a Reference Topic note used to categorise references.
 
 ---
 
+### PM: Update Reference Topic
+
+Selects an existing Reference Topic and assigns or clears its parent topic.
+
+**Invocation:** Command palette
+
+**Pre-conditions:** At least one Reference Topic note must exist.
+
+**Modal flow:**
+1. Select the topic to update from the autocomplete list
+2. Optionally select a new parent topic from the autocomplete list (the topic being updated is excluded from its own parent options), or leave it blank to clear the parent
+
+> This command has no corresponding `pm-actions` action button — it is only available from the command palette.
+
+---
+
 ### PM: Create Reference
 
 Creates a Reference document and links it to one or more Reference Topics.
@@ -272,3 +288,17 @@ Annotates the currently selected line in the editor with a directional RAID refe
 2. Select the direction: Positive, Negative, or Neutral
 
 The annotation `{raid:positive}[[RAID Item Name]]` is appended to the line. It renders as a badge in reading view and is tracked as a backlink on the RAID item.
+
+---
+
+## Views & Dashboards
+
+### PM: Open Reference Dashboard
+
+Opens the Reference Dashboard, a filterable view of all reference documents in the vault.
+
+**Invocation:** Command palette · Ribbon icon (`book-open` — shown when **Settings → Show ribbon icons** is enabled)
+
+**Pre-conditions:** None.
+
+**Behaviour:** Opens the Reference Dashboard view in a new tab in the main editor pane. If the dashboard is already open in any leaf, that leaf is revealed instead of opening a duplicate.
