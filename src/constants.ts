@@ -136,6 +136,10 @@ export const PRIORITY_EMOJI: Record<string, number> = {
 
 /** Due date emoji used by Tasks plugin. */
 export const DUE_DATE_EMOJI = "📅";
+/** Start date emoji used by Tasks plugin. */
+export const START_DATE_EMOJI = "🛫";
+/** Scheduled date emoji used by Tasks plugin. */
+export const SCHEDULED_DATE_EMOJI = "⏳";
 /** Completion date emoji. */
 export const COMPLETION_DATE_EMOJI = "✅";
 /** Recurrence emoji. */
@@ -246,6 +250,8 @@ export const JS_TYPE = {
 /** Task sort-field values (declaration order drives the sort-key UI pill list). */
 export const SORT_FIELD = {
   DUE_DATE: "dueDate",
+  START_DATE: "startDate",
+  SCHEDULED_DATE: "scheduledDate",
   PRIORITY: "priority",
   ALPHABETICAL: "alphabetical",
   CONTEXT: "context",

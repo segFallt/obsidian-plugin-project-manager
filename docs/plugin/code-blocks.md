@@ -141,7 +141,7 @@ mode: dashboard | by-project
 # Optional defaults:
 viewMode: context | date | priority | tag
 sortBy:                          # array of sort keys (empty = no sort)
-  - field: dueDate               # dueDate | priority | alphabetical | context | createdDate
+  - field: dueDate               # dueDate | startDate | scheduledDate | priority | alphabetical | context | createdDate
     direction: asc               # asc | desc
 showCompleted: false
 # Due date filter
@@ -162,7 +162,7 @@ Displays all vault tasks (excluding the `utility/` folder) with a compact **tool
 - **Toolbar**: View mode tabs (Context / Date / Priority / Tag), search input, ⚙ Filters button (with active-count badge), ✕ Clear All Filters button (shown when any filter is active)
 - **Active filter chips bar**: removable chips for each active filter criterion
 - **Filter drawer** (toggled by ⚙ Filters): contains all filter sections:
-  - **Sort Order**: multi-key sort builder (up to 3 keys); fields: Due Date, Priority, Alphabetical, Context, Created Date; per-key direction toggle (↑/↓); up/down reorder
+  - **Sort Order**: multi-key sort builder (up to 3 keys); fields: Due Date, Start Date, Scheduled Date, Priority, Alphabetical, Context, Created Date; per-key direction toggle (↑/↓); up/down reorder
   - **Completed Tasks**: toggle "Show completed"
   - **Due Date**: preset pills (Today, Tomorrow, This Week, Next Week, Overdue, No Date) with OR logic (multiple can be active simultaneously) + custom date range
   - **Priority**: Urgent / High / Medium / Low

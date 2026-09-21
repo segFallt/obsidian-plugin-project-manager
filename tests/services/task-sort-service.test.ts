@@ -1,15 +1,18 @@
 import { describe, it, expect } from "vitest";
 import { TaskSortService } from "@/services/task-sort-service";
 import { createMockTask } from "../mocks/dataview-mock";
+import { SORT_FIELD, SORT_DIRECTION } from "@/constants";
 import type { SortKey } from "@/types";
 
 const service = new TaskSortService();
 
-function task(path: string, opts: { due?: string; text?: string } = {}) {
+function task(path: string, opts: { due?: string; start?: string; scheduled?: string; text?: string } = {}) {
   return createMockTask({
     path,
     text: opts.text ?? "Task",
     due: opts.due,
+    start: opts.start,
+    scheduled: opts.scheduled,
   });
 }
 
@@ -79,6 +82,102 @@ describe("TaskSortService.sortTasks", () => {
         task("no-date.md"),
       ];
       const result = service.sortTasks(tasks, [{ field: "dueDate", direction: "desc" }]);
+      expect(result[0].path).toBe("b.md");
+      expect(result[1].path).toBe("no-date.md");
+    });
+  });
+
+  describe("sortBy: startDate-asc", () => {
+    it("sorts tasks by start date ascending", () => {
+      const tasks = [
+        task("a.md", { start: "2024-03-01" }),
+        task("b.md", { start: "2024-01-01" }),
+        task("c.md", { start: "2024-02-01" }),
+      ];
+      const result = service.sortTasks(tasks, [{ field: SORT_FIELD.START_DATE, direction: SORT_DIRECTION.ASC }]);
+      // b (Jan) < c (Feb) < a (Mar)
+      expect(result.map((t) => t.path)).toEqual(["b.md", "c.md", "a.md"]);
+      expect(result[0].start).toBe("2024-01-01");
+      expect(result[1].start).toBe("2024-02-01");
+      expect(result[2].start).toBe("2024-03-01");
+    });
+
+    it("puts tasks with no start date at the end", () => {
+      const tasks = [
+        task("no-date.md"),
+        task("b.md", { start: "2024-01-01" }),
+      ];
+      const result = service.sortTasks(tasks, [{ field: SORT_FIELD.START_DATE, direction: SORT_DIRECTION.ASC }]);
+      expect(result[0].path).toBe("b.md");
+      expect(result[1].path).toBe("no-date.md");
+    });
+  });
+
+  describe("sortBy: startDate-desc", () => {
+    it("sorts tasks by start date descending", () => {
+      const tasks = [
+        task("a.md", { start: "2024-01-01" }),
+        task("b.md", { start: "2024-03-01" }),
+      ];
+      const result = service.sortTasks(tasks, [{ field: SORT_FIELD.START_DATE, direction: SORT_DIRECTION.DESC }]);
+      expect(result[0].start).toBe("2024-03-01");
+      expect(result[1].start).toBe("2024-01-01");
+    });
+
+    it("puts tasks with no start date at the end (after dated tasks)", () => {
+      const tasks = [
+        task("b.md", { start: "2024-01-01" }),
+        task("no-date.md"),
+      ];
+      const result = service.sortTasks(tasks, [{ field: SORT_FIELD.START_DATE, direction: SORT_DIRECTION.DESC }]);
+      expect(result[0].path).toBe("b.md");
+      expect(result[1].path).toBe("no-date.md");
+    });
+  });
+
+  describe("sortBy: scheduledDate-asc", () => {
+    it("sorts tasks by scheduled date ascending", () => {
+      const tasks = [
+        task("a.md", { scheduled: "2024-03-01" }),
+        task("b.md", { scheduled: "2024-01-01" }),
+        task("c.md", { scheduled: "2024-02-01" }),
+      ];
+      const result = service.sortTasks(tasks, [{ field: SORT_FIELD.SCHEDULED_DATE, direction: SORT_DIRECTION.ASC }]);
+      // b (Jan) < c (Feb) < a (Mar)
+      expect(result.map((t) => t.path)).toEqual(["b.md", "c.md", "a.md"]);
+      expect(result[0].scheduled).toBe("2024-01-01");
+      expect(result[1].scheduled).toBe("2024-02-01");
+      expect(result[2].scheduled).toBe("2024-03-01");
+    });
+
+    it("puts tasks with no scheduled date at the end", () => {
+      const tasks = [
+        task("no-date.md"),
+        task("b.md", { scheduled: "2024-01-01" }),
+      ];
+      const result = service.sortTasks(tasks, [{ field: SORT_FIELD.SCHEDULED_DATE, direction: SORT_DIRECTION.ASC }]);
+      expect(result[0].path).toBe("b.md");
+      expect(result[1].path).toBe("no-date.md");
+    });
+  });
+
+  describe("sortBy: scheduledDate-desc", () => {
+    it("sorts tasks by scheduled date descending", () => {
+      const tasks = [
+        task("a.md", { scheduled: "2024-01-01" }),
+        task("b.md", { scheduled: "2024-03-01" }),
+      ];
+      const result = service.sortTasks(tasks, [{ field: SORT_FIELD.SCHEDULED_DATE, direction: SORT_DIRECTION.DESC }]);
+      expect(result[0].scheduled).toBe("2024-03-01");
+      expect(result[1].scheduled).toBe("2024-01-01");
+    });
+
+    it("puts tasks with no scheduled date at the end (after dated tasks)", () => {
+      const tasks = [
+        task("b.md", { scheduled: "2024-01-01" }),
+        task("no-date.md"),
+      ];
+      const result = service.sortTasks(tasks, [{ field: SORT_FIELD.SCHEDULED_DATE, direction: SORT_DIRECTION.DESC }]);
       expect(result[0].path).toBe("b.md");
       expect(result[1].path).toBe("no-date.md");
     });

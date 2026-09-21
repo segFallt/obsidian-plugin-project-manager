@@ -27,7 +27,7 @@ The `pm-tasks` code block renders interactive task views with multi-panel filter
 mode: dashboard | by-project
 # Optional defaults:
 viewMode: context | date | priority | tag
-sortBy: none | dueDate-asc | dueDate-desc | priority-asc | priority-desc
+sortBy: none | dueDate-asc | dueDate-desc | startDate-asc | startDate-desc | scheduledDate-asc | scheduledDate-desc | priority-asc | priority-desc
 showCompleted: false
 dueDateFilter:
   mode: presets | range
@@ -48,7 +48,7 @@ Displays all vault tasks, excluding tasks in the `utility/` folder.
 | Panel | Options |
 |-------|---------|
 | View Mode | Context, Due Date, Priority, Tag |
-| Sort | None, Due Date ↑, Due Date ↓, Priority ↑, Priority ↓ |
+| Sort | None, Due Date ↑, Due Date ↓, Start Date ↑, Start Date ↓, Scheduled Date ↑, Scheduled Date ↓, Priority ↑, Priority ↓ |
 | Show Completed | Toggle (include/exclude completed tasks) |
 | Search | Free-text filter against task content |
 | Context Filters | Context type, client, engagement, project status, inbox status, meeting date |
@@ -142,9 +142,9 @@ Clicking a task checkbox:
 3. Adds `✅ YYYY-MM-DD` (today's date) when completing; removes it when un-completing.
 4. Writes the modified file back via `vault.modify()`.
 
-The `TaskParser` (regex-based, Tasks plugin emoji format, no Tasks plugin API dependency) is used to parse and update task lines.
+The `TaskParser` (regex-based, Tasks plugin emoji format, no Tasks plugin API dependency) is used to parse and update task lines. `TaskParser` is used **only on this checkbox-toggle write path**; it does not feed the dashboard. Dashboard grouping, sorting, and filtering read their date and priority metadata from **Dataview's parsed task objects** (see §4), not from `TaskParser`.
 
-> **Note:** The Tasks community plugin is required for structured task authoring (emoji due dates, priorities, completion markers). `TaskParser` parses the format via regex regardless of whether the plugin is installed, but the Tasks plugin is the standard authoring tool. Tasks authored without the Tasks plugin emoji format will lack due date and priority data.
+> **Note:** The Tasks community plugin is required for structured task authoring (emoji dates 📅 due / 🛫 start / ⏳ scheduled, priorities, completion markers). `TaskParser` parses the format via regex regardless of whether the plugin is installed, but the Tasks plugin is the standard authoring tool. Tasks authored without the Tasks plugin emoji format will lack date and priority data.
 
 ### 3.7 Filter State Persistence
 
@@ -158,8 +158,8 @@ The `TaskParser` (regex-based, Tasks plugin emoji format, no Tasks plugin API de
 
 ## 4. Data Requirements
 
-- Task data is sourced from `QueryService` (`dv.pages()` — all vault pages, excluding `utility/`).
-- `TaskParser` parses task lines using the Tasks plugin emoji format (due dates, priority emojis, completion markers).
+- Task data is sourced from `QueryService` (`dv.pages()` — all vault pages, excluding `utility/`); the dashboard resolves the raw **Dataview task objects** (`file.tasks`) via `TaskQuery.resolve()`.
+- **Dataview** parses the Tasks plugin emoji shorthands into task metadata — `📅 → task.due`, `🛫 → task.start`, `⏳ → task.scheduled`, priority emojis, completion markers — which the dashboard reads directly off each task object. The regex `TaskParser` is **not** on this read path (it serves only the checkbox-toggle write path in §3.6); a task with no date for a dimension simply carries no data for it.
 - `TaskFilterService` applies multi-stage filtering; `TaskSortService` handles sorting.
 - Both services are injected via `TaskProcessorServices` (wired in `main.ts`).
 - Relationship context (project → engagement → client, recurring meeting event → meeting → engagement → client) is resolved using the traversal chains in PRD-001.
@@ -212,5 +212,5 @@ The `TaskParser` (regex-based, Tasks plugin emoji format, no Tasks plugin API de
 
 - Creating new tasks from the dashboard (tasks are created by editing source notes).
 - Editing task text from the dashboard.
-- Custom task parsers or support for non-Tasks-plugin emoji formats beyond what `TaskParser` handles.
+- Custom task parsers or support for non-Tasks-plugin emoji formats beyond the Tasks-plugin emoji shorthands. Dashboard date/priority metadata (📅 due, 🛫 start, ⏳ scheduled) is read from Dataview's parsed task objects; the regex `TaskParser` covers only the checkbox-toggle write path.
 - Syncing task state to external task management tools.

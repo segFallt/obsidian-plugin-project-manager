@@ -33,24 +33,30 @@ import type { TaskRenderHelpers } from "./view-renderer";
 import { DashboardShell } from "./dashboard-shell";
 import type { DashboardShellDeps } from "./dashboard-shell";
 
-// ─── Legacy sort migration map ────────────────────────────────────────────────
+// ─── Sort-by string resolution ────────────────────────────────────────────────
 
 /**
- * Maps legacy sortBy string values to the current SortKey[] format. The keys are
- * the pre-refactor composite strings persisted in saved data and must stay byte-identical.
+ * Maps a string `sortBy` value to the current SortKey[] format. Covers both the
+ * pre-refactor composite strings persisted in saved data (which must stay
+ * byte-identical) and the documented single-field string shorthands, so a block
+ * authored as `sortBy: startDate-asc` resolves the same as the array form.
  */
-const LEGACY_SORT_MAP: Record<string, SortKey[]> = {
+const SORT_BY_STRING_MAP: Record<string, SortKey[]> = {
   "dueDate-asc": [{ field: SORT_FIELD.DUE_DATE, direction: SORT_DIRECTION.ASC }],
   "dueDate-desc": [{ field: SORT_FIELD.DUE_DATE, direction: SORT_DIRECTION.DESC }],
   "priority-asc": [{ field: SORT_FIELD.PRIORITY, direction: SORT_DIRECTION.ASC }],
   "priority-desc": [{ field: SORT_FIELD.PRIORITY, direction: SORT_DIRECTION.DESC }],
+  "startDate-asc": [{ field: SORT_FIELD.START_DATE, direction: SORT_DIRECTION.ASC }],
+  "startDate-desc": [{ field: SORT_FIELD.START_DATE, direction: SORT_DIRECTION.DESC }],
+  "scheduledDate-asc": [{ field: SORT_FIELD.SCHEDULED_DATE, direction: SORT_DIRECTION.ASC }],
+  "scheduledDate-desc": [{ field: SORT_FIELD.SCHEDULED_DATE, direction: SORT_DIRECTION.DESC }],
 };
 
-/** Migrates a persisted `sortBy` value (legacy string or current array) to `SortKey[]`. */
-export function migrateLegacySortBy(raw: unknown): SortKey[] {
+/** Resolves a persisted or authored `sortBy` value (string shorthand or current array) to `SortKey[]`. */
+export function resolveSortBy(raw: unknown): SortKey[] {
   if (!raw) return [];
   if (Array.isArray(raw)) return raw as SortKey[];
-  if (typeof raw === "string") return LEGACY_SORT_MAP[raw] ?? [];
+  if (typeof raw === "string") return SORT_BY_STRING_MAP[raw] ?? [];
   return [];
 }
 
@@ -105,9 +111,9 @@ export class DashboardView {
     const cfg = this.config;
     const saved = this.savedFilters;
 
-    // Migrate legacy sortBy string → SortKey[]
+    // Resolve sortBy (string shorthand or array) → SortKey[]
     const rawSortBy = saved?.sortBy ?? cfg.sortBy;
-    const sortBy: SortKey[] = migrateLegacySortBy(rawSortBy as unknown);
+    const sortBy: SortKey[] = resolveSortBy(rawSortBy as unknown);
 
     // Backward-compat migration: legacy saved state may be a string, an old
     // object with mode/presets fields, the old rangeFrom/rangeTo/includeNoDate shape,

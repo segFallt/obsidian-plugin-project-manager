@@ -1,34 +1,17 @@
 import { describe, it, expect, vi } from "vitest";
-import { DateViewRenderer } from "../../../src/processors/dashboard-views/date-view-renderer";
+import { DateViewRenderer } from "@/processors/dashboard-views/date-view-renderer";
 import { createMockTask } from "../../mocks/dataview-mock";
-import type { ITaskSortService } from "../../../src/services/interfaces";
-import type { TaskListRenderer } from "../../../src/processors/task-list-renderer";
-import type { DashboardFilters, DataviewTask } from "../../../src/types";
-import type { TaskRenderHelpers, ViewRenderContext } from "../../../src/processors/view-renderer";
-import { DEFAULT_DUE_DATE_FILTER } from "../../../src/constants";
+import type { ITaskSortService } from "@/services/interfaces";
+import type { TaskListRenderer } from "@/processors/task-list-renderer";
+import type { DashboardFilters, DataviewTask } from "@/types";
+import type { TaskRenderHelpers, ViewRenderContext } from "@/processors/view-renderer";
+import { VIEW_MODE } from "@/constants";
+import { makeFilters as makeSharedFilters } from "../../helpers/dashboard-filters";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function makeFilters(overrides: Partial<DashboardFilters> = {}): DashboardFilters {
-  return {
-    viewMode: "date",
-    sortBy: [],
-    showCompleted: false,
-    contextFilter: [],
-    dueDateFilter: DEFAULT_DUE_DATE_FILTER,
-    priorityFilter: [],
-    projectStatusFilter: [],
-    inboxStatusFilter: "All",
-    meetingDateFilter: "All",
-    clientFilter: [],
-    engagementFilter: [],
-    includeUnassignedClients: false,
-    includeUnassignedEngagements: false,
-    tagFilter: [],
-    includeUntagged: false,
-    searchText: "",
-    ...overrides,
-  };
+  return makeSharedFilters({ viewMode: VIEW_MODE.DATE, showCompleted: false, ...overrides });
 }
 
 function createRenderer() {

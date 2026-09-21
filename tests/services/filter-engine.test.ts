@@ -10,8 +10,8 @@ import {
 import { createMockTask, createMockDataviewApi } from "../mocks/dataview-mock";
 import { DEFAULT_FOLDERS } from "@/constants";
 import type { FolderSettings } from "@/settings";
-import type { DashboardFilters } from "@/types";
 import type { IEntityHierarchyService } from "@/services/interfaces";
+import { makeFilters } from "../helpers/dashboard-filters";
 
 const folders = DEFAULT_FOLDERS as unknown as FolderSettings;
 
@@ -26,27 +26,6 @@ function makeDeps(): TaskFacetDeps {
   };
 }
 
-function makeFilters(overrides: Partial<DashboardFilters> = {}): DashboardFilters {
-  return {
-    viewMode: "context",
-    sortBy: [],
-    showCompleted: true,
-    contextFilter: [],
-    dueDateFilter: { selectedPresets: [], rangeFrom: null, rangeTo: null },
-    priorityFilter: [],
-    projectStatusFilter: [],
-    inboxStatusFilter: "All",
-    meetingDateFilter: "All",
-    clientFilter: [],
-    engagementFilter: [],
-    includeUnassignedClients: false,
-    includeUnassignedEngagements: false,
-    tagFilter: [],
-    includeUntagged: false,
-    searchText: "",
-    ...overrides,
-  };
-}
 
 describe("FilterEngine — generic primitives", () => {
   it("skips facets with no selection and skips facets whose appliesWhen is false", () => {

@@ -83,6 +83,20 @@ const SORT_COMPARATORS = {
     const bDate = b.due ? String(b.due).substring(0, ISO_DATE_LENGTH) : sentinel;
     return dir * aDate.localeCompare(bDate);
   },
+  [SORT_FIELD.START_DATE]: (a, b, key) => {
+    const dir = key.direction === SORT_DIRECTION.DESC ? -1 : 1;
+    const sentinel = key.direction === SORT_DIRECTION.DESC ? SORT_SENTINEL.MIN : SORT_SENTINEL.MAX;
+    const aDate = a.start ? String(a.start).substring(0, ISO_DATE_LENGTH) : sentinel;
+    const bDate = b.start ? String(b.start).substring(0, ISO_DATE_LENGTH) : sentinel;
+    return dir * aDate.localeCompare(bDate);
+  },
+  [SORT_FIELD.SCHEDULED_DATE]: (a, b, key) => {
+    const dir = key.direction === SORT_DIRECTION.DESC ? -1 : 1;
+    const sentinel = key.direction === SORT_DIRECTION.DESC ? SORT_SENTINEL.MIN : SORT_SENTINEL.MAX;
+    const aDate = a.scheduled ? String(a.scheduled).substring(0, ISO_DATE_LENGTH) : sentinel;
+    const bDate = b.scheduled ? String(b.scheduled).substring(0, ISO_DATE_LENGTH) : sentinel;
+    return dir * aDate.localeCompare(bDate);
+  },
   [SORT_FIELD.PRIORITY]: (a, b, key) => {
     const dir = key.direction === SORT_DIRECTION.DESC ? -1 : 1;
     return dir * (getTaskPriority(a) - getTaskPriority(b));

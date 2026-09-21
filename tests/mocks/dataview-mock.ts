@@ -85,6 +85,8 @@ export function createMockTask(data: Partial<DataviewTask> & { path: string }): 
     line: data.line ?? 0,
     link: data.link ?? { path: data.path, type: "file" },
     due: data.due,
+    start: data.start,
+    scheduled: data.scheduled,
     tags: data.tags ?? [],
     ...data,
   };
