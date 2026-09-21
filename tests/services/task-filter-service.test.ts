@@ -1,38 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { TaskFilterService } from "@/services/task-filter-service";
 import { createMockTask, createMockDataviewApi, createMockPage } from "../mocks/dataview-mock";
-import type { DashboardFilters, DueDateFilter } from "@/types";
-import { DEFAULT_FOLDERS, DEFAULT_DUE_DATE_FILTER } from "@/constants";
+import type { DueDateFilter } from "@/types";
+import { DEFAULT_FOLDERS } from "@/constants";
 import type { FolderSettings } from "@/settings";
+import { makeFilters } from "../helpers/dashboard-filters";
 
 const defaultFolders = DEFAULT_FOLDERS as unknown as FolderSettings;
 
 // ─── Test helpers ─────────────────────────────────────────────────────────
-
-/** Default DueDateFilter that shows all tasks (no presets, no range). */
-const ALL_DUE_DATE_FILTER: DueDateFilter = { selectedPresets: [], rangeFrom: null, rangeTo: null };
-
-function makeFilters(overrides: Partial<DashboardFilters> = {}): DashboardFilters {
-  return {
-    viewMode: "context",
-    sortBy: [],
-    showCompleted: true,
-    contextFilter: [],
-    dueDateFilter: ALL_DUE_DATE_FILTER,
-    priorityFilter: [],
-    projectStatusFilter: [],
-    inboxStatusFilter: "All",
-    meetingDateFilter: "All",
-    clientFilter: [],
-    engagementFilter: [],
-    includeUnassignedClients: false,
-    includeUnassignedEngagements: false,
-    tagFilter: [],
-    includeUntagged: false,
-    searchText: "",
-    ...overrides,
-  };
-}
 
 // Minimal IEntityHierarchyService mock
 function makeHierarchyService(overrides: Partial<{

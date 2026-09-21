@@ -15,7 +15,7 @@ mode: dashboard | by-project
 # Optional — override initial state:
 viewMode: context | date | priority | tag
 sortBy:
-  - field: dueDate          # dueDate | priority | alphabetical | context | createdDate
+  - field: dueDate          # dueDate | startDate | scheduledDate | priority | alphabetical | context | createdDate
     direction: asc          # asc | desc
 showCompleted: false
 dueDateFilter:
@@ -63,7 +63,7 @@ The filter drawer contains:
 
 | Section | Options |
 |---------|---------|
-| **Sort Order** | Up to 3 sort keys; fields: Due Date, Priority, Alphabetical, Context, Created Date; per-key direction (↑/↓); drag to reorder |
+| **Sort Order** | Up to 3 sort keys; fields: Due Date, Start Date, Scheduled Date, Priority, Alphabetical, Context, Created Date; per-key direction (↑/↓); drag to reorder |
 | **Completed Tasks** | Toggle to show/hide completed tasks |
 | **Due Date** | Preset pills: Today, Tomorrow, This Week, Next Week, Overdue, No Date (multiple can be active, OR logic); or a custom From / To date range |
 | **Priority** | Urgent, High, Medium, Low |

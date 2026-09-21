@@ -256,6 +256,8 @@ export interface DataviewTask {
   line: number;
   link: DataviewLink;
   due?: unknown;
+  start?: unknown;
+  scheduled?: unknown;
   tags?: string[];
   [key: string]: unknown;
 }
