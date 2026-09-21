@@ -14,6 +14,7 @@ mode: dashboard | by-project
 
 # Optional — override initial state:
 viewMode: context | date | priority | tag
+groupByDateField: due     # due | start | scheduled — which date the `date` view groups by (default: due)
 sortBy:
   - field: dueDate          # dueDate | startDate | scheduledDate | priority | alphabetical | context | createdDate
     direction: asc          # asc | desc
@@ -39,6 +40,7 @@ includeUntagged: false
 |-----------|----------|---------|-------------|
 | `mode` | Yes | — | `dashboard` for all-vault view; `by-project` for project-grouped view |
 | `viewMode` | No | Setting default | Initial grouping mode (dashboard mode only) |
+| `groupByDateField` | No | `due` | Which date field the `date` view groups by: `due`, `start`, or `scheduled` |
 | `sortBy` | No | No sort | Array of up to 3 sort keys with direction |
 | `showCompleted` | No | Setting default | Include completed tasks on first load |
 | `dueDateFilter.selectedPresets` | No | None | One or more preset due date filters pre-selected on load |
@@ -58,7 +60,8 @@ All vault tasks are shown (the `utility/` folder is excluded). A toolbar appears
 
 ### Toolbar
 
-- **View mode tabs** — switch grouping between Context, Due Date, Priority, and Tag
+- **View mode tabs** — switch grouping between Context, Date, Priority, and Tag
+- **Group by dropdown** (Date view only) — bucket the Date view by Due (default), Start, or Scheduled date
 - **Search input** — live text filter on task content
 - **⚙ Filters button** — opens/closes the filter drawer; shows a count badge when filters are active
 - **✕ Clear All Filters** — appears when any filter is active; resets all filters at once
@@ -94,7 +97,7 @@ The filter drawer contains:
 - **Recurring meeting tasks**: Parent Recurring Meeting → Event file → Tasks.
 - **All other contexts**: File → Tasks.
 
-**Due Date view** groups tasks by their due date (overdue, today, this week, future, no date).
+**Date view** groups tasks into six buckets — Overdue, Today, Tomorrow, This Week, Upcoming, No Date — using a **Group by** dropdown to choose the date field: **Due** (default), **Start** (🛫), or **Scheduled** (⏳). All three fields use the same boundaries; only the bucket labels change (e.g. "Started" / "Past Scheduled" instead of "Overdue"). The choice defaults to Due (so existing blocks are unchanged) and is remembered per block. A task with no value for the chosen field lands in that field's "No … Date" bucket.
 
 **Priority view** groups tasks by priority: Urgent → High → Medium → Low → No Priority.
 

@@ -6,7 +6,7 @@ import type { DataviewApi, DataviewTask, SavedDashboardFilters } from "@/types";
 import type { TaskProcessorServices, RegisterProcessorFn } from "@/plugin-context";
 import type { IEntityQuery } from "@/services/entity-query";
 import type { TaskListRenderer } from "@/processors/task-list-renderer";
-import { DEFAULT_FOLDERS, DUE_DATE_PRESETS } from "@/constants";
+import { DEFAULT_FOLDERS, DUE_DATE_PRESETS, GROUP_BY_DATE_FIELD, VIEW_MODE } from "@/constants";
 import { TaskFilterService } from "@/services/task-filter-service";
 import { TaskSortService } from "@/services/task-sort-service";
 import { makeFilters } from "../helpers/dashboard-filters";
@@ -676,6 +676,89 @@ describe("pm-tasks-dashboard — start/scheduled persistence & backward compatib
     expect(lastSaved.startDateFilter.selectedPresets).toContain("No Start Date");
     // Both new fields are always present in the persisted payload.
     expect(lastSaved.scheduledDateFilter).toBeTruthy();
+  });
+});
+
+describe("pm-tasks-dashboard — Date view group-by (#99)", () => {
+  function savedFrom(overrides: Parameters<typeof makeFilters>[0] = {}): SavedDashboardFilters {
+    const { searchText: _searchText, ...saved } = makeFilters(overrides);
+    return saved;
+  }
+
+  function mountDashboard(saved: SavedDashboardFilters | null, onSave = vi.fn()) {
+    const { services } = createMockServices(null);
+    const container = document.createElement("div");
+    const entityQuery = { resolve: () => [] } as unknown as IEntityQuery<DataviewTask>;
+    const renderer = {} as unknown as TaskListRenderer;
+    const view = new DashboardView(
+      container,
+      { mode: "dashboard" },
+      services,
+      services.sortService,
+      renderer,
+      entityQuery,
+      saved,
+      onSave
+    );
+    view.render();
+    return { view, container, onSave };
+  }
+
+  const selectOf = (container: HTMLElement) =>
+    container.querySelector<HTMLSelectElement>(".pm-tasks-toolbar__group-by-select")!;
+
+  it("defaults the group-by field to Due when no state is saved", () => {
+    const { container } = mountDashboard(null);
+    expect(selectOf(container).value).toBe(GROUP_BY_DATE_FIELD.DUE);
+  });
+
+  it("restores a persisted group-by selection across reload", () => {
+    const saved = savedFrom({ viewMode: VIEW_MODE.DATE, groupByDateField: GROUP_BY_DATE_FIELD.SCHEDULED });
+    const { container } = mountDashboard(saved);
+    expect(selectOf(container).value).toBe(GROUP_BY_DATE_FIELD.SCHEDULED);
+  });
+
+  it("writes the chosen group-by field into the persisted state (round-trip)", () => {
+    const onSave = vi.fn();
+    const { container } = mountDashboard(savedFrom({ viewMode: VIEW_MODE.DATE }), onSave);
+
+    const select = selectOf(container);
+    select.value = GROUP_BY_DATE_FIELD.START;
+    select.dispatchEvent(new Event("change"));
+
+    const lastSaved = onSave.mock.calls.at(-1)?.[0] as SavedDashboardFilters;
+    expect(lastSaved.groupByDateField).toBe(GROUP_BY_DATE_FIELD.START);
+  });
+
+  it("loads pre-feature saved state (no group-by field) without error and groups by Due", () => {
+    const preFeatureSaved = {
+      viewMode: "date",
+      sortBy: [],
+      showCompleted: false,
+      contextFilter: [],
+      dueDateFilter: { selectedPresets: [], rangeFrom: null, rangeTo: null },
+      priorityFilter: [],
+      projectStatusFilter: [],
+      inboxStatusFilter: "All",
+      meetingDateFilter: "All",
+      clientFilter: [],
+      engagementFilter: [],
+      includeUnassignedClients: false,
+      includeUnassignedEngagements: false,
+      tagFilter: [],
+      includeUntagged: false,
+    } as unknown as SavedDashboardFilters;
+
+    const { container } = mountDashboard(preFeatureSaved);
+    expect(selectOf(container).value).toBe(GROUP_BY_DATE_FIELD.DUE);
+  });
+
+  it("shows the group-by control only while the Date view is active", () => {
+    const { container: dateContainer } = mountDashboard(savedFrom({ viewMode: VIEW_MODE.DATE }));
+    expect(selectOf(dateContainer).closest<HTMLElement>(".pm-tasks-toolbar__group-by")!.style.display).not.toBe("none");
+
+    const { container: ctxContainer } = mountDashboard(savedFrom({ viewMode: VIEW_MODE.CONTEXT }));
+    expect(selectOf(ctxContainer).closest<HTMLElement>(".pm-tasks-toolbar__group-by")!.style.display).toBe("none");
   });
 });
 
