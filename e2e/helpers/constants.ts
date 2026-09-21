@@ -10,6 +10,9 @@ import { COMMAND_IDS } from '../../src/command-ids';
 /** The plugin's manifest id — the namespace Obsidian keys the plugin and its commands under. */
 export const PLUGIN_ID = 'engagement-project-manager';
 
+/** The plugin's manifest name — the display name Obsidian gives the registered settings tab. */
+export const PLUGIN_NAME = 'Engagement Project Manager';
+
 /** Prefix Obsidian applies to bare command ids at runtime (`<manifest id>:`). */
 export const COMMAND_PREFIX = `${PLUGIN_ID}:`;
 
@@ -24,6 +27,18 @@ export const SCAFFOLD_VAULT_COMMAND_ID = `${COMMAND_PREFIX}${COMMAND_IDS.SCAFFOL
 
 /** Selector for Obsidian's workspace root — present once the vault UI has rendered. */
 export const WORKSPACE_SELECTOR = '.workspace';
+
+/** Selector for an individual control rendered by a settings tab's `display()`. */
+export const SETTING_ITEM_SELECTOR = '.setting-item';
+
+/** Selector for the section headings a settings tab's `display()` emits. */
+export const SETTINGS_HEADING_SELECTOR = 'h2, h3';
+
+/** Top-level heading the plugin's settings tab renders. */
+export const SETTINGS_HEADING_MAIN = 'Project Manager Settings';
+
+/** Section heading the plugin's settings tab renders for its folder-path controls. */
+export const SETTINGS_HEADING_FOLDER_PATHS = 'Folder Paths';
 
 /** Timeout for the plugin's commands to register after load (ms). */
 export const PLUGIN_READY_TIMEOUT_MS = 15_000;

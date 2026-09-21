@@ -5,6 +5,15 @@ import {
   setupObsidianSpec,
   teardownObsidianSpec,
 } from '../helpers/obsidian-spec-setup';
+import {
+  PLUGIN_ID,
+  PLUGIN_NAME,
+  SETTING_ITEM_SELECTOR,
+  SETTINGS_HEADING_MAIN,
+  SETTINGS_HEADING_FOLDER_PATHS,
+  SETTINGS_HEADING_SELECTOR,
+} from '../helpers/constants';
+import { ObsidianWindow } from '../helpers/types';
 
 let ctx: ObsidianSpecContext;
 let window: Page;
@@ -22,54 +31,49 @@ test.beforeEach(async () => {
   window = await ctx.getPage();
 });
 
-async function openSettings(win: Page): Promise<void> {
-  await win.evaluate(() => {
-    (window as any).app.commands.executeCommandById('app:open-settings');
+test('Plugin registers its settings tab under the manifest id', async () => {
+  const tabIds = await window.evaluate(() => {
+    const setting = (window as unknown as ObsidianWindow).app?.setting;
+    return setting?.pluginTabs.map((tab) => tab.id) ?? [];
   });
-  await win.waitForSelector('.modal-container .modal.mod-settings', {
-    timeout: 10_000,
-  });
-}
 
-async function navigateToPluginSettings(win: Page): Promise<void> {
-  await openSettings(win);
+  expect(tabIds).toContain(PLUGIN_ID);
+});
 
-  // Click the Project Manager settings tab in the sidebar
-  const tab = await win.waitForSelector(
-    '.vertical-tab-nav-item:has-text("Project Manager")',
-    { timeout: 5_000 },
+test('Registered settings tab carries the plugin manifest name', async () => {
+  const tabName = await window.evaluate((pluginId: string) => {
+    const setting = (window as unknown as ObsidianWindow).app?.setting;
+    return setting?.pluginTabs.find((tab) => tab.id === pluginId)?.name ?? null;
+  }, PLUGIN_ID);
+
+  expect(tabName).toBe(PLUGIN_NAME);
+});
+
+test('Settings tab renders its content', async () => {
+  const rendered = await window.evaluate(
+    ({ pluginId, itemSelector, headingSelector }) => {
+      const setting = (window as unknown as ObsidianWindow).app?.setting;
+      const tab = setting?.pluginTabs.find((candidate) => candidate.id === pluginId);
+      if (!tab) return null;
+
+      tab.display();
+      const { containerEl } = tab;
+      return {
+        settingItemCount: containerEl.querySelectorAll(itemSelector).length,
+        headings: Array.from(containerEl.querySelectorAll(headingSelector)).map(
+          (heading) => heading.textContent ?? '',
+        ),
+      };
+    },
+    {
+      pluginId: PLUGIN_ID,
+      itemSelector: SETTING_ITEM_SELECTOR,
+      headingSelector: SETTINGS_HEADING_SELECTOR,
+    },
   );
-  await tab.click();
-}
 
-test('Settings modal opens', async () => {
-  await openSettings(window);
-
-  const modal = await window.$('.modal.mod-settings');
-  expect(modal).not.toBeNull();
-
-  await window.keyboard.press('Escape');
-});
-
-test('Project Manager settings tab is present', async () => {
-  await openSettings(window);
-
-  const tab = await window.$('.vertical-tab-nav-item:has-text("Project Manager")');
-  expect(tab).not.toBeNull();
-
-  await window.keyboard.press('Escape');
-});
-
-test('Project Manager settings tab renders content', async () => {
-  await navigateToPluginSettings(window);
-
-  // Settings content pane should be visible
-  const content = await window.$('.vertical-tab-content');
-  expect(content).not.toBeNull();
-
-  const text = await content!.textContent();
-  // Should contain some project-manager-specific settings text
-  expect(text).toBeTruthy();
-
-  await window.keyboard.press('Escape');
+  expect(rendered).not.toBeNull();
+  expect(rendered!.settingItemCount).toBeGreaterThan(0);
+  expect(rendered!.headings).toContain(SETTINGS_HEADING_MAIN);
+  expect(rendered!.headings).toContain(SETTINGS_HEADING_FOLDER_PATHS);
 });
