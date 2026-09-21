@@ -7,6 +7,8 @@ const MAX_SORT_KEYS = 3;
 /** Display names for each sort field. */
 const SORT_FIELD_LABELS: Record<SortField, string> = {
   [SORT_FIELD.DUE_DATE]: "Due Date",
+  [SORT_FIELD.START_DATE]: "Start Date",
+  [SORT_FIELD.SCHEDULED_DATE]: "Scheduled Date",
   [SORT_FIELD.PRIORITY]: "Priority",
   [SORT_FIELD.ALPHABETICAL]: "Alphabetical",
   [SORT_FIELD.CONTEXT]: "Context",

@@ -1,35 +1,18 @@
 import { describe, it, expect, vi } from "vitest";
-import { ContextViewRenderer } from "../../../src/processors/dashboard-views/context-view-renderer";
+import { ContextViewRenderer } from "@/processors/dashboard-views/context-view-renderer";
 import { createMockTask, createMockDataviewApi } from "../../mocks/dataview-mock";
-import { DEFAULT_FOLDERS, DEFAULT_DUE_DATE_FILTER, CONTEXT } from "../../../src/constants";
-import { getTaskContext, getParentProjectPath, getParentRecurringMeetingPath } from "../../../src/utils/task-utils";
-import type { ITaskSortService } from "../../../src/services/interfaces";
-import type { TaskListRenderer } from "../../../src/processors/task-list-renderer";
-import type { DashboardFilters, DataviewTask, DataviewApi } from "../../../src/types";
-import type { TaskRenderHelpers, ViewRenderContext } from "../../../src/processors/view-renderer";
+import { DEFAULT_FOLDERS, CONTEXT, VIEW_MODE } from "@/constants";
+import { getTaskContext, getParentProjectPath, getParentRecurringMeetingPath } from "@/utils/task-utils";
+import { makeFilters as makeSharedFilters } from "../../helpers/dashboard-filters";
+import type { ITaskSortService } from "@/services/interfaces";
+import type { TaskListRenderer } from "@/processors/task-list-renderer";
+import type { DashboardFilters, DataviewTask, DataviewApi } from "@/types";
+import type { TaskRenderHelpers, ViewRenderContext } from "@/processors/view-renderer";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function makeFilters(overrides: Partial<DashboardFilters> = {}): DashboardFilters {
-  return {
-    viewMode: "context",
-    sortBy: [],
-    showCompleted: false,
-    contextFilter: [],
-    dueDateFilter: DEFAULT_DUE_DATE_FILTER,
-    priorityFilter: [],
-    projectStatusFilter: [],
-    inboxStatusFilter: "All",
-    meetingDateFilter: "All",
-    clientFilter: [],
-    engagementFilter: [],
-    includeUnassignedClients: false,
-    includeUnassignedEngagements: false,
-    tagFilter: [],
-    includeUntagged: false,
-    searchText: "",
-    ...overrides,
-  };
+  return makeSharedFilters({ viewMode: VIEW_MODE.CONTEXT, showCompleted: false, ...overrides });
 }
 
 function createRenderer() {
