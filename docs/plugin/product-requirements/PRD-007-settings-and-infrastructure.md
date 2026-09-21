@@ -173,7 +173,7 @@ BRAT checks for updates automatically. Manual update: Settings → BRAT → Chec
 
 ### 7.3 Manual Installation (Beta Testing)
 
-Download `main.js` and `manifest.json` from a GitHub Release and place them in `.obsidian/plugins/project-manager/` in the vault.
+Download `main.js` and `manifest.json` from a GitHub Release and place them in `.obsidian/plugins/engagement-project-manager/` in the vault.
 
 ### 7.4 Future: Community Plugins
 
@@ -185,7 +185,7 @@ Once listed in the Obsidian Community Plugin directory, installation will be via
 
 For users migrating from the predecessor template vault (QuickAdd + Templater + Meta Bind):
 
-1. Install and enable Project Manager plugin and Dataview.
+1. Install and enable Engagement Project Manager plugin and Dataview.
 2. Optionally disable QuickAdd, Templater, and Meta Bind (the plugin replaces their functionality).
 3. Replace code blocks in existing notes using find-and-replace:
    - `meta-bind-embed` blocks → `pm-properties` blocks.

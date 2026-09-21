@@ -1,6 +1,6 @@
 # Commands Reference
 
-All commands are accessible via the command palette (`Ctrl/Cmd + P`) — search for **PM:** to filter to Project Manager commands. Many commands can also be triggered from action buttons embedded in entity notes (see [`pm-actions`](04-processors/pm-actions.md)).
+All commands are accessible via the command palette (`Ctrl/Cmd + P`) — search for **PM:** to filter to Engagement Project Manager commands. Many commands can also be triggered from action buttons embedded in entity notes (see [`pm-actions`](04-processors/pm-actions.md)).
 
 ## Invocation Methods
 

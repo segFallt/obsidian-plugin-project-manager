@@ -1,6 +1,6 @@
 # Settings Reference
 
-Open **Settings → Project Manager** to configure the plugin.
+Open **Settings → Engagement Project Manager** to configure the plugin.
 
 ![Settings overview](assets/settings-overview.png)
 
@@ -49,7 +49,7 @@ Configures the vault folder used for each entity type. All paths are relative to
 
 | Setting | Default | Description |
 |---------|---------|-------------|
-| Show ribbon icons | On | Show Project Manager shortcut icons in the left ribbon bar. Disable if you prefer a cleaner sidebar. |
+| Show ribbon icons | On | Show Engagement Project Manager shortcut icons in the left ribbon bar. Disable if you prefer a cleaner sidebar. |
 | Default task view mode | Context | Default grouping mode for the task dashboard when it first loads. Options: **Context** (by project/meeting/etc.), **Due Date**, **Priority**, **Tag**. |
 | Show completed tasks by default | Off | When on, completed tasks are shown in the task dashboard on first load. |
 

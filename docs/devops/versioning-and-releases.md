@@ -203,7 +203,7 @@ Runs on every push to `main` when `manifest.json` changes. Entirely self-contain
 - Only stable releases appear here — this is intentional and matches Obsidian's expectations
 
 ### Manual install (beta testing)
-Users can manually install a beta by downloading `main.js` and `manifest.json` from a beta GitHub Release and placing them in their vault's `.obsidian/plugins/project-manager/` folder.
+Users can manually install a beta by downloading `main.js` and `manifest.json` from a beta GitHub Release and placing them in their vault's `.obsidian/plugins/engagement-project-manager/` folder.
 
 ---
 

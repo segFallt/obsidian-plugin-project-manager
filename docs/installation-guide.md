@@ -1,6 +1,6 @@
 # Installation Guide
 
-The Project Manager plugin is not yet listed in the Obsidian Community Plugin directory. Install it using **BRAT** (Beta Reviewer's Auto-update Tester).
+The Engagement Project Manager plugin is not yet listed in the Obsidian Community Plugin directory. Install it using **BRAT** (Beta Reviewer's Auto-update Tester).
 
 ## Requirements
 
@@ -12,7 +12,7 @@ The Project Manager plugin is not yet listed in the Obsidian Community Plugin di
 
 ## Step 1: Install Required Dependency Plugins
 
-Project Manager requires two community plugins to be installed and enabled before you enable Project Manager itself.
+Engagement Project Manager requires two community plugins to be installed and enabled before you enable Engagement Project Manager itself.
 
 ### Dataview
 
@@ -52,7 +52,7 @@ Project Manager requires two community plugins to be installed and enabled befor
 ## Step 4: Enable the Plugin
 
 1. Go to **Settings → Community plugins**.
-2. Find **Project Manager** in the list and toggle it on.
+2. Find **Engagement Project Manager** in the list and toggle it on.
 
 ---
 
