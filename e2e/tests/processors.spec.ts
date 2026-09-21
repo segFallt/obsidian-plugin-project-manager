@@ -1,61 +1,64 @@
 import { test, expect } from '@playwright/test';
-import { launchObsidian, closeObsidian } from '../helpers/obsidian-app';
-import { createTempVault, removeTempVault } from '../helpers/vault-manager';
-import { dismissFirstLaunchDialogs } from '../helpers/first-launch';
 import { Page } from '@playwright/test';
-import { ObsidianApp } from '../helpers/obsidian-app';
+import {
+  ObsidianSpecContext,
+  setupObsidianSpec,
+  teardownObsidianSpec,
+} from '../helpers/obsidian-spec-setup';
 import { writeFileSync } from 'fs';
 import { resolve } from 'path';
 
-let vaultPath: string;
-let app: ObsidianApp;
+/** Name (without extension) of the seeded note exercising the code-block processors. */
+const CODE_BLOCK_TEST_NOTE = 'code-block-test';
+
+/** Settle time after opening a note for its code blocks to render (ms). */
+const NOTE_RENDER_SETTLE_MS = 2_000;
+
+let ctx: ObsidianSpecContext;
 let window: Page;
 
 test.beforeAll(async () => {
-  vaultPath = createTempVault();
+  ctx = await setupObsidianSpec({
+    seedVault: (vaultPath) => {
+      // Seed a note with each code block type before launch so it is indexed at startup.
+      writeFileSync(
+        resolve(vaultPath, `${CODE_BLOCK_TEST_NOTE}.md`),
+        [
+          '---',
+          'type: project',
+          'name: Test Project',
+          '---',
+          '',
+          '```pm-table',
+          'type: client',
+          '```',
+          '',
+          '```pm-properties',
+          '```',
+          '',
+          '```pm-actions',
+          '```',
+        ].join('\n'),
+      );
+    },
+  });
 
-  // Create a test note with each code block type
-  writeFileSync(
-    resolve(vaultPath, 'code-block-test.md'),
-    [
-      '---',
-      'type: project',
-      'name: Test Project',
-      '---',
-      '',
-      '```pm-table',
-      'type: client',
-      '```',
-      '',
-      '```pm-properties',
-      '```',
-      '',
-      '```pm-actions',
-      '```',
-    ].join('\n'),
-  );
-
-  const launched = await launchObsidian();
-  app = launched;
-  window = launched.window;
-  await dismissFirstLaunchDialogs(window);
-  await window.waitForSelector('.workspace', { timeout: 30_000 });
+  window = await ctx.getPage();
 
   // Open the test note via the internal API
-  await window.evaluate(() => {
+  await window.evaluate((notePath: string) => {
     const obsApp = (window as any).app;
-    obsApp.workspace.openLinkText('code-block-test', '/', false);
-  });
-  await window.waitForTimeout(2_000);
+    obsApp.workspace.openLinkText(notePath, '/', false);
+  }, CODE_BLOCK_TEST_NOTE);
+  await window.waitForTimeout(NOTE_RENDER_SETTLE_MS);
 });
 
 test.afterAll(async () => {
-  if (app) await closeObsidian(app);
-  if (vaultPath) removeTempVault(vaultPath);
+  await teardownObsidianSpec(ctx);
 });
 
 test.beforeEach(async () => {
-  window = await app.getVaultPage();
+  window = await ctx.getPage();
 });
 
 test('pm-table code block renders a container element', async () => {
@@ -67,7 +70,7 @@ test('pm-table code block renders a container element', async () => {
   const content = await window.evaluate(() => {
     return (window as any).app.workspace.getActiveFile()?.basename;
   });
-  expect(content).toBe('code-block-test');
+  expect(content).toBe(CODE_BLOCK_TEST_NOTE);
 });
 
 test('pm-properties code block renders in reading view', async () => {

@@ -1,7 +1,10 @@
 import { test, expect } from '@playwright/test';
-import { launchObsidian, closeObsidian } from '../helpers/obsidian-app';
-import { createTempVault, removeTempVault } from '../helpers/vault-manager';
-import { dismissFirstLaunchDialogs } from '../helpers/first-launch';
+import { Page } from '@playwright/test';
+import {
+  ObsidianSpecContext,
+  setupObsidianSpec,
+  teardownObsidianSpec,
+} from '../helpers/obsidian-spec-setup';
 import { executeCommandById } from '../helpers/command-palette';
 import {
   waitForModal,
@@ -9,33 +12,29 @@ import {
   fillModalInput,
   submitModal,
 } from '../helpers/modal-helpers';
-import { Page } from '@playwright/test';
-import { ObsidianApp } from '../helpers/obsidian-app';
+import {
+  CREATE_CLIENT_COMMAND_ID,
+  CREATE_ENGAGEMENT_COMMAND_ID,
+} from '../helpers/constants';
 
-let vaultPath: string;
-let app: ObsidianApp;
+let ctx: ObsidianSpecContext;
 let window: Page;
 
 test.beforeAll(async () => {
-  vaultPath = createTempVault();
-  const launched = await launchObsidian();
-  app = launched;
-  window = launched.window;
-  await dismissFirstLaunchDialogs(window);
-  await window.waitForSelector('.workspace', { timeout: 30_000 });
+  ctx = await setupObsidianSpec();
+  window = await ctx.getPage();
 });
 
 test.afterAll(async () => {
-  if (app) await closeObsidian(app);
-  if (vaultPath) removeTempVault(vaultPath);
+  await teardownObsidianSpec(ctx);
 });
 
 test.beforeEach(async () => {
-  window = await app.getVaultPage();
+  window = await ctx.getPage();
 });
 
 test('InputModal (create-client) renders input fields', async () => {
-  await executeCommandById(window, 'project-manager:create-client');
+  await executeCommandById(window, CREATE_CLIENT_COMMAND_ID);
   await waitForModal(window);
 
   const inputs = await window.$$('.modal input, .modal textarea');
@@ -45,7 +44,7 @@ test('InputModal (create-client) renders input fields', async () => {
 });
 
 test('InputModal (create-client) can be filled and submitted', async () => {
-  await executeCommandById(window, 'project-manager:create-client');
+  await executeCommandById(window, CREATE_CLIENT_COMMAND_ID);
   await waitForModal(window);
 
   await fillModalInput(window, 'e.g. Acme Corp', 'Modal Test Client');
@@ -58,7 +57,7 @@ test('InputModal (create-client) can be filled and submitted', async () => {
 });
 
 test('EntityCreationModal (create-engagement) closes on Escape', async () => {
-  await executeCommandById(window, 'project-manager:create-engagement');
+  await executeCommandById(window, CREATE_ENGAGEMENT_COMMAND_ID);
   await waitForModal(window);
 
   await window.keyboard.press('Escape');
@@ -69,7 +68,7 @@ test('EntityCreationModal (create-engagement) closes on Escape', async () => {
 });
 
 test('Create Engagement modal shows client selector', async () => {
-  await executeCommandById(window, 'project-manager:create-engagement');
+  await executeCommandById(window, CREATE_ENGAGEMENT_COMMAND_ID);
   await waitForModal(window);
 
   // Engagement requires selecting a parent client

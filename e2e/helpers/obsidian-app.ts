@@ -1,8 +1,17 @@
 import { spawn, ChildProcess } from 'child_process';
 import { chromium, Browser, Page } from '@playwright/test';
 import { OBSIDIAN_CONFIG_DIR } from './vault-manager';
+import { LIVE_PAGE_REACQUIRE_ATTEMPTS, REACQUIRE_BACKOFF_MS } from './constants';
 
-export interface ObsidianApp {
+/**
+ * Anything able to hand back the current live renderer page. `ObsidianApp`
+ * satisfies this; the screenshot tool supplies its own implementation.
+ */
+export interface LivePageProvider {
+  getVaultPage(): Promise<Page>;
+}
+
+export interface ObsidianApp extends LivePageProvider {
   browser: Browser;
   window: Page;
   childProcess: ChildProcess;
@@ -18,6 +27,52 @@ export interface ObsidianApp {
 
 /** Timeout for CDP WebSocket endpoint discovery on Obsidian startup. */
 const CDP_TIMEOUT_MS = 15_000;
+
+/** Matches Playwright's lifecycle error thrown when a wait runs on a closed page. */
+const PAGE_CLOSED_ERROR_PATTERN = /has been closed|Target (page|closed)/i;
+
+function isPageClosedError(err: unknown): boolean {
+  const message = err instanceof Error ? err.message : String(err);
+  return PAGE_CLOSED_ERROR_PATTERN.test(message);
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * The single home for renderer-replacement resilience.
+ *
+ * Obtains the current live page via `provider.getVaultPage()`, runs `op` against
+ * it, and — if `op` fails because the renderer replaced the page mid-wait — re-acquires
+ * the new live page and retries within a bounded attempt/backoff budget. Any error
+ * that is not a page-closed lifecycle error is rethrown immediately; exhausting the
+ * budget throws a clear diagnostic.
+ */
+export async function waitOnLivePage<T>(
+  provider: LivePageProvider,
+  op: (page: Page) => Promise<T>,
+): Promise<T> {
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= LIVE_PAGE_REACQUIRE_ATTEMPTS; attempt++) {
+    const page = await provider.getVaultPage();
+    try {
+      return await op(page);
+    } catch (err) {
+      if (!isPageClosedError(err)) {
+        throw err;
+      }
+      lastError = err;
+      await delay(REACQUIRE_BACKOFF_MS);
+    }
+  }
+  const detail = lastError instanceof Error ? lastError.message : String(lastError);
+  throw new Error(
+    `waitOnLivePage: the renderer page kept closing across ` +
+      `${LIVE_PAGE_REACQUIRE_ATTEMPTS} attempts, so the operation never completed on a live page. ` +
+      `Last error: ${detail}`,
+  );
+}
 
 /**
  * Launch Obsidian via spawn() + CDP.

@@ -1,30 +1,25 @@
 import { test, expect } from '@playwright/test';
-import { launchObsidian, closeObsidian } from '../helpers/obsidian-app';
-import { createTempVault, removeTempVault } from '../helpers/vault-manager';
-import { dismissFirstLaunchDialogs } from '../helpers/first-launch';
 import { Page } from '@playwright/test';
-import { ObsidianApp } from '../helpers/obsidian-app';
+import {
+  ObsidianSpecContext,
+  setupObsidianSpec,
+  teardownObsidianSpec,
+} from '../helpers/obsidian-spec-setup';
 
-let vaultPath: string;
-let app: ObsidianApp;
+let ctx: ObsidianSpecContext;
 let window: Page;
 
 test.beforeAll(async () => {
-  vaultPath = createTempVault();
-  const launched = await launchObsidian();
-  app = launched;
-  window = launched.window;
-  await dismissFirstLaunchDialogs(window);
-  await window.waitForSelector('.workspace', { timeout: 30_000 });
+  ctx = await setupObsidianSpec();
+  window = await ctx.getPage();
 });
 
 test.afterAll(async () => {
-  if (app) await closeObsidian(app);
-  if (vaultPath) removeTempVault(vaultPath);
+  await teardownObsidianSpec(ctx);
 });
 
 test.beforeEach(async () => {
-  window = await app.getVaultPage();
+  window = await ctx.getPage();
 });
 
 async function openSettings(win: Page): Promise<void> {
