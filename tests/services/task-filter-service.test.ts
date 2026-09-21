@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { TaskFilterService } from "@/services/task-filter-service";
 import { createMockTask, createMockDataviewApi, createMockPage } from "../mocks/dataview-mock";
-import type { DueDateFilter } from "@/types";
-import { DEFAULT_FOLDERS } from "@/constants";
+import type { DueDateFilter, StartDateFilter, ScheduledDateFilter } from "@/types";
+import { DEFAULT_FOLDERS, START_DATE_PRESET, SCHEDULED_DATE_PRESET } from "@/constants";
 import type { FolderSettings } from "@/settings";
 import { makeFilters } from "../helpers/dashboard-filters";
 
@@ -760,5 +760,97 @@ describe("TaskFilterService.matchesTagFilter", () => {
     expect(service.matchesTagFilter(task, [], true)).toBe(true);
     expect(service.matchesTagFilter(task, ["#work"], false)).toBe(false);
     expect(service.matchesTagFilter(task, ["#work"], true)).toBe(true);
+  });
+});
+
+// ─── matchesStartDateFilter / matchesScheduledDateFilter ──────────────────────
+
+describe("TaskFilterService.matchesStartDateFilter", () => {
+  const noStart = START_DATE_PRESET.NO_DATE;
+
+  it("inactive filter matches all tasks", () => {
+    const filter: StartDateFilter = { selectedPresets: [], rangeFrom: null, rangeTo: null };
+    expect(service.matchesStartDateFilter(createMockTask({ path: "t.md", start: "2030-01-01" }), filter)).toBe(true);
+    expect(service.matchesStartDateFilter(createMockTask({ path: "t.md" }), filter)).toBe(true);
+  });
+
+  it("custom range matches only in-range start dates (inclusive)", () => {
+    const filter: StartDateFilter = { selectedPresets: [], rangeFrom: "2030-01-01", rangeTo: "2030-01-31" };
+    expect(service.matchesStartDateFilter(createMockTask({ path: "t.md", start: "2030-01-01" }), filter)).toBe(true);
+    expect(service.matchesStartDateFilter(createMockTask({ path: "t.md", start: "2030-01-31" }), filter)).toBe(true);
+    expect(service.matchesStartDateFilter(createMockTask({ path: "t.md", start: "2030-02-01" }), filter)).toBe(false);
+    expect(service.matchesStartDateFilter(createMockTask({ path: "t.md" }), filter)).toBe(false);
+  });
+
+  it("no-date preset matches only undated tasks", () => {
+    const filter: StartDateFilter = { selectedPresets: [noStart], rangeFrom: null, rangeTo: null };
+    expect(service.matchesStartDateFilter(createMockTask({ path: "t.md" }), filter)).toBe(true);
+    expect(service.matchesStartDateFilter(createMockTask({ path: "t.md", start: "2030-01-01" }), filter)).toBe(false);
+  });
+});
+
+describe("TaskFilterService.matchesScheduledDateFilter", () => {
+  const noScheduled = SCHEDULED_DATE_PRESET.NO_DATE;
+
+  it("no-date preset matches only undated tasks; range matches only in-range", () => {
+    const noDate: ScheduledDateFilter = { selectedPresets: [noScheduled], rangeFrom: null, rangeTo: null };
+    expect(service.matchesScheduledDateFilter(createMockTask({ path: "t.md" }), noDate)).toBe(true);
+    expect(service.matchesScheduledDateFilter(createMockTask({ path: "t.md", scheduled: "2030-01-01" }), noDate)).toBe(false);
+
+    const range: ScheduledDateFilter = { selectedPresets: [], rangeFrom: "2030-01-01", rangeTo: "2030-01-31" };
+    expect(service.matchesScheduledDateFilter(createMockTask({ path: "t.md", scheduled: "2030-01-10" }), range)).toBe(true);
+    expect(service.matchesScheduledDateFilter(createMockTask({ path: "t.md", scheduled: "2030-05-10" }), range)).toBe(false);
+  });
+});
+
+describe("TaskFilterService.applyDashboardFilters — start & scheduled facets", () => {
+  it("filters by a start-date range", () => {
+    const dv = createMockDataviewApi([]);
+    const tasks = [
+      createMockTask({ path: "inbox/in.md", start: "2030-01-15" }),
+      createMockTask({ path: "inbox/out.md", start: "2030-03-01" }),
+      createMockTask({ path: "inbox/none.md" }),
+    ];
+    const result = service.applyDashboardFilters(
+      tasks,
+      makeFilters({ startDateFilter: { selectedPresets: [], rangeFrom: "2030-01-01", rangeTo: "2030-01-31" } }),
+      dv,
+      makeHierarchyService()
+    );
+    expect(result.map((t) => t.path)).toEqual(["inbox/in.md"]);
+  });
+
+  it("AND logic: an active start-date filter and an active priority filter", () => {
+    const dv = createMockDataviewApi([]);
+    const tasks = [
+      createMockTask({ path: "inbox/a.md", text: "Urgent ⏫", start: "2030-01-10" }),
+      createMockTask({ path: "inbox/b.md", text: "Low 🔽", start: "2030-01-10" }),
+      createMockTask({ path: "inbox/c.md", text: "Urgent ⏫", start: "2030-05-10" }),
+    ];
+    const result = service.applyDashboardFilters(
+      tasks,
+      makeFilters({
+        startDateFilter: { selectedPresets: [], rangeFrom: "2030-01-01", rangeTo: "2030-01-31" },
+        priorityFilter: [1],
+      }),
+      dv,
+      makeHierarchyService()
+    );
+    expect(result.map((t) => t.path)).toEqual(["inbox/a.md"]);
+  });
+
+  it("scheduled no-date preset shows only undated-scheduled tasks", () => {
+    const dv = createMockDataviewApi([]);
+    const tasks = [
+      createMockTask({ path: "inbox/a.md" }),
+      createMockTask({ path: "inbox/b.md", scheduled: "2030-01-01" }),
+    ];
+    const result = service.applyDashboardFilters(
+      tasks,
+      makeFilters({ scheduledDateFilter: { selectedPresets: [SCHEDULED_DATE_PRESET.NO_DATE], rangeFrom: null, rangeTo: null } }),
+      dv,
+      makeHierarchyService()
+    );
+    expect(result.map((t) => t.path)).toEqual(["inbox/a.md"]);
   });
 });

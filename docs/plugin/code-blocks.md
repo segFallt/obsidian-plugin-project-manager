@@ -149,6 +149,16 @@ dueDateFilter:
   selectedPresets: [Today]       # any of: Today, Tomorrow, This Week, Next Week, Overdue, No Date
   rangeFrom: "2026-03-15"        # ISO date (custom range; clears selectedPresets when used)
   rangeTo: "2026-04-15"
+# Start date filter (🛫) — single no-date preset + custom range
+startDateFilter:
+  selectedPresets: []            # "No Start Date" (the only preset)
+  rangeFrom: "2026-03-15"        # ISO date (custom range; clears the no-date preset)
+  rangeTo: "2026-04-15"
+# Scheduled date filter (⏳) — single no-date preset + custom range
+scheduledDateFilter:
+  selectedPresets: []            # "No Scheduled Date" (the only preset)
+  rangeFrom: "2026-03-15"
+  rangeTo: "2026-04-15"
 # Tag filter
 tagFilter: [tag1, tag2]
 includeUntagged: false
@@ -165,6 +175,7 @@ Displays all vault tasks (excluding the `utility/` folder) with a compact **tool
   - **Sort Order**: multi-key sort builder (up to 3 keys); fields: Due Date, Start Date, Scheduled Date, Priority, Alphabetical, Context, Created Date; per-key direction toggle (↑/↓); up/down reorder
   - **Completed Tasks**: toggle "Show completed"
   - **Due Date**: preset pills (Today, Tomorrow, This Week, Next Week, Overdue, No Date) with OR logic (multiple can be active simultaneously) + custom date range
+  - **🛫 Start Date** / **⏳ Scheduled Date**: a single no-date preset pill (No Start Date / No Scheduled Date) + custom From/To range; the preset and range are mutually exclusive
   - **Priority**: Urgent / High / Medium / Low
   - **Context Type**: Project, Meeting, Recurring Meeting, Inbox, Daily Notes, Person, Other
   - **Client / Engagement**: type-ahead chip selects with "Include unassigned" toggle
@@ -192,6 +203,14 @@ The due date filter offers two modes:
 Multiple presets can be active simultaneously (OR logic) — clicking a preset toggles it on/off. An empty preset selection shows all tasks.
 
 **Range mode** — Use the "From" and "To" date inputs to filter by a custom date range (ISO format `YYYY-MM-DD`). Entering a date automatically switches to range mode and clears all preset selections. Only one range can be active at a time.
+
+#### Start & scheduled date filter details
+
+The **🛫 Start Date** and **⏳ Scheduled Date** filters mirror the due-date engine but offer only a single **No Start Date** / **No Scheduled Date** preset plus a custom From/To range (the six quick presets are intentionally omitted — start/scheduled cover arbitrary windows via the range):
+
+- The no-date preset matches tasks with no 🛫 / ⏳ date; the range matches tasks whose date falls within it (inclusive). A task with no start/scheduled date is never matched by the range.
+- The no-date preset and the range are mutually exclusive: entering a range clears the preset, and enabling the preset clears the range.
+- An empty selection excludes no tasks; the facets combine with all other panels via AND.
 
 #### Tag filter details
 

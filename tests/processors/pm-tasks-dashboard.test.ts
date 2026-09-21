@@ -1,11 +1,15 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { registerPmTasksProcessor } from "../../src/processors/pm-tasks-processor";
+import { registerPmTasksProcessor } from "@/processors/pm-tasks-processor";
+import { DashboardView } from "@/processors/pm-tasks-dashboard";
 import { createMockDataviewApi } from "../mocks/dataview-mock";
-import type { DataviewApi } from "../../src/types";
-import type { TaskProcessorServices, RegisterProcessorFn } from "../../src/plugin-context";
-import { DEFAULT_FOLDERS, DUE_DATE_PRESETS } from "../../src/constants";
-import { TaskFilterService } from "../../src/services/task-filter-service";
-import { TaskSortService } from "../../src/services/task-sort-service";
+import type { DataviewApi, DataviewTask, SavedDashboardFilters } from "@/types";
+import type { TaskProcessorServices, RegisterProcessorFn } from "@/plugin-context";
+import type { IEntityQuery } from "@/services/entity-query";
+import type { TaskListRenderer } from "@/processors/task-list-renderer";
+import { DEFAULT_FOLDERS, DUE_DATE_PRESETS } from "@/constants";
+import { TaskFilterService } from "@/services/task-filter-service";
+import { TaskSortService } from "@/services/task-sort-service";
+import { makeFilters } from "../helpers/dashboard-filters";
 
 // ─── Mock services factory ───────────────────────────────────────────────────
 
@@ -184,11 +188,73 @@ describe("pm-tasks-dashboard — filter drawer", () => {
     }
   });
 
-  it("renders date range inputs (from and to) inside the drawer", () => {
+  it("renders date range inputs (from and to) for the due, start, and scheduled sections", () => {
     const { el } = render("mode: dashboard");
     const drawer = el.querySelector(".pm-tasks-drawer");
     const dateInputs = drawer!.querySelectorAll("input[type='date']");
-    expect(dateInputs.length).toBe(2);
+    // Two inputs (from + to) each for the due, start, and scheduled date sections.
+    expect(dateInputs.length).toBe(6);
+  });
+
+  it("renders the 🛫 Start Date and ⏳ Scheduled Date section labels", () => {
+    const { el } = render("mode: dashboard");
+    const drawer = el.querySelector(".pm-tasks-drawer");
+    const labels = [...drawer!.querySelectorAll(".pm-tasks-drawer__section-label")].map((l) => l.textContent);
+    expect(labels).toContain("🛫 START DATE");
+    expect(labels).toContain("⏳ SCHEDULED DATE");
+  });
+
+  it("renders 'No Start Date' and 'No Scheduled Date' preset pills", () => {
+    const { el } = render("mode: dashboard");
+    const drawer = el.querySelector(".pm-tasks-drawer")!;
+    const pillLabels = [...drawer.querySelectorAll(".pm-tasks-pill")].map((p) => p.textContent);
+    expect(pillLabels).toContain("No Start Date");
+    expect(pillLabels).toContain("No Scheduled Date");
+  });
+
+  it("clicking the 'No Start Date' pill activates it and shows a chip", () => {
+    const dvApi = createMockDataviewApi([
+      { path: "projects/A.md", tasks: [{ text: "task" }] },
+    ]);
+    const { el } = render("mode: dashboard", dvApi);
+
+    const drawer = el.querySelector(".pm-tasks-drawer")!;
+    const pills = [...drawer.querySelectorAll<HTMLButtonElement>(".pm-tasks-pill")];
+    const noStartPill = pills.find((p) => p.textContent === "No Start Date");
+    expect(noStartPill).not.toBeUndefined();
+
+    noStartPill!.click();
+    expect(noStartPill!.classList.contains("pm-tasks-pill--active")).toBe(true);
+
+    const chipsBar = el.querySelector<HTMLElement>(".pm-tasks-chips-bar");
+    const chipTexts = [...chipsBar!.querySelectorAll(".pm-tasks-filter-chip")].map((c) => c.textContent);
+    expect(chipTexts.some((t) => t?.includes("🛫") && t?.includes("No Start Date"))).toBe(true);
+  });
+
+  it("entering a start-date range clears the 'No Start Date' preset pill", () => {
+    const dvApi = createMockDataviewApi([
+      { path: "projects/A.md", tasks: [{ text: "task" }] },
+    ]);
+    const { el } = render("mode: dashboard", dvApi);
+
+    const drawer = el.querySelector(".pm-tasks-drawer")!;
+    const pills = [...drawer.querySelectorAll<HTMLButtonElement>(".pm-tasks-pill")];
+    const noStartPill = pills.find((p) => p.textContent === "No Start Date")!;
+    noStartPill.click();
+    expect(noStartPill.classList.contains("pm-tasks-pill--active")).toBe(true);
+
+    // The start-date From input is the 3rd date input (due from/to, then start from).
+    const startFromInput = drawer.querySelectorAll<HTMLInputElement>("input[type='date']")[2];
+    startFromInput.value = "2030-01-01";
+    startFromInput.dispatchEvent(new Event("change"));
+
+    expect(noStartPill.classList.contains("pm-tasks-pill--active")).toBe(false);
+
+    const chipsBar = el.querySelector<HTMLElement>(".pm-tasks-chips-bar");
+    const rangeChips = [...chipsBar!.querySelectorAll(".pm-tasks-filter-chip")].filter(
+      (c) => c.textContent?.includes("🛫") && c.textContent?.includes("→")
+    );
+    expect(rangeChips.length).toBeGreaterThan(0);
   });
 
   it("clicking a preset pill adds active class to it", () => {
@@ -512,6 +578,104 @@ describe("pm-tasks-dashboard — clear filters", () => {
     // MarkdownRenderer.render sets innerHTML — not textContent
     expect(textSpan?.innerHTML).toContain("See [label](https://example.com) for details");
     expect(textSpan?.textContent).toContain("See [label](https://example.com) for details");
+  });
+});
+
+describe("pm-tasks-dashboard — start/scheduled persistence & backward compatibility", () => {
+  /** Builds a SavedDashboardFilters from the shared fixture, minus the ephemeral searchText. */
+  function savedFrom(overrides: Parameters<typeof makeFilters>[0] = {}): SavedDashboardFilters {
+    const { searchText: _searchText, ...saved } = makeFilters(overrides);
+    return saved;
+  }
+
+  /** Constructs a DashboardView directly (Dataview unavailable) so init/persist run in isolation. */
+  function mountDashboard(saved: SavedDashboardFilters | null, onSave = vi.fn()) {
+    const { services } = createMockServices(null);
+    const container = document.createElement("div");
+    const entityQuery = { resolve: () => [] } as unknown as IEntityQuery<DataviewTask>;
+    const renderer = {} as unknown as TaskListRenderer;
+    const view = new DashboardView(
+      container,
+      { mode: "dashboard" },
+      services,
+      services.sortService,
+      renderer,
+      entityQuery,
+      saved,
+      onSave
+    );
+    view.render();
+    return { view, container, onSave };
+  }
+
+  it("loads pre-feature saved state (no start/scheduled keys) without error and applies no start/scheduled filtering", () => {
+    // A SavedDashboardFilters as persisted before this feature — no start/scheduled keys.
+    const preFeatureSaved = {
+      viewMode: "context",
+      sortBy: [],
+      showCompleted: false,
+      contextFilter: [],
+      dueDateFilter: { selectedPresets: [], rangeFrom: null, rangeTo: null },
+      priorityFilter: [],
+      projectStatusFilter: [],
+      inboxStatusFilter: "All",
+      meetingDateFilter: "All",
+      clientFilter: [],
+      engagementFilter: [],
+      includeUnassignedClients: false,
+      includeUnassignedEngagements: false,
+      tagFilter: [],
+      includeUntagged: false,
+    } as unknown as SavedDashboardFilters;
+
+    const { container } = mountDashboard(preFeatureSaved);
+
+    // No start/scheduled chips are shown (filters inactive).
+    const chips = [...container.querySelectorAll(".pm-tasks-filter-chip")].map((c) => c.textContent ?? "");
+    expect(chips.some((t) => t.includes("🛫"))).toBe(false);
+    expect(chips.some((t) => t.includes("⏳"))).toBe(false);
+
+    // The no-date pills render but are inactive.
+    const pills = [...container.querySelectorAll(".pm-tasks-pill")];
+    const noStart = pills.find((p) => p.textContent === "No Start Date");
+    const noScheduled = pills.find((p) => p.textContent === "No Scheduled Date");
+    expect(noStart).not.toBeUndefined();
+    expect(noScheduled).not.toBeUndefined();
+    expect(noStart!.classList.contains("pm-tasks-pill--active")).toBe(false);
+    expect(noScheduled!.classList.contains("pm-tasks-pill--active")).toBe(false);
+  });
+
+  it("restores persisted start-date and scheduled-date filters on reload", () => {
+    const saved = savedFrom({
+      startDateFilter: { selectedPresets: [], rangeFrom: "2030-01-01", rangeTo: "2030-12-31" },
+      scheduledDateFilter: { selectedPresets: ["No Scheduled Date"], rangeFrom: null, rangeTo: null },
+    });
+
+    const { container } = mountDashboard(saved);
+
+    const chips = [...container.querySelectorAll(".pm-tasks-filter-chip")].map((c) => c.textContent ?? "");
+    expect(chips.some((t) => t.includes("🛫") && t.includes("2030-01-01") && t.includes("2030-12-31"))).toBe(true);
+    expect(chips.some((t) => t.includes("⏳") && t.includes("No Scheduled Date"))).toBe(true);
+
+    // The restored start-date range populates the date inputs (3rd + 4th date inputs).
+    const dateInputs = [...container.querySelectorAll<HTMLInputElement>("input[type='date']")];
+    expect(dateInputs[2].value).toBe("2030-01-01");
+    expect(dateInputs[3].value).toBe("2030-12-31");
+  });
+
+  it("persistFilters writes start/scheduled filters into the saved state (round-trip)", () => {
+    const onSave = vi.fn();
+    const { container } = mountDashboard(savedFrom(), onSave);
+
+    const pills = [...container.querySelectorAll<HTMLButtonElement>(".pm-tasks-pill")];
+    const noStartPill = pills.find((p) => p.textContent === "No Start Date")!;
+    noStartPill.click();
+
+    const lastSaved = onSave.mock.calls.at(-1)?.[0] as SavedDashboardFilters;
+    expect(lastSaved).toBeTruthy();
+    expect(lastSaved.startDateFilter.selectedPresets).toContain("No Start Date");
+    // Both new fields are always present in the persisted payload.
+    expect(lastSaved.scheduledDateFilter).toBeTruthy();
   });
 });
 

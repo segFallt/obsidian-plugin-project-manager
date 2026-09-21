@@ -22,6 +22,14 @@ dueDateFilter:
   selectedPresets: [Today]  # Today | Tomorrow | This Week | Next Week | Overdue | No Date
   rangeFrom: "2026-04-01"   # ISO date — custom range; clears presets
   rangeTo: "2026-04-30"
+startDateFilter:
+  selectedPresets: []       # "No Start Date" (the only preset) — or leave empty
+  rangeFrom: "2026-04-01"   # ISO date — custom range; clears the no-date preset
+  rangeTo: "2026-04-30"
+scheduledDateFilter:
+  selectedPresets: []       # "No Scheduled Date" (the only preset) — or leave empty
+  rangeFrom: "2026-04-01"
+  rangeTo: "2026-04-30"
 tagFilter: [tag1, tag2]
 includeUntagged: false
 ```
@@ -34,7 +42,11 @@ includeUntagged: false
 | `sortBy` | No | No sort | Array of up to 3 sort keys with direction |
 | `showCompleted` | No | Setting default | Include completed tasks on first load |
 | `dueDateFilter.selectedPresets` | No | None | One or more preset due date filters pre-selected on load |
-| `dueDateFilter.rangeFrom` / `rangeTo` | No | None | Custom date range filter pre-selected on load |
+| `dueDateFilter.rangeFrom` / `rangeTo` | No | None | Custom due-date range filter pre-selected on load |
+| `startDateFilter.selectedPresets` | No | None | `No Start Date` preset pre-selected on load |
+| `startDateFilter.rangeFrom` / `rangeTo` | No | None | Custom start-date range pre-selected on load |
+| `scheduledDateFilter.selectedPresets` | No | None | `No Scheduled Date` preset pre-selected on load |
+| `scheduledDateFilter.rangeFrom` / `rangeTo` | No | None | Custom scheduled-date range pre-selected on load |
 | `tagFilter` | No | None | Tags pre-selected in the tag filter on load |
 | `includeUntagged` | No | false | Whether to include untagged tasks when a tag filter is active |
 
@@ -66,6 +78,8 @@ The filter drawer contains:
 | **Sort Order** | Up to 3 sort keys; fields: Due Date, Start Date, Scheduled Date, Priority, Alphabetical, Context, Created Date; per-key direction (↑/↓); drag to reorder |
 | **Completed Tasks** | Toggle to show/hide completed tasks |
 | **Due Date** | Preset pills: Today, Tomorrow, This Week, Next Week, Overdue, No Date (multiple can be active, OR logic); or a custom From / To date range |
+| **🛫 Start Date** | A single **No Start Date** pill or a custom From / To range (mutually exclusive; entering a range clears the pill) |
+| **⏳ Scheduled Date** | A single **No Scheduled Date** pill or a custom From / To range (mutually exclusive) |
 | **Priority** | Urgent, High, Medium, Low |
 | **Context Type** | Project, Meeting, Recurring Meeting, Inbox, Daily Notes, Person, Other |
 | **Client / Engagement** | Type-ahead chip selects; "Include unassigned" toggle |

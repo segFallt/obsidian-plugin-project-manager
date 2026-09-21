@@ -12,6 +12,8 @@ import {
   INBOX_STATUS_FILTER,
   MEETING_DATE_FILTER,
   DEFAULT_DUE_DATE_FILTER,
+  DEFAULT_START_DATE_FILTER,
+  DEFAULT_SCHEDULED_DATE_FILTER,
 } from "@/constants";
 
 export function makeFilters(overrides: Partial<DashboardFilters> = {}): DashboardFilters {
@@ -21,6 +23,8 @@ export function makeFilters(overrides: Partial<DashboardFilters> = {}): Dashboar
     showCompleted: true,
     contextFilter: [],
     dueDateFilter: DEFAULT_DUE_DATE_FILTER,
+    startDateFilter: DEFAULT_START_DATE_FILTER,
+    scheduledDateFilter: DEFAULT_SCHEDULED_DATE_FILTER,
     priorityFilter: [],
     projectStatusFilter: [],
     inboxStatusFilter: INBOX_STATUS_FILTER.ALL,

@@ -6,6 +6,8 @@ import type {
   DataviewTask,
   DashboardFilters,
   DueDateFilter,
+  StartDateFilter,
+  ScheduledDateFilter,
   MeetingDateFilter,
   InboxStatusFilter,
   ParsedTask,
@@ -143,6 +145,8 @@ export interface ITaskFilterService {
     dv: DataviewApi
   ): DataviewTask[];
   matchesDueDateFilter(task: DataviewTask, filter: DueDateFilter): boolean;
+  matchesStartDateFilter(task: DataviewTask, filter: StartDateFilter): boolean;
+  matchesScheduledDateFilter(task: DataviewTask, filter: ScheduledDateFilter): boolean;
   matchesTagFilter(task: DataviewTask, tagFilter: string[], includeUntagged: boolean): boolean;
   matchesMeetingDateFilter(dateStr: string, filter: MeetingDateFilter): boolean;
   matchesClientFilter(
