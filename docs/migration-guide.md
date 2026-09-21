@@ -1,14 +1,26 @@
 # Migration Guide
 
-Step-by-step guide for migrating from the template vault (QuickAdd + Templater + Meta Bind) to the Project Manager plugin.
+Step-by-step guide for migrating from the template vault (QuickAdd + Templater + Meta Bind) to the Engagement Project Manager plugin.
 
 ---
 
 ## Before You Start
 
-1. Install and enable the **Project Manager** plugin
+1. Install and enable the **Engagement Project Manager** plugin
 2. Ensure **Dataview** is installed and enabled
 3. Keep a backup of your vault
+
+---
+
+## Upgrading Across the v0.4.0 Rename
+
+In v0.4.0 the plugin's id and display name changed from `project-manager` / "Project Manager" to `engagement-project-manager` / "Engagement Project Manager". Because Obsidian keys plugins by their manifest id, this is a breaking change for existing installs. If you are upgrading from a pre-v0.4.0 install:
+
+1. **Back up your vault** before updating.
+2. After updating, open **Settings → Community plugins** and confirm the plugin now appears as **Engagement Project Manager** and is enabled. If Obsidian shows it as disabled or newly added, re-enable it.
+3. Verify your existing settings (folder paths, default values, UI preferences) are still intact.
+
+The rename does not delete or migrate any data — nothing in the plugin clears settings or vault content across the rename — but the exact upgrade behavior (in-place update vs. a fresh install) depends on how you installed the plugin (BRAT vs. manual), so re-enabling and checking settings after updating is worth doing regardless.
 
 ---
 

@@ -2,7 +2,7 @@
 
 ## What the Plugin Does
 
-Project Manager adds a structured project management layer to your Obsidian vault. Instead of loose notes, you work with a hierarchy of typed entities — each stored as a standard Markdown note with YAML frontmatter — and view them through interactive code block renderers.
+Engagement Project Manager adds a structured project management layer to your Obsidian vault. Instead of loose notes, you work with a hierarchy of typed entities — each stored as a standard Markdown note with YAML frontmatter — and view them through interactive code block renderers.
 
 **Who it is for:** Consultants, freelancers, and anyone who manages client work and wants their notes and tasks in one place, without leaving Obsidian.
 
@@ -22,14 +22,14 @@ Project Manager adds a structured project management layer to your Obsidian vaul
 ### From the Community Plugin Browser (recommended)
 
 1. Open **Settings → Community Plugins** and turn off **Restricted Mode** if it is on
-2. Click **Browse** and search for **Project Manager**
+2. Click **Browse** and search for **Engagement Project Manager**
 3. Click **Install**, then **Enable**
 
 ### Manual Installation
 
 1. Download the latest release from the plugin repository
-2. Extract `main.js`, `manifest.json`, and `styles.css` into a folder called `project-manager` inside your vault's `.obsidian/plugins/` directory
-3. Open **Settings → Community Plugins**, find **Project Manager**, and enable it
+2. Extract `main.js`, `manifest.json`, and `styles.css` into a folder called `engagement-project-manager` inside your vault's `.obsidian/plugins/` directory
+3. Open **Settings → Community Plugins**, find **Engagement Project Manager**, and enable it
 
 ---
 

@@ -125,7 +125,7 @@ The Reference Dashboard is hosted in a dedicated Obsidian `ItemView` panel, regi
 
 **View type constant:** `PM_REFERENCE_DASHBOARD_VIEW_TYPE = "pm-reference-dashboard"` (exported from `src/constants.ts`)
 
-**Activation command:** `PM: Open Reference Dashboard` (command ID: `project-manager:open-reference-dashboard`). Registered during `onLayoutReady`. If the view is already open in any leaf, the command reveals it instead of creating a duplicate. Otherwise it opens in the right sidebar (`workspace.getRightLeaf(false)`).
+**Activation command:** `PM: Open Reference Dashboard` (command ID: `engagement-project-manager:open-reference-dashboard`). Registered during `onLayoutReady`. If the view is already open in any leaf, the command reveals it instead of creating a duplicate. Otherwise it opens in the right sidebar (`workspace.getRightLeaf(false)`).
 
 **Ribbon icon:** Displayed when `settings.ui.showRibbonIcons` is `true`. Uses the `book-open` icon. Clicking the icon calls the same activation helper as the command.
 
