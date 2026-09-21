@@ -140,6 +140,7 @@ Renders task views with interactive filtering.
 mode: dashboard | by-project
 # Optional defaults:
 viewMode: context | date | priority | tag
+groupByDateField: due            # due | start | scheduled — date field the `date` view groups by (default: due)
 sortBy:                          # array of sort keys (empty = no sort)
   - field: dueDate               # dueDate | startDate | scheduledDate | priority | alphabetical | context | createdDate
     direction: asc               # asc | desc
@@ -169,7 +170,7 @@ includeUntagged: false
 
 Displays all vault tasks (excluding the `utility/` folder) with a compact **toolbar + filter drawer** layout:
 
-- **Toolbar**: View mode tabs (Context / Date / Priority / Tag), search input, ⚙ Filters button (with active-count badge), ✕ Clear All Filters button (shown when any filter is active)
+- **Toolbar**: View mode tabs (Context / Date / Priority / Tag), a **Group by** dropdown (Due / Start / Scheduled — shown only in the Date view), search input, ⚙ Filters button (with active-count badge), ✕ Clear All Filters button (shown when any filter is active)
 - **Active filter chips bar**: removable chips for each active filter criterion
 - **Filter drawer** (toggled by ⚙ Filters): contains all filter sections:
   - **Sort Order**: multi-key sort builder (up to 3 keys); fields: Due Date, Start Date, Scheduled Date, Priority, Alphabetical, Context, Created Date; per-key direction toggle (↑/↓); up/down reorder
@@ -187,6 +188,8 @@ Context view groups tasks hierarchically:
 - **Project**: Parent Project (H3) → Project Note (H4) → Tasks. Tasks from project notes are nested under their parent project via the `relatedProject` frontmatter field. Direct project tasks render under the H3 before any H4s.
 - **Recurring Meeting**: Parent Recurring Meeting (H3) → Event File (H4) → Tasks. Tasks from recurring meeting event files are nested under their parent recurring meeting via the `recurring-meeting` frontmatter field. Event files without this frontmatter link render flat (H3 → Tasks).
 - **All other contexts**: File (H3) → Tasks.
+
+The **Date view** buckets tasks into Overdue / Today / Tomorrow / This Week / Upcoming / No Date. The toolbar's **Group by** dropdown chooses the date field — **Due** (default), **Start** (🛫), or **Scheduled** (⏳) — using the same six boundaries for each, with field-specific labels. The selection defaults to Due and persists per block (see [Filter state](#filter-state)).
 
 #### Due date filter details
 

@@ -14,12 +14,14 @@ import {
   DEFAULT_DUE_DATE_FILTER,
   DEFAULT_START_DATE_FILTER,
   DEFAULT_SCHEDULED_DATE_FILTER,
+  GROUP_BY_DATE_FIELD,
 } from "@/constants";
 
 export function makeFilters(overrides: Partial<DashboardFilters> = {}): DashboardFilters {
   return {
     viewMode: VIEW_MODE.CONTEXT,
     sortBy: [],
+    groupByDateField: GROUP_BY_DATE_FIELD.DUE,
     showCompleted: true,
     contextFilter: [],
     dueDateFilter: DEFAULT_DUE_DATE_FILTER,

@@ -147,6 +147,79 @@ export const COMPLETION_DATE_EMOJI = "✅";
 /** Recurrence emoji. */
 export const RECURRENCE_EMOJI = "🔁";
 
+/**
+ * Section headings for the Date view when grouped by START date. Same six
+ * boundaries as `DATE_BUCKET_LABEL`; only the labels differ. Emoji prefix
+ * sourced from `START_DATE_EMOJI` (not hardcoded), consistent with
+ * `DATE_BUCKET_LABEL`'s emoji-prefixed style.
+ */
+export const START_BUCKET_LABEL = {
+  OVERDUE: `${START_DATE_EMOJI} Started`,
+  TODAY: `${START_DATE_EMOJI} Starts Today`,
+  TOMORROW: `${START_DATE_EMOJI} Starts Tomorrow`,
+  THIS_WEEK: `${START_DATE_EMOJI} Starts This Week`,
+  UPCOMING: `${START_DATE_EMOJI} Starts Later`,
+  NO_DUE_DATE: `${START_DATE_EMOJI} No Start Date`,
+} as const;
+
+/**
+ * Section headings for the Date view when grouped by SCHEDULED date. Same six
+ * boundaries as `DATE_BUCKET_LABEL`; only the labels differ. Emoji prefix
+ * sourced from `SCHEDULED_DATE_EMOJI` (not hardcoded).
+ */
+export const SCHEDULED_BUCKET_LABEL = {
+  OVERDUE: `${SCHEDULED_DATE_EMOJI} Past Scheduled`,
+  TODAY: `${SCHEDULED_DATE_EMOJI} Scheduled Today`,
+  TOMORROW: `${SCHEDULED_DATE_EMOJI} Scheduled Tomorrow`,
+  THIS_WEEK: `${SCHEDULED_DATE_EMOJI} Scheduled This Week`,
+  UPCOMING: `${SCHEDULED_DATE_EMOJI} Scheduled Later`,
+  NO_DUE_DATE: `${SCHEDULED_DATE_EMOJI} No Scheduled Date`,
+} as const;
+
+/**
+ * Group-by field values for the Date view's group-by dropdown. Each value is
+ * also the `DataviewTask` property the bucketer reads (`due`/`start`/`scheduled`).
+ * `DUE` is the default so pre-feature blocks are unchanged.
+ */
+export const GROUP_BY_DATE_FIELD = {
+  DUE: "due",
+  START: "start",
+  SCHEDULED: "scheduled",
+} as const;
+
+/** `element.style.display` values used to show/hide toolbar controls. */
+export const CSS_DISPLAY = {
+  /** Restores the element's stylesheet-defined display. */
+  DEFAULT: "",
+  NONE: "none",
+} as const;
+
+/** Static, user-facing text for the pm-tasks dashboard toolbar. */
+export const TASKS_TOOLBAR_TEXT = {
+  VIEW_CONTEXT: "Context",
+  VIEW_DATE: "Date",
+  VIEW_PRIORITY: "Priority",
+  VIEW_TAG: "Tag",
+  SEARCH_PLACEHOLDER: "Search tasks…",
+  SEARCH_ARIA: "Search tasks",
+  FILTERS_BTN: "⚙ Filters ",
+  GROUP_BY_LABEL: "Group by:",
+  GROUP_BY_ARIA: "Group the Date view by",
+  GROUP_BY_DUE_OPTION: "Due",
+  GROUP_BY_START_OPTION: "Start",
+  GROUP_BY_SCHEDULED_OPTION: "Scheduled",
+} as const;
+
+/**
+ * Ordered options for the Date view's group-by dropdown: each pairs a
+ * `GROUP_BY_DATE_FIELD` value with its display label. Due first (the default).
+ */
+export const GROUP_BY_DATE_OPTIONS: ReadonlyArray<{ value: string; label: string }> = [
+  { value: GROUP_BY_DATE_FIELD.DUE, label: TASKS_TOOLBAR_TEXT.GROUP_BY_DUE_OPTION },
+  { value: GROUP_BY_DATE_FIELD.START, label: TASKS_TOOLBAR_TEXT.GROUP_BY_START_OPTION },
+  { value: GROUP_BY_DATE_FIELD.SCHEDULED, label: TASKS_TOOLBAR_TEXT.GROUP_BY_SCHEDULED_OPTION },
+];
+
 /** Named due-date preset values (a `DueDatePreset` each). */
 export const DUE_DATE_PRESET = {
   TODAY: "Today",
@@ -525,6 +598,18 @@ export const CSS_CLS = {
   TASKS_DASHBOARD_OUTPUT: "pm-tasks-dashboard__output",
   TASKS_BY_PROJECT: "pm-tasks-by-project",
   TASKS_BY_PROJECT_OUTPUT: "pm-tasks-by-project__output",
+  // Task dashboard toolbar (view tabs, search, filters button, group-by)
+  TASKS_TOOLBAR: "pm-tasks-toolbar",
+  TASKS_TOOLBAR_VIEW_TABS: "pm-tasks-toolbar__view-tabs",
+  TASKS_TOOLBAR_TAB: "pm-tasks-toolbar__tab",
+  TASKS_TOOLBAR_TAB_ACTIVE: "pm-tasks-toolbar__tab--active",
+  TASKS_TOOLBAR_SEARCH: "pm-tasks-toolbar__search",
+  TASKS_TOOLBAR_FILTERS_BTN: "pm-tasks-toolbar__filters-btn",
+  TASKS_FILTER_BADGE: "pm-tasks-filter-badge",
+  TASKS_DRAWER: "pm-tasks-drawer",
+  TASKS_GROUP_BY: "pm-tasks-toolbar__group-by",
+  TASKS_GROUP_BY_LABEL: "pm-tasks-toolbar__group-by-label",
+  TASKS_GROUP_BY_SELECT: "pm-tasks-toolbar__group-by-select",
   // Task dashboard filter drawer
   TASKS_DRAWER_SECTION: "pm-tasks-drawer__section",
   TASKS_DRAWER_SECTION_LABEL: "pm-tasks-drawer__section-label",
@@ -666,6 +751,8 @@ export const HTML_TAG = {
   HR: "hr",
   BUTTON: "button",
   INPUT: "input",
+  SELECT: "select",
+  OPTION: "option",
   DETAILS: "details",
   SUMMARY: "summary",
   TABLE: "table",
