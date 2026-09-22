@@ -10,8 +10,8 @@ sequenceDiagram
 
     Obsidian->>ProjectManagerPlugin: onload()
     ProjectManagerPlugin->>ProjectManagerPlugin: loadSettings()
-    ProjectManagerPlugin->>Obsidian: addSettingTab()
-    Obsidian-->>ProjectManagerPlugin: onLayoutReady callback fires
+
+    Note over ProjectManagerPlugin,initServices: In onload(), before the workspace restores its layout —<br/>a restored pm-reference-dashboard leaf resolves during layout restore,<br/>so its view type must be registered and its services built by then.
 
     ProjectManagerPlugin->>initServices: initServices()
 
@@ -44,6 +44,12 @@ sequenceDiagram
     initServices-->>ProjectManagerPlugin: services assigned to plugin fields
 
     ProjectManagerPlugin->>ProjectManagerPlugin: loggerService.info("Plugin initialized")
+    ProjectManagerPlugin->>Obsidian: registerView(pm-reference-dashboard, leaf => new ReferenceDashboardItemView(...))
+    ProjectManagerPlugin->>Obsidian: addSettingTab()
+
+    Note over Obsidian,registerAllProcessors: onLayoutReady — deferred until other community plugins have loaded.<br/>Commands, ribbon, and processors do not gate the dashboard view's ability to render.
+    Obsidian-->>ProjectManagerPlugin: onLayoutReady callback fires
+    ProjectManagerPlugin->>ProjectManagerPlugin: warnMissingDependencies()
 
     ProjectManagerPlugin->>registerAllCommands: registerAllCommands(plugin)
     Note over registerAllCommands: Registers 17 commands via plugin.addCommand()
@@ -66,6 +72,9 @@ sequenceDiagram
     registerAllCommands->>registerAllCommands: registerCreateReferenceCommand
     registerAllCommands-->>ProjectManagerPlugin: commands registered
 
+    ProjectManagerPlugin->>ProjectManagerPlugin: addCommand(Open Reference Dashboard)
+    ProjectManagerPlugin->>ProjectManagerPlugin: addRibbonIcon(book-open) if settings.ui.showRibbonIcons
+
     ProjectManagerPlugin->>registerAllProcessors: registerAllProcessors(plugin)
     Note over registerAllProcessors: Registers code block and post processors
     registerAllProcessors->>registerAllProcessors: registerPmTableProcessor
@@ -79,4 +88,6 @@ sequenceDiagram
     registerAllProcessors->>registerAllProcessors: registerRaidBadgePostProcessor
     registerAllProcessors->>registerAllProcessors: registerPmReferencesProcessor
     registerAllProcessors-->>ProjectManagerPlugin: processors registered
+
+    ProjectManagerPlugin->>ProjectManagerPlugin: registerBuiltInEntityQueries()
 ```

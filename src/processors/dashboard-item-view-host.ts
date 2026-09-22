@@ -7,12 +7,6 @@ import type { DashboardViewComponent, PersistState } from "./dashboard-render-ch
 
 /** Config for a note-less, side-panel-hosted dashboard. */
 export interface DashboardItemViewConfig {
-  /** Leaf view type identifier. */
-  viewType: string;
-  /** Tab / panel display title. */
-  displayText: string;
-  /** Ribbon / tab icon id. */
-  icon: string;
   /** Store used for persistence (settings-backed for a note-less dashboard). */
   store: ViewStateStore;
   /** Dot-path key the view's state is persisted under. */
@@ -27,8 +21,14 @@ export interface DashboardItemViewConfig {
  * {@link DashboardRenderChild}, but drives it from `onOpen`/`onClose` and a
  * workspace leaf instead of a code block. Because it is settings-backed there is
  * no metadata-cache echo to suppress, so it registers no vault-modify listener.
+ *
+ * Since Obsidian 1.7.2 the {@link ItemView} base constructor calls
+ * `this.getViewType()` while `super()` runs, before any subclass field or
+ * parameter property is assigned. The view-identity getters are therefore
+ * abstract: each concrete host implements them from module constants that read
+ * no post-`super()` state, so construction never touches `this.config`.
  */
-export class DashboardItemViewHost extends ItemView {
+export abstract class DashboardItemViewHost extends ItemView {
   private view: DashboardViewComponent | null = null;
   private pending: ViewState | null = null;
   private readonly saveState = debounced(
@@ -43,17 +43,11 @@ export class DashboardItemViewHost extends ItemView {
     super(leaf);
   }
 
-  getViewType(): string {
-    return this.config.viewType;
-  }
+  abstract getViewType(): string;
 
-  getDisplayText(): string {
-    return this.config.displayText;
-  }
+  abstract getDisplayText(): string;
 
-  getIcon(): string {
-    return this.config.icon;
-  }
+  abstract getIcon(): string;
 
   // eslint-disable-next-line @typescript-eslint/require-await
   async onOpen(): Promise<void> {

@@ -396,10 +396,17 @@ classDiagram
         +render() void
     }
     class DashboardItemViewHost {
+        <<abstract>>
+        +getViewType()* string
+        +getDisplayText()* string
+        +getIcon()* string
         +onOpen() Promise~void~
         +onClose() Promise~void~
     }
     class ReferenceDashboardItemView {
+        +getViewType() string
+        +getDisplayText() string
+        +getIcon() string
         +onOpen() Promise~void~
     }
     class ReferenceDashboardView {

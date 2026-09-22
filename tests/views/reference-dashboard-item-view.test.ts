@@ -58,6 +58,14 @@ const REF_PAGE: MockPageData = {
 
 describe("ReferenceDashboardItemView", () => {
   describe("static metadata", () => {
+    it("constructs without throwing when the base ctor queries the view type", () => {
+      // Obsidian 1.7.2+ calls this.getViewType() during the ItemView base
+      // constructor (modelled by the obsidian mock). The getters must return
+      // constants that read no post-super() state, or construction throws and
+      // Obsidian shows the "plugin has gone away" placeholder.
+      expect(() => makeView()).not.toThrow();
+    });
+
     it("VIEW_TYPE matches the constant", () => {
       expect(ReferenceDashboardItemView.VIEW_TYPE).toBe(PM_REFERENCE_DASHBOARD_VIEW_TYPE);
     });

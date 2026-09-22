@@ -7,7 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <!-- New release sections are prepended by .ci/bump-version.sh -->
 
-## [Unreleased]
+## [0.5.0-beta.3] - 2026-09-22
+
+### Fixed
+
+- Reference Dashboard no longer opens to Obsidian's **"Plugin no longer active — …(pm-reference-dashboard) has gone away"** placeholder. The v0.5.0-beta.2 fix ([#107](https://gitlab.n3.pingleberry.com/obsidian/obsidian-plugin-project-manager/-/issues/107)) misattributed the symptom to view-registration timing and **did not resolve it** — the placeholder still appeared on every open and every restore after that release. The real cause is in the view constructor: `DashboardItemViewHost` read its metadata through a TypeScript **parameter property** (`config`) that is assigned only **after** `super()` returns, but since Obsidian 1.7.2 the `ItemView` base constructor calls `this.getViewType()` **during** `super()`, so `getViewType()` threw `TypeError: Cannot read properties of undefined (reading 'viewType')` and Obsidian showed the placeholder for the failed construction. This is a Liskov substitution violation: the getter added a precondition (`config` already set) the base's call site could not meet. `getViewType()`, `getDisplayText()`, and `getIcon()` are now **abstract** on `DashboardItemViewHost`, and `ReferenceDashboardItemView` implements them from module constants (`VIEW_TYPE`, `REFERENCES_DASHBOARD_TEXT.TITLE`, `REFERENCE_DASHBOARD_ICON`) that read no post-`super()` state, so construction always succeeds — a future host cannot compile without implementing them. `viewType`/`displayText`/`icon` are removed from `DashboardItemViewConfig` (they were read only by the getters). The obsidian test mock's `ItemView` constructor now calls `this.getViewType()`, modelling the 1.7.2 contract so a getter that throws during construction fails a unit test — the gap that let this reach two exhaustive all-pass runs. End-to-end render coverage is tracked in [#108](https://gitlab.n3.pingleberry.com/obsidian/obsidian-plugin-project-manager/-/issues/108) ([#109](https://gitlab.n3.pingleberry.com/obsidian/obsidian-plugin-project-manager/-/issues/109)).
+
+### Documentation
+
+- Corrected the placeholder-resolution explanation across PRD-009 §3.10 and the plugin-initialization sequence diagram to attribute a working `pm-reference-dashboard` leaf to the **constructor-safe getters** (constants read safely while the `ItemView` base constructor runs), not to registration timing. PRD-009 §3.10 keeps the accurate statements that the view is registered and its services are constructed synchronously in `onload()`; `docs/plugin/architecture/03-plugin-initialization-sequence.md` now shows `initServices()` and `registerView()` in `onload()` before layout restore, with `warnMissingDependencies()`, commands, the activation command, the ribbon, and processors in `onLayoutReady` ([#109](https://gitlab.n3.pingleberry.com/obsidian/obsidian-plugin-project-manager/-/issues/109)).
 
 ## [0.5.0-beta.2] - 2026-09-22
 
