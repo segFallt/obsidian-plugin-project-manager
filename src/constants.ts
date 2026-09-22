@@ -371,6 +371,7 @@ export const LOG_FILE_SUFFIX = "-pm.log";
 
 /** Logger context tag strings for each processor / view / command. */
 export const LOG_CONTEXT = {
+  MAIN: "main",
   PROPERTIES_PROCESSOR: "pm-properties",
   TABLE_PROCESSOR: "pm-table",
   TASKS_PROCESSOR: "pm-tasks-processor",
@@ -847,6 +848,21 @@ export const MSG = {
   VAULT_SETUP_SUCCESS: "Project Manager: Vault structure set up successfully.",
 } as const;
 
+/**
+ * Plugin entry-point (main.ts) lifecycle log messages and the missing-dependency
+ * notices shown when a required community plugin is not installed.
+ */
+export const MAIN_MSG = {
+  PLUGIN_INITIALIZED: "Plugin initialized",
+  PLUGIN_UNLOADING: "Plugin unloading",
+  DATAVIEW_NOT_FOUND:
+    "Project Manager: Dataview plugin not found. " +
+    "Please install and enable the Dataview community plugin.",
+  TASKS_NOT_FOUND:
+    "Project Manager: Tasks plugin not found. " +
+    "Please install and enable the Tasks community plugin.",
+} as const;
+
 /** Task-dashboard output messages (empty state, unknown view mode, error banner). */
 export const TASK_DASHBOARD_MSG = {
   NO_TASKS_MATCH: "No tasks match the current filters.",
@@ -1075,6 +1091,14 @@ export const PM_REFERENCE_DASHBOARD_VIEW_TYPE = "pm-reference-dashboard";
 
 /** Ribbon / tab icon id for the Reference Dashboard ItemView panel. */
 export const REFERENCE_DASHBOARD_ICON = "book-open";
+
+/** Ribbon-icon tooltip for opening the Reference Dashboard ItemView panel. */
+export const REFERENCE_DASHBOARD_RIBBON_TITLE = "Open Reference Dashboard";
+
+/** Obsidian workspace leaf types passed to `workspace.getLeaf(...)`. */
+export const WORKSPACE_LEAF_TYPE = {
+  TAB: "tab",
+} as const;
 
 /**
  * Settings dot-path key the References dashboard persists its filter state under

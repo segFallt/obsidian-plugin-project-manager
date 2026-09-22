@@ -37,7 +37,17 @@ import { registerAllCommands } from "./commands";
 import { registerAllProcessors } from "./processors";
 import { registerBuiltInEntityQueries } from "./entity-registry";
 import type { DataviewApi } from "./types";
-import { DATAVIEW_PLUGIN_ID, TASKS_PLUGIN_ID, NOTICE_DURATION_MS, COMMAND_NAMES } from "./constants";
+import {
+  DATAVIEW_PLUGIN_ID,
+  TASKS_PLUGIN_ID,
+  NOTICE_DURATION_MS,
+  COMMAND_NAMES,
+  LOG_CONTEXT,
+  MAIN_MSG,
+  REFERENCE_DASHBOARD_ICON,
+  REFERENCE_DASHBOARD_RIBBON_TITLE,
+  WORKSPACE_LEAF_TYPE,
+} from "./constants";
 
 /**
  * Project Manager Plugin — main entry point.
@@ -71,14 +81,25 @@ export default class ProjectManagerPlugin extends Plugin {
   async onload() {
     await this.loadSettings();
 
-    // Verify Dataview is available (warn, but don't block load)
+    // Register the Reference Dashboard view and construct its services
+    // synchronously here, before the workspace restores its saved layout. A
+    // restored leaf is a deferred view that resolves during layout restore,
+    // earlier than onLayoutReady, so the view type must already be registered
+    // and its services constructed by then for the leaf to resolve to a working
+    // view. Services resolve the Dataview API lazily, so constructing them here
+    // is safe.
+    this.initServices();
+    this.loggerService.info(MAIN_MSG.PLUGIN_INITIALIZED, LOG_CONTEXT.MAIN);
+    this.registerView(
+      ReferenceDashboardItemView.VIEW_TYPE,
+      (leaf) => new ReferenceDashboardItemView(leaf, this)
+    );
+
+    // Deferred to layout-ready: dependency warnings need other community plugins
+    // to have finished loading; commands, ribbon, processors, and entity queries
+    // do not gate the dashboard view's ability to render.
     this.app.workspace.onLayoutReady(() => {
-      this.initServices();
-      this.loggerService.info("Plugin initialized", "main");
-      this.registerView(
-        ReferenceDashboardItemView.VIEW_TYPE,
-        (leaf) => new ReferenceDashboardItemView(leaf, this)
-      );
+      this.warnMissingDependencies();
       registerAllCommands(this);
       this.addCommand({
         id: COMMAND_IDS.OPEN_REFERENCE_DASHBOARD,
@@ -86,7 +107,7 @@ export default class ProjectManagerPlugin extends Plugin {
         callback: () => { void activateReferenceDashboard(this); },
       });
       if (this.settings.ui.showRibbonIcons) {
-        this.addRibbonIcon("book-open", "Open Reference Dashboard", () => {
+        this.addRibbonIcon(REFERENCE_DASHBOARD_ICON, REFERENCE_DASHBOARD_RIBBON_TITLE, () => {
           void activateReferenceDashboard(this);
         });
       }
@@ -99,7 +120,7 @@ export default class ProjectManagerPlugin extends Plugin {
 
   onunload() {
     this.app.workspace.detachLeavesOfType(ReferenceDashboardItemView.VIEW_TYPE);
-    this.loggerService.info("Plugin unloading", "main");
+    this.loggerService.info(MAIN_MSG.PLUGIN_UNLOADING, LOG_CONTEXT.MAIN);
     void this.loggerService.flush();
     this.loggerServiceImpl.destroy();
   }
@@ -116,8 +137,11 @@ export default class ProjectManagerPlugin extends Plugin {
   }
 
   /**
-   * Initialise all services.
-   * Called after layout is ready so Dataview has time to load.
+   * Construct all services. Invoked synchronously in onload() so the services
+   * exist before the workspace restores deferred views (see onload). The
+   * Dataview API is resolved lazily through the getDataviewApi closure, so it
+   * need not be present at construction time; missing-dependency warnings are
+   * deferred to warnMissingDependencies() once the layout is ready.
    */
   private initServices() {
     // LoggerService is initialized first so other services can use it.
@@ -125,30 +149,8 @@ export default class ProjectManagerPlugin extends Plugin {
     this.loggerService = this.loggerServiceImpl;
     void this.loggerService.cleanOldLogs();
 
-    type PluginsHost = { plugins?: { plugins?: Record<string, { api?: DataviewApi } | undefined> } };
-    const host = this.app as unknown as PluginsHost;
-
-    const getDataviewApi = (): DataviewApi | null => {
-      const dv = host.plugins?.plugins?.[DATAVIEW_PLUGIN_ID]?.api;
-      return dv ?? null;
-    };
-
-    const dvApi = getDataviewApi();
-    if (!dvApi) {
-      new Notice(
-        "Project Manager: Dataview plugin not found. " +
-          "Please install and enable the Dataview community plugin.",
-        NOTICE_DURATION_MS
-      );
-    }
-
-    if (!host.plugins?.plugins?.[TASKS_PLUGIN_ID]) {
-      new Notice(
-        "Project Manager: Tasks plugin not found. " +
-          "Please install and enable the Tasks community plugin.",
-        NOTICE_DURATION_MS
-      );
-    }
+    const getDataviewApi = (): DataviewApi | null =>
+      this.getCommunityPlugin(DATAVIEW_PLUGIN_ID)?.api ?? null;
 
     this.templateService = new TemplateService();
     this.queryService = new QueryService(getDataviewApi, this.settings.folders);
@@ -173,6 +175,30 @@ export default class ProjectManagerPlugin extends Plugin {
       this.loggerService
     );
   }
+
+  /**
+   * Returns the registered community-plugin entry for `pluginId`, or undefined
+   * when the plugin is not installed/enabled. The `api` field is populated by
+   * plugins (e.g. Dataview) that expose one.
+   */
+  private getCommunityPlugin(pluginId: string): { api?: DataviewApi } | undefined {
+    type PluginsHost = { plugins?: { plugins?: Record<string, { api?: DataviewApi } | undefined> } };
+    return (this.app as unknown as PluginsHost).plugins?.plugins?.[pluginId];
+  }
+
+  /**
+   * Warn (without blocking load) when a required community plugin is missing.
+   * Deferred to onLayoutReady so other community plugins have finished loading
+   * before their presence is checked, avoiding false "not installed" notices.
+   */
+  private warnMissingDependencies() {
+    if (!this.getCommunityPlugin(DATAVIEW_PLUGIN_ID)?.api) {
+      new Notice(MAIN_MSG.DATAVIEW_NOT_FOUND, NOTICE_DURATION_MS);
+    }
+    if (!this.getCommunityPlugin(TASKS_PLUGIN_ID)) {
+      new Notice(MAIN_MSG.TASKS_NOT_FOUND, NOTICE_DURATION_MS);
+    }
+  }
 }
 
 // ─── Helper: activate Reference Dashboard panel ───────────────────────────────
@@ -187,7 +213,7 @@ async function activateReferenceDashboard(plugin: ProjectManagerPlugin): Promise
     void plugin.app.workspace.revealLeaf(existing[0]);
     return;
   }
-  const leaf = plugin.app.workspace.getLeaf('tab');
+  const leaf = plugin.app.workspace.getLeaf(WORKSPACE_LEAF_TYPE.TAB);
   if (!leaf) return;
   await leaf.setViewState({ type: ReferenceDashboardItemView.VIEW_TYPE, active: true });
   void plugin.app.workspace.revealLeaf(leaf);

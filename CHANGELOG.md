@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0-beta.2] - 2026-09-22
+
+### Fixed
+
+- Reference Dashboard no longer opens to Obsidian's **"Plugin no longer active — …(pm-reference-dashboard) has gone away"** placeholder. The custom `ItemView` was registered (and services were constructed) inside the `onLayoutReady` callback in `main.ts`; since Obsidian 1.7.2 restores saved leaves as deferred views that resolve **before** `onLayoutReady`, a persisted `pm-reference-dashboard` leaf resolved while its type was still unregistered (placeholder) or against undefined services. `registerView(...)` and `initServices()` now run **synchronously in `onload()`**, before the workspace restores its layout. The Dataview/Tasks missing-dependency notices are extracted into a deferred `warnMissingDependencies()` that stays in `onLayoutReady` (so it still waits for other community plugins to load), leaving `initServices()` to construct services only. A new regression test asserts the view type is registered during `onload()` independently of the layout-ready callback ([#107](https://gitlab.n3.pingleberry.com/obsidian/obsidian-plugin-project-manager/-/issues/107)).
+
+### Documentation
+
+- Reconciled PRD-009 §3.10 with the fix and two adjacent stale claims: the Reference Dashboard view is registered synchronously in `onload()` (not `onLayoutReady`), it opens as a main editor tab (`workspace.getLeaf('tab')`, not the right sidebar), and the settings-backed host registers no vault `modify` listener. Harmonised the §3.8/§7 filter-persistence wording on "via `SettingsViewStore`", and corrected the §3.8 legacy-frontmatter-retirement attribution to the References-dashboard migration ([#107](https://gitlab.n3.pingleberry.com/obsidian/obsidian-plugin-project-manager/-/issues/107)).
+
 ## [0.5.0-beta.1] - 2026-09-22
 
 ### Added
