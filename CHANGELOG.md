@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0-beta.1] - 2026-09-22
+
 ### Added
 
 - pm-tasks dashboard: **Date view group-by field** — the `date` view mode gains a compact **Group by** dropdown (Due / Start / Scheduled) that buckets tasks by the chosen date dimension using the **same six boundaries** (Overdue / Today / Tomorrow / This Week / Upcoming / No-date) for every field, with field-specific labels. The inline due-only bucketer in `date-view-renderer.ts` is refactored into a single parameterised `bucketTasksByDate(tasks, accessor, labelSet)` (Due bucketing byte-identical); new `START_BUCKET_LABEL` / `SCHEDULED_BUCKET_LABEL` label sets (emoji sourced from `START_DATE_EMOJI` / `SCHEDULED_DATE_EMOJI`) and a `GROUP_BY_DATE_FIELD` value map. `groupByDateField` is required on `DashboardFilters` (optional on `PmTasksConfig`), defaulted to **Due** in `initFilters`, written in `persistFilters` `toSave`, and added to the shared `makeFilters` fixture. Backward compatible: blocks and per-block `pm-view-state` saved before this feature load with Due grouping (no migration) ([#99](https://gitlab.n3.pingleberry.com/obsidian/obsidian-plugin-project-manager/-/issues/99)).
