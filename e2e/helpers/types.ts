@@ -24,8 +24,20 @@ export interface ObsidianFile {
   basename: string;
 }
 
+/** A view hosted in a workspace leaf. `getViewType()` reports its registered type. */
+export interface ObsidianView {
+  getViewType: () => string;
+}
+
+/** A workspace leaf (tab / pane) and the view it currently hosts. */
+export interface ObsidianWorkspaceLeaf {
+  view: ObsidianView;
+}
+
 export interface ObsidianWorkspace {
   getActiveFile: () => ObsidianFile | null;
+  /** All open leaves currently hosting a view of the given registered type. */
+  getLeavesOfType: (viewType: string) => ObsidianWorkspaceLeaf[];
 }
 
 export interface ObsidianMetadataCache {
