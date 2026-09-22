@@ -36,9 +36,6 @@ export class ReferenceDashboardItemView extends DashboardItemViewHost {
     const stateKey = REFERENCE_DASHBOARD_STATE_KEY;
 
     const config: DashboardItemViewConfig = {
-      viewType: ReferenceDashboardItemView.VIEW_TYPE,
-      displayText: REFERENCES_DASHBOARD_TEXT.TITLE,
-      icon: REFERENCE_DASHBOARD_ICON,
       store,
       stateKey,
       createView: (persist, container) => {
@@ -55,6 +52,18 @@ export class ReferenceDashboardItemView extends DashboardItemViewHost {
     };
 
     super(leaf, config);
+  }
+
+  getViewType(): string {
+    return ReferenceDashboardItemView.VIEW_TYPE;
+  }
+
+  getDisplayText(): string {
+    return REFERENCES_DASHBOARD_TEXT.TITLE;
+  }
+
+  getIcon(): string {
+    return REFERENCE_DASHBOARD_ICON;
   }
 
   async onOpen(): Promise<void> {

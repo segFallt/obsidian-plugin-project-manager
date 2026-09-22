@@ -1,9 +1,30 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import type { WorkspaceLeaf } from "obsidian";
-import { DashboardItemViewHost } from "../../src/processors/dashboard-item-view-host";
-import type { DashboardItemViewConfig } from "../../src/processors/dashboard-item-view-host";
-import type { DashboardViewComponent } from "../../src/processors/dashboard-render-child";
-import type { ViewState, ViewStateStore } from "../../src/processors/view-state-store";
+import { DashboardItemViewHost } from "@/processors/dashboard-item-view-host";
+import type { DashboardItemViewConfig } from "@/processors/dashboard-item-view-host";
+import type { DashboardViewComponent } from "@/processors/dashboard-render-child";
+import type { ViewState, ViewStateStore } from "@/processors/view-state-store";
+
+const TEST_VIEW_TYPE = "pm-test-dashboard";
+const TEST_DISPLAY_TEXT = "Test Dashboard";
+const TEST_ICON = "layout-dashboard";
+
+/**
+ * Concrete host used by the tests. The base host's view-identity getters are
+ * abstract; this double implements them from constants that read no
+ * post-`super()` state, matching how real hosts satisfy the contract.
+ */
+class TestDashboardItemViewHost extends DashboardItemViewHost {
+  getViewType(): string {
+    return TEST_VIEW_TYPE;
+  }
+  getDisplayText(): string {
+    return TEST_DISPLAY_TEXT;
+  }
+  getIcon(): string {
+    return TEST_ICON;
+  }
+}
 
 afterEach(() => {
   vi.useRealTimers();
@@ -36,9 +57,6 @@ function makeHost(): {
   let container: HTMLElement | null = null;
 
   const config: DashboardItemViewConfig = {
-    viewType: "pm-test-dashboard",
-    displayText: "Test Dashboard",
-    icon: "layout-dashboard",
     store,
     stateKey: "pm-test-filters",
     createView: (p, c) => {
@@ -48,7 +66,7 @@ function makeHost(): {
     },
   };
 
-  const host = new DashboardItemViewHost({} as WorkspaceLeaf, config);
+  const host = new TestDashboardItemViewHost({} as WorkspaceLeaf, config);
   return {
     host,
     view,
@@ -59,11 +77,18 @@ function makeHost(): {
 }
 
 describe("DashboardItemViewHost", () => {
-  it("exposes the configured view metadata", () => {
+  it("constructs without throwing when the base ctor queries the view type", () => {
+    // The obsidian mock's ItemView ctor calls this.getViewType() during super()
+    // (the Obsidian 1.7.2 contract). A subclass whose getters read post-super()
+    // state would throw here; a constant-returning double must not.
+    expect(() => makeHost()).not.toThrow();
+  });
+
+  it("exposes the subclass view metadata", () => {
     const { host } = makeHost();
-    expect(host.getViewType()).toBe("pm-test-dashboard");
-    expect(host.getDisplayText()).toBe("Test Dashboard");
-    expect(host.getIcon()).toBe("layout-dashboard");
+    expect(host.getViewType()).toBe(TEST_VIEW_TYPE);
+    expect(host.getDisplayText()).toBe(TEST_DISPLAY_TEXT);
+    expect(host.getIcon()).toBe(TEST_ICON);
   });
 
   it("mounts the view into contentEl on onOpen()", async () => {

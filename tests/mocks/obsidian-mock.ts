@@ -268,6 +268,10 @@ export class ItemView {
     this.contentEl = makeObsidianEl("div");
     this.containerEl = makeObsidianEl("div");
     this.containerEl.appendChild(this.contentEl);
+    // Obsidian 1.7.2+ queries the view type during base construction (deferred
+    // views). Model that here so a getter that reads post-super() state throws
+    // in unit tests instead of only in a real Obsidian runtime.
+    this.getViewType();
   }
 
   getViewType(): string { return ""; }
