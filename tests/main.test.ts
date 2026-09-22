@@ -185,3 +185,80 @@ describe("activateReferenceDashboard", () => {
     expect(revealLeafSpy).toHaveBeenCalledWith(existingLeaf);
   });
 });
+
+describe("ProjectManagerPlugin — view/service registration timing", () => {
+  let plugin: ProjectManagerPlugin;
+
+  beforeEach(() => {
+    MockNotice.mockClear();
+  });
+
+  afterEach(() => {
+    plugin?.onunload();
+  });
+
+  /**
+   * The obsidian mock fires onLayoutReady synchronously, which would mask a
+   * timing regression. These tests replace it with a capturing stub so the
+   * callback is NOT invoked, proving the view type is registered and services
+   * are constructed during onload() independently of layout-ready.
+   */
+  function loadWithDeferredLayoutReady(app: App) {
+    let layoutReadyCallback: (() => void) | undefined;
+    app.workspace.onLayoutReady = ((fn: () => void) => {
+      layoutReadyCallback = fn;
+    }) as typeof app.workspace.onLayoutReady;
+
+    plugin = new ProjectManagerPlugin(app, {} as never);
+    const registerViewSpy = vi.spyOn(plugin, "registerView");
+
+    return { registerViewSpy, getLayoutReadyCallback: () => layoutReadyCallback };
+  }
+
+  it("registers the dashboard view type during onload, before the layout-ready callback runs", async () => {
+    const app = buildApp([DATAVIEW_PLUGIN_ID, TASKS_PLUGIN_ID]);
+    const { registerViewSpy, getLayoutReadyCallback } = loadWithDeferredLayoutReady(app);
+
+    await plugin.onload();
+
+    // A layout-ready callback was scheduled but deliberately not invoked here.
+    expect(getLayoutReadyCallback()).toBeDefined();
+    // The view type is nonetheless already registered.
+    expect(registerViewSpy).toHaveBeenCalledWith(
+      ReferenceDashboardItemView.VIEW_TYPE,
+      expect.any(Function)
+    );
+  });
+
+  it("initialises services during onload, before the layout-ready callback runs", async () => {
+    const app = buildApp([DATAVIEW_PLUGIN_ID, TASKS_PLUGIN_ID]);
+    const { getLayoutReadyCallback } = loadWithDeferredLayoutReady(app);
+
+    await plugin.onload();
+
+    // Services that buildReferenceProcessorServices reads at view-open time are
+    // populated without waiting for layout-ready.
+    expect(getLayoutReadyCallback()).toBeDefined();
+    expect(plugin.queryService).toBeDefined();
+    expect(plugin.hierarchyService).toBeDefined();
+    expect(plugin.navigationService).toBeDefined();
+    expect(plugin.commandExecutor).toBeDefined();
+    expect(plugin.actionContext).toBeDefined();
+  });
+
+  it("defers the missing-dependency notices to the layout-ready callback", async () => {
+    const app = buildApp([]); // neither Dataview nor Tasks installed
+    const { getLayoutReadyCallback } = loadWithDeferredLayoutReady(app);
+
+    await plugin.onload();
+
+    // No dependency notice fires during onload — the checks are deferred.
+    expect(MockNotice).not.toHaveBeenCalled();
+
+    // Once the layout is ready, both missing-dependency notices appear.
+    getLayoutReadyCallback()!();
+    const messages = MockNotice.mock.calls.map((c) => String(c[0]));
+    expect(messages.some((m) => m.includes("Dataview"))).toBe(true);
+    expect(messages.some((m) => m.includes("Tasks"))).toBe(true);
+  });
+});

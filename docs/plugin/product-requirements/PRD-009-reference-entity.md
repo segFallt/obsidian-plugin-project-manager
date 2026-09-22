@@ -101,7 +101,7 @@ Each reference card contains:
 Interactive filter state (active chip selections, view mode, selected sidebar node) is persisted after each user interaction. The persistence path depends on the rendering context:
 
 **ItemView panel (§3.10) — persists to plugin settings:**
-Filter state is stored in `plugin.settings.ui.referenceDashboardFilters` and written to the plugin data file via `plugin.saveSettings()`. This keeps the filter state global across all notes and vault sessions.
+Filter state is stored in `plugin.settings.ui.referenceDashboardFilters` and written to the plugin data file via the `SettingsViewStore` (which calls `plugin.saveSettings()`). This keeps the filter state global across all notes and vault sessions.
 
 ```typescript
 // plugin.settings.ui.referenceDashboardFilters shape (SavedReferenceFilters):
@@ -115,7 +115,7 @@ Filter state is stored in `plugin.settings.ui.referenceDashboardFilters` and wri
 ```
 
 **Legacy code block path (deprecated) — previously persisted to note frontmatter:**
-The original implementation persisted to `pm-references-filters` in the host note's frontmatter. This path is no longer used since the code block was simplified to a summary card in issue #75.
+The original implementation persisted to `pm-references-filters` in the host note's frontmatter. This path is no longer used since the code block was simplified to a summary card during the References-dashboard migration.
 
 ### 3.9 (Reserved)
 
@@ -125,14 +125,14 @@ The Reference Dashboard is hosted in a dedicated Obsidian `ItemView` panel, regi
 
 **View type constant:** `PM_REFERENCE_DASHBOARD_VIEW_TYPE = "pm-reference-dashboard"` (exported from `src/constants.ts`)
 
-**Activation command:** `PM: Open Reference Dashboard` (command ID: `engagement-project-manager:open-reference-dashboard`). Registered during `onLayoutReady`. If the view is already open in any leaf, the command reveals it instead of creating a duplicate. Otherwise it opens in the right sidebar (`workspace.getRightLeaf(false)`).
+**Activation command:** `PM: Open Reference Dashboard` (command ID: `engagement-project-manager:open-reference-dashboard`), registered during `onLayoutReady`. If the view is already open in any leaf, the command reveals it instead of creating a duplicate. Otherwise it opens as a main editor tab (`workspace.getLeaf('tab')`).
 
 **Ribbon icon:** Displayed when `settings.ui.showRibbonIcons` is `true`. Uses the `book-open` icon. Clicking the icon calls the same activation helper as the command.
 
 **Lifecycle:**
-- Registered via `this.registerView(...)` inside `onLayoutReady()` in `main.ts`.
-- On open (`onOpen()`): adds the `pm-reference-dashboard-view` CSS class to `contentEl`, constructs the `ReferenceDashboardView` component, restores saved filters from `plugin.settings.ui.referenceDashboardFilters`, and registers a vault `modify` event listener for debounced auto-refresh.
-- On close (`onClose()`): clears the debounce timer, empties `contentEl`, and nullifies the dashboard view reference.
+- Registered via `this.registerView(...)` **synchronously in `onload()`** in `main.ts`, before the workspace restores its saved layout — so a restored deferred `pm-reference-dashboard` leaf resolves to the real view instead of Obsidian's "plugin has gone away" placeholder. Services are constructed in the same synchronous `onload()` pass, so the view has initialised services when it opens.
+- On open (`onOpen()`): adds the `pm-reference-dashboard-view` CSS class to `contentEl`, then constructs the `ReferenceDashboardView` component and restores saved filters from `plugin.settings.ui.referenceDashboardFilters`. The settings-backed host registers **no** vault `modify` listener (capability-spine migration).
+- On close (`onClose()`): cancels the pending debounced filter-persistence save, destroys the dashboard component, nullifies the view reference, and empties `contentEl`.
 - On plugin unload: all leaves of type `pm-reference-dashboard` are detached via `workspace.detachLeavesOfType(...)` before logger flush.
 
 **Source:** `src/views/reference-dashboard-item-view.ts`, exported via `src/views/index.ts`.

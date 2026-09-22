@@ -1,5 +1,6 @@
 import type { App, TFile } from "obsidian";
 import type { INavigationService } from "./interfaces";
+import { WORKSPACE_LEAF_TYPE } from "../constants";
 
 /**
  * Encapsulates file navigation (opening files in a new tab).
@@ -9,7 +10,7 @@ export class NavigationService implements INavigationService {
   constructor(private readonly app: App) {}
 
   async openFile(file: TFile): Promise<void> {
-    const leaf = this.app.workspace.getLeaf("tab");
+    const leaf = this.app.workspace.getLeaf(WORKSPACE_LEAF_TYPE.TAB);
     await leaf.openFile(file);
   }
 }
