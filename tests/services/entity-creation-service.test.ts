@@ -3,19 +3,21 @@ import { EntityCreationService } from "../../src/services/entity-creation-servic
 import { TemplateService } from "../../src/services/template-service";
 import { createMockApp, TFile } from "../mocks/app-mock";
 import { DEFAULT_SETTINGS } from "../../src/settings";
-import type { INavigationService } from "../../src/services/interfaces";
+import type { INavigationService, INotificationService } from "../../src/services/interfaces";
 
 function createSvc(existingFiles: Parameters<typeof createMockApp>[0] = []) {
   const app = createMockApp(existingFiles);
   const templates = new TemplateService();
   const navigation: INavigationService = { openFile: vi.fn().mockResolvedValue(undefined) };
+  const notification: INotificationService = { notify: vi.fn() };
   const svc = new EntityCreationService(
     app as unknown as import("obsidian").App,
     DEFAULT_SETTINGS,
     templates,
-    navigation
+    navigation,
+    notification
   );
-  return { svc, app, navigation };
+  return { svc, app, navigation, notification };
 }
 
 describe("EntityCreationService", () => {
@@ -32,6 +34,13 @@ describe("EntityCreationService", () => {
       const { svc, navigation } = createSvc();
       await svc.createClient("Acme Corp");
       expect(navigation.openFile).toHaveBeenCalledOnce();
+    });
+
+    it("signals success via the injected notification service", async () => {
+      const { svc, notification } = createSvc();
+      await svc.createClient("Acme Corp");
+      expect(notification.notify).toHaveBeenCalledOnce();
+      expect(vi.mocked(notification.notify).mock.calls[0][0]).toContain("Acme Corp");
     });
 
     it("resolves path conflicts by appending a counter", async () => {
@@ -203,20 +212,38 @@ describe("EntityCreationService", () => {
     });
   });
 
-  describe("validateResult", () => {
-    it("does not throw when success is true", () => {
-      const { svc } = createSvc();
-      expect(() => svc.validateResult({ success: true })).not.toThrow();
+  describe("materializeEntity", () => {
+    it("applies contentTransform before writing the file", async () => {
+      const { svc, app } = createSvc();
+      let captured = "";
+      app.vault.create = async (p, c) => { captured = c; return new TFile(p); };
+      await svc.materializeEntity("client", "Acme", "clients", {
+        contentTransform: (raw) => `${raw}\nEXTRA`,
+      });
+      expect(captured).toContain("EXTRA");
     });
 
-    it("throws with the provided error message when success is false", () => {
-      const { svc } = createSvc();
-      expect(() => svc.validateResult({ success: false, error: "oops" })).toThrow("oops");
+    it("does not notify when the notice option is omitted (bulk suppression)", async () => {
+      const { svc, notification } = createSvc();
+      await svc.materializeEntity("client", "Acme", "clients");
+      expect(notification.notify).not.toHaveBeenCalled();
     });
 
-    it("throws a default message when error is not provided", () => {
-      const { svc } = createSvc();
-      expect(() => svc.validateResult({ success: false })).toThrow("Entity creation failed");
+    it("does not open the file when the open option is omitted", async () => {
+      const { svc, navigation } = createSvc();
+      await svc.materializeEntity("client", "Acme", "clients");
+      expect(navigation.openFile).not.toHaveBeenCalled();
+    });
+
+    it("writes frontmatter via the provided callback", async () => {
+      const { svc, app } = createSvc();
+      const mutations: Record<string, unknown> = {};
+      app.fileManager.processFrontMatter = async (_f, fn) => { const fm = {}; fn(fm); Object.assign(mutations, fm); };
+      await svc.materializeEntity("client", "Acme", "clients", {
+        frontmatter: (fm) => { fm.status = "Active"; },
+      });
+      expect(mutations.status).toBe("Active");
     });
   });
+
 });

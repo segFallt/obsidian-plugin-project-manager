@@ -2,7 +2,7 @@
  * Shared constants for the Project Manager plugin.
  * Mirrors the vault's constants.js for consistency.
  */
-import type { DueDatePreset, DueDateFilter } from "./types";
+import type { DueDatePreset, DueDateFilter, StartDateFilter, ScheduledDateFilter, EntityType } from "./types";
 
 export const CLIENT_STATUSES = ["Active", "Inactive"] as const;
 export const ENGAGEMENT_STATUSES = ["Active", "Inactive"] as const;
@@ -50,6 +50,85 @@ export const PRIORITY_DISPLAY: Record<number, string> = {
   5: "⏬ Someday",
 };
 
+/** Section headings for the task dashboard's date view. */
+export const DATE_BUCKET_LABEL = {
+  OVERDUE: "⚠️ Overdue",
+  TODAY: "📅 Today",
+  TOMORROW: "📆 Tomorrow",
+  THIS_WEEK: "📋 This Week",
+  UPCOMING: "🔮 Upcoming",
+  NO_DUE_DATE: "📝 No Due Date",
+} as const;
+
+/** Section heading for untagged tasks in the task dashboard's tag view. */
+export const TAG_VIEW_LABEL = {
+  UNTAGGED: "📌 Untagged",
+} as const;
+
+/**
+ * Stable identifiers for the task filter facets. Each keys a `FilterSpec` facet
+ * and the matching `FilterState.selections` entry — sharing one source keeps the
+ * facet definition and the selection builder from drifting.
+ */
+export const FACET_KEY = {
+  SHOW_COMPLETED: "showCompleted",
+  CONTEXT: "context",
+  SEARCH_TEXT: "searchText",
+  DUE_DATE: "dueDate",
+  START_DATE: "startDate",
+  SCHEDULED_DATE: "scheduledDate",
+  PRIORITY: "priority",
+  CLIENT: "client",
+  ENGAGEMENT: "engagement",
+  TAG: "tag",
+  PROJECT_STATUS: "projectStatus",
+  INBOX_STATUS: "inboxStatus",
+  MEETING_DATE: "meetingDate",
+} as const;
+
+/**
+ * Filter facet keys for the RAID dashboard. `MATRIX_CELL` is the facet the
+ * interactive matrix renderer owns — the shell excludes it (`specWithout`) when
+ * computing the matrix's per-cell counts so a selected cell keeps the others'.
+ */
+export const RAID_FACET_KEY = {
+  RAID_TYPES: "raidTypes",
+  STATUS: "statusFilter",
+  CLIENT: "clientFilter",
+  ENGAGEMENT: "engagementFilter",
+  SEARCH_TEXT: "searchText",
+  MATRIX_CELL: "matrixCell",
+} as const;
+
+/**
+ * Filter facet keys for the References dashboard. `selectedNode` is deliberately
+ * absent: it is renderer display/scoping state (the active sidebar node), not a
+ * `FilterEngine` facet, and `viewMode` selects the renderer rather than filtering.
+ */
+export const REF_FACET_KEY = {
+  TOPICS: "topics",
+  CLIENTS: "clients",
+  ENGAGEMENTS: "engagements",
+  SEARCH_TEXT: "searchText",
+} as const;
+
+/** The facet keys gated to the "context" view mode. */
+export const CONTEXT_FACET_KEYS = [
+  FACET_KEY.PROJECT_STATUS,
+  FACET_KEY.INBOX_STATUS,
+  FACET_KEY.MEETING_DATE,
+] as const;
+
+/** The `DashboardFilters` fields that hold the context-view-gated filters. */
+export const CONTEXT_FILTER_FIELDS = [
+  "projectStatusFilter",
+  "inboxStatusFilter",
+  "meetingDateFilter",
+] as const;
+
+/** Union of the context-view-gated `DashboardFilters` field names. */
+export type ContextFilterField = (typeof CONTEXT_FILTER_FIELDS)[number];
+
 /** Maps Tasks plugin emoji to numeric priority. Medium (3) has no emoji. */
 export const PRIORITY_EMOJI: Record<string, number> = {
   "⏫": 1, // Highest
@@ -59,16 +138,142 @@ export const PRIORITY_EMOJI: Record<string, number> = {
 
 /** Due date emoji used by Tasks plugin. */
 export const DUE_DATE_EMOJI = "📅";
+/** Start date emoji used by Tasks plugin. */
+export const START_DATE_EMOJI = "🛫";
+/** Scheduled date emoji used by Tasks plugin. */
+export const SCHEDULED_DATE_EMOJI = "⏳";
 /** Completion date emoji. */
 export const COMPLETION_DATE_EMOJI = "✅";
 /** Recurrence emoji. */
 export const RECURRENCE_EMOJI = "🔁";
 
+/**
+ * Section headings for the Date view when grouped by START date. Same six
+ * boundaries as `DATE_BUCKET_LABEL`; only the labels differ. Emoji prefix
+ * sourced from `START_DATE_EMOJI` (not hardcoded), consistent with
+ * `DATE_BUCKET_LABEL`'s emoji-prefixed style.
+ */
+export const START_BUCKET_LABEL = {
+  OVERDUE: `${START_DATE_EMOJI} Started`,
+  TODAY: `${START_DATE_EMOJI} Starts Today`,
+  TOMORROW: `${START_DATE_EMOJI} Starts Tomorrow`,
+  THIS_WEEK: `${START_DATE_EMOJI} Starts This Week`,
+  UPCOMING: `${START_DATE_EMOJI} Starts Later`,
+  NO_DUE_DATE: `${START_DATE_EMOJI} No Start Date`,
+} as const;
+
+/**
+ * Section headings for the Date view when grouped by SCHEDULED date. Same six
+ * boundaries as `DATE_BUCKET_LABEL`; only the labels differ. Emoji prefix
+ * sourced from `SCHEDULED_DATE_EMOJI` (not hardcoded).
+ */
+export const SCHEDULED_BUCKET_LABEL = {
+  OVERDUE: `${SCHEDULED_DATE_EMOJI} Past Scheduled`,
+  TODAY: `${SCHEDULED_DATE_EMOJI} Scheduled Today`,
+  TOMORROW: `${SCHEDULED_DATE_EMOJI} Scheduled Tomorrow`,
+  THIS_WEEK: `${SCHEDULED_DATE_EMOJI} Scheduled This Week`,
+  UPCOMING: `${SCHEDULED_DATE_EMOJI} Scheduled Later`,
+  NO_DUE_DATE: `${SCHEDULED_DATE_EMOJI} No Scheduled Date`,
+} as const;
+
+/**
+ * Group-by field values for the Date view's group-by dropdown. Each value is
+ * also the `DataviewTask` property the bucketer reads (`due`/`start`/`scheduled`).
+ * `DUE` is the default so pre-feature blocks are unchanged.
+ */
+export const GROUP_BY_DATE_FIELD = {
+  DUE: "due",
+  START: "start",
+  SCHEDULED: "scheduled",
+} as const;
+
+/** `element.style.display` values used to show/hide toolbar controls. */
+export const CSS_DISPLAY = {
+  /** Restores the element's stylesheet-defined display. */
+  DEFAULT: "",
+  NONE: "none",
+} as const;
+
+/** Static, user-facing text for the pm-tasks dashboard toolbar. */
+export const TASKS_TOOLBAR_TEXT = {
+  VIEW_CONTEXT: "Context",
+  VIEW_DATE: "Date",
+  VIEW_PRIORITY: "Priority",
+  VIEW_TAG: "Tag",
+  SEARCH_PLACEHOLDER: "Search tasks…",
+  SEARCH_ARIA: "Search tasks",
+  FILTERS_BTN: "⚙ Filters ",
+  GROUP_BY_LABEL: "Group by:",
+  GROUP_BY_ARIA: "Group the Date view by",
+  GROUP_BY_DUE_OPTION: "Due",
+  GROUP_BY_START_OPTION: "Start",
+  GROUP_BY_SCHEDULED_OPTION: "Scheduled",
+} as const;
+
+/**
+ * Ordered options for the Date view's group-by dropdown: each pairs a
+ * `GROUP_BY_DATE_FIELD` value with its display label. Due first (the default).
+ */
+export const GROUP_BY_DATE_OPTIONS: ReadonlyArray<{ value: string; label: string }> = [
+  { value: GROUP_BY_DATE_FIELD.DUE, label: TASKS_TOOLBAR_TEXT.GROUP_BY_DUE_OPTION },
+  { value: GROUP_BY_DATE_FIELD.START, label: TASKS_TOOLBAR_TEXT.GROUP_BY_START_OPTION },
+  { value: GROUP_BY_DATE_FIELD.SCHEDULED, label: TASKS_TOOLBAR_TEXT.GROUP_BY_SCHEDULED_OPTION },
+];
+
+/** Named due-date preset values (a `DueDatePreset` each). */
+export const DUE_DATE_PRESET = {
+  TODAY: "Today",
+  TOMORROW: "Tomorrow",
+  THIS_WEEK: "This Week",
+  NEXT_WEEK: "Next Week",
+  OVERDUE: "Overdue",
+  NO_DATE: "No Date",
+} as const;
+
+/** Named start-date preset value (the single no-date preset; follows `DUE_DATE_PRESET`). */
+export const START_DATE_PRESET = {
+  NO_DATE: "No Start Date",
+} as const;
+
+/** Named scheduled-date preset value (the single no-date preset; follows `DUE_DATE_PRESET`). */
+export const SCHEDULED_DATE_PRESET = {
+  NO_DATE: "No Scheduled Date",
+} as const;
+
+/** Named meeting-date filter values (a `MeetingDateFilter` each; `ALL` = no filter). */
+export const MEETING_DATE_FILTER = {
+  ALL: "All",
+  TODAY: "Today",
+  THIS_WEEK: "This Week",
+  PAST: "Past",
+} as const;
+
+/** Named inbox-status filter values (an `InboxStatusFilter` each; `ALL` = no filter). */
+export const INBOX_STATUS_FILTER = {
+  ALL: "All",
+  ACTIVE: "Active",
+  COMPLETE: "Complete",
+} as const;
+
 /** All available due date preset options in display order. */
-export const DUE_DATE_PRESETS: readonly DueDatePreset[] = ["Today", "Tomorrow", "This Week", "Next Week", "Overdue", "No Date"];
+export const DUE_DATE_PRESETS: readonly DueDatePreset[] = Object.values(DUE_DATE_PRESET);
 
 /** Default (empty) due date filter — no presets selected, no range set. */
 export const DEFAULT_DUE_DATE_FILTER: DueDateFilter = Object.freeze({
+  selectedPresets: [],
+  rangeFrom: null,
+  rangeTo: null,
+});
+
+/** Default (empty) start date filter — no preset selected, no range set. */
+export const DEFAULT_START_DATE_FILTER: StartDateFilter = Object.freeze({
+  selectedPresets: [],
+  rangeFrom: null,
+  rangeTo: null,
+});
+
+/** Default (empty) scheduled date filter — no preset selected, no range set. */
+export const DEFAULT_SCHEDULED_DATE_FILTER: ScheduledDateFilter = Object.freeze({
   selectedPresets: [],
   rangeFrom: null,
   rangeTo: null,
@@ -105,6 +310,8 @@ export const NEXT_WEEK_START_OFFSET = WEEK_DAYS + 1;
 export const NEXT_WEEK_END_OFFSET = WEEK_DAYS * 2;
 /** Length of an ISO date string (YYYY-MM-DD). */
 export const ISO_DATE_LENGTH = 10;
+/** Milliseconds in one day, for age/elapsed-day calculations. */
+export const MS_PER_DAY = 86400000;
 /** Length of an ISO datetime string (YYYY-MM-DDTHH:mm:ss). */
 export const ISO_DATETIME_LENGTH = 19;
 /** Fallback sort priority for items with no priority set. */
@@ -133,26 +340,64 @@ export const DEBOUNCE_MS = {
 /** Numeric weight for each log level (higher = more severe). */
 export const LOG_LEVELS = { DEBUG: 0, INFO: 1, WARN: 2, ERROR: 3 } as const;
 
+/** `typeof` result strings, for type-guard comparisons without bare literals. */
+export const JS_TYPE = {
+  OBJECT: "object",
+  STRING: "string",
+} as const;
+
+/** Task sort-field values (declaration order drives the sort-key UI pill list). */
+export const SORT_FIELD = {
+  DUE_DATE: "dueDate",
+  START_DATE: "startDate",
+  SCHEDULED_DATE: "scheduledDate",
+  PRIORITY: "priority",
+  ALPHABETICAL: "alphabetical",
+  CONTEXT: "context",
+  CREATED_DATE: "createdDate",
+} as const;
+
+/** Sort-direction values — the domain sort direction and the Dataview `.sort` order argument. */
+export const SORT_DIRECTION = {
+  ASC: "asc",
+  DESC: "desc",
+} as const;
+
 /** How often (ms) the logger flushes its in-memory buffer to disk. */
 export const LOG_FLUSH_INTERVAL_MS = 5000;
 
 /** Suffix appended to log file names (e.g. "2026-03-09-pm.log"). */
 export const LOG_FILE_SUFFIX = "-pm.log";
 
-/** Logger context tag strings for each processor / view. */
+/** Logger context tag strings for each processor / view / command. */
 export const LOG_CONTEXT = {
   PROPERTIES_PROCESSOR: "pm-properties",
   TABLE_PROCESSOR: "pm-table",
   TASKS_PROCESSOR: "pm-tasks-processor",
   TASKS_DASHBOARD: "pm-tasks-dashboard",
   TASKS_BY_PROJECT: "pm-tasks-by-project",
+  RAID_DASHBOARD_PROCESSOR: "pm-raid-dashboard-processor",
+  RAID_DASHBOARD: "pm-raid-dashboard",
   ENTITY_VIEW: "pm-entity-view",
   CREATE_RAID_ITEM: "create-raid-item",
   CREATE_REFERENCE: "create-reference",
   CREATE_REFERENCE_TOPIC: "create-reference-topic",
   TAG_RAID_REFERENCE: "tag-raid-reference",
   REFERENCE_DASHBOARD_VIEW: "pm-reference-dashboard-view",
+  REFERENCES_PROCESSOR: "pm-references-processor",
   RECURRING_EVENTS: "pm-recurring-events",
+  CREATE_CLIENT: "create-client",
+  CREATE_ENGAGEMENT: "create-engagement",
+  CREATE_PROJECT: "create-project",
+  CREATE_PERSON: "create-person",
+  CREATE_INBOX: "create-inbox",
+  CREATE_SINGLE_MEETING: "create-single-meeting",
+  CREATE_RECURRING_MEETING: "create-recurring-meeting",
+  CREATE_RECURRING_MEETING_EVENT: "create-recurring-meeting-event",
+  CREATE_PROJECT_NOTE: "create-project-note",
+  CONVERT_INBOX_TO_PROJECT: "convert-inbox-to-project",
+  CONVERT_SINGLE_TO_RECURRING: "convert-single-to-recurring",
+  UPDATE_REFERENCE_TOPIC: "update-reference-topic",
 } as const;
 
 /** Sentinel date strings for sort stability (tasks with no due date). */
@@ -199,6 +444,26 @@ export const ENTITY_TAGS = {
   raid: "#raid",
 } as const;
 
+/**
+ * Centralized names for each {@link EntityType} — the entity kinds are a domain
+ * concept, so their string identifiers are named here rather than inlined.
+ * `satisfies` keeps each value a valid `EntityType` (drift is a compile error).
+ */
+export const ENTITY_TYPE = {
+  CLIENT: "client",
+  ENGAGEMENT: "engagement",
+  PROJECT: "project",
+  PERSON: "person",
+  INBOX: "inbox",
+  SINGLE_MEETING: "single-meeting",
+  RECURRING_MEETING: "recurring-meeting",
+  RECURRING_MEETING_EVENT: "recurring-meeting-event",
+  PROJECT_NOTE: "project-note",
+  RAID_ITEM: "raid-item",
+  REFERENCE: "reference",
+  REFERENCE_TOPIC: "reference-topic",
+} as const satisfies Record<string, EntityType>;
+
 // ─── Frontmatter keys ─────────────────────────────────────────────────────
 
 /** All frontmatter property key strings used across the plugin. */
@@ -225,11 +490,27 @@ export const FM_KEY = {
   REPORTS_TO: "reports-to",
   PRIORITY: "priority",
   DESCRIPTION: "description",
-  TASKS_FILTERS: "pm-tasks-filters", // Persisted to vault frontmatter — do NOT change this value without a migration
+  RAID_TYPE: "raid-type",
+  LIKELIHOOD: "likelihood",
+  IMPACT: "impact",
+  RAISED_DATE: "raised-date",
+  CLOSED_DATE: "closed-date",
+  OWNER: "owner",
+  TASKS_FILTERS: "pm-tasks-filters", // Legacy flat key — read-only fallback; migrated forward into VIEW_STATE (do NOT change without a migration)
+  VIEW_STATE: "pm-view-state", // Namespaced parent holding per-block dashboard state (pm-view-state.<blockKey>)
   TOPICS: "topics",
-  PM_REFERENCES_FILTERS: "pm-references-filters",
   RAID_DASHBOARD_FILTERS: "pm-raid-dashboard-filters",
   PARENT: "parent",
+} as const;
+
+// ─── Action-context fields ────────────────────────────────────────────────
+
+/** Field identifiers carried on the pending action context to pre-select a parent. */
+export const ACTION_CTX_FIELD = {
+  CLIENT: "client",
+  ENGAGEMENT: "engagement",
+  RECURRING_MEETING: "recurring-meeting",
+  TOPIC: "topic",
 } as const;
 
 // ─── CSS classes ──────────────────────────────────────────────────────────
@@ -273,6 +554,123 @@ export const CSS_CLS = {
   // RAID references processor
   RAID_REFERENCES_ITEM_TEXT: "pm-raid-references__item-text",
   RAID_REFERENCES_ITEM_SECTION_BODY: "pm-raid-references__item-section-body",
+  // RAID dashboard processor
+  RAID_DASHBOARD: "pm-raid-dashboard",
+  RAID_DASHBOARD_OUTPUT: "pm-raid-dashboard__output",
+  RAID_DASHBOARD_FILTER_PANEL: "pm-raid-dashboard__filters",
+  RAID_DASHBOARD_FILTER_ROW: "pm-raid-dashboard__filter-row",
+  RAID_DASHBOARD_FILTER_LABEL: "pm-raid-dashboard__filter-label",
+  RAID_DASHBOARD_CHIPS: "pm-raid-dashboard__chips",
+  RAID_DASHBOARD_SEARCH: "pm-raid-dashboard__search",
+  RAID_DASHBOARD_COUNTS: "pm-raid-dashboard__counts",
+  RAID_DASHBOARD_SECTION: "pm-raid-dashboard__section",
+  RAID_CHIP: "raid-chip",
+  RAID_CHIP_ACTIVE: "raid-chip--active",
+  RAID_MATRIX_WRAPPER: "raid-matrix-wrapper",
+  RAID_MATRIX: "raid-matrix",
+  RAID_MATRIX_CELL: "raid-matrix-cell",
+  RAID_MATRIX_CELL_HEADER: "raid-matrix-cell--header",
+  RAID_MATRIX_CELL_SELECTED: "raid-matrix-cell--selected",
+  RAID_SECTION_HEADER: "raid-section-header",
+  RAID_ITEM_TABLE: "raid-item-table",
+  RAID_ITEM_ROW: "raid-item-row",
+  RAID_STATUS_BADGE: "raid-status-badge",
+  RAID_LXI_DOT: "raid-lxi-dot",
+  RAID_AGE_PILL: "raid-age-pill",
+  RAID_OWNER_AVATAR: "raid-owner-avatar",
+  // RAID matrix likelihood×impact cell colours (keyed in MATRIX_CELL_CLASS)
+  RAID_CELL_HH: "raid-cell--hh",
+  RAID_CELL_HM: "raid-cell--hm",
+  RAID_CELL_HL: "raid-cell--hl",
+  RAID_CELL_MH: "raid-cell--mh",
+  RAID_CELL_MM: "raid-cell--mm",
+  RAID_CELL_ML: "raid-cell--ml",
+  RAID_CELL_LH: "raid-cell--lh",
+  RAID_CELL_LM: "raid-cell--lm",
+  RAID_CELL_LL: "raid-cell--ll",
+  // RAID status badge colours (keyed in STATUS_CSS)
+  RAID_STATUS_OPEN: "raid-status--open",
+  RAID_STATUS_IN_PROGRESS: "raid-status--in-progress",
+  RAID_STATUS_RESOLVED: "raid-status--resolved",
+  RAID_STATUS_CLOSED: "raid-status--closed",
+  // Task view processors (dashboard + by-project)
+  TASKS_DASHBOARD: "pm-tasks-dashboard",
+  TASKS_DASHBOARD_OUTPUT: "pm-tasks-dashboard__output",
+  TASKS_BY_PROJECT: "pm-tasks-by-project",
+  TASKS_BY_PROJECT_OUTPUT: "pm-tasks-by-project__output",
+  // Task dashboard toolbar (view tabs, search, filters button, group-by)
+  TASKS_TOOLBAR: "pm-tasks-toolbar",
+  TASKS_TOOLBAR_VIEW_TABS: "pm-tasks-toolbar__view-tabs",
+  TASKS_TOOLBAR_TAB: "pm-tasks-toolbar__tab",
+  TASKS_TOOLBAR_TAB_ACTIVE: "pm-tasks-toolbar__tab--active",
+  TASKS_TOOLBAR_SEARCH: "pm-tasks-toolbar__search",
+  TASKS_TOOLBAR_FILTERS_BTN: "pm-tasks-toolbar__filters-btn",
+  TASKS_FILTER_BADGE: "pm-tasks-filter-badge",
+  TASKS_DRAWER: "pm-tasks-drawer",
+  TASKS_GROUP_BY: "pm-tasks-toolbar__group-by",
+  TASKS_GROUP_BY_LABEL: "pm-tasks-toolbar__group-by-label",
+  TASKS_GROUP_BY_SELECT: "pm-tasks-toolbar__group-by-select",
+  // Task dashboard filter drawer
+  TASKS_DRAWER_SECTION: "pm-tasks-drawer__section",
+  TASKS_DRAWER_SECTION_LABEL: "pm-tasks-drawer__section-label",
+  TASKS_DRAWER_GRID: "pm-tasks-drawer__grid",
+  TASKS_DRAWER_DIVIDER: "pm-tasks-drawer__divider",
+  // Task dashboard filter pills, date-range inputs, and active-filter chips
+  TASKS_PILL_GROUP: "pm-tasks-pill-group",
+  TASKS_PILL: "pm-tasks-pill",
+  TASKS_PILL_ACTIVE: "pm-tasks-pill--active",
+  TASKS_PILL_WARN: "pm-tasks-pill--warn",
+  TASKS_DATE_RANGE: "pm-date-range",
+  TASKS_DATE_RANGE_INPUT: "pm-date-range-input",
+  TASKS_CHIPS_BAR: "pm-tasks-chips-bar",
+  TASKS_FILTER_CHIP: "pm-tasks-filter-chip",
+  TASKS_FILTER_CHIP_REMOVE: "pm-tasks-filter-chip__remove",
+  // References dashboard (ItemView panel + view components)
+  REFERENCE_DASHBOARD_VIEW: "pm-reference-dashboard-view",
+  REFERENCE_DASHBOARD_ACTIONS: "pm-reference-dashboard__actions",
+  REFERENCE_DASHBOARD_ACTIONS_BUTTON: "pm-reference-dashboard__actions__button",
+  REFERENCES_SUMMARY: "pm-references-summary",
+  REFERENCES_SUMMARY_OPEN_BTN: "pm-references-summary__open-btn",
+  REFERENCES: "pm-references",
+  REFERENCES_TOOLBAR: "pm-references__toolbar",
+  REFERENCES_TABS: "pm-references__tabs",
+  REFERENCES_TAB: "pm-references__tab",
+  REFERENCES_TAB_ACTIVE: "pm-references__tab--active",
+  REFERENCES_FILTERS_TOGGLE: "pm-references__filters-toggle",
+  REFERENCES_SEARCH: "pm-references__search",
+  REFERENCES_FILTER_PANEL: "pm-references__filter-panel",
+  REFERENCES_FILTER_PANEL_OPEN: "pm-references__filter-panel--open",
+  REFERENCES_FILTER_ROW: "pm-references__filter-row",
+  REFERENCES_FILTER_ROW_TOPIC: "pm-references__filter-row--topic",
+  REFERENCES_FILTER_ROW_CLIENT: "pm-references__filter-row--client",
+  REFERENCES_FILTER_ROW_ENGAGEMENT: "pm-references__filter-row--engagement",
+  REFERENCES_FILTER_LABEL: "pm-references__filter-label",
+  REFERENCES_CLEAR_FILTERS: "pm-references__clear-filters",
+  REFERENCES_BODY: "pm-references__body",
+  REFERENCES_SIDEBAR: "pm-references__sidebar",
+  REFERENCES_PANEL: "pm-references__panel",
+  REF_SIDEBAR_ITEM: "pm-ref-sidebar__item",
+  REF_SIDEBAR_ITEM_SELECTED: "pm-ref-sidebar__item--selected",
+  REF_TREE_ITEM: "pm-ref-tree__item",
+  REF_TREE_NODE: "pm-ref-tree__node",
+  REF_TREE_NODE_SELECTED: "pm-ref-tree__node--selected",
+  REF_TREE_TOGGLE: "pm-ref-tree__toggle",
+  REF_TREE_CHILDREN: "pm-ref-tree__children",
+  REF_GROUP: "pm-ref-group",
+  REF_GROUP_HEADER: "pm-ref-group__header",
+  REF_GROUP_TITLE: "pm-ref-group__title",
+  REF_GROUP_COUNT: "pm-ref-group__count",
+  REF_GROUP_BODY: "pm-ref-group__body",
+  REF_CARD: "pm-ref-card",
+  REF_CARD_TITLE_ROW: "pm-ref-card__title-row",
+  REF_CARD_ICON: "pm-ref-card__icon",
+  REF_CARD_HINT: "pm-ref-card__hint",
+  REF_CARD_CHIPS: "pm-ref-card__chips",
+  REF_CHIP: "pm-ref-chip",
+  REF_CHIP_TOPIC: "pm-ref-chip--topic",
+  REF_CHIP_CLIENT: "pm-ref-chip--client",
+  REF_CHIP_ENGAGEMENT: "pm-ref-chip--engagement",
+  REF_EMPTY: "pm-ref-empty",
   // Obsidian built-in task classes (NOT plugin pm-* classes). Obsidian emits
   // these on rendered markdown task lists; we reuse them so checkbox lookup
   // and persistence stay in sync with Obsidian's own DOM output.
@@ -280,10 +678,125 @@ export const CSS_CLS = {
   TASK_LIST_ITEM_CHECKBOX: "task-list-item-checkbox",
 } as const;
 
+/** Numeric priority → coloured pill/chip label for the task dashboard. */
+export const TASK_PRIORITY_PILL_LABEL: Record<number, string> = {
+  1: "🔴 Urgent",
+  2: "🟠 High",
+  3: "🟡 Medium",
+  4: "🔵 Low",
+};
+
+/** User-facing text for the task dashboard filter drawer and active-filter chips. */
+export const TASK_DRAWER_TEXT = {
+  TAGS_LABEL: "🏷 TAGS",
+  TAG_FILTER_PLACEHOLDER: "type…",
+  TAG_FILTER_ARIA: "Filter by tag",
+  INCLUDE_UNTAGGED_LABEL: "Include untagged",
+  // Date-filter drawer section labels (emoji sourced from the *_DATE_EMOJI constants).
+  DUE_DATE_LABEL: `${DUE_DATE_EMOJI} DUE DATE`,
+  START_DATE_LABEL: `${START_DATE_EMOJI} START DATE`,
+  SCHEDULED_DATE_LABEL: `${SCHEDULED_DATE_EMOJI} SCHEDULED DATE`,
+  // Non-date drawer section labels.
+  SORT_ORDER_LABEL: "↕ SORT ORDER",
+  COMPLETED_TASKS_LABEL: "✓ COMPLETED TASKS",
+  PRIORITY_LABEL: "⚡ PRIORITY",
+  CONTEXT_TYPE_LABEL: "📁 CONTEXT TYPE",
+  CLIENT_LABEL: "🏢 CLIENT",
+  ENGAGEMENT_LABEL: "📎 ENGAGEMENT",
+  CONTEXT_SPECIFIC_LABEL: "⚙ CONTEXT-SPECIFIC FILTERS",
+  PROJECT_STATUS_LABEL: "Project Status:",
+  INBOX_STATUS_LABEL: "Inbox Status:",
+  MEETING_DATE_LABEL: "Meeting Date:",
+  // Custom From/To date-range row.
+  RANGE_FROM_LABEL: "From:",
+  RANGE_SEPARATOR: "→",
+  DUE_RANGE_FROM_ARIA: "Filter from date",
+  DUE_RANGE_TO_ARIA: "Filter to date",
+  START_RANGE_FROM_ARIA: "Filter from start date",
+  START_RANGE_TO_ARIA: "Filter to start date",
+  SCHEDULED_RANGE_FROM_ARIA: "Filter from scheduled date",
+  SCHEDULED_RANGE_TO_ARIA: "Filter to scheduled date",
+  // Active-filter chips bar.
+  CHIPS_LABEL: "Filters:",
+  CHIP_REMOVE: "×",
+  COMPLETED_CHIP: "✓ Completed",
+  dueDateChip: (label: string): string => `${DUE_DATE_EMOJI} ${label}`,
+  startDateChip: (label: string): string => `${START_DATE_EMOJI} ${label}`,
+  scheduledDateChip: (label: string): string => `${SCHEDULED_DATE_EMOJI} ${label}`,
+  priorityChip: (label: string): string => `⚡ ${label}`,
+  contextChip: (label: string): string => `📁 ${label}`,
+  clientChip: (label: string): string => `🏢 ${label}`,
+  engagementChip: (label: string): string => `📎 ${label}`,
+  tagChip: (label: string): string => `🏷 ${label}`,
+  rangeLabel: (from: string | null, to: string | null): string => `${from ?? "…"} → ${to ?? "…"}`,
+} as const;
+
 /** Composed DOM selector strings built from Obsidian's built-in task classes. */
 export const CSS_SELECTOR = {
   /** Matches every checkbox input inside a rendered task-list item. */
   TASK_LIST_CHECKBOX: `li.${CSS_CLS.TASK_LIST_ITEM} input.${CSS_CLS.TASK_LIST_ITEM_CHECKBOX}`,
+} as const;
+
+// ─── DOM primitives ───────────────────────────────────────────────────────
+
+/** HTML element tag names used when building DOM (createEl / createElement). */
+export const HTML_TAG = {
+  ANCHOR: "a",
+  EM: "em",
+  H2: "h2",
+  H3: "h3",
+  H4: "h4",
+  H5: "h5",
+  P: "p",
+  HR: "hr",
+  BUTTON: "button",
+  INPUT: "input",
+  SELECT: "select",
+  OPTION: "option",
+  DETAILS: "details",
+  SUMMARY: "summary",
+  TABLE: "table",
+  THEAD: "thead",
+  TBODY: "tbody",
+  TR: "tr",
+  TH: "th",
+  TD: "td",
+} as const;
+
+/** DOM attribute names set when building elements. */
+export const DOM_ATTR = {
+  HREF: "href",
+  DATA_HREF: "data-href",
+  DATA_DEPTH: "data-depth",
+  OPEN: "open",
+  ARIA_LABEL: "aria-label",
+} as const;
+
+/** Input element `type` attribute values. */
+export const INPUT_TYPE = {
+  TEXT: "text",
+  DATE: "date",
+} as const;
+
+/** DOM event names passed to addEventListener. */
+export const DOM_EVENT = {
+  CLICK: "click",
+  KEYDOWN: "keydown",
+  INPUT: "input",
+  CHANGE: "change",
+} as const;
+
+/** Obsidian vault event names. */
+export const VAULT_EVENT = {
+  MODIFY: "modify",
+} as const;
+
+/** User-facing action-button labels shared across modals. */
+export const ACTION_LABEL = {
+  CREATE: "Create",
+  SAVE: "Save",
+  OK: "OK",
+  CANCEL: "Cancel",
 } as const;
 
 // ─── Codeblock identifiers ────────────────────────────────────────────────
@@ -331,6 +844,186 @@ export const MSG = {
   RAID_REFERENCE_TAGGED_SECTION: (heading: string) =>
     `Tagged section "${heading}" as RAID reference.`,
   TASK_TOGGLE_FAILED: "Project Manager: failed to save task change to the event note.",
+  VAULT_SETUP_SUCCESS: "Project Manager: Vault structure set up successfully.",
+} as const;
+
+/** Task-dashboard output messages (empty state, unknown view mode, error banner). */
+export const TASK_DASHBOARD_MSG = {
+  NO_TASKS_MATCH: "No tasks match the current filters.",
+  UNKNOWN_VIEW_MODE: (mode: string): string => `Unknown view mode: ${mode}`,
+  ERROR: (detail: string): string => `pm-tasks error: ${detail}`,
+} as const;
+
+/** pm-tasks code-block `mode` values. */
+export const PM_TASKS_MODE = {
+  DASHBOARD: "dashboard",
+  BY_PROJECT: "by-project",
+} as const;
+
+/**
+ * The RAID dashboard has a single composite view (matrix + counts + grouped
+ * tables render together), so it registers one renderer under this mode.
+ */
+export const RAID_VIEW_MODE = {
+  MATRIX: "matrix",
+} as const;
+
+/** User-facing messages for the pm-raid-dashboard code block. */
+export const RAID_DASHBOARD_MSG = {
+  NO_ITEMS_MATCH: "No RAID items match the current filters.",
+  UNKNOWN_VIEW_MODE: (mode: string): string => `Unknown view mode: ${mode}`,
+  ERROR: (detail: string): string => `pm-raid-dashboard error: ${detail}`,
+  INVALID_CONFIG: "Invalid pm-raid-dashboard config.",
+} as const;
+
+/** User-facing labels and text formatters for the RAID dashboard UI. */
+export const RAID_DASHBOARD_TEXT = {
+  TYPE_LABEL: "Type",
+  STATUS_LABEL: "Status",
+  CLIENTS_LABEL: "Clients",
+  ENGAGEMENTS_LABEL: "Engagements",
+  CLIENT_FILTER_PLACEHOLDER: "Filter by client…",
+  CLIENT_FILTER_ARIA: "Filter by client",
+  ENGAGEMENT_FILTER_PLACEHOLDER: "Filter by engagement…",
+  ENGAGEMENT_FILTER_ARIA: "Filter by engagement",
+  SEARCH_PLACEHOLDER: "Search items…",
+  MATRIX_HEADING: "Likelihood × Impact",
+  ITEM_TABLE_HEADERS: ["Title", "Status", "L×I", "Age", "Owner"],
+  COUNT_SEPARATOR: " | ",
+  typeCount: (raidType: string, count: number): string => `${raidType}s: ${count}`,
+  sectionTitle: (raidType: string): string => `${raidType}s`,
+  agePill: (days: number): string => `${days}d`,
+  lxiLabel: (likelihood: string, impact: string): string =>
+    `${likelihood.charAt(0)}×${impact.charAt(0)}`,
+} as const;
+
+/**
+ * References dashboard view modes. Each selects the shell-dispatched renderer
+ * (topic tree / flat client / flat engagement) — unlike RAID's single composite.
+ */
+export const REFERENCE_VIEW_MODE = {
+  TOPIC: "topic",
+  CLIENT: "client",
+  ENGAGEMENT: "engagement",
+} as const;
+
+/** User-facing messages for the References dashboard. */
+export const REFERENCES_DASHBOARD_MSG = {
+  INVALID_CONFIG: "Invalid pm-references config.",
+  UNKNOWN_VIEW_MODE: (mode: string): string => `Unknown view mode: ${mode}`,
+  ERROR: (detail: string): string => `pm-references error: ${detail}`,
+} as const;
+
+/** User-facing labels, icons, and text formatters for the References dashboard UI. */
+export const REFERENCES_DASHBOARD_TEXT = {
+  TITLE: "Reference Dashboard",
+  TAB_TOPIC: "By Topic",
+  TAB_CLIENT: "By Client",
+  TAB_ENGAGEMENT: "By Engagement",
+  FILTERS_COLLAPSED: "Filters ▾",
+  FILTERS_EXPANDED: "Filters ▴",
+  SEARCH_PLACEHOLDER: "Search references…",
+  TOPICS_LABEL: "Topics",
+  CLIENTS_LABEL: "Clients",
+  ENGAGEMENTS_LABEL: "Engagements",
+  TOPIC_FILTER_PLACEHOLDER: "Filter by topic…",
+  TOPIC_FILTER_ARIA: "Filter by topic",
+  CLIENT_FILTER_PLACEHOLDER: "Filter by client…",
+  CLIENT_FILTER_ARIA: "Filter by client",
+  ENGAGEMENT_FILTER_PLACEHOLDER: "Filter by engagement…",
+  ENGAGEMENT_FILTER_ARIA: "Filter by engagement",
+  CLEAR_FILTERS: "Clear filters",
+  UNASSIGNED: "Unassigned",
+  OTHER: "Other",
+  NO_REFERENCES: "No references found.",
+  NO_TOPICS: "No topics.",
+  CARD_ICON: "📄",
+  TOGGLE_EXPANDED: "▾",
+  TOGGLE_COLLAPSED: "▶",
+  TOGGLE_LEAF: " ",
+  NEW_REFERENCE: "+ New Reference",
+  NEW_TOPIC: "+ New Topic",
+  SUMMARY_ICON: "📚",
+  OPEN_DASHBOARD: "Open Dashboard →",
+  alsoIn: (topic: string): string => `also in ${topic}`,
+  referenceCount: (count: number): string =>
+    `${count} reference${count === 1 ? "" : "s"} in your vault`,
+} as const;
+
+/** pm-tasks processor config-validation error messages. */
+export const PM_TASKS_MSG = {
+  INVALID_CONFIG: "Invalid pm-tasks config.",
+  REQUIRES_MODE: "pm-tasks requires a `mode` field (dashboard or by-project).",
+  UNKNOWN_MODE: (mode: string): string => `Unknown pm-tasks mode: ${mode}`,
+  MIGRATION_FAILED: (detail: string): string => `pm-tasks filter-state migration failed: ${detail}`,
+} as const;
+
+// ─── Command layer: names, modals, error labels ───────────────────────────
+
+/** Command palette display names, keyed like COMMAND_IDS. */
+export const COMMAND_NAMES = {
+  CREATE_CLIENT: "PM: Create Client",
+  CREATE_ENGAGEMENT: "PM: Create Engagement",
+  CREATE_PROJECT: "PM: Create Project",
+  CREATE_PERSON: "PM: Create Person",
+  CREATE_INBOX: "PM: Create Inbox Note",
+  CREATE_SINGLE_MEETING: "PM: Create Single Meeting",
+  CREATE_RECURRING_MEETING: "PM: Create Recurring Meeting",
+  CREATE_RECURRING_MEETING_EVENT: "PM: Create Recurring Meeting Event",
+  CREATE_PROJECT_NOTE: "PM: Create Project Note",
+  CONVERT_INBOX: "PM: Convert Inbox to Project",
+  CONVERT_SINGLE_TO_RECURRING: "PM: Convert Single Meeting to Recurring",
+  SCAFFOLD_VAULT: "PM: Set Up Vault Structure",
+  CREATE_RAID_ITEM: "PM: Create RAID Item",
+  TAG_RAID_REFERENCE: "PM: Tag Line as RAID Reference",
+  CREATE_REFERENCE_TOPIC: "PM: Create Reference Topic",
+  UPDATE_REFERENCE_TOPIC: "PM: Update Reference Topic",
+  CREATE_REFERENCE: "PM: Create Reference",
+  OPEN_REFERENCE_DASHBOARD: "PM: Open Reference Dashboard",
+} as const;
+
+/** Optional-parent picker labels shared across entity-creation modals. */
+export const PARENT_LABEL = {
+  CLIENT_OPTIONAL: "Client (optional)",
+  ENGAGEMENT_OPTIONAL: "Engagement (optional)",
+  OWNER_OPTIONAL: "Owner (optional)",
+} as const;
+
+/** Display label for the "no selection" sentinel item in RAID pickers. */
+export const RAID_PICKER_NONE_LABEL = "(None)";
+
+/** Modal titles and input placeholders for command flows, keyed like COMMAND_IDS. */
+export const CMD_MODAL = {
+  CREATE_CLIENT: { title: "New client name:", placeholder: "e.g. Acme Corp" },
+  CREATE_ENGAGEMENT: { title: "New Engagement", placeholder: "Engagement name" },
+  CREATE_PROJECT: { title: "New Project", placeholder: "Project name" },
+  CREATE_PERSON: { title: "New Person", placeholder: "Person name" },
+  CREATE_INBOX: { title: "New Inbox Note", placeholder: "Note name" },
+  CREATE_SINGLE_MEETING: { title: "New Single Meeting", placeholder: "Meeting name" },
+  CREATE_RECURRING_MEETING: { title: "New Recurring Meeting", placeholder: "Meeting name" },
+  CONVERT_INBOX: { title: "Project name:", placeholder: "Project name" },
+  CONVERT_SINGLE_TO_RECURRING: { title: "Recurring meeting name:", placeholder: "Meeting name" },
+  CREATE_PROJECT_NOTE: { title: "New project note name:", placeholder: "Note name" },
+  CREATE_RAID_ITEM: { title: "RAID item name" },
+} as const;
+
+/** Error-message labels (prefix before `: ${String(err)}`) for command error Notices. */
+export const CMD_ERROR_LABEL = {
+  CREATE_CLIENT: "Error creating client",
+  CREATE_ENGAGEMENT: "Error creating engagement",
+  CREATE_PROJECT: "Error creating project",
+  CREATE_PERSON: "Error creating person",
+  CREATE_INBOX: "Error creating inbox note",
+  CREATE_SINGLE_MEETING: "Error creating meeting",
+  CREATE_RECURRING_MEETING: "Error creating recurring meeting",
+  CREATE_RECURRING_MEETING_EVENT: "Error creating event",
+  CREATE_PROJECT_NOTE: "Error creating project note",
+  CONVERT_INBOX_TO_PROJECT: "Error converting inbox to project",
+  CONVERT_SINGLE_TO_RECURRING: "Error converting meeting",
+  CREATE_RAID_ITEM: "Error creating RAID item",
+  CREATE_REFERENCE: "Error creating reference",
+  TAG_RAID_REFERENCE: "Error tagging line",
+  GENERIC: "Error",
 } as const;
 
 // ─── CSS variables ────────────────────────────────────────────────────────
@@ -355,6 +1048,12 @@ export const NOTES_MARKER = {
 /** Markdown file extension. */
 export const MD_EXTENSION = ".md";
 
+/** Success-notice label shown when an entity note is created. */
+export const CREATED_LABEL = "Created";
+
+/** Newline character used when composing multi-line note content. */
+export const NL = "\n";
+
 /** Display label for the "no value" option prepended to nullable select fields. */
 export const SELECT_NONE_LABEL = "(none)";
 /** Sentinel value marking the "no value" option / an unset nullable select field. */
@@ -373,3 +1072,12 @@ export const TASKS_PLUGIN_ID = "obsidian-tasks-plugin";
 
 /** Obsidian view type for the Reference Dashboard ItemView panel. */
 export const PM_REFERENCE_DASHBOARD_VIEW_TYPE = "pm-reference-dashboard";
+
+/** Ribbon / tab icon id for the Reference Dashboard ItemView panel. */
+export const REFERENCE_DASHBOARD_ICON = "book-open";
+
+/**
+ * Settings dot-path key the References dashboard persists its filter state under
+ * (within the `settings.ui` bag), consumed by the {@link SettingsViewStore}.
+ */
+export const REFERENCE_DASHBOARD_STATE_KEY = "referenceDashboardFilters";

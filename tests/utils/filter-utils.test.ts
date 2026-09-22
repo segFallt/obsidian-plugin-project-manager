@@ -1,12 +1,12 @@
 import { describe, it, expect, vi } from "vitest";
 import { buildEntityOptions } from "@/utils/filter-utils";
-import type { IQueryService } from "@/services/interfaces";
+import type { ActiveEntitiesReader } from "@/utils/filter-utils";
 import type { DataviewPage } from "@/types";
 
-function makeQueryService(pages: DataviewPage[]): IQueryService {
+function makeQueryService(pages: DataviewPage[]): ActiveEntitiesReader {
   return {
     getActiveEntitiesByTag: vi.fn().mockReturnValue(pages),
-  } as unknown as IQueryService;
+  };
 }
 
 function makePage(name: string): DataviewPage {

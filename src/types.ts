@@ -3,6 +3,10 @@
  * Includes entity types, task types, code block configs, and Dataview API stubs.
  */
 
+// `import type` keeps this a type-only edge: constants.ts already imports from
+// this module the same way, so both edges are erased by tsc/esbuild — no runtime cycle.
+import type { SORT_FIELD, SORT_DIRECTION, START_DATE_PRESET, SCHEDULED_DATE_PRESET, GROUP_BY_DATE_FIELD } from "./constants";
+
 // ─── Entity Types ──────────────────────────────────────────────────────────
 
 export type ClientStatus = "Active" | "Inactive";
@@ -167,11 +171,54 @@ export interface DueDateFilter {
   /** ISO date "YYYY-MM-DD", or null */
   rangeTo: string | null;
 }
+
+/** The single no-date preset value for the start-date filter. */
+export type StartDatePreset = (typeof START_DATE_PRESET)[keyof typeof START_DATE_PRESET];
+/** Start-date filter: a single no-date preset plus a custom From/To range (like {@link DueDateFilter}). */
+export interface StartDateFilter {
+  /** Active no-date preset(s) — at most the single "No Start Date" value. */
+  selectedPresets: StartDatePreset[];
+  /** ISO date "YYYY-MM-DD", or null */
+  rangeFrom: string | null;
+  /** ISO date "YYYY-MM-DD", or null */
+  rangeTo: string | null;
+}
+
+/** The single no-date preset value for the scheduled-date filter. */
+export type ScheduledDatePreset = (typeof SCHEDULED_DATE_PRESET)[keyof typeof SCHEDULED_DATE_PRESET];
+/** Scheduled-date filter: a single no-date preset plus a custom From/To range (like {@link DueDateFilter}). */
+export interface ScheduledDateFilter {
+  /** Active no-date preset(s) — at most the single "No Scheduled Date" value. */
+  selectedPresets: ScheduledDatePreset[];
+  /** ISO date "YYYY-MM-DD", or null */
+  rangeFrom: string | null;
+  /** ISO date "YYYY-MM-DD", or null */
+  rangeTo: string | null;
+}
+
 export type MeetingDateFilter = "All" | "Today" | "This Week" | "Past";
 export type InboxStatusFilter = "All" | "Active" | "Complete";
 
-export type SortField = "dueDate" | "priority" | "alphabetical" | "context" | "createdDate";
-export type SortDirection = "asc" | "desc";
+export type SortField = (typeof SORT_FIELD)[keyof typeof SORT_FIELD];
+
+/** The date field the Date view groups by (`due` / `start` / `scheduled`). */
+export type GroupByDateField = (typeof GROUP_BY_DATE_FIELD)[keyof typeof GROUP_BY_DATE_FIELD];
+
+/**
+ * The six per-boundary section headings for one Date-view group-by field.
+ * All three label sets (`DATE_BUCKET_LABEL`, `START_BUCKET_LABEL`,
+ * `SCHEDULED_BUCKET_LABEL`) satisfy this shape, so the single parameterised
+ * bucketer can accept any of them.
+ */
+export interface DateBucketLabels {
+  OVERDUE: string;
+  TODAY: string;
+  TOMORROW: string;
+  THIS_WEEK: string;
+  UPCOMING: string;
+  NO_DUE_DATE: string;
+}
+export type SortDirection = (typeof SORT_DIRECTION)[keyof typeof SORT_DIRECTION];
 export interface SortKey {
   field: SortField;
   direction: SortDirection;
@@ -179,13 +226,23 @@ export interface SortKey {
 
 export interface PmTasksConfig {
   mode: TaskViewMode;
+  /**
+   * Optional explicit per-block state key. Disambiguates two byte-identical
+   * blocks in one note (which otherwise share a hash-derived key); existing
+   * blocks need none.
+   */
+  id?: string;
   // Dashboard-specific defaults
   viewMode?: "context" | "date" | "priority" | "tag";
   sortBy?: SortKey[];
+  /** Date field the Date view groups by; absent ⇒ Due (unchanged behaviour). */
+  groupByDateField?: GroupByDateField;
   showCompleted?: boolean;
   // Filtering defaults
   contextFilter?: TaskContext[];
   dueDateFilter?: DueDateFilter;
+  startDateFilter?: StartDateFilter;
+  scheduledDateFilter?: ScheduledDateFilter;
   priorityFilter?: TaskPriority[];
   projectStatusFilter?: ProjectStatus[];
   inboxStatusFilter?: InboxStatusFilter;
@@ -246,6 +303,8 @@ export interface DataviewTask {
   line: number;
   link: DataviewLink;
   due?: unknown;
+  start?: unknown;
+  scheduled?: unknown;
   tags?: string[];
   [key: string]: unknown;
 }
@@ -284,9 +343,13 @@ export interface DataviewDate {
 export interface DashboardFilters {
   viewMode: "context" | "date" | "priority" | "tag";
   sortBy: SortKey[];
+  /** Date field the Date view groups by. Required; defaults to Due in `initFilters`. */
+  groupByDateField: GroupByDateField;
   showCompleted: boolean;
   contextFilter: TaskContext[];
   dueDateFilter: DueDateFilter;
+  startDateFilter: StartDateFilter;
+  scheduledDateFilter: ScheduledDateFilter;
   priorityFilter: TaskPriority[];
   projectStatusFilter: ProjectStatus[];
   inboxStatusFilter: InboxStatusFilter;
@@ -324,6 +387,14 @@ export type SavedRaidDashboardFilters = Omit<RaidDashboardFilters, "searchText" 
 
 // ─── Plugin Internal Types ─────────────────────────────────────────────────
 
+/** A selectable option for autocomplete/suggest widgets. */
+export interface AutocompleteOption {
+  /** Stored value (e.g. entity name) */
+  value: string;
+  /** Text shown in the dropdown and input after selection */
+  displayText: string;
+}
+
 /** Represents a created or existing entity for display in suggesters. */
 export interface EntityOption {
   name: string;
@@ -333,9 +404,3 @@ export interface EntityOption {
   engagement?: string;
 }
 
-/** Result of a file creation operation. */
-export interface CreateFileResult {
-  success: boolean;
-  path: string;
-  error?: string;
-}

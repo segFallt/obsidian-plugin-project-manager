@@ -2,114 +2,50 @@ import { describe, it, expect, vi } from "vitest";
 import * as ObsidianModule from "obsidian";
 import { registerPmReferencesProcessor } from "@/processors/pm-references-processor";
 import type { ReferenceProcessorServices } from "@/plugin-context";
-import type { DataviewPage } from "@/types";
+import { createMockDataviewApi } from "../mocks/dataview-mock";
+import type { MockPageData } from "../mocks/dataview-mock";
 
 // ─── Reference page factory ───────────────────────────────────────────────────
 
-function makeReferencePage(overrides: Partial<{
-  name: string;
-  path: string;
-  topics: unknown[];
-  client: string;
-  engagement: string;
-}>): DataviewPage {
+function makeReferencePage(overrides: Partial<{ name: string; topics: unknown[] }>): MockPageData {
   const name = overrides.name ?? "My Reference";
-  const path = overrides.path ?? `reference/references/${name}.md`;
   return {
-    file: {
-      name,
-      path,
-      folder: "reference/references",
-      link: { path },
-      tags: ["#reference"],
-      mtime: { valueOf: () => Date.now(), toISO: () => new Date().toISOString() },
-      tasks: {
-        length: 0,
-        values: [],
-        where: vi.fn(),
-        sort: vi.fn(),
-        map: vi.fn(),
-        filter: vi.fn(),
-        [Symbol.iterator]: [][Symbol.iterator],
-      } as unknown as DataviewPage["file"]["tasks"],
-    },
-    topics: overrides.topics ?? [],
-    client: overrides.client ?? undefined,
-    engagement: overrides.engagement ?? undefined,
-  } as unknown as DataviewPage;
+    path: `reference/references/${name}.md`,
+    name,
+    tags: ["#reference"],
+    frontmatter: { topics: overrides.topics ?? [] },
+  };
 }
 
 // ─── Mock services factory ────────────────────────────────────────────────────
 
-function createMockServices(references: DataviewPage[] = []) {
+function createMockServices(references: MockPageData[] = []) {
   let registeredHandler:
-    | ((
-        source: string,
-        el: HTMLElement,
-        ctx: {
-          addChild: (c: {
-            render(): void;
-            onload?(): void;
-            onunload?(): void;
-            registerEvent?(ref: unknown): void;
-          }) => void;
-          sourcePath: string;
-        }
-      ) => void)
+    | ((source: string, el: HTMLElement, ctx: { addChild: (c: { render(): void }) => void; sourcePath: string }) => void)
     | null = null;
 
   const mockPlugin = {
     registerMarkdownCodeBlockProcessor: vi.fn(
-      (
-        _lang: string,
-        handler: (
-          source: string,
-          el: HTMLElement,
-          ctx: {
-            addChild: (c: unknown) => void;
-            sourcePath: string;
-          }
-        ) => void
-      ) => {
+      (_lang: string, handler: (source: string, el: HTMLElement, ctx: { addChild: (c: unknown) => void; sourcePath: string }) => void) => {
         registeredHandler = handler as typeof registeredHandler;
       }
     ),
   };
 
-  const sourcePath = "dashboard/references.md";
+  const dv = createMockDataviewApi(references);
 
   const services: ReferenceProcessorServices = {
-    app: {
-      vault: {
-        on: vi.fn(() => ({ id: "mock-event" })),
-        getAbstractFileByPath: vi.fn(() => null),
-      },
-      metadataCache: {
-        getFileCache: vi.fn(() => null),
-      },
-      fileManager: {
-        processFrontMatter: vi.fn(
-          async (_file: unknown, callback: (fm: Record<string, unknown>) => void) => {
-            callback({});
-          }
-        ),
-      },
-      commands: {
-        executeCommandById: vi.fn(),
-      },
-    } as unknown as ReferenceProcessorServices["app"],
+    app: {} as unknown as ReferenceProcessorServices["app"],
     settings: {
       ui: {
         referenceDashboardFilters: {} as Record<string, unknown>,
       },
     } as unknown as ReferenceProcessorServices["settings"],
     queryService: {
-      getReferences: vi.fn(() => references),
-      getActiveEntitiesByTag: vi.fn(() => []),
-      getClientFromEngagementLink: vi.fn(() => null),
-      getReferenceTopicTree: vi.fn(() => []),
-      getTopicDescendants: vi.fn(() => []),
+      dv: vi.fn(() => dv),
     } as unknown as ReferenceProcessorServices["queryService"],
+    hierarchyService: {} as unknown as ReferenceProcessorServices["hierarchyService"],
+    navigationService: {} as unknown as ReferenceProcessorServices["navigationService"],
     loggerService: {
       debug: vi.fn(),
       info: vi.fn(),
@@ -119,20 +55,16 @@ function createMockServices(references: DataviewPage[] = []) {
     commandExecutor: {
       executeCommandById: vi.fn(),
     } as unknown as ReferenceProcessorServices["commandExecutor"],
+    actionContext: {} as unknown as ReferenceProcessorServices["actionContext"],
     saveSettings: vi.fn(async () => undefined),
   };
 
-  return {
-    mockPlugin,
-    services,
-    sourcePath,
-    getHandler: () => registeredHandler!,
-  };
+  return { mockPlugin, services, getHandler: () => registeredHandler! };
 }
 
 // ─── Render helper ────────────────────────────────────────────────────────────
 
-function render(source: string, references: DataviewPage[] = []) {
+function render(source: string, references: MockPageData[] = []) {
   const mock = createMockServices(references);
   registerPmReferencesProcessor(
     mock.mockPlugin as unknown as import("obsidian").Plugin,
@@ -140,22 +72,14 @@ function render(source: string, references: DataviewPage[] = []) {
   );
 
   const el = document.createElement("div");
-  const sourcePath = mock.sourcePath;
   const children: unknown[] = [];
-  const ctx = {
-    addChild: (child: unknown) => children.push(child),
-    sourcePath,
-  };
+  const ctx = { addChild: (child: unknown) => children.push(child), sourcePath: "dashboard/references.md" };
 
   mock.getHandler()(source, el, ctx);
   return {
     el,
     services: mock.services,
     saveSettings: mock.services.saveSettings as ReturnType<typeof vi.fn>,
-    child: children[0] as {
-      onload?(): void;
-      onunload?(): void;
-    },
   };
 }
 
@@ -164,10 +88,7 @@ function render(source: string, references: DataviewPage[] = []) {
 describe("pm-references processor (summary card)", () => {
   it("registers a 'pm-references' code block processor", () => {
     const mock = createMockServices();
-    registerPmReferencesProcessor(
-      mock.mockPlugin as unknown as import("obsidian").Plugin,
-      mock.services
-    );
+    registerPmReferencesProcessor(mock.mockPlugin as unknown as import("obsidian").Plugin, mock.services);
     expect(mock.mockPlugin.registerMarkdownCodeBlockProcessor).toHaveBeenCalledWith(
       "pm-references",
       expect.any(Function)
@@ -182,51 +103,44 @@ describe("pm-references processor (summary card)", () => {
   it("renders the 'Reference Dashboard' heading", () => {
     const { el } = render("");
     const heading = el.querySelector("h3");
-    expect(heading).not.toBeNull();
-    expect(heading!.textContent).toBe("Reference Dashboard");
+    expect(heading?.textContent).toBe("Reference Dashboard");
   });
 
   it("renders reference count text for 0 references", () => {
     const { el } = render("", []);
-    const p = el.querySelector("p");
-    expect(p).not.toBeNull();
-    expect(p!.textContent).toBe("0 references in your vault");
+    expect(el.querySelector("p")?.textContent).toBe("0 references in your vault");
   });
 
   it("renders reference count text for 1 reference (singular)", () => {
     const { el } = render("", [makeReferencePage({ name: "Ref A" })]);
-    const p = el.querySelector("p");
-    expect(p!.textContent).toBe("1 reference in your vault");
+    expect(el.querySelector("p")?.textContent).toBe("1 reference in your vault");
   });
 
   it("renders reference count text for multiple references", () => {
     const refs = [makeReferencePage({ name: "A" }), makeReferencePage({ name: "B" })];
     const { el } = render("", refs);
-    const p = el.querySelector("p");
-    expect(p!.textContent).toBe("2 references in your vault");
+    expect(el.querySelector("p")?.textContent).toBe("2 references in your vault");
   });
 
   it("renders an 'Open Dashboard →' button", () => {
     const { el } = render("");
     const btn = el.querySelector("button");
-    expect(btn).not.toBeNull();
-    expect(btn!.textContent).toBe("Open Dashboard →");
+    expect(btn?.textContent).toBe("Open Dashboard →");
   });
 
   it("button has the expected CSS classes", () => {
     const { el } = render("");
-    const btn = el.querySelector("button");
-    expect(btn!.classList.contains("pm-references-summary__open-btn")).toBe(true);
-    expect(btn!.classList.contains("mod-cta")).toBe(true);
+    const btn = el.querySelector("button")!;
+    expect(btn.classList.contains("pm-references-summary__open-btn")).toBe(true);
+    expect(btn.classList.contains("mod-cta")).toBe(true);
   });
 
   it("clicking the button executes the open-reference-dashboard command", () => {
     const { el, services } = render("");
-    const btn = el.querySelector("button") as HTMLButtonElement;
-    btn.click();
-    expect(
-      (services.commandExecutor.executeCommandById as ReturnType<typeof vi.fn>)
-    ).toHaveBeenCalledWith("open-reference-dashboard");
+    (el.querySelector("button") as HTMLButtonElement).click();
+    expect(services.commandExecutor.executeCommandById as ReturnType<typeof vi.fn>).toHaveBeenCalledWith(
+      "open-reference-dashboard"
+    );
   });
 
   it("parses valid YAML config without errors", () => {
@@ -236,8 +150,6 @@ describe("pm-references processor (summary card)", () => {
   });
 
   it("renders error state for invalid YAML, not the summary card", () => {
-    // The mock parseYaml is permissive and never throws, so we force the error
-    // path by making parseYaml throw for this test only.
     const spy = vi.spyOn(ObsidianModule, "parseYaml").mockImplementationOnce(() => {
       throw new Error("bad YAML");
     });
@@ -250,75 +162,61 @@ describe("pm-references processor (summary card)", () => {
     }
   });
 
-  it("renders summary card with zero references for empty source", () => {
-    const { el } = render("");
-    expect(el.querySelector(".pm-references-summary")).not.toBeNull();
-    expect(el.querySelector(".pm-error")).toBeNull();
-    expect(el.querySelector("p")!.textContent).toBe("0 references in your vault");
-  });
-
-  it("uses topic filter when config.filter.topics is set", () => {
+  it("counts only references matching the config topic filter", () => {
+    const refs = [
+      makeReferencePage({ name: "Ref1", topics: ["[[Technology]]"] }),
+      makeReferencePage({ name: "Ref2", topics: ["[[Design]]"] }),
+    ];
     const source = "filter:\n  topics:\n    - Technology";
-    const { services } = render(source);
-    expect(services.queryService.getReferences).toHaveBeenCalledWith({ topics: ["Technology"] });
+    const { el } = render(source, refs);
+    expect(el.querySelector("p")?.textContent).toBe("1 reference in your vault");
   });
 
-  it("uses empty filter when config.filter.topics is not set", () => {
-    const { services } = render("viewMode: topic");
-    expect(services.queryService.getReferences).toHaveBeenCalledWith({});
+  it("counts all references when no topic filter is set", () => {
+    const refs = [
+      makeReferencePage({ name: "Ref1", topics: ["[[Technology]]"] }),
+      makeReferencePage({ name: "Ref2", topics: ["[[Design]]"] }),
+    ];
+    const { el } = render("viewMode: topic", refs);
+    expect(el.querySelector("p")?.textContent).toBe("2 references in your vault");
   });
 
-  it("button click with filter.topics sets selectedNode, calls saveSettings, then executes command", async () => {
+  it("button click with filter.topics sets selectedNode via the store, then executes command", async () => {
+    const refs = [makeReferencePage({ name: "Ref1", topics: ["[[Technology]]"] })];
     const source = "filter:\n  topics:\n    - \"[[Technology]]\"";
-    const { el, services, saveSettings } = render(source);
-    const btn = el.querySelector("button") as HTMLButtonElement;
+    const { el, services, saveSettings } = render(source, refs);
 
-    btn.click();
-    // Flush all pending microtasks so the async IIFE fully resolves.
+    (el.querySelector("button") as HTMLButtonElement).click();
     await new Promise<void>((resolve) => setTimeout(resolve, 0));
 
-    expect(
-      (services.settings.ui.referenceDashboardFilters as Record<string, unknown>).selectedNode
-    ).toBe("Technology");
+    expect((services.settings.ui.referenceDashboardFilters as Record<string, unknown>).selectedNode).toBe("Technology");
     expect(saveSettings).toHaveBeenCalledOnce();
-    expect(
-      (services.commandExecutor.executeCommandById as ReturnType<typeof vi.fn>)
-    ).toHaveBeenCalledWith("open-reference-dashboard");
-    // saveSettings must be called before the command is executed
+    expect(services.commandExecutor.executeCommandById as ReturnType<typeof vi.fn>).toHaveBeenCalledWith(
+      "open-reference-dashboard"
+    );
     const saveOrder = saveSettings.mock.invocationCallOrder[0];
-    const cmdOrder = (
-      services.commandExecutor.executeCommandById as ReturnType<typeof vi.fn>
-    ).mock.invocationCallOrder[0];
+    const cmdOrder = (services.commandExecutor.executeCommandById as ReturnType<typeof vi.fn>).mock.invocationCallOrder[0];
     expect(saveOrder).toBeLessThan(cmdOrder);
   });
 
   it("button click with no filter.topics does not mutate selectedNode and still executes command", () => {
     const { el, services, saveSettings } = render("viewMode: topic");
-    const initialFilters = { ...services.settings.ui.referenceDashboardFilters } as Record<string, unknown>;
-    const btn = el.querySelector("button") as HTMLButtonElement;
+    (el.querySelector("button") as HTMLButtonElement).click();
 
-    btn.click();
-
-    expect(
-      (services.settings.ui.referenceDashboardFilters as Record<string, unknown>).selectedNode
-    ).toBe(initialFilters.selectedNode);
+    expect((services.settings.ui.referenceDashboardFilters as Record<string, unknown>).selectedNode).toBeUndefined();
     expect(saveSettings).not.toHaveBeenCalled();
-    expect(
-      (services.commandExecutor.executeCommandById as ReturnType<typeof vi.fn>)
-    ).toHaveBeenCalledWith("open-reference-dashboard");
+    expect(services.commandExecutor.executeCommandById as ReturnType<typeof vi.fn>).toHaveBeenCalledWith(
+      "open-reference-dashboard"
+    );
   });
 
-  it("normalises wikilink topic name from [[Technology]] to Technology when setting selectedNode", async () => {
+  it("normalises a wikilink topic name to a plain name when setting selectedNode", async () => {
     const source = "filter:\n  topics:\n    - \"[[Technology]]\"";
-    const { el, services } = render(source);
-    const btn = el.querySelector("button") as HTMLButtonElement;
+    const { el, services } = render(source, [makeReferencePage({ name: "Ref1", topics: ["[[Technology]]"] })]);
 
-    btn.click();
-    await Promise.resolve();
-    await Promise.resolve();
+    (el.querySelector("button") as HTMLButtonElement).click();
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
 
-    expect(
-      (services.settings.ui.referenceDashboardFilters as Record<string, unknown>).selectedNode
-    ).toBe("Technology");
+    expect((services.settings.ui.referenceDashboardFilters as Record<string, unknown>).selectedNode).toBe("Technology");
   });
 });

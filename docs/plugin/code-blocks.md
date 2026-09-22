@@ -140,14 +140,25 @@ Renders task views with interactive filtering.
 mode: dashboard | by-project
 # Optional defaults:
 viewMode: context | date | priority | tag
+groupByDateField: due            # due | start | scheduled — date field the `date` view groups by (default: due)
 sortBy:                          # array of sort keys (empty = no sort)
-  - field: dueDate               # dueDate | priority | alphabetical | context | createdDate
+  - field: dueDate               # dueDate | startDate | scheduledDate | priority | alphabetical | context | createdDate
     direction: asc               # asc | desc
 showCompleted: false
 # Due date filter
 dueDateFilter:
   selectedPresets: [Today]       # any of: Today, Tomorrow, This Week, Next Week, Overdue, No Date
   rangeFrom: "2026-03-15"        # ISO date (custom range; clears selectedPresets when used)
+  rangeTo: "2026-04-15"
+# Start date filter (🛫) — single no-date preset + custom range
+startDateFilter:
+  selectedPresets: []            # "No Start Date" (the only preset)
+  rangeFrom: "2026-03-15"        # ISO date (custom range; clears the no-date preset)
+  rangeTo: "2026-04-15"
+# Scheduled date filter (⏳) — single no-date preset + custom range
+scheduledDateFilter:
+  selectedPresets: []            # "No Scheduled Date" (the only preset)
+  rangeFrom: "2026-03-15"
   rangeTo: "2026-04-15"
 # Tag filter
 tagFilter: [tag1, tag2]
@@ -159,12 +170,13 @@ includeUntagged: false
 
 Displays all vault tasks (excluding the `utility/` folder) with a compact **toolbar + filter drawer** layout:
 
-- **Toolbar**: View mode tabs (Context / Date / Priority / Tag), search input, ⚙ Filters button (with active-count badge), ✕ Clear All Filters button (shown when any filter is active)
+- **Toolbar**: View mode tabs (Context / Date / Priority / Tag), a **Group by** dropdown (Due / Start / Scheduled — shown only in the Date view), search input, ⚙ Filters button (with active-count badge), ✕ Clear All Filters button (shown when any filter is active)
 - **Active filter chips bar**: removable chips for each active filter criterion
 - **Filter drawer** (toggled by ⚙ Filters): contains all filter sections:
-  - **Sort Order**: multi-key sort builder (up to 3 keys); fields: Due Date, Priority, Alphabetical, Context, Created Date; per-key direction toggle (↑/↓); up/down reorder
+  - **Sort Order**: multi-key sort builder (up to 3 keys); fields: Due Date, Start Date, Scheduled Date, Priority, Alphabetical, Context, Created Date; per-key direction toggle (↑/↓); up/down reorder
   - **Completed Tasks**: toggle "Show completed"
   - **Due Date**: preset pills (Today, Tomorrow, This Week, Next Week, Overdue, No Date) with OR logic (multiple can be active simultaneously) + custom date range
+  - **🛫 Start Date** / **⏳ Scheduled Date**: a single no-date preset pill (No Start Date / No Scheduled Date) + custom From/To range; the preset and range are mutually exclusive
   - **Priority**: Urgent / High / Medium / Low
   - **Context Type**: Project, Meeting, Recurring Meeting, Inbox, Daily Notes, Person, Other
   - **Client / Engagement**: type-ahead chip selects with "Include unassigned" toggle
@@ -176,6 +188,8 @@ Context view groups tasks hierarchically:
 - **Project**: Parent Project (H3) → Project Note (H4) → Tasks. Tasks from project notes are nested under their parent project via the `relatedProject` frontmatter field. Direct project tasks render under the H3 before any H4s.
 - **Recurring Meeting**: Parent Recurring Meeting (H3) → Event File (H4) → Tasks. Tasks from recurring meeting event files are nested under their parent recurring meeting via the `recurring-meeting` frontmatter field. Event files without this frontmatter link render flat (H3 → Tasks).
 - **All other contexts**: File (H3) → Tasks.
+
+The **Date view** buckets tasks into Overdue / Today / Tomorrow / This Week / Upcoming / No Date. The toolbar's **Group by** dropdown chooses the date field — **Due** (default), **Start** (🛫), or **Scheduled** (⏳) — using the same six boundaries for each, with field-specific labels. The selection defaults to Due and persists per block (see [Filter state](#filter-state)).
 
 #### Due date filter details
 
@@ -192,6 +206,14 @@ The due date filter offers two modes:
 Multiple presets can be active simultaneously (OR logic) — clicking a preset toggles it on/off. An empty preset selection shows all tasks.
 
 **Range mode** — Use the "From" and "To" date inputs to filter by a custom date range (ISO format `YYYY-MM-DD`). Entering a date automatically switches to range mode and clears all preset selections. Only one range can be active at a time.
+
+#### Start & scheduled date filter details
+
+The **🛫 Start Date** and **⏳ Scheduled Date** filters mirror the due-date engine but offer only a single **No Start Date** / **No Scheduled Date** preset plus a custom From/To range (the six quick presets are intentionally omitted — start/scheduled cover arbitrary windows via the range):
+
+- The no-date preset matches tasks with no 🛫 / ⏳ date; the range matches tasks whose date falls within it (inclusive). A task with no start/scheduled date is never matched by the range.
+- The no-date preset and the range are mutually exclusive: entering a range clears the preset, and enabling the preset clears the range.
+- An empty selection excludes no tasks; the facets combine with all other panels via AND.
 
 #### Tag filter details
 
@@ -215,7 +237,9 @@ Clicking a checkbox:
 
 ### Filter state
 
-Filter state is persisted to the note's frontmatter under the `pm-tasks-filters` key and restored on page reload. Defaults can be set in the code block YAML (see options above).
+Filter state is persisted to the note's frontmatter under a **per-block** `pm-view-state.<blockKey>` key and restored on page reload, so multiple `pm-tasks` blocks in one note keep independent state. The `blockKey` is the block's `id:` option (see below) when set, otherwise a hash of the block source. A legacy flat `pm-tasks-filters` value is migrated forward automatically (copy-not-delete) on first load and kept as a read-only fallback. Defaults can be set in the code block YAML (see options above).
+
+**Optional `id:` option** — an explicit block identifier used as the persistence key. It is **not required**: structurally different blocks in the same note already get distinct source hashes. Add `id:` only to keep two byte-identical `pm-tasks` blocks in the same note from sharing one state entry.
 
 **Note on backward compatibility:** The old `dueDateFilter: "Today"` string format is still supported for existing notes and will be automatically migrated to the new structured format.
 
@@ -263,7 +287,7 @@ filter:
 
 ### Filter state
 
-Filter state (active chips, search text, view mode) is persisted to the note's frontmatter under the `pm-references-filters` key and restored on page reload.
+Filter state (active chips and view mode) is persisted to **plugin settings** (`settings.ui.referenceDashboardFilters`, via the shared `SettingsViewStore`) and restored on next load; the search text is intentionally ephemeral and clears on reload. The References dashboard is a note-less side panel with no host note, so it does **not** write to note frontmatter; there is no `pm-references-filters` frontmatter key.
 
 ---
 
@@ -358,7 +382,7 @@ The dashboard renders an interactive filter panel at the top:
 
 ### Risk matrix
 
-A likelihood × impact grid (High / Medium / Low × Low / Medium / High) shows a count of filtered items per cell. Clicking a cell applies a matrix-cell filter; clicking it again clears it. Cells are colour-coded by risk severity.
+A likelihood × impact grid (High / Medium / Low × Low / Medium / High) shows a count of filtered items per cell. Clicking a cell applies a matrix-cell filter; clicking it again clears it. Cells are colour-coded by risk severity. While a cell is selected, every cell still shows its count under all active facets **except** the matrix-cell selection — selecting a cell no longer zeroes the other cells.
 
 ### Item groups
 
@@ -366,6 +390,6 @@ Below the matrix, items are grouped by RAID type and rendered as tables with col
 
 ### Behaviour
 
-- Queries all vault RAID items tagged `#raid` via `QueryService.getActiveRaidItems()`.
-- Filter state (type, status, matrix cell, search) is ephemeral and resets on page reload; use the YAML config to set persistent defaults.
-- The component auto-refreshes (500 ms debounce) when any vault file is modified, allowing Dataview to re-index before re-querying.
+- Queries all vault RAID items tagged `#raid` via the `RaidQuery` entity read (`IEntityQuery`); status narrowing happens in the RAID `FilterSpec`, not the query.
+- Filter state is split: the **type, status, client, and engagement** filters persist to the note's frontmatter under the `pm-raid-dashboard-filters` key and are restored on reload, while the **matrix cell and search text** are intentionally ephemeral and reset on re-render. Use the YAML config to set persistent defaults.
+- The component auto-refreshes (1 s debounce) when any vault file is modified, allowing Dataview to re-index before re-querying.

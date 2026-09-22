@@ -3,17 +3,19 @@ import { EntityCreationService } from "../../src/services/entity-creation-servic
 import { TemplateService } from "../../src/services/template-service";
 import { createMockApp, TFile } from "../mocks/app-mock";
 import { DEFAULT_SETTINGS } from "../../src/settings";
-import type { INavigationService } from "../../src/services/interfaces";
+import type { INavigationService, INotificationService } from "../../src/services/interfaces";
 
 function createSvc(existingFiles: Parameters<typeof createMockApp>[0] = []) {
   const app = createMockApp(existingFiles);
   const templates = new TemplateService();
   const navigation: INavigationService = { openFile: vi.fn().mockResolvedValue(undefined) };
+  const notification: INotificationService = { notify: vi.fn() };
   const svc = new EntityCreationService(
     app as unknown as import("obsidian").App,
     DEFAULT_SETTINGS,
     templates,
-    navigation
+    navigation,
+    notification
   );
   return { svc, app, navigation };
 }
@@ -61,6 +63,59 @@ describe("EntityCreationService — createReferenceTopic with parent", () => {
     await svc.createReferenceTopic("Architecture");
     // processFrontMatter should not be called at all (no parent to set)
     expect(processFrontMatterSpy).not.toHaveBeenCalled();
+  });
+});
+
+describe("EntityCreationService — setReferenceTopicParent", () => {
+  const topicPath = `${DEFAULT_SETTINGS.folders.referenceTopics}/Helm.md`;
+
+  it("resolves the topic by folder path and writes the parent wikilink", async () => {
+    const { svc, app } = createSvc([{ path: topicPath }]);
+    const resolved: string[] = [];
+    const originalGet = app.vault.getAbstractFileByPath.bind(app.vault);
+    app.vault.getAbstractFileByPath = (p: string) => {
+      resolved.push(p);
+      return originalGet(p);
+    };
+    const mutations: Record<string, unknown> = {};
+    app.fileManager.processFrontMatter = async (_f, fn) => {
+      const fm: Record<string, unknown> = {};
+      fn(fm);
+      Object.assign(mutations, fm);
+    };
+
+    await svc.setReferenceTopicParent("Helm", "Kubernetes");
+
+    expect(resolved[0]).toBe(topicPath);
+    expect(mutations.parent).toBe("[[Kubernetes]]");
+  });
+
+  it("removes the parent field when no parent is provided", async () => {
+    const { svc, app } = createSvc([{ path: topicPath, frontmatter: { parent: "[[OldParent]]" } }]);
+    let fmAfter: Record<string, unknown> = {};
+    app.fileManager.processFrontMatter = async (_f, fn) => {
+      const fm: Record<string, unknown> = { parent: "[[OldParent]]" };
+      fn(fm);
+      fmAfter = fm;
+    };
+
+    await svc.setReferenceTopicParent("Helm");
+
+    expect(Object.prototype.hasOwnProperty.call(fmAfter, "parent")).toBe(false);
+  });
+
+  it("throws when the topic file cannot be resolved", async () => {
+    const { svc } = createSvc();
+    await expect(svc.setReferenceTopicParent("Missing", "Kubernetes")).rejects.toThrow(
+      /Could not find file for topic "Missing"/
+    );
+  });
+
+  it("does not mutate frontmatter when the topic file is missing", async () => {
+    const { svc, app } = createSvc();
+    const spy = vi.spyOn(app.fileManager, "processFrontMatter");
+    await expect(svc.setReferenceTopicParent("Missing")).rejects.toThrow();
+    expect(spy).not.toHaveBeenCalled();
   });
 });
 

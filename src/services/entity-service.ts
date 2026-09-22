@@ -1,5 +1,4 @@
 import type { TFile } from "obsidian";
-import type { CreateFileResult } from "../types";
 import type {
   IEntityService,
   IEntityCreationService,
@@ -68,12 +67,12 @@ export class EntityService implements IEntityService {
     return this.creation.createReferenceTopic(name, parentName);
   }
 
-  createReference(name: string, topics: string[], client?: string, engagement?: string): Promise<TFile> {
-    return this.creation.createReference(name, topics, client, engagement);
+  setReferenceTopicParent(topicName: string, parentName?: string): Promise<void> {
+    return this.creation.setReferenceTopicParent(topicName, parentName);
   }
 
-  validateResult(result: CreateFileResult): void {
-    return this.creation.validateResult(result);
+  createReference(name: string, topics: string[], client?: string, engagement?: string): Promise<TFile> {
+    return this.creation.createReference(name, topics, client, engagement);
   }
 
   // ─── Conversion delegation ───────────────────────────────────────────────

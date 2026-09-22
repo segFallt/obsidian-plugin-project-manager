@@ -1,12 +1,19 @@
-import { MarkdownRenderChild, TFile, parseYaml } from "obsidian";
+import { TFile, parseYaml } from "obsidian";
 import type { MarkdownPostProcessorContext } from "obsidian";
 import type { TaskProcessorServices, RegisterProcessorFn } from "../plugin-context";
 import type { PmTasksConfig, SavedDashboardFilters, SavedByProjectFilters } from "../types";
 import { TaskListRenderer } from "./task-list-renderer";
 import { DashboardView } from "./pm-tasks-dashboard";
 import { ByProjectView } from "./pm-tasks-by-project";
+import { TaskQuery } from "../services/entity-query";
+import { DashboardRenderChild } from "./dashboard-render-child";
+import type { DashboardViewFactory } from "./dashboard-render-child";
+import { FrontmatterViewStore, KEY_PATH_SEPARATOR } from "./view-state-store";
+import type { ViewState, ViewStateStore } from "./view-state-store";
+import { ObsidianFrontmatterIO } from "./frontmatter-io";
 import { renderError } from "./dom-helpers";
-import { DEBOUNCE_MS, CODEBLOCK, FM_KEY, LOG_CONTEXT } from "../constants";
+import { hashString } from "../utils/hash-utils";
+import { CODEBLOCK, FM_KEY, LOG_CONTEXT, PM_TASKS_MODE, PM_TASKS_MSG, VAULT_EVENT } from "../constants";
 
 /**
  * Renders the task dashboard and tasks-by-project views.
@@ -22,155 +29,174 @@ import { DEBOUNCE_MS, CODEBLOCK, FM_KEY, LOG_CONTEXT } from "../constants";
  * mode: by-project
  * ```
  *
- * Filter state is persisted to the note's frontmatter under the `pm-tasks-filters` key.
+ * Both modes are hosted by the generic {@link DashboardRenderChild}, which owns
+ * the vault-modify lifecycle and routes filter-state persistence through a
+ * {@link FrontmatterViewStore} under a per-block `pm-view-state.<blockKey>` key
+ * (migrated forward from the legacy flat `pm-tasks-filters` key on first load).
  */
 export function registerPmTasksProcessor(
   services: TaskProcessorServices,
   registerProcessor: RegisterProcessorFn
 ): void {
   registerProcessor(CODEBLOCK.PM_TASKS, (source, el, ctx: MarkdownPostProcessorContext) => {
-    const child = new PmTasksRenderChild(el, source, ctx.sourcePath, services);
+    el.empty();
+
+    const config = parseConfig(source, el, services);
+    if (!config) return;
+
+    const store = new FrontmatterViewStore(
+      new ObsidianFrontmatterIO(services.app),
+      () => fileAtPath(services, ctx.sourcePath)
+    );
+    const stateKey = blockStateKey(config, source);
+
+    const createView = buildViewFactory(config, services, store, stateKey);
+    if (!createView) {
+      const msg = PM_TASKS_MSG.UNKNOWN_MODE(String(config.mode));
+      services.loggerService.warn(msg, LOG_CONTEXT.TASKS_PROCESSOR);
+      renderError(el, msg);
+      return;
+    }
+
+    services.loggerService.debug(
+      `pm-tasks rendering, mode: "${config.mode}", source: "${ctx.sourcePath}"`,
+      LOG_CONTEXT.TASKS_PROCESSOR
+    );
+
+    const child = new DashboardRenderChild(el, {
+      createView,
+      store,
+      stateKey,
+      readModifiedState: () => store.load(stateKey),
+      registerModify: (handler) =>
+        services.app.vault.on(VAULT_EVENT.MODIFY, (file) => {
+          if (file instanceof TFile) handler(file);
+        }),
+    });
+
     ctx.addChild(child);
     child.render();
   });
 }
 
-// ─── Render child ──────────────────────────────────────────────────────────
+// ─── Helpers ─────────────────────────────────────────────────────────────────
 
-
-class PmTasksRenderChild extends MarkdownRenderChild {
-  private config!: PmTasksConfig;
-  private activeView: DashboardView | ByProjectView | null = null;
-  private debounceTimer: ReturnType<typeof setTimeout> | null = null;
-  private saveDebounceTimer: ReturnType<typeof setTimeout> | null = null;
-  private isUpdating = false;
-
-  constructor(
-    containerEl: HTMLElement,
-    private readonly source: string,
-    private readonly sourcePath: string,
-    private readonly services: TaskProcessorServices
-  ) {
-    super(containerEl);
+/** Parses and validates the code-block config; renders an error into `el` and returns null on failure. */
+function parseConfig(
+  source: string,
+  el: HTMLElement,
+  services: TaskProcessorServices
+): PmTasksConfig | null {
+  let config: PmTasksConfig;
+  try {
+    config = parseYaml(source) as PmTasksConfig;
+  } catch {
+    services.loggerService.warn(PM_TASKS_MSG.INVALID_CONFIG, LOG_CONTEXT.TASKS_PROCESSOR);
+    renderError(el, PM_TASKS_MSG.INVALID_CONFIG);
+    return null;
   }
 
-  onload(): void {
-    // Auto-refresh task output when any vault file is modified.
-    // Uses a 1 second debounce to allow Dataview to re-index before querying.
-    this.registerEvent(
-      this.services.app.vault.on("modify", () => {
-        if (!this.isUpdating) this.debouncedAutoRefresh();
-      })
+  if (!config?.mode) {
+    services.loggerService.warn(PM_TASKS_MSG.REQUIRES_MODE, LOG_CONTEXT.TASKS_PROCESSOR);
+    renderError(el, PM_TASKS_MSG.REQUIRES_MODE);
+    return null;
+  }
+
+  return config;
+}
+
+/** The view-component factory a {@link DashboardRenderChild} calls when it mounts. */
+type ViewFactory = DashboardViewFactory;
+
+/**
+ * Builds the view-component factory for the config's mode, or null for an
+ * unknown mode. The factory defers construction until the host mounts and
+ * receives the live render child as the markdown-render `component`.
+ */
+function buildViewFactory(
+  config: PmTasksConfig,
+  services: TaskProcessorServices,
+  store: ViewStateStore,
+  stateKey: string
+): ViewFactory | null {
+  const onMigrationError = (err: unknown): void =>
+    services.loggerService.warn(PM_TASKS_MSG.MIGRATION_FAILED(String(err)), LOG_CONTEXT.TASKS_PROCESSOR);
+
+  if (config.mode === PM_TASKS_MODE.DASHBOARD) {
+    const entityQuery = new TaskQuery(
+      () => services.queryService.dv(),
+      () => services.settings.folders.utility
     );
-  }
-
-  onunload(): void {
-    if (this.debounceTimer !== null) {
-      clearTimeout(this.debounceTimer);
-      this.debounceTimer = null;
-    }
-    if (this.saveDebounceTimer !== null) {
-      clearTimeout(this.saveDebounceTimer);
-      this.saveDebounceTimer = null;
-    }
-  }
-
-  render(): void {
-    this.containerEl.empty();
-
-    try {
-      this.config = parseYaml(this.source) as PmTasksConfig;
-    } catch {
-      const msg = "Invalid pm-tasks config.";
-      this.services.loggerService.warn(msg, LOG_CONTEXT.TASKS_PROCESSOR);
-      renderError(this.containerEl, msg);
-      return;
-    }
-
-    if (!this.config?.mode) {
-      const msg = "pm-tasks requires a `mode` field (dashboard or by-project).";
-      this.services.loggerService.warn(msg, LOG_CONTEXT.TASKS_PROCESSOR);
-      renderError(this.containerEl, msg);
-      return;
-    }
-
-    this.services.loggerService.debug(`pm-tasks rendering, mode: "${this.config.mode}", source: "${this.sourcePath}"`, LOG_CONTEXT.TASKS_PROCESSOR);
-    const filterService = this.services.filterService;
-    const sortService = this.services.sortService;
-    const renderer = new TaskListRenderer(this.services, this);
-    const savedFilters = this.loadSavedFilters();
-
-    if (this.config.mode === "dashboard") {
-      this.activeView = new DashboardView(
-        this.containerEl,
-        this.config,
-        this.services,
-        filterService,
-        sortService,
-        renderer,
-        savedFilters as SavedDashboardFilters | null,
-        (filters) => this.debouncedSaveFilters(filters)
+    const savedFilters = loadWithMigration(store, stateKey, onMigrationError) as SavedDashboardFilters | null;
+    return (persist, container, component) =>
+      new DashboardView(
+        container,
+        config,
+        services,
+        services.sortService,
+        new TaskListRenderer(services, component),
+        entityQuery,
+        savedFilters,
+        (filters) => persist(filters as ViewState | null)
       );
-      this.activeView.render();
-    } else if (this.config.mode === "by-project") {
-      this.activeView = new ByProjectView(
-        this.containerEl,
-        this.config,
-        this.services,
-        sortService,
-        renderer,
-        savedFilters as SavedByProjectFilters | null,
-        (filters) => this.debouncedSaveFilters(filters)
+  }
+
+  if (config.mode === PM_TASKS_MODE.BY_PROJECT) {
+    const savedFilters = loadWithMigration(store, stateKey, onMigrationError) as SavedByProjectFilters | null;
+    return (persist, container, component) =>
+      new ByProjectView(
+        container,
+        config,
+        services,
+        services.sortService,
+        new TaskListRenderer(services, component),
+        savedFilters,
+        (filters) => persist(filters as ViewState | null)
       );
-      this.activeView.render();
-    } else {
-      const msg = `Unknown pm-tasks mode: ${String(this.config.mode)}`;
-      this.services.loggerService.warn(msg, LOG_CONTEXT.TASKS_PROCESSOR);
-      renderError(this.containerEl, msg);
-    }
   }
 
-  private loadSavedFilters(): unknown {
-    const file = this.services.app.vault.getAbstractFileByPath(this.sourcePath);
-    if (!(file instanceof TFile)) return null;
-    return this.services.app.metadataCache.getFileCache(file)?.frontmatter?.[FM_KEY.TASKS_FILTERS] ?? null;
-  }
+  return null;
+}
 
-  private debouncedSaveFilters(filters: SavedDashboardFilters | SavedByProjectFilters | null): void {
-    if (this.saveDebounceTimer) clearTimeout(this.saveDebounceTimer);
-    this.saveDebounceTimer = setTimeout(() => {
-      void this.persistFilters(filters);
-    }, DEBOUNCE_MS.PROPERTIES);
-  }
+/**
+ * The per-block dot-path key this block persists its state under:
+ * `pm-view-state.<blockKey>`, where `blockKey` is the explicit `id:` or a hash
+ * of the block source. Structurally-different blocks hash apart automatically;
+ * byte-identical blocks share a key unless given distinct `id:`s.
+ */
+export function blockStateKey(config: PmTasksConfig, source: string): string {
+  const explicitId = config.id?.trim();
+  const blockKey = explicitId ? explicitId : hashString(source);
+  return `${FM_KEY.VIEW_STATE}${KEY_PATH_SEPARATOR}${blockKey}`;
+}
 
-  private async persistFilters(filters: SavedDashboardFilters | SavedByProjectFilters | null): Promise<void> {
-    const file = this.services.app.vault.getAbstractFileByPath(this.sourcePath);
-    if (!(file instanceof TFile)) return;
-    this.isUpdating = true;
-    try {
-      await this.services.app.fileManager.processFrontMatter(
-        file,
-        (fm: Record<string, unknown>) => {
-          if (filters === null) {
-            delete fm[FM_KEY.TASKS_FILTERS];
-          } else {
-            fm[FM_KEY.TASKS_FILTERS] = filters;
-          }
-        }
-      );
-    } finally {
-      this.isUpdating = false;
-    }
-  }
+/**
+ * Loads this block's persisted state, migrating a legacy flat `pm-tasks-filters`
+ * value forward on first load: if the per-block entry is absent but the legacy
+ * key holds a value, it is **copied** into the per-block entry (leaving the
+ * legacy key in place as a read-only fallback so sibling blocks never reset) and
+ * returned.
+ */
+export function loadWithMigration(
+  store: ViewStateStore,
+  stateKey: string,
+  onMigrationError?: (err: unknown) => void
+): ViewState | null {
+  const perBlock = store.load(stateKey);
+  if (perBlock !== null) return perBlock;
 
-  /**
-   * Triggered by vault 'modify' events.
-   * Uses a longer debounce (1 s) to allow Dataview to re-index before re-querying.
-   */
-  private debouncedAutoRefresh(): void {
-    if (this.debounceTimer) clearTimeout(this.debounceTimer);
-    this.debounceTimer = setTimeout(() => {
-      this.activeView?.refreshOutput();
-    }, DEBOUNCE_MS.TASKS);
+  const legacy = store.load(FM_KEY.TASKS_FILTERS);
+  if (legacy !== null) {
+    // Fire-and-forget copy: the legacy key is retained, so a failed write simply
+    // retries on the next load — but surface the failure rather than swallow it.
+    void store.save(stateKey, legacy).catch((err) => onMigrationError?.(err));
+    return legacy;
   }
+  return null;
+}
+
+/** Resolves the code block's host note as a `TFile`, or null when absent. */
+function fileAtPath(services: TaskProcessorServices, sourcePath: string): TFile | null {
+  const file = services.app.vault.getAbstractFileByPath(sourcePath);
+  return file instanceof TFile ? file : null;
 }

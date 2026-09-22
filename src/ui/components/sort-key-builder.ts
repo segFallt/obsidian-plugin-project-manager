@@ -1,19 +1,22 @@
 import type { SortKey, SortField, SortDirection } from "@/types";
+import { SORT_FIELD, SORT_DIRECTION } from "@/constants";
 
 /** Maximum number of sort keys allowed in the builder. */
 const MAX_SORT_KEYS = 3;
 
 /** Display names for each sort field. */
 const SORT_FIELD_LABELS: Record<SortField, string> = {
-  dueDate: "Due Date",
-  priority: "Priority",
-  alphabetical: "Alphabetical",
-  context: "Context",
-  createdDate: "Created Date",
+  [SORT_FIELD.DUE_DATE]: "Due Date",
+  [SORT_FIELD.START_DATE]: "Start Date",
+  [SORT_FIELD.SCHEDULED_DATE]: "Scheduled Date",
+  [SORT_FIELD.PRIORITY]: "Priority",
+  [SORT_FIELD.ALPHABETICAL]: "Alphabetical",
+  [SORT_FIELD.CONTEXT]: "Context",
+  [SORT_FIELD.CREATED_DATE]: "Created Date",
 };
 
 /** All available sort fields in display order. */
-const ALL_SORT_FIELDS: SortField[] = ["dueDate", "priority", "alphabetical", "context", "createdDate"];
+const ALL_SORT_FIELDS: SortField[] = Object.values(SORT_FIELD);
 
 export interface SortKeyBuilderConfig {
   keys: SortKey[];
@@ -79,10 +82,10 @@ export class SortKeyBuilder {
       // Direction toggle
       const dirBtn = row.createEl("button", {
         cls: `pm-tasks-sort-key__dir pm-tasks-sort-key__dir--${key.direction}`,
-        text: key.direction === "asc" ? "↑ Asc" : "↓ Desc",
+        text: key.direction === SORT_DIRECTION.ASC ? "↑ Asc" : "↓ Desc",
       });
       dirBtn.addEventListener("click", () => {
-        const newDir: SortDirection = key.direction === "asc" ? "desc" : "asc";
+        const newDir: SortDirection = key.direction === SORT_DIRECTION.ASC ? SORT_DIRECTION.DESC : SORT_DIRECTION.ASC;
         this.keys = this.keys.map((k, i) => (i === index ? { ...k, direction: newDir } : k));
         this.config.onChange([...this.keys]);
         this.render();
@@ -144,7 +147,7 @@ export class SortKeyBuilder {
           text: SORT_FIELD_LABELS[field],
         });
         pill.addEventListener("click", () => {
-          this.keys = [...this.keys, { field, direction: "asc" }];
+          this.keys = [...this.keys, { field, direction: SORT_DIRECTION.ASC }];
           this.config.onChange([...this.keys]);
           this.render();
         });

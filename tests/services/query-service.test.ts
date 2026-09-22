@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { QueryService } from "@/services/query-service";
 import { createMockDataviewApi } from "../mocks/dataview-mock";
-import { createMockApp, TFile } from "../mocks/app-mock";
+import { TFile } from "../mocks/app-mock";
 import type { MockPageData } from "../mocks/dataview-mock";
 import { DEFAULT_FOLDERS } from "@/constants";
 import type { FolderSettings } from "@/settings";
@@ -9,10 +9,13 @@ import type { FolderSettings } from "@/settings";
 const defaultFolders = DEFAULT_FOLDERS as unknown as FolderSettings;
 
 function createQueryService(pages: MockPageData[]) {
-  const app = createMockApp();
   const dv = createMockDataviewApi(pages);
-  const qs = new QueryService(app as unknown as import("obsidian").App, () => dv, defaultFolders);
+  const qs = new QueryService(() => dv, defaultFolders);
   return { qs, dv };
+}
+
+function nullQueryService() {
+  return new QueryService(() => null, defaultFolders);
 }
 
 describe("QueryService", () => {
@@ -67,9 +70,7 @@ describe("QueryService", () => {
     });
 
     it("returns empty array when Dataview unavailable", () => {
-      const app = createMockApp();
-      const qs = new QueryService(app as unknown as import("obsidian").App, () => null);
-      expect(qs.getEntitiesByStatus("#client", "Active")).toEqual([]);
+      expect(nullQueryService().getEntitiesByStatus("#client", "Active")).toEqual([]);
     });
   });
 
@@ -148,217 +149,6 @@ describe("QueryService", () => {
     });
   });
 
-  describe("getEngagementForEntity", () => {
-    it("returns engagement via direct link", () => {
-      const file = new TFile("projects/Foo.md");
-      const { qs } = createQueryService([
-        {
-          path: "projects/Foo.md",
-          frontmatter: { engagement: { path: "engagements/Eng1.md" } },
-        },
-        {
-          path: "engagements/Eng1.md",
-          frontmatter: { status: "Active" },
-        },
-      ]);
-      const result = qs.getEngagementForEntity(file as unknown as import("obsidian").TFile);
-      expect(result).not.toBeNull();
-      expect(result?.file.name).toBe("Eng1");
-    });
-
-    it("returns null when file has no engagement", () => {
-      const file = new TFile("inbox/Task.md");
-      const { qs } = createQueryService([
-        { path: "inbox/Task.md", frontmatter: {} },
-      ]);
-      const result = qs.getEngagementForEntity(file as unknown as import("obsidian").TFile);
-      expect(result).toBeNull();
-    });
-
-    it("traverses parent project for project notes", () => {
-      const file = new TFile("projects/notes/foo/Note.md");
-      const { qs } = createQueryService([
-        {
-          path: "projects/notes/foo/Note.md",
-          frontmatter: { relatedProject: "Foo" },
-        },
-        {
-          path: "projects/Foo.md",
-          frontmatter: { engagement: "Eng1" },
-        },
-        {
-          path: "engagements/Eng1.md",
-          frontmatter: { status: "Active" },
-        },
-      ]);
-      const result = qs.getEngagementForEntity(file as unknown as import("obsidian").TFile);
-      expect(result).not.toBeNull();
-      expect(result?.file.name).toBe("Eng1");
-    });
-
-    it("returns null when Dataview unavailable", () => {
-      const app = createMockApp();
-      const qs = new QueryService(app as unknown as import("obsidian").App, () => null);
-      const file = new TFile("projects/Foo.md");
-      expect(qs.getEngagementForEntity(file as unknown as import("obsidian").TFile)).toBeNull();
-    });
-
-    it("returns engagement via recurring meeting event chain", () => {
-      const file = new TFile("meetings/recurring-events/StandUp/2024-03-01.md");
-      const { qs } = createQueryService([
-        {
-          path: "meetings/recurring-events/StandUp/2024-03-01.md",
-          frontmatter: { "recurring-meeting": "[[StandUp]]" },
-        },
-        {
-          path: "meetings/recurring/StandUp.md",
-          frontmatter: { engagement: "Eng1" },
-        },
-        {
-          path: "engagements/Eng1.md",
-          frontmatter: { status: "Active" },
-        },
-      ]);
-      const result = qs.getEngagementForEntity(file as unknown as import("obsidian").TFile);
-      expect(result).not.toBeNull();
-      expect(result?.file.name).toBe("Eng1");
-    });
-
-    it("returns null when recurring meeting event has no resolvable parent meeting", () => {
-      const file = new TFile("meetings/recurring-events/StandUp/2024-03-01.md");
-      const { qs } = createQueryService([
-        {
-          path: "meetings/recurring-events/StandUp/2024-03-01.md",
-          frontmatter: { "recurring-meeting": "[[StandUp]]" },
-        },
-        // No StandUp recurring meeting page
-      ]);
-      const result = qs.getEngagementForEntity(file as unknown as import("obsidian").TFile);
-      expect(result).toBeNull();
-    });
-  });
-
-  describe("getClientForEntity", () => {
-    it("returns client via direct link", () => {
-      const file = new TFile("engagements/Eng1.md");
-      const { qs } = createQueryService([
-        {
-          path: "engagements/Eng1.md",
-          frontmatter: { client: { path: "clients/Acme.md" } },
-        },
-        {
-          path: "clients/Acme.md",
-          frontmatter: { status: "Active" },
-        },
-      ]);
-      const result = qs.getClientForEntity(file as unknown as import("obsidian").TFile);
-      expect(result?.file.name).toBe("Acme");
-    });
-
-    it("returns client through engagement chain", () => {
-      const file = new TFile("projects/Foo.md");
-      const { qs } = createQueryService([
-        {
-          path: "projects/Foo.md",
-          frontmatter: { engagement: { path: "engagements/Eng1.md" } },
-        },
-        {
-          path: "engagements/Eng1.md",
-          frontmatter: { client: { path: "clients/Acme.md" } },
-        },
-        {
-          path: "clients/Acme.md",
-          frontmatter: { status: "Active" },
-        },
-      ]);
-      const result = qs.getClientForEntity(file as unknown as import("obsidian").TFile);
-      expect(result?.file.name).toBe("Acme");
-    });
-
-    it("returns null when no client in chain", () => {
-      const file = new TFile("inbox/Task.md");
-      const { qs } = createQueryService([
-        { path: "inbox/Task.md", frontmatter: {} },
-      ]);
-      const result = qs.getClientForEntity(file as unknown as import("obsidian").TFile);
-      expect(result).toBeNull();
-    });
-
-    it("returns null when Dataview unavailable", () => {
-      const app = createMockApp();
-      const qs = new QueryService(app as unknown as import("obsidian").App, () => null);
-      const file = new TFile("engagements/Eng1.md");
-      expect(qs.getClientForEntity(file as unknown as import("obsidian").TFile)).toBeNull();
-    });
-  });
-
-  describe("getParentProject", () => {
-    it("returns parent project for a project note", () => {
-      const file = new TFile("projects/notes/foo/Note.md");
-      const { qs } = createQueryService([
-        {
-          path: "projects/notes/foo/Note.md",
-          frontmatter: { relatedProject: "Foo" },
-        },
-        {
-          path: "projects/Foo.md",
-          frontmatter: { status: "Active" },
-        },
-      ]);
-      const result = qs.getParentProject(file as unknown as import("obsidian").TFile);
-      expect(result?.file.name).toBe("Foo");
-    });
-
-    it("returns null when file has no relatedProject", () => {
-      const file = new TFile("projects/Foo.md");
-      const { qs } = createQueryService([
-        { path: "projects/Foo.md", frontmatter: {} },
-      ]);
-      const result = qs.getParentProject(file as unknown as import("obsidian").TFile);
-      expect(result).toBeNull();
-    });
-
-    it("returns null when Dataview unavailable", () => {
-      const app = createMockApp();
-      const qs = new QueryService(app as unknown as import("obsidian").App, () => null);
-      const file = new TFile("projects/notes/foo/Note.md");
-      expect(qs.getParentProject(file as unknown as import("obsidian").TFile)).toBeNull();
-    });
-  });
-
-  describe("getClientFromEngagementLink", () => {
-    it("resolves client from engagement link", () => {
-      const { qs } = createQueryService([
-        {
-          path: "engagements/Eng1.md",
-          frontmatter: { client: { path: "clients/Acme.md" } },
-        },
-        {
-          path: "clients/Acme.md",
-          frontmatter: { status: "Active" },
-        },
-      ]);
-      const result = qs.getClientFromEngagementLink({ path: "engagements/Eng1.md" });
-      expect(result).toBe("Acme");
-    });
-
-    it("returns null when engagement link is invalid", () => {
-      const { qs } = createQueryService([]);
-      expect(qs.getClientFromEngagementLink(null)).toBeNull();
-    });
-
-    it("returns null when engagement page not found", () => {
-      const { qs } = createQueryService([]);
-      expect(qs.getClientFromEngagementLink("[[NonExistent]]")).toBeNull();
-    });
-
-    it("returns null when Dataview unavailable", () => {
-      const app = createMockApp();
-      const qs = new QueryService(app as unknown as import("obsidian").App, () => null);
-      expect(qs.getClientFromEngagementLink("[[Eng1]]")).toBeNull();
-    });
-  });
-
   describe("getPage", () => {
     it("returns a page by path", () => {
       const { qs } = createQueryService([
@@ -378,9 +168,7 @@ describe("QueryService", () => {
 
   describe("returns null when Dataview is unavailable", () => {
     it("getEntitiesByTag returns empty array", () => {
-      const app = createMockApp();
-      const qs = new QueryService(app as unknown as import("obsidian").App, () => null);
-      expect(qs.getEntitiesByTag("#client")).toEqual([]);
+      expect(nullQueryService().getEntitiesByTag("#client")).toEqual([]);
     });
   });
 
@@ -420,9 +208,7 @@ describe("QueryService", () => {
     });
 
     it("returns empty array when Dataview is unavailable", () => {
-      const app = createMockApp();
-      const qs = new QueryService(app as unknown as import("obsidian").App, () => null);
-      expect(qs.getActiveRecurringMeetings()).toEqual([]);
+      expect(nullQueryService().getActiveRecurringMeetings()).toEqual([]);
     });
 
     it("returns multiple active meetings when none have end-date", () => {
@@ -483,9 +269,7 @@ describe("QueryService", () => {
     });
 
     it("returns empty array when Dataview is unavailable", () => {
-      const app = createMockApp();
-      const qs = new QueryService(app as unknown as import("obsidian").App, () => null);
-      expect(qs.getRecurringMeetingEvents("Weekly Standup")).toEqual([]);
+      expect(nullQueryService().getRecurringMeetingEvents("Weekly Standup")).toEqual([]);
     });
 
     it("matches events using normalizeToName (wikilink format)", () => {
@@ -500,343 +284,6 @@ describe("QueryService", () => {
       expect(qs.getRecurringMeetingEvents("Weekly Standup")).toHaveLength(1);
       // Should not find this event with a different name
       expect(qs.getRecurringMeetingEvents("Other Meeting")).toHaveLength(0);
-    });
-  });
-
-  describe("getEngagementNameForPath", () => {
-    it("returns engagement name via direct link", () => {
-      const { qs } = createQueryService([
-        {
-          path: "projects/Foo.md",
-          frontmatter: { engagement: { path: "engagements/Eng1.md" } },
-        },
-        { path: "engagements/Eng1.md" },
-      ]);
-      expect(qs.getEngagementNameForPath("projects/Foo.md")).toBe("Eng1");
-    });
-
-    it("returns engagement name via relatedProject chain", () => {
-      const { qs } = createQueryService([
-        {
-          path: "projects/notes/foo/Note.md",
-          frontmatter: { relatedProject: "Foo" },
-        },
-        {
-          path: "projects/Foo.md",
-          frontmatter: { engagement: "Eng1" },
-        },
-        { path: "engagements/Eng1.md" },
-      ]);
-      expect(qs.getEngagementNameForPath("projects/notes/foo/Note.md")).toBe("Eng1");
-    });
-
-    it("returns engagement name via recurring-meeting chain", () => {
-      const { qs } = createQueryService([
-        {
-          path: "meetings/recurring-events/StandUp/2024-03-01.md",
-          frontmatter: { "recurring-meeting": "[[StandUp]]" },
-        },
-        {
-          path: "meetings/recurring/StandUp.md",
-          frontmatter: { engagement: "Eng1" },
-        },
-        { path: "engagements/Eng1.md" },
-      ]);
-      expect(qs.getEngagementNameForPath("meetings/recurring-events/StandUp/2024-03-01.md")).toBe("Eng1");
-    });
-
-    it("returns null when page has no engagement chain", () => {
-      const { qs } = createQueryService([
-        { path: "inbox/Task.md", frontmatter: {} },
-      ]);
-      expect(qs.getEngagementNameForPath("inbox/Task.md")).toBeNull();
-    });
-
-    it("returns null for unknown path", () => {
-      const { qs } = createQueryService([]);
-      expect(qs.getEngagementNameForPath("nonexistent.md")).toBeNull();
-    });
-
-    it("returns null when Dataview unavailable", () => {
-      const app = createMockApp();
-      const qs = new QueryService(app as unknown as import("obsidian").App, () => null);
-      expect(qs.getEngagementNameForPath("projects/Foo.md")).toBeNull();
-    });
-  });
-
-  describe("getActiveRaidItems", () => {
-    it("returns items with Open or In Progress status", () => {
-      const { qs } = createQueryService([
-        { path: "raid/R1.md", tags: ["#raid"], frontmatter: { status: "Open", "raised-date": "2024-01-01" } },
-        { path: "raid/R2.md", tags: ["#raid"], frontmatter: { status: "In Progress", "raised-date": "2024-01-02" } },
-      ]);
-      const result = qs.getActiveRaidItems();
-      expect(result).toHaveLength(2);
-      expect(result.map((p) => p.file.name)).toEqual(expect.arrayContaining(["R1", "R2"]));
-    });
-
-    it("excludes items with Resolved or Closed status", () => {
-      const { qs } = createQueryService([
-        { path: "raid/Active.md",   tags: ["#raid"], frontmatter: { status: "Open" } },
-        { path: "raid/Resolved.md", tags: ["#raid"], frontmatter: { status: "Resolved" } },
-        { path: "raid/Closed.md",   tags: ["#raid"], frontmatter: { status: "Closed" } },
-      ]);
-      const result = qs.getActiveRaidItems();
-      expect(result).toHaveLength(1);
-      expect(result[0].file.name).toBe("Active");
-    });
-
-    it("returns empty array when Dataview is unavailable", () => {
-      const app = createMockApp();
-      const qs = new QueryService(app as unknown as import("obsidian").App, () => null, defaultFolders);
-      expect(qs.getActiveRaidItems()).toEqual([]);
-    });
-  });
-
-  describe("getAllRaidItems", () => {
-    it("returns items of all four statuses (Open, In Progress, Resolved, Closed)", () => {
-      const { qs } = createQueryService([
-        { path: "raid/R1.md", tags: ["#raid"], frontmatter: { status: "Open",        "raised-date": "2024-01-01" } },
-        { path: "raid/R2.md", tags: ["#raid"], frontmatter: { status: "In Progress", "raised-date": "2024-01-02" } },
-        { path: "raid/R3.md", tags: ["#raid"], frontmatter: { status: "Resolved",    "raised-date": "2024-01-03" } },
-        { path: "raid/R4.md", tags: ["#raid"], frontmatter: { status: "Closed",      "raised-date": "2024-01-04" } },
-      ]);
-      const result = qs.getAllRaidItems();
-      expect(result).toHaveLength(4);
-      expect(result.map((p) => p.file.name)).toEqual(
-        expect.arrayContaining(["R1", "R2", "R3", "R4"])
-      );
-    });
-
-    it("returns empty array when no RAID items exist", () => {
-      const { qs } = createQueryService([
-        { path: "projects/Foo.md", tags: ["#project"], frontmatter: { status: "Active" } },
-      ]);
-      expect(qs.getAllRaidItems()).toHaveLength(0);
-    });
-
-    it("sorts by raised-date descending", () => {
-      const { qs } = createQueryService([
-        { path: "raid/Old.md",    tags: ["#raid"], frontmatter: { status: "Open",     "raised-date": "2024-01-01" } },
-        { path: "raid/Newest.md", tags: ["#raid"], frontmatter: { status: "Resolved", "raised-date": "2024-03-01" } },
-        { path: "raid/Middle.md", tags: ["#raid"], frontmatter: { status: "Closed",   "raised-date": "2024-02-01" } },
-      ]);
-      const result = qs.getAllRaidItems();
-      expect(result).toHaveLength(3);
-      expect(result[0].file.name).toBe("Newest");
-      expect(result[1].file.name).toBe("Middle");
-      expect(result[2].file.name).toBe("Old");
-    });
-
-    it("returns empty array when Dataview is unavailable", () => {
-      const app = createMockApp();
-      const qs = new QueryService(app as unknown as import("obsidian").App, () => null, defaultFolders);
-      expect(qs.getAllRaidItems()).toEqual([]);
-    });
-  });
-
-  describe("getRaidItemsForContext", () => {
-    it("returns all active items when no filters provided", () => {
-      const { qs } = createQueryService([
-        { path: "raid/R1.md", tags: ["#raid"], frontmatter: { status: "Open", client: "[[Acme]]" } },
-        { path: "raid/R2.md", tags: ["#raid"], frontmatter: { status: "Open", engagement: "[[Eng1]]" } },
-        { path: "raid/R3.md", tags: ["#raid"], frontmatter: { status: "Resolved" } },
-      ]);
-      const result = qs.getRaidItemsForContext();
-      expect(result).toHaveLength(2);
-    });
-
-    it("filters by clientName", () => {
-      const { qs } = createQueryService([
-        { path: "raid/R1.md", tags: ["#raid"], frontmatter: { status: "Open", client: "[[Acme]]" } },
-        { path: "raid/R2.md", tags: ["#raid"], frontmatter: { status: "Open", client: "[[OtherCo]]" } },
-      ]);
-      const result = qs.getRaidItemsForContext("Acme");
-      expect(result).toHaveLength(1);
-      expect(result[0].file.name).toBe("R1");
-    });
-
-    it("filters by engagementName", () => {
-      const { qs } = createQueryService([
-        { path: "raid/R1.md", tags: ["#raid"], frontmatter: { status: "Open", engagement: "[[Eng1]]" } },
-        { path: "raid/R2.md", tags: ["#raid"], frontmatter: { status: "Open", engagement: "[[Eng2]]" } },
-      ]);
-      const result = qs.getRaidItemsForContext(undefined, "Eng1");
-      expect(result).toHaveLength(1);
-      expect(result[0].file.name).toBe("R1");
-    });
-
-    it("excludes Resolved/Closed items even when context matches", () => {
-      const { qs } = createQueryService([
-        { path: "raid/R1.md", tags: ["#raid"], frontmatter: { status: "Resolved", client: "[[Acme]]" } },
-      ]);
-      expect(qs.getRaidItemsForContext("Acme")).toHaveLength(0);
-    });
-
-    it("returns empty array when Dataview is unavailable", () => {
-      const app = createMockApp();
-      const qs = new QueryService(app as unknown as import("obsidian").App, () => null, defaultFolders);
-      expect(qs.getRaidItemsForContext("Acme")).toEqual([]);
-    });
-
-    it("matches when clientName is passed as a wikilink string (frontmatter format)", () => {
-      // tag-raid-reference passes fm["client"] as-is, which metadataCache returns as "[[Acme]]"
-      const { qs } = createQueryService([
-        { path: "raid/R1.md", tags: ["#raid"], frontmatter: { status: "Open", client: "[[Acme]]" } },
-        { path: "raid/R2.md", tags: ["#raid"], frontmatter: { status: "Open", client: "[[OtherCo]]" } },
-      ]);
-      const result = qs.getRaidItemsForContext("[[Acme]]");
-      expect(result).toHaveLength(1);
-      expect(result[0].file.name).toBe("R1");
-    });
-
-    it("matches when page client is a DataviewLink with a folder-prefixed path", () => {
-      // Dataview returns { path: "clients/Acme.md", type: "file" } — not a plain string
-      const { qs } = createQueryService([
-        {
-          path: "raid/R1.md",
-          tags: ["#raid"],
-          frontmatter: { status: "Open", client: { path: "clients/Acme.md", type: "file" } },
-        },
-        {
-          path: "raid/R2.md",
-          tags: ["#raid"],
-          frontmatter: { status: "Open", client: { path: "clients/OtherCo.md", type: "file" } },
-        },
-      ]);
-      // clientName comes from metadataCache frontmatter as "[[Acme]]"
-      const result = qs.getRaidItemsForContext("[[Acme]]");
-      expect(result).toHaveLength(1);
-      expect(result[0].file.name).toBe("R1");
-    });
-
-    it("matches when page engagement is a DataviewLink with a folder-prefixed path", () => {
-      const { qs } = createQueryService([
-        {
-          path: "raid/R1.md",
-          tags: ["#raid"],
-          frontmatter: { status: "Open", engagement: { path: "engagements/Eng1.md", type: "file" } },
-        },
-        {
-          path: "raid/R2.md",
-          tags: ["#raid"],
-          frontmatter: { status: "Open", engagement: { path: "engagements/Eng2.md", type: "file" } },
-        },
-      ]);
-      // engagementName comes from metadataCache frontmatter as "[[Eng1]]"
-      const result = qs.getRaidItemsForContext(undefined, "[[Eng1]]");
-      expect(result).toHaveLength(1);
-      expect(result[0].file.name).toBe("R1");
-    });
-
-    it("resolves clientName via engagement→client chain when RAID item has no direct client", () => {
-      // R1 has engagement "Eng1"; engagement page "Eng1" has client "Acme"
-      // resolveClientName must traverse engagement→client to surface R1 under "Acme"
-      const { qs } = createQueryService([
-        {
-          path: "raid/R1.md",
-          tags: ["#raid"],
-          frontmatter: { status: "Open", engagement: "[[Eng1]]" },
-        },
-        {
-          path: "engagements/Eng1.md",
-          tags: ["#engagement"],
-          frontmatter: { client: "[[Acme]]" },
-        },
-      ]);
-      const result = qs.getRaidItemsForContext("Acme");
-      expect(result).toHaveLength(1);
-      expect(result[0].file.name).toBe("R1");
-    });
-  });
-
-  describe("resolveClientName", () => {
-    it("returns the client name when page.client is a direct link", () => {
-      const { qs } = createQueryService([
-        { path: "raid/R1.md", tags: ["#raid"], frontmatter: { client: { path: "clients/Acme.md" } } },
-      ]);
-      const dv = qs.dv()!;
-      const page = dv.page("raid/R1.md")!;
-      expect(qs.resolveClientName(page)).toBe("Acme");
-    });
-
-    it("returns the client name when page.client is a wikilink string", () => {
-      const { qs } = createQueryService([
-        { path: "raid/R1.md", tags: ["#raid"], frontmatter: { client: "[[Gamma Inc]]" } },
-      ]);
-      const dv = qs.dv()!;
-      const page = dv.page("raid/R1.md")!;
-      expect(qs.resolveClientName(page)).toBe("Gamma Inc");
-    });
-
-    it("returns null when page has no client and no engagement", () => {
-      const { qs } = createQueryService([
-        { path: "raid/R1.md", tags: ["#raid"], frontmatter: {} },
-      ]);
-      const dv = qs.dv()!;
-      const page = dv.page("raid/R1.md")!;
-      expect(qs.resolveClientName(page)).toBeNull();
-    });
-
-    it("resolves client via direct engagement → engagement.client chain", () => {
-      // page has no client but has an engagement; the engagement has a client
-      const { qs } = createQueryService([
-        {
-          path: "raid/R1.md",
-          tags: ["#raid"],
-          frontmatter: { engagement: "[[Eng1]]" },
-        },
-        {
-          path: "engagements/Eng1.md",
-          tags: ["#engagement"],
-          frontmatter: { client: "[[Acme]]" },
-        },
-      ]);
-      const dv = qs.dv()!;
-      const page = dv.page("raid/R1.md")!;
-      expect(qs.resolveClientName(page)).toBe("Acme");
-    });
-
-    it("regression: resolves client via relatedProject → project.engagement → engagement.client (multi-hop chain)", () => {
-      // A project note links to a project; the project links to an engagement;
-      // the engagement links to a client. resolveClientName must walk all three hops.
-      const { qs } = createQueryService([
-        {
-          path: "projects/notes/my-proj/Note.md",
-          frontmatter: { relatedProject: "[[My Project]]" },
-        },
-        {
-          path: "projects/My Project.md",
-          tags: ["#project"],
-          frontmatter: { engagement: "[[Alpha Engagement]]" },
-        },
-        {
-          path: "engagements/Alpha Engagement.md",
-          tags: ["#engagement"],
-          frontmatter: { client: "[[Delta Corp]]" },
-        },
-      ]);
-      const dv = qs.dv()!;
-      const page = dv.page("projects/notes/my-proj/Note.md")!;
-      expect(qs.resolveClientName(page)).toBe("Delta Corp");
-    });
-
-    it("returns null when engagement exists but engagement page has no client", () => {
-      const { qs } = createQueryService([
-        {
-          path: "raid/R1.md",
-          tags: ["#raid"],
-          frontmatter: { engagement: "[[Eng1]]" },
-        },
-        {
-          path: "engagements/Eng1.md",
-          tags: ["#engagement"],
-          frontmatter: {},
-        },
-      ]);
-      const dv = qs.dv()!;
-      const page = dv.page("raid/R1.md")!;
-      expect(qs.resolveClientName(page)).toBeNull();
     });
   });
 });

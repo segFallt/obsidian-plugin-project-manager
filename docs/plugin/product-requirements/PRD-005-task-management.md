@@ -27,11 +27,18 @@ The `pm-tasks` code block renders interactive task views with multi-panel filter
 mode: dashboard | by-project
 # Optional defaults:
 viewMode: context | date | priority | tag
-sortBy: none | dueDate-asc | dueDate-desc | priority-asc | priority-desc
+sortBy: none | dueDate-asc | dueDate-desc | startDate-asc | startDate-desc | scheduledDate-asc | scheduledDate-desc | priority-asc | priority-desc
 showCompleted: false
 dueDateFilter:
-  mode: presets | range
-  presets: [Today, Tomorrow, This Week, Next Week, Overdue, "No Date"]
+  selectedPresets: [Today, Tomorrow, This Week, Next Week, Overdue, "No Date"]
+  rangeFrom: "YYYY-MM-DD"
+  rangeTo: "YYYY-MM-DD"
+startDateFilter:
+  selectedPresets: ["No Start Date"]
+  rangeFrom: "YYYY-MM-DD"
+  rangeTo: "YYYY-MM-DD"
+scheduledDateFilter:
+  selectedPresets: ["No Scheduled Date"]
   rangeFrom: "YYYY-MM-DD"
   rangeTo: "YYYY-MM-DD"
 tagFilter: [tag1, tag2]
@@ -47,14 +54,15 @@ Displays all vault tasks, excluding tasks in the `utility/` folder.
 
 | Panel | Options |
 |-------|---------|
-| View Mode | Context, Due Date, Priority, Tag |
-| Sort | None, Due Date ↑, Due Date ↓, Priority ↑, Priority ↓ |
+| View Mode | Context, Date, Priority, Tag |
+| Group by (Date view only) | Due (default), Start, Scheduled |
+| Sort | None, Due Date ↑, Due Date ↓, Start Date ↑, Start Date ↓, Scheduled Date ↑, Scheduled Date ↓, Priority ↑, Priority ↓ |
 | Show Completed | Toggle (include/exclude completed tasks) |
 | Search | Free-text filter against task content |
 | Context Filters | Context type, client, engagement, project status, inbox status, meeting date |
-| Date Filters | Preset buttons + custom date range (see §3.3) |
+| Date Filters | 📅 Due (presets + custom range, see §3.3), 🛫 Start and ⏳ Scheduled (No-date preset + custom range, see §3.4) |
 | Priority Filters | Urgent, High, Medium, Low, Someday |
-| Tag Filters | Dynamic tag buttons + "Include untagged" checkbox (see §3.4) |
+| Tag Filters | Dynamic tag buttons + "Include untagged" checkbox (see §3.5) |
 
 **Multi-stage filtering:** All active filter panels are applied in combination (AND logic across panels).
 
@@ -80,9 +88,17 @@ For the Recurring Meeting context type, tasks from recurring meeting event files
 
 Recurring meeting event tasks appear under a distinct **"Recurring Meeting"** header, separate from single-meeting and recurring-meeting-definition tasks (which appear under "Meeting").
 
-#### View Mode: Due Date
+#### View Mode: Date
 
-Groups tasks into buckets: Overdue / Today / Tomorrow / This Week / Upcoming / No Date.
+Groups tasks into six date buckets — Overdue / Today / Tomorrow / This Week / Upcoming / No Date — by a chosen date field. A **Group by** dropdown (shown only in the Date view) selects which field drives the bucketing:
+
+| Group by | Buckets on | Bucket labels |
+|----------|------------|---------------|
+| Due (default) | 📅 due date | ⚠️ Overdue / 📅 Today / 📆 Tomorrow / 📋 This Week / 🔮 Upcoming / 📝 No Due Date |
+| Start | 🛫 start date | 🛫 Started / Starts Today / Starts Tomorrow / Starts This Week / Starts Later / No Start Date |
+| Scheduled | ⏳ scheduled date | ⏳ Past Scheduled / Scheduled Today / Scheduled Tomorrow / Scheduled This Week / Scheduled Later / No Scheduled Date |
+
+All three fields use the **same six boundaries**; only the labels differ. The selection defaults to **Due** (so existing blocks are unchanged) and persists via the per-block view-state frontmatter (§3.7). A task with no value for the chosen field falls in the field's "No … Date" bucket.
 
 #### View Mode: Priority
 
@@ -115,14 +131,32 @@ Only one range can be active at a time.
 
 **Backward compatibility:** The old `dueDateFilter: "Today"` string format (single string instead of structured object) is still accepted and automatically migrated to the new structured preset format.
 
-### 3.4 Tag Filter
+Each filter is stored as `{ selectedPresets, rangeFrom, rangeTo }`. An empty selection (no presets, `rangeFrom`/`rangeTo` both `null`) is inactive and excludes no tasks.
+
+### 3.4 Start & Scheduled Date Filters
+
+Two further date facets, **🛫 Start Date** (`task.start`) and **⏳ Scheduled Date** (`task.scheduled`), mirror the due-date filter's engine and persistence path but ship with a **single no-date preset** plus a custom range — the six quick presets (Today/Tomorrow/…) are intentionally not offered for start/scheduled.
+
+| Facet | Preset | Range |
+|-------|--------|-------|
+| 🛫 Start Date | **No Start Date** — tasks with no start date | From / To (inclusive, ISO `YYYY-MM-DD`) |
+| ⏳ Scheduled Date | **No Scheduled Date** — tasks with no scheduled date | From / To (inclusive) |
+
+- The no-date preset and the custom range are **mutually exclusive**: entering a range value clears the no-date preset, and enabling the no-date preset clears the range.
+- An **empty selection** (no preset, no range) excludes no tasks.
+- A task with no start/scheduled date is excluded from that facet's range and matched only by its "No …" preset.
+- Each stored as `{ selectedPresets, rangeFrom, rangeTo }` (`startDateFilter` / `scheduledDateFilter`), and combined with all other panels using **AND** logic.
+
+Config keys `startDateFilter` / `scheduledDateFilter` are optional; blocks and persisted state saved before these facets existed load with them inactive (no migration).
+
+### 3.5 Tag Filter
 
 The tag filter section appears only when tasks in the vault have tags.
 
 - **Tag buttons** — one button per unique tag found across all tasks. Toggling a tag adds/removes it from the active tag filter. Multiple tags use OR logic.
 - **Include untagged checkbox** — when checked, includes tasks with no tags in the results alongside any tag-filtered results.
 
-### 3.5 By-Project Mode (`mode: by-project`)
+### 3.6 By-Project Mode (`mode: by-project`)
 
 Groups tasks under their parent project. Only shows projects matching selected statuses.
 
@@ -134,7 +168,7 @@ Groups tasks under their parent project. Only shows projects matching selected s
 | Project name text filter | *(empty)* | Free text |
 | Show Completed toggle | false | true/false |
 
-### 3.6 Checkbox Toggle Interaction
+### 3.7 Checkbox Toggle Interaction
 
 Clicking a task checkbox:
 1. Reads the source markdown file via the Vault API.
@@ -142,22 +176,24 @@ Clicking a task checkbox:
 3. Adds `✅ YYYY-MM-DD` (today's date) when completing; removes it when un-completing.
 4. Writes the modified file back via `vault.modify()`.
 
-The `TaskParser` (regex-based, Tasks plugin emoji format, no Tasks plugin API dependency) is used to parse and update task lines.
+The `TaskParser` (regex-based, Tasks plugin emoji format, no Tasks plugin API dependency) is used to parse and update task lines. `TaskParser` is used **only on this checkbox-toggle write path**; it does not feed the dashboard. Dashboard grouping, sorting, and filtering read their date and priority metadata from **Dataview's parsed task objects** (see §4), not from `TaskParser`.
 
-> **Note:** The Tasks community plugin is required for structured task authoring (emoji due dates, priorities, completion markers). `TaskParser` parses the format via regex regardless of whether the plugin is installed, but the Tasks plugin is the standard authoring tool. Tasks authored without the Tasks plugin emoji format will lack due date and priority data.
+> **Note:** The Tasks community plugin is required for structured task authoring (emoji dates 📅 due / 🛫 start / ⏳ scheduled, priorities, completion markers). `TaskParser` parses the format via regex regardless of whether the plugin is installed, but the Tasks plugin is the standard authoring tool. Tasks authored without the Tasks plugin emoji format will lack date and priority data.
 
-### 3.7 Filter State Persistence
+### 3.8 Filter State Persistence
 
-- Filter state is serialised to the note's frontmatter under the `pm-tasks-filters` key.
+- Filter state is serialised to the note's frontmatter under a **per-block** `pm-view-state.<blockKey>` key, so multiple `pm-tasks` blocks in one note keep independent state.
+- The `blockKey` is the block's optional `id:` YAML option when set, otherwise a hash of the block source. `id:` is only needed to separate two byte-identical blocks in the same note; structurally different blocks get distinct hashes automatically.
 - State is restored from frontmatter when the code block re-renders (e.g. on page reload).
+- A legacy flat `pm-tasks-filters` value is migrated forward automatically (copy-not-delete) into the per-block entry on first load, and retained as a read-only fallback.
 - Defaults specified in the code block YAML are applied when no persisted state exists.
 
 ---
 
 ## 4. Data Requirements
 
-- Task data is sourced from `QueryService` (`dv.pages()` — all vault pages, excluding `utility/`).
-- `TaskParser` parses task lines using the Tasks plugin emoji format (due dates, priority emojis, completion markers).
+- Task data is sourced from `QueryService` (`dv.pages()` — all vault pages, excluding `utility/`); the dashboard resolves the raw **Dataview task objects** (`file.tasks`) via `TaskQuery.resolve()`.
+- **Dataview** parses the Tasks plugin emoji shorthands into task metadata — `📅 → task.due`, `🛫 → task.start`, `⏳ → task.scheduled`, priority emojis, completion markers — which the dashboard reads directly off each task object. The regex `TaskParser` is **not** on this read path (it serves only the checkbox-toggle write path in §3.7); a task with no date for a dimension simply carries no data for it.
 - `TaskFilterService` applies multi-stage filtering; `TaskSortService` handles sorting.
 - Both services are injected via `TaskProcessorServices` (wired in `main.ts`).
 - Relationship context (project → engagement → client, recurring meeting event → meeting → engagement → client) is resolved using the traversal chains in PRD-001.
@@ -192,11 +228,14 @@ The `TaskParser` (regex-based, Tasks plugin emoji format, no Tasks plugin API de
 - [ ] Client/engagement filters correctly resolve tasks in recurring meeting event files via their parent recurring meeting's engagement.
 - [ ] Due date presets filter correctly; multiple presets use OR logic; empty selection shows all.
 - [ ] Entering a date range switches to range mode and clears presets.
+- [ ] Start-date and scheduled-date custom ranges show only tasks whose date falls within the range (inclusive); the "No Start Date"/"No Scheduled Date" preset shows only undated tasks; an empty selection excludes no tasks.
+- [ ] Entering a start/scheduled range clears that facet's no-date preset (and vice-versa); start/scheduled facets combine with all other panels via AND.
+- [ ] Start/scheduled filters round-trip through per-block `pm-view-state`; state saved before these facets existed loads without error and applies no start/scheduled filtering.
 - [ ] Priority filter buttons show/hide tasks by priority level.
 - [ ] Tag filter buttons appear only when tasks have tags; OR logic applies across selected tags.
 - [ ] "Include untagged" checkbox includes untagged tasks when checked.
 - [ ] Checkbox toggle updates the source file (toggles `[ ]`/`[x]`, adds/removes completion date).
-- [ ] Filter state is saved to frontmatter under `pm-tasks-filters` and restored on reload.
+- [ ] Filter state is saved to frontmatter under a per-block `pm-view-state.<blockKey>` key (block `id:` or source hash) and restored on reload; a legacy flat `pm-tasks-filters` value migrates forward automatically.
 - [ ] Old `dueDateFilter: "Today"` string format is automatically migrated to structured format.
 - [ ] Context view renders a "Recurring Meeting" h2 header for tasks from `meetings/recurring-events/`, distinct from the "Meeting" header for single-meeting and recurring-meeting-definition tasks.
 - [ ] Selecting "Recurring Meeting" in the context-type filter shows only recurring meeting event tasks; selecting "Meeting" shows only single-meeting and recurring-meeting-definition tasks.
@@ -210,5 +249,5 @@ The `TaskParser` (regex-based, Tasks plugin emoji format, no Tasks plugin API de
 
 - Creating new tasks from the dashboard (tasks are created by editing source notes).
 - Editing task text from the dashboard.
-- Custom task parsers or support for non-Tasks-plugin emoji formats beyond what `TaskParser` handles.
+- Custom task parsers or support for non-Tasks-plugin emoji formats beyond the Tasks-plugin emoji shorthands. Dashboard date/priority metadata (📅 due, 🛫 start, ⏳ scheduled) is read from Dataview's parsed task objects; the regex `TaskParser` covers only the checkbox-toggle write path.
 - Syncing task state to external task management tools.

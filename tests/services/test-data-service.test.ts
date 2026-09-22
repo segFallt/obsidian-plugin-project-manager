@@ -1,9 +1,35 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { TestDataService } from "../../src/services/test-data-service";
+import { EntityCreationService } from "../../src/services/entity-creation-service";
 import { TemplateService } from "../../src/services/template-service";
 import { createMockApp, TFile } from "../mocks/app-mock";
 import { DEFAULT_SETTINGS } from "../../src/settings";
-import type { ILoggerService } from "../../src/services/interfaces";
+import type {
+  ILoggerService,
+  IEntityMaterializer,
+  INotificationService,
+} from "../../src/services/interfaces";
+import type { ProjectManagerSettings } from "../../src/settings";
+
+/**
+ * Builds a real EntityCreationService to act as the materializer, so the
+ * generation assertions exercise the true creation pipeline. Returns the
+ * materializer plus the notification spy for suppression checks.
+ */
+function createMaterializer(
+  app: ReturnType<typeof createMockApp>,
+  settings: ProjectManagerSettings
+): { materializer: IEntityMaterializer; notification: INotificationService } {
+  const notification: INotificationService = { notify: vi.fn() };
+  const materializer = new EntityCreationService(
+    app as unknown as import("obsidian").App,
+    settings,
+    new TemplateService(),
+    { openFile: vi.fn().mockResolvedValue(undefined) },
+    notification
+  );
+  return { materializer, notification };
+}
 import {
   TEST_PREFIX,
   TASKS_PER_ENTITY,
@@ -49,18 +75,18 @@ function createService() {
     deletedPaths.push(file.path);
   }) as typeof app.vault.delete;
 
-  const templateService = new TemplateService();
   const loggerService = createMockLogger();
   const settings = structuredClone(DEFAULT_SETTINGS);
+  const { materializer, notification } = createMaterializer(app, settings);
 
   const svc = new TestDataService(
     app as unknown as import("obsidian").App,
     settings,
-    templateService,
+    materializer,
     loggerService
   );
 
-  return { svc, app, createdPaths, createdContents, deletedPaths, loggerService };
+  return { svc, app, createdPaths, createdContents, deletedPaths, loggerService, notification };
 }
 
 describe("TestDataService", () => {
@@ -353,6 +379,12 @@ describe("TestDataService", () => {
       }
     });
 
+    it("suppresses notifications while generating dozens of entities", async () => {
+      const { svc, notification } = createService();
+      await svc.generateTestData();
+      expect(notification.notify).not.toHaveBeenCalled();
+    });
+
     it("tasks are placed under # Notes heading", async () => {
       const { svc, createdContents } = createService();
       await svc.generateTestData();
@@ -402,7 +434,7 @@ describe("TestDataService", () => {
       const svc = new TestDataService(
         app as unknown as import("obsidian").App,
         structuredClone(DEFAULT_SETTINGS),
-        new TemplateService(),
+        { materializeEntity: vi.fn() },
         createMockLogger()
       );
 
@@ -428,7 +460,7 @@ describe("TestDataService", () => {
       const svc = new TestDataService(
         app as unknown as import("obsidian").App,
         structuredClone(DEFAULT_SETTINGS),
-        new TemplateService(),
+        { materializeEntity: vi.fn() },
         createMockLogger()
       );
 
@@ -451,7 +483,7 @@ describe("TestDataService", () => {
       const svc = new TestDataService(
         app as unknown as import("obsidian").App,
         structuredClone(DEFAULT_SETTINGS),
-        new TemplateService(),
+        { materializeEntity: vi.fn() },
         createMockLogger()
       );
       const count = await svc.cleanTestData();
@@ -473,7 +505,7 @@ describe("TestDataService", () => {
       const svc = new TestDataService(
         app as unknown as import("obsidian").App,
         structuredClone(DEFAULT_SETTINGS),
-        new TemplateService(),
+        { materializeEntity: vi.fn() },
         createMockLogger()
       );
 

@@ -41,7 +41,8 @@ flowchart TD
 
     App --> QueryService
     Settings --> QueryService
-    QueryService --> EntityHierarchyService
+    App --> EntityHierarchyService
+    Settings --> EntityHierarchyService
 
     App --> NavigationService
     App --> EntityCreationService

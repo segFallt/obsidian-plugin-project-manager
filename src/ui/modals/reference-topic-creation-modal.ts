@@ -1,8 +1,10 @@
-import { App, Modal } from "obsidian";
+import { App } from "obsidian";
 import type { DataviewPage } from "../../types";
-import { FOCUS_DELAY_MS } from "../../constants";
+import { FOCUS_DELAY_MS, ACTION_LABEL } from "../../constants";
 import { PropertySuggest } from "../components/property-suggest";
-import type { AutocompleteOption } from "../components/property-suggest";
+import type { AutocompleteOption } from "../../types";
+import { PromiseModal } from "./promise-modal";
+import { createModalButtonRow, registerSubmitCancelKeys } from "./modal-controls";
 
 export interface ReferenceTopicCreationResult {
   name: string;
@@ -15,8 +17,7 @@ export interface ReferenceTopicCreationResult {
  * Collects a name (text input) and an optional parent topic (PropertySuggest).
  * Follows the ReferenceCreationModal pattern.
  */
-export class ReferenceTopicCreationModal extends Modal {
-  private resolvePromise!: (value: ReferenceTopicCreationResult | null) => void;
+export class ReferenceTopicCreationModal extends PromiseModal<ReferenceTopicCreationResult> {
   private nameInput!: HTMLInputElement;
   private selectedParentName: string | null = null;
   private parentSuggest: PropertySuggest | undefined;
@@ -26,13 +27,6 @@ export class ReferenceTopicCreationModal extends Modal {
     private readonly topics: DataviewPage[]
   ) {
     super(app);
-  }
-
-  prompt(): Promise<ReferenceTopicCreationResult | null> {
-    return new Promise((resolve) => {
-      this.resolvePromise = resolve;
-      this.open();
-    });
   }
 
   onOpen(): void {
@@ -82,47 +76,31 @@ export class ReferenceTopicCreationModal extends Modal {
     }
 
     // Buttons
-    const buttonRow = contentEl.createDiv({ cls: "pm-modal-buttons" });
-    buttonRow.style.display = "flex";
-    buttonRow.style.justifyContent = "flex-end";
-    buttonRow.style.gap = "8px";
-    buttonRow.style.marginTop = "16px";
+    createModalButtonRow(contentEl, {
+      submitText: ACTION_LABEL.CREATE,
+      onSubmit: () => this.submit(),
+      onCancel: () => this.cancel(),
+    });
 
-    const cancelBtn = buttonRow.createEl("button", { text: "Cancel" });
-    cancelBtn.addEventListener("click", () => this.cancel());
-
-    const createBtn = buttonRow.createEl("button", { text: "Create", cls: "mod-cta" });
-    createBtn.addEventListener("click", () => this.submit());
-
-    this.nameInput.addEventListener("keydown", (e: KeyboardEvent) => {
-      if (e.key === "Enter") {
-        e.preventDefault();
-        this.submit();
-      } else if (e.key === "Escape") {
-        this.cancel();
-      }
+    registerSubmitCancelKeys(this.nameInput, {
+      onSubmit: () => this.submit(),
+      onCancel: () => this.cancel(),
     });
 
     setTimeout(() => this.nameInput.focus(), FOCUS_DELAY_MS);
   }
 
-  onClose(): void {
+  protected onDismiss(): void {
     this.parentSuggest?.destroy();
-    this.resolvePromise?.(null);
-    this.contentEl.empty();
   }
 
   private submit(): void {
     const name = this.nameInput.value.trim();
     if (!name) return;
-    this.resolvePromise({ name, parentName: this.selectedParentName });
-    this.resolvePromise = () => {};
-    this.close();
+    this.settle({ name, parentName: this.selectedParentName });
   }
 
   private cancel(): void {
-    this.resolvePromise(null);
-    this.resolvePromise = () => {};
-    this.close();
+    this.settle(null);
   }
 }

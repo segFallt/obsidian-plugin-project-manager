@@ -4,15 +4,25 @@ import type { CommandServices, AddCommandFn } from "../plugin-context";
 import { InputModal } from "../ui/modals/input-modal";
 import { SuggesterModal } from "../ui/modals/suggester-modal";
 import type { DataviewPage, RaidType } from "../types";
-import { ENTITY_TAGS, MSG, LOG_CONTEXT, SELECT_NONE_LABEL } from "../constants";
+import {
+  ENTITY_TAGS,
+  MSG,
+  LOG_CONTEXT,
+  SELECT_NONE_LABEL,
+  COMMAND_NAMES,
+  CMD_MODAL,
+  PARENT_LABEL,
+  RAID_PICKER_NONE_LABEL,
+  CMD_ERROR_LABEL,
+} from "../constants";
 import { normalizeToName } from "../utils/link-utils";
+import { withCommandErrorNotice } from "./command-error-notice";
+import { RAID_TYPES } from "../raid-constants";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const RAID_TYPES: RaidType[] = ["Risk", "Assumption", "Issue", "Decision"];
-
 // Sentinel used as a list item for "no selection" in optional pickers
-const NONE_OPTION = { file: { name: "(None)", path: "" } } as DataviewPage;
+const NONE_OPTION = { file: { name: RAID_PICKER_NONE_LABEL, path: "" } } as DataviewPage;
 
 /**
  * PM: Create RAID Item
@@ -29,30 +39,30 @@ export function registerCreateRaidItemCommand(
 ): void {
   addCommand({
     id: COMMAND_IDS.CREATE_RAID_ITEM,
-    name: "PM: Create RAID Item",
+    name: COMMAND_NAMES.CREATE_RAID_ITEM,
     callback: async () => {
       services.actionContext.consume();
-      services.loggerService.debug("create-raid-item: command started", LOG_CONTEXT.CREATE_RAID_ITEM);
+      services.loggerService.debug(`${LOG_CONTEXT.CREATE_RAID_ITEM}: command started`, LOG_CONTEXT.CREATE_RAID_ITEM);
 
       // Step 1 — name
-      const nameModal = new InputModal(services.app, "RAID item name");
+      const nameModal = new InputModal(services.app, CMD_MODAL.CREATE_RAID_ITEM.title);
       const name = await nameModal.prompt();
       if (!name) {
-        services.loggerService.warn("create-raid-item: cancelled", LOG_CONTEXT.CREATE_RAID_ITEM);
+        services.loggerService.warn(`${LOG_CONTEXT.CREATE_RAID_ITEM}: cancelled`, LOG_CONTEXT.CREATE_RAID_ITEM);
         new Notice(MSG.CANCELLED);
         return;
       }
-      services.loggerService.debug(`create-raid-item: step 1 complete, name: "${name}"`, LOG_CONTEXT.CREATE_RAID_ITEM);
+      services.loggerService.debug(`${LOG_CONTEXT.CREATE_RAID_ITEM}: step 1 complete, name: "${name}"`, LOG_CONTEXT.CREATE_RAID_ITEM);
 
       // Step 2 — RAID type
       const typeModal = new SuggesterModal<RaidType>(services.app, RAID_TYPES, (t) => t);
       const raidType = await typeModal.choose();
       if (!raidType) {
-        services.loggerService.warn("create-raid-item: cancelled", LOG_CONTEXT.CREATE_RAID_ITEM);
+        services.loggerService.warn(`${LOG_CONTEXT.CREATE_RAID_ITEM}: cancelled`, LOG_CONTEXT.CREATE_RAID_ITEM);
         new Notice(MSG.CANCELLED);
         return;
       }
-      services.loggerService.debug(`create-raid-item: step 2 complete, type: "${raidType}"`, LOG_CONTEXT.CREATE_RAID_ITEM);
+      services.loggerService.debug(`${LOG_CONTEXT.CREATE_RAID_ITEM}: step 2 complete, type: "${raidType}"`, LOG_CONTEXT.CREATE_RAID_ITEM);
 
       // Step 3 — optional engagement
       const engagements = services.queryService.getActiveEntitiesByTag(ENTITY_TAGS.engagement);
@@ -60,20 +70,20 @@ export function registerCreateRaidItemCommand(
         services.app,
         [NONE_OPTION, ...engagements],
         (e) => {
-          if (e.file.path === "") return "(None)";
+          if (e.file.path === "") return RAID_PICKER_NONE_LABEL;
           const clientName = normalizeToName(e.client);
           return clientName ? `${e.file.name} (${clientName})` : e.file.name;
         },
-        "Engagement (optional)"
+        PARENT_LABEL.ENGAGEMENT_OPTIONAL
       );
       const selectedEngagement = await engagementModal.choose();
       if (selectedEngagement === null) {
-        services.loggerService.warn("create-raid-item: cancelled", LOG_CONTEXT.CREATE_RAID_ITEM);
+        services.loggerService.warn(`${LOG_CONTEXT.CREATE_RAID_ITEM}: cancelled`, LOG_CONTEXT.CREATE_RAID_ITEM);
         new Notice(MSG.CANCELLED);
         return;
       }
       const engagementName = selectedEngagement.file.path === "" ? undefined : selectedEngagement.file.name;
-      services.loggerService.debug(`create-raid-item: step 3 complete, engagement: "${engagementName ?? SELECT_NONE_LABEL}"`, LOG_CONTEXT.CREATE_RAID_ITEM);
+      services.loggerService.debug(`${LOG_CONTEXT.CREATE_RAID_ITEM}: step 3 complete, engagement: "${engagementName ?? SELECT_NONE_LABEL}"`, LOG_CONTEXT.CREATE_RAID_ITEM);
 
       // Step 4 — optional owner
       const owners = services.queryService.getActiveEntitiesByTag(ENTITY_TAGS.person);
@@ -81,32 +91,32 @@ export function registerCreateRaidItemCommand(
         services.app,
         [NONE_OPTION, ...owners],
         (o) => {
-          if (o.file.path === "") return "(None)";
+          if (o.file.path === "") return RAID_PICKER_NONE_LABEL;
           const clientName = normalizeToName(o.client);
           return clientName ? `${o.file.name} (${clientName})` : o.file.name;
         },
-        "Owner (optional)"
+        PARENT_LABEL.OWNER_OPTIONAL
       );
       const selectedOwner = await ownerModal.choose();
       if (selectedOwner === null) {
-        services.loggerService.warn("create-raid-item: cancelled", LOG_CONTEXT.CREATE_RAID_ITEM);
+        services.loggerService.warn(`${LOG_CONTEXT.CREATE_RAID_ITEM}: cancelled`, LOG_CONTEXT.CREATE_RAID_ITEM);
         new Notice(MSG.CANCELLED);
         return;
       }
       const ownerName = selectedOwner.file.path === "" ? undefined : selectedOwner.file.name;
-      services.loggerService.debug(`create-raid-item: step 4 complete, owner: "${ownerName ?? SELECT_NONE_LABEL}"`, LOG_CONTEXT.CREATE_RAID_ITEM);
+      services.loggerService.debug(`${LOG_CONTEXT.CREATE_RAID_ITEM}: step 4 complete, owner: "${ownerName ?? SELECT_NONE_LABEL}"`, LOG_CONTEXT.CREATE_RAID_ITEM);
 
       services.loggerService.debug(
-        `create-raid-item: name: "${name}", type: "${raidType}", engagement: "${engagementName ?? "none"}", owner: "${ownerName ?? "none"}"`,
+        `${LOG_CONTEXT.CREATE_RAID_ITEM}: name: "${name}", type: "${raidType}", engagement: "${engagementName ?? "none"}", owner: "${ownerName ?? "none"}"`,
         LOG_CONTEXT.CREATE_RAID_ITEM
       );
 
-      try {
-        await services.entityService.createRaidItem(name, raidType, engagementName, ownerName);
-      } catch (err) {
-        services.loggerService.error(String(err), LOG_CONTEXT.CREATE_RAID_ITEM, err);
-        new Notice(`Error creating RAID item: ${String(err)}`);
-      }
+      await withCommandErrorNotice(
+        services.loggerService,
+        LOG_CONTEXT.CREATE_RAID_ITEM,
+        (err) => `${CMD_ERROR_LABEL.CREATE_RAID_ITEM}: ${String(err)}`,
+        () => services.entityService.createRaidItem(name, raidType, engagementName, ownerName)
+      );
     },
   });
 }

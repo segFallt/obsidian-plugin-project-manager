@@ -9,7 +9,7 @@ import { registerPmRaidReferencesProcessor } from "./pm-raid-references-processo
 import { registerPmRaidDashboardProcessor } from "./pm-raid-dashboard-processor";
 import { registerRaidBadgePostProcessor } from "./raid-badge-processor";
 import { registerPmReferencesProcessor } from "./pm-references-processor";
-import type { ReferenceProcessorServices } from "../plugin-context";
+import { buildReferenceProcessorServices } from "../plugin-context";
 
 /**
  * Registers all markdown code block processors.
@@ -40,16 +40,6 @@ export function registerAllProcessors(plugin: ProjectManagerPlugin): void {
   registerRaidBadgePostProcessor(plugin);
 
   // References processor — consume the narrow ReferenceProcessorServices interface
-  const referenceServices: ReferenceProcessorServices = {
-    app: plugin.app,
-    settings: plugin.settings,
-    queryService: plugin.queryService,
-    hierarchyService: plugin.hierarchyService,
-    navigationService: plugin.navigationService,
-    loggerService: plugin.loggerService,
-    commandExecutor: plugin.commandExecutor,
-    actionContext: plugin.actionContext,
-    saveSettings: plugin.saveSettings.bind(plugin),
-  };
+  const referenceServices = buildReferenceProcessorServices(plugin);
   registerPmReferencesProcessor(plugin, referenceServices);
 }

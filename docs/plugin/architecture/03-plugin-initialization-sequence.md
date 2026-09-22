@@ -20,8 +20,8 @@ sequenceDiagram
     initServices->>initServices: loggerService.cleanOldLogs()
 
     Note over initServices: Phase 2 — Data Access
-    initServices->>initServices: new QueryService(app, getDataviewApi, settings.folders)
-    initServices->>initServices: new EntityHierarchyService(queryService)
+    initServices->>initServices: new QueryService(getDataviewApi, settings.folders)
+    initServices->>initServices: new EntityHierarchyService(getDataviewApi, settings.folders)
 
     Note over initServices: Phase 3 — Entity Operations
     initServices->>initServices: new TemplateService()
@@ -46,7 +46,7 @@ sequenceDiagram
     ProjectManagerPlugin->>ProjectManagerPlugin: loggerService.info("Plugin initialized")
 
     ProjectManagerPlugin->>registerAllCommands: registerAllCommands(plugin)
-    Note over registerAllCommands: Registers 16 commands via plugin.addCommand()
+    Note over registerAllCommands: Registers 17 commands via plugin.addCommand()
     registerAllCommands->>registerAllCommands: registerCreateClientCommand
     registerAllCommands->>registerAllCommands: registerCreateEngagementCommand
     registerAllCommands->>registerAllCommands: registerCreateProjectCommand
@@ -62,6 +62,7 @@ sequenceDiagram
     registerAllCommands->>registerAllCommands: registerCreateRaidItemCommand
     registerAllCommands->>registerAllCommands: registerTagRaidReferenceCommand
     registerAllCommands->>registerAllCommands: registerCreateReferenceTopicCommand
+    registerAllCommands->>registerAllCommands: registerUpdateReferenceTopicCommand
     registerAllCommands->>registerAllCommands: registerCreateReferenceCommand
     registerAllCommands-->>ProjectManagerPlugin: commands registered
 

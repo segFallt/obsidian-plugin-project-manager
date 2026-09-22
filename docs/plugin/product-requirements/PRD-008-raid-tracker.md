@@ -130,7 +130,7 @@ engagementFilter: []
 
 **Matrix summary:**
 - 3×3 Likelihood (rows: High/Medium/Low) × Impact (columns: Low/Medium/High) heat-map
-- Each cell shows a count of items matching that cell under active filters
+- Each cell shows a count of items matching that cell under the active filters. When a cell is selected, the counts exclude the matrix-cell selection — each cell shows its count under all other active facets, so selecting a cell no longer zeroes the other cells
 - Colour-coded: High×High = red, Low×Low = green, graduated
 - Clicking a cell toggles a matrix cell filter; matching rows are highlighted in the item groups below
 
@@ -148,9 +148,9 @@ engagementFilter: []
 
 **Filter state persistence:** `raidTypes`, `statusFilter`, `clientFilter`, and `engagementFilter` are persisted to the source note's frontmatter under the key `pm-raid-dashboard-filters` on each chip or filter change (debounced) and restored on next load. `searchText` and `matrixCell` are intentionally ephemeral and reset on re-render.
 
-**Data fetch:** The dashboard calls `getAllRaidItems()`, which returns all RAID items regardless of status. Status filtering is applied in the UI layer (via `applyFilters()`) so that the Resolved and Closed status filter chips produce correct results. `getActiveRaidItems()` is intentionally not used here; it is reserved for contexts where only active items are wanted (e.g. the RAID item suggester in `PM: Tag Line as RAID Reference`).
+**Data fetch:** The dashboard reads all RAID items — regardless of status — through `RaidQuery.resolve()`, the RAID implementor of the shared `IEntityQuery` read axis. Status filtering is applied downstream by the RAID `FilterSpec` over the shared `FilterEngine` (not in the query), so the Resolved and Closed status chips produce correct results. The former command-only reads (`getActiveRaidItems` / `getRaidItemsForContext`) no longer exist; the `PM: Tag Line as RAID Reference` suggester now reads the base `#raid` set through the same `RaidQuery` and narrows it with the reusable `isActiveRaid` / `matchesRaidContext` predicates in `raid-filter.ts`.
 
-**Error handling:** If `getAllRaidItems()` throws (e.g. Dataview unavailable), renders a `.pm-error` element and returns (issue #43).
+**Error handling:** If the RAID read throws (e.g. Dataview unavailable), the dashboard renders a `.pm-error` element and returns (issue #43).
 
 ---
 
@@ -220,7 +220,7 @@ Direction icons: `positive → ↑`, `negative → ↓`, `neutral → ·`
 
 Inactive statuses (excluded from active item queries): `Resolved`, `Closed`
 
-> **Note on query scope:** `getActiveRaidItems()` and `getRaidItemsForContext()` both exclude Resolved/Closed items and are appropriate for contexts where only actionable items are wanted (e.g. the RAID item suggester). The dashboard uses `getAllRaidItems()` instead, which returns all statuses, so that the Resolved and Closed status filter chips in the dashboard UI function correctly. Status filtering in the dashboard happens at the UI layer, not at the data-fetch layer.
+> **Note on query scope:** The base read (`RaidQuery.resolve()`) returns `#raid` items of all statuses, so the Resolved and Closed status filter chips work in the dashboard. Status narrowing happens downstream — in the RAID `FilterSpec` for the dashboard, or via the reusable `isActiveRaid` / `matchesRaidContext` predicates (`raid-filter.ts`) for callers that want only actionable items (e.g. the RAID item suggester) — not at the data-fetch layer.
 
 ---
 
@@ -274,7 +274,7 @@ Groups are rendered in the order determined by the `sort` config property (defau
 ### 6.1 Dataview Plugin
 
 - Required for `pm-raid-references` and `pm-raid-dashboard` rendering. Obtained via `QueryService.dv()`, which returns `null` if Dataview is unavailable; both processors handle this gracefully with a `.pm-error` element.
-- `getActiveRaidItems()` and `getRaidItemsForContext()` query via `ENTITY_TAGS.raid` (`#raid`), not a hardcoded string (issue #43).
+- `RaidQuery` reads the base set via `ENTITY_TAGS.raid` (`#raid`), not a hardcoded string; the `isActiveRaid` / `matchesRaidContext` predicates narrow that result (issue #43).
 - **Backlink query syntax (issue #40):** `dv.pages("[[ItemName]]")` — link-source syntax, NOT `dv.pages('"[[ItemName]]"')` (folder-source syntax). The quoted form incorrectly searches for a folder whose name is the literal string `"[[ItemName]]"`.
 - **DateTime coercion (issue #27):** When `raised-date` is queried from Dataview, it may be a Luxon DateTime object with a `.ts` millisecond timestamp rather than a plain string. Age calculation uses `typeof raisedRaw === "object" && "ts" in raisedRaw ? raisedRaw.ts : new Date(String(raisedRaw)).getTime()`.
 

@@ -17,6 +17,14 @@ export function todayISO(): string {
   return `${d.getFullYear()}-${padTwo(d.getMonth() + 1)}-${padTwo(d.getDate())}`;
 }
 
+/**
+ * Returns today's date as a UTC ISO string (YYYY-MM-DD). Used for the RAID
+ * date fields, which are UTC-based (matching how `raised-date` is stamped).
+ */
+export function todayUTCISO(): string {
+  return new Date().toISOString().slice(0, ISO_DATE_LENGTH);
+}
+
 /** Returns the current date-time as a local ISO string (YYYY-MM-DDTHH:mm:ss). */
 export function nowDatetime(): string {
   const d = new Date();

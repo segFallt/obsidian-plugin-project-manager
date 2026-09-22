@@ -1,11 +1,12 @@
 import { MarkdownRenderChild, MarkdownRenderer, TFile, parseYaml } from "obsidian";
 import type { App, MarkdownPostProcessorContext } from "obsidian";
 import type { Plugin } from "obsidian";
-import type { IQueryService, ILoggerService, RaidProcessorServices } from "../services/interfaces";
+import type { IEntityQueryService, ILoggerService, RaidProcessorServices } from "../services/interfaces";
 import type { RaidType, RaidReferenceEntry, PmRaidReferencesConfig } from "../types";
-import { CODEBLOCK, DEBOUNCE_MS, CSS_CLS } from "../constants";
-import { renderError } from "./dom-helpers";
-import { DIRECTION_LABELS, DIRECTION_ICONS, DEFAULT_RAID_TYPE, RAID_SCOPE } from "./raid-constants";
+import { CODEBLOCK, DEBOUNCE_MS, CSS_CLS, SORT_DIRECTION } from "../constants";
+import { debounced } from "../utils/debounce";
+import { renderError, createInternalLink } from "./dom-helpers";
+import { DIRECTION_LABELS, DIRECTION_ICONS, DEFAULT_RAID_TYPE, RAID_SCOPE } from "../raid-constants";
 import { parseRaidReferences } from "./raid-reference-parser";
 
 // ─── Exported registration function ─────────────────────────────────────────
@@ -34,7 +35,7 @@ export function registerPmRaidReferencesProcessor(
 // ─── Render child ───────────────────────────────────────────────────────────
 
 class PmRaidReferencesRenderChild extends MarkdownRenderChild {
-  private debounceTimer: ReturnType<typeof setTimeout> | null = null;
+  private readonly refresh = debounced(() => { void this.render(); }, DEBOUNCE_MS.PROPERTIES);
   private readonly sortField: "modified-date" | "created-date";
   private readonly sortDirection: "asc" | "desc";
 
@@ -43,28 +44,25 @@ class PmRaidReferencesRenderChild extends MarkdownRenderChild {
     private readonly source: string,
     private readonly app: App,
     private readonly sourcePath: string,
-    private readonly queryService: IQueryService,
+    private readonly queryService: IEntityQueryService,
     private readonly loggerService: ILoggerService
   ) {
     super(containerEl);
     const rawConfig = parseYaml(this.source) as PmRaidReferencesConfig | null;
     this.sortField = rawConfig?.sort?.field === "modified-date" ? "modified-date" : "created-date";
-    this.sortDirection = rawConfig?.sort?.direction === "asc" ? "asc" : "desc";
+    this.sortDirection = rawConfig?.sort?.direction === SORT_DIRECTION.ASC ? SORT_DIRECTION.ASC : SORT_DIRECTION.DESC;
   }
 
   onload(): void {
     this.registerEvent(
       this.app.vault.on("modify", () => {
-        this.debouncedRefresh();
+        this.refresh.trigger();
       })
     );
   }
 
   onunload(): void {
-    if (this.debounceTimer !== null) {
-      clearTimeout(this.debounceTimer);
-      this.debounceTimer = null;
-    }
+    this.refresh.cancel();
   }
 
   async render(): Promise<void> {
@@ -157,7 +155,7 @@ class PmRaidReferencesRenderChild extends MarkdownRenderChild {
     const sortedEntries = [...referencesByFile.entries()].sort(([a], [b]) => {
       const aVal = this.sortField === "created-date" ? (a.stat.ctime ?? 0) : (a.stat.mtime ?? 0);
       const bVal = this.sortField === "created-date" ? (b.stat.ctime ?? 0) : (b.stat.mtime ?? 0);
-      return this.sortDirection === "asc" ? aVal - bVal : bVal - aVal;
+      return this.sortDirection === SORT_DIRECTION.ASC ? aVal - bVal : bVal - aVal;
     });
 
     for (const [file, entries] of sortedEntries) {
@@ -168,12 +166,7 @@ class PmRaidReferencesRenderChild extends MarkdownRenderChild {
       // Source note heading with internal link
       const heading = document.createElement("h4");
       heading.className = "pm-raid-references__group-heading";
-      const link = document.createElement("a");
-      link.className = CSS_CLS.INTERNAL_LINK;
-      link.textContent = file.basename;
-      link.setAttribute("data-href", file.path);
-      link.setAttribute("href", file.path);
-      heading.appendChild(link);
+      createInternalLink(heading, file.path, file.basename);
       group.appendChild(heading);
 
       const list = document.createElement("ul");
@@ -223,10 +216,4 @@ class PmRaidReferencesRenderChild extends MarkdownRenderChild {
     fragment.appendChild(container);
   }
 
-  private debouncedRefresh(): void {
-    if (this.debounceTimer) clearTimeout(this.debounceTimer);
-    this.debounceTimer = setTimeout(() => {
-      void this.render();
-    }, DEBOUNCE_MS.PROPERTIES);
-  }
 }

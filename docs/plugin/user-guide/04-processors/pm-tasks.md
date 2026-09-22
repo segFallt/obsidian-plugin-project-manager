@@ -14,13 +14,22 @@ mode: dashboard | by-project
 
 # Optional — override initial state:
 viewMode: context | date | priority | tag
+groupByDateField: due     # due | start | scheduled — which date the `date` view groups by (default: due)
 sortBy:
-  - field: dueDate          # dueDate | priority | alphabetical | context | createdDate
+  - field: dueDate          # dueDate | startDate | scheduledDate | priority | alphabetical | context | createdDate
     direction: asc          # asc | desc
 showCompleted: false
 dueDateFilter:
   selectedPresets: [Today]  # Today | Tomorrow | This Week | Next Week | Overdue | No Date
   rangeFrom: "2026-04-01"   # ISO date — custom range; clears presets
+  rangeTo: "2026-04-30"
+startDateFilter:
+  selectedPresets: []       # "No Start Date" (the only preset) — or leave empty
+  rangeFrom: "2026-04-01"   # ISO date — custom range; clears the no-date preset
+  rangeTo: "2026-04-30"
+scheduledDateFilter:
+  selectedPresets: []       # "No Scheduled Date" (the only preset) — or leave empty
+  rangeFrom: "2026-04-01"
   rangeTo: "2026-04-30"
 tagFilter: [tag1, tag2]
 includeUntagged: false
@@ -31,10 +40,15 @@ includeUntagged: false
 |-----------|----------|---------|-------------|
 | `mode` | Yes | — | `dashboard` for all-vault view; `by-project` for project-grouped view |
 | `viewMode` | No | Setting default | Initial grouping mode (dashboard mode only) |
+| `groupByDateField` | No | `due` | Which date field the `date` view groups by: `due`, `start`, or `scheduled` |
 | `sortBy` | No | No sort | Array of up to 3 sort keys with direction |
 | `showCompleted` | No | Setting default | Include completed tasks on first load |
 | `dueDateFilter.selectedPresets` | No | None | One or more preset due date filters pre-selected on load |
-| `dueDateFilter.rangeFrom` / `rangeTo` | No | None | Custom date range filter pre-selected on load |
+| `dueDateFilter.rangeFrom` / `rangeTo` | No | None | Custom due-date range filter pre-selected on load |
+| `startDateFilter.selectedPresets` | No | None | `No Start Date` preset pre-selected on load |
+| `startDateFilter.rangeFrom` / `rangeTo` | No | None | Custom start-date range pre-selected on load |
+| `scheduledDateFilter.selectedPresets` | No | None | `No Scheduled Date` preset pre-selected on load |
+| `scheduledDateFilter.rangeFrom` / `rangeTo` | No | None | Custom scheduled-date range pre-selected on load |
 | `tagFilter` | No | None | Tags pre-selected in the tag filter on load |
 | `includeUntagged` | No | false | Whether to include untagged tasks when a tag filter is active |
 
@@ -46,7 +60,8 @@ All vault tasks are shown (the `utility/` folder is excluded). A toolbar appears
 
 ### Toolbar
 
-- **View mode tabs** — switch grouping between Context, Due Date, Priority, and Tag
+- **View mode tabs** — switch grouping between Context, Date, Priority, and Tag
+- **Group by dropdown** (Date view only) — bucket the Date view by Due (default), Start, or Scheduled date
 - **Search input** — live text filter on task content
 - **⚙ Filters button** — opens/closes the filter drawer; shows a count badge when filters are active
 - **✕ Clear All Filters** — appears when any filter is active; resets all filters at once
@@ -63,9 +78,11 @@ The filter drawer contains:
 
 | Section | Options |
 |---------|---------|
-| **Sort Order** | Up to 3 sort keys; fields: Due Date, Priority, Alphabetical, Context, Created Date; per-key direction (↑/↓); drag to reorder |
+| **Sort Order** | Up to 3 sort keys; fields: Due Date, Start Date, Scheduled Date, Priority, Alphabetical, Context, Created Date; per-key direction (↑/↓); drag to reorder |
 | **Completed Tasks** | Toggle to show/hide completed tasks |
 | **Due Date** | Preset pills: Today, Tomorrow, This Week, Next Week, Overdue, No Date (multiple can be active, OR logic); or a custom From / To date range |
+| **🛫 Start Date** | A single **No Start Date** pill or a custom From / To range (mutually exclusive; entering a range clears the pill) |
+| **⏳ Scheduled Date** | A single **No Scheduled Date** pill or a custom From / To range (mutually exclusive) |
 | **Priority** | Urgent, High, Medium, Low |
 | **Context Type** | Project, Meeting, Recurring Meeting, Inbox, Daily Notes, Person, Other |
 | **Client / Engagement** | Type-ahead chip selects; "Include unassigned" toggle |
@@ -80,7 +97,7 @@ The filter drawer contains:
 - **Recurring meeting tasks**: Parent Recurring Meeting → Event file → Tasks.
 - **All other contexts**: File → Tasks.
 
-**Due Date view** groups tasks by their due date (overdue, today, this week, future, no date).
+**Date view** groups tasks into six buckets — Overdue, Today, Tomorrow, This Week, Upcoming, No Date — using a **Group by** dropdown to choose the date field: **Due** (default), **Start** (🛫), or **Scheduled** (⏳). All three fields use the same boundaries; only the bucket labels change (e.g. "Started" / "Past Scheduled" instead of "Overdue"). The choice defaults to Due (so existing blocks are unchanged) and is remembered per block. A task with no value for the chosen field lands in that field's "No … Date" bucket.
 
 **Priority view** groups tasks by priority: Urgent → High → Medium → Low → No Priority.
 
@@ -104,4 +121,8 @@ Filters available: status checkboxes, project name text filter, show completed t
 
 ## Filter State Persistence
 
-Filter state (view mode, active filters, sort order) is persisted to the note's frontmatter under the `pm-tasks-filters` key. The state is restored automatically when you re-open the note. Defaults set in the code block YAML apply only when no saved state exists for the note.
+Filter state (view mode, active filters, sort order) is persisted to the note's frontmatter under a per-block `pm-view-state.<blockKey>` key, so each `pm-tasks` block in a note keeps its own saved state instead of sharing one. The state is restored automatically when you re-open the note. Defaults set in the code block YAML apply only when no saved state exists for that block.
+
+If you have two `pm-tasks` blocks in the same note that are worded identically, add an `id:` line to the YAML of one of them (e.g. `id: my-open-tasks`) so they don't share a saved state entry. You don't need `id:` otherwise — blocks that differ in any way already save separately.
+
+**Upgrading:** if you used an earlier version that saved filters under a single `pm-tasks-filters` key, those filters migrate automatically the first time each block renders — no action needed, and nothing is lost.

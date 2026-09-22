@@ -1,11 +1,9 @@
-import { Notice, TFile } from "obsidian";
+import { Notice } from "obsidian";
 import { COMMAND_IDS } from "../command-ids";
 import type { CommandServices, AddCommandFn } from "../plugin-context";
 import { ReferenceTopicUpdateModal } from "../ui/modals/reference-topic-update-modal";
-import { ENTITY_TAGS, FM_KEY } from "../constants";
-import { toWikilink } from "../utils/link-utils";
-
-const LOG_CTX = "update-reference-topic";
+import { ENTITY_TAGS, LOG_CONTEXT, COMMAND_NAMES, CMD_ERROR_LABEL } from "../constants";
+import { withCommandErrorNotice } from "./command-error-notice";
 
 /**
  * PM: Update Reference Topic
@@ -17,7 +15,7 @@ export function registerUpdateReferenceTopicCommand(
 ): void {
   addCommand({
     id: COMMAND_IDS.UPDATE_REFERENCE_TOPIC,
-    name: "PM: Update Reference Topic",
+    name: COMMAND_NAMES.UPDATE_REFERENCE_TOPIC,
     callback: async () => {
       const topics = services.queryService.getEntitiesByTag(ENTITY_TAGS.referenceTopic);
       if (topics.length === 0) {
@@ -30,30 +28,22 @@ export function registerUpdateReferenceTopicCommand(
       if (!result) return;
 
       services.loggerService.debug(
-        `update-reference-topic: "${result.topicName}", parent: "${result.parentName ?? "none"}"`,
-        LOG_CTX
+        `${LOG_CONTEXT.UPDATE_REFERENCE_TOPIC}: "${result.topicName}", parent: "${result.parentName ?? "none"}"`,
+        LOG_CONTEXT.UPDATE_REFERENCE_TOPIC
       );
 
-      try {
-        const file = services.app.vault.getAbstractFileByPath(
-          topics.find((t) => t.file.name === result.topicName)?.file.path ?? ""
-        );
-        if (!(file instanceof TFile)) {
-          new Notice(`Could not find file for topic "${result.topicName}".`);
-          return;
+      await withCommandErrorNotice(
+        services.loggerService,
+        LOG_CONTEXT.UPDATE_REFERENCE_TOPIC,
+        (err) => `${CMD_ERROR_LABEL.GENERIC}: ${String(err)}`,
+        async () => {
+          await services.entityService.setReferenceTopicParent(
+            result.topicName,
+            result.parentName ?? undefined
+          );
+          new Notice(`Updated "${result.topicName}".`);
         }
-        await services.app.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => {
-          if (result.parentName) {
-            fm[FM_KEY.PARENT] = toWikilink(result.parentName);
-          } else {
-            delete fm[FM_KEY.PARENT];
-          }
-        });
-        new Notice(`Updated "${result.topicName}".`);
-      } catch (err) {
-        services.loggerService.error(String(err), LOG_CTX, err);
-        new Notice(`Error: ${String(err)}`);
-      }
+      );
     },
   });
 }

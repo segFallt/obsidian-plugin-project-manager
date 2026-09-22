@@ -1,7 +1,8 @@
-import { App, Notice } from "obsidian";
+import { App } from "obsidian";
+import { MSG } from "../constants";
 import type { ProjectManagerSettings } from "../settings";
 import { ensureFolderExists } from "../utils/path-utils";
-import type { IScaffoldService } from "./interfaces";
+import type { IScaffoldService, INotificationService } from "./interfaces";
 import {
   SCAFFOLD_TASK_DASHBOARD,
   SCAFFOLD_TASKS_BY_PROJECT,
@@ -34,17 +35,18 @@ import {
 export class VaultScaffoldService implements IScaffoldService {
   constructor(
     private readonly app: App,
-    private readonly settings: ProjectManagerSettings
+    private readonly settings: ProjectManagerSettings,
+    private readonly notification: INotificationService
   ) {}
 
   /**
    * Creates all required folders and default view files.
-   * Reports progress via Notice.
+   * Reports completion via the injected notification service.
    */
   async scaffoldVault(): Promise<void> {
     await this.createFolders();
     await this.createDefaultViews();
-    new Notice("Project Manager: Vault structure set up successfully.");
+    this.notification.notify(MSG.VAULT_SETUP_SUCCESS);
   }
 
   // ─── Private ──────────────────────────────────────────────────────────────

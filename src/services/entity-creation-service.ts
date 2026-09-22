@@ -1,7 +1,14 @@
-import { App, Notice, TFile } from "obsidian";
-import type { EntityType, CreateFileResult } from "../types";
+import { App, TFile } from "obsidian";
+import type { EntityType } from "../types";
 import type { ProjectManagerSettings } from "../settings";
-import type { IEntityCreationService, ITemplateService, INavigationService } from "./interfaces";
+import type {
+  IEntityCreationService,
+  IEntityMaterializer,
+  ITemplateService,
+  INavigationService,
+  INotificationService,
+  MaterializeEntityOptions,
+} from "./interfaces";
 import {
   ensureFolderExists,
   resolveConflictPath,
@@ -9,8 +16,9 @@ import {
 } from "../utils/path-utils";
 import { toWikilink, normalizeToName } from "../utils/link-utils";
 import { getFrontmatter } from "../utils/frontmatter-utils";
-import { FM_KEY, ISO_DATE_LENGTH, NOTES_MARKER, MD_EXTENSION } from "../constants";
+import { FM_KEY, ISO_DATE_LENGTH, MD_EXTENSION, CREATED_LABEL } from "../constants";
 import { todayISO } from "../utils/date-utils";
+import { insertIntoNotesSection } from "../utils/notes-section";
 
 /**
  * Handles all entity creation operations.
@@ -22,12 +30,13 @@ import { todayISO } from "../utils/date-utils";
  * - Set frontmatter values via processFrontMatter
  * - Open newly created files via NavigationService
  */
-export class EntityCreationService implements IEntityCreationService {
+export class EntityCreationService implements IEntityCreationService, IEntityMaterializer {
   constructor(
     private readonly app: App,
     private readonly settings: ProjectManagerSettings,
     private readonly templates: ITemplateService,
-    private readonly navigation: INavigationService
+    private readonly navigation: INavigationService,
+    private readonly notification: INotificationService
   ) {}
 
   // ─── Entity creation ─────────────────────────────────────────────────────
@@ -226,15 +235,7 @@ export class EntityCreationService implements IEntityCreationService {
     // Step 8: Inject notes content if provided.
     if (options?.notesContent) {
       const content = await this.app.vault.read(file);
-      let updated: string;
-      if (content.includes(NOTES_MARKER.WITH_DASH)) {
-        updated = content.replace(NOTES_MARKER.WITH_DASH, `# Notes\n${options.notesContent}`);
-      } else if (content.includes(NOTES_MARKER.BASE)) {
-        updated = content.replace(NOTES_MARKER.BASE, `# Notes\n${options.notesContent}\n`);
-      } else {
-        updated = content;
-      }
-      await this.app.vault.modify(file, updated);
+      await this.app.vault.modify(file, insertIntoNotesSection(content, options.notesContent));
     }
 
     // Step 9: Open the newly created file (skipped when called internally with open: false).
@@ -254,6 +255,21 @@ export class EntityCreationService implements IEntityCreationService {
     }
     await this.navigation.openFile(file);
     return file;
+  }
+
+  async setReferenceTopicParent(topicName: string, parentName?: string): Promise<void> {
+    const path = `${this.settings.folders.referenceTopics}/${topicName}${MD_EXTENSION}`;
+    const file = this.app.vault.getAbstractFileByPath(path);
+    if (!(file instanceof TFile)) {
+      throw new Error(`Could not find file for topic "${topicName}".`);
+    }
+    await this.app.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => {
+      if (parentName) {
+        fm[FM_KEY.PARENT] = toWikilink(parentName);
+      } else {
+        delete fm[FM_KEY.PARENT];
+      }
+    });
   }
 
   async createReference(
@@ -280,6 +296,22 @@ export class EntityCreationService implements IEntityCreationService {
     folder: string,
     extraVars: Record<string, string> = {}
   ): Promise<TFile> {
+    return this.materializeEntity(type, name, folder, { extraVars, notice: true });
+  }
+
+  /**
+   * Turns an entity type + name + folder into a note on disk, owning the
+   * folder/template/notification policy. Steps run only when their option is set:
+   * conflict-free path resolution and template rendering always occur, then
+   * (optionally) a content transform, frontmatter mutation, success notification,
+   * and opening the file.
+   */
+  async materializeEntity(
+    type: EntityType,
+    name: string,
+    folder: string,
+    options: MaterializeEntityOptions = {}
+  ): Promise<TFile> {
     await ensureFolderExists(this.app, folder);
 
     const basePath = `${folder}/${name}${MD_EXTENSION}`;
@@ -288,24 +320,28 @@ export class EntityCreationService implements IEntityCreationService {
     const vars: Record<string, string> = {
       ...this.templates.defaultVars(),
       name,
-      ...extraVars,
+      ...(options.extraVars ?? {}),
     };
 
-    const content = this.templates.processTemplate(
+    const rendered = this.templates.processTemplate(
       this.templates.getTemplate(type),
       vars
     );
+    const content = options.contentTransform ? options.contentTransform(rendered) : rendered;
 
     const file = await this.app.vault.create(path, content);
-    new Notice(`Created: ${name}`);
+
+    if (options.frontmatter) {
+      await this.app.fileManager.processFrontMatter(file, options.frontmatter);
+    }
+    if (options.notice) {
+      this.notification.notify(`${CREATED_LABEL}: ${name}`);
+    }
+    if (options.open) {
+      await this.navigation.openFile(file);
+    }
+
     return file;
   }
 
-  // ─── Validation ──────────────────────────────────────────────────────────
-
-  validateResult(result: CreateFileResult): void {
-    if (!result.success) {
-      throw new Error(result.error ?? "Entity creation failed");
-    }
-  }
 }

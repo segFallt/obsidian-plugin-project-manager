@@ -4,32 +4,56 @@
 classDiagram
     direction TB
 
-    class IQueryService {
+    class IEntityQueryService {
         <<interface>>
         +dv() DataviewApi|null
         +getEntitiesByTag(tag, folder?) DataviewPage[]
+        +getEntitiesByStatus(tag, status) DataviewPage[]
         +getActiveEntitiesByTag(tag) DataviewPage[]
         +getLinkedEntities(folder, tag, property, targetFile) DataviewPage[]
-        +getEngagementNameForPath(path) string|null
-        +getClientFromEngagementLink(engagementLink) string|null
-        +resolveClientName(page) string|null
-        +getRaidItemsForContext(clientName?, engagementName?) DataviewPage[]
-        +getReferences(filters?) DataviewPage[]
+        +getMentions(targetFile) DataviewPage[]
+        +getProjectNotes(projectFile) DataviewPage[]
+        +getPage(path) DataviewPage|null
+        +getActiveRecurringMeetings() DataviewPage[]
+        +getRecurringMeetingEvents(meetingName) DataviewPage[]
     }
 
     class QueryService {
-        -app App
         -getApi() DataviewApi|null
         -folders FolderSettings
         +dv() DataviewApi|null
         +getEntitiesByTag(tag, folder?) DataviewPage[]
+        +getEntitiesByStatus(tag, status) DataviewPage[]
         +getActiveEntitiesByTag(tag) DataviewPage[]
         +getLinkedEntities(folder, tag, property, targetFile) DataviewPage[]
-        +getEngagementNameForPath(path) string|null
-        +getClientFromEngagementLink(engagementLink) string|null
-        +resolveClientName(page) string|null
-        +getRaidItemsForContext(clientName?, engagementName?) DataviewPage[]
-        +getReferences(filters?) DataviewPage[]
+        +getMentions(targetFile) DataviewPage[]
+        +getProjectNotes(projectFile) DataviewPage[]
+        +getPage(path) DataviewPage|null
+        +getActiveRecurringMeetings() DataviewPage[]
+        +getRecurringMeetingEvents(meetingName) DataviewPage[]
+    }
+
+    class IEntityQuery~TItem~ {
+        <<interface>>
+        +resolve() TItem[]
+    }
+
+    class TaskQuery {
+        -getDv() DataviewApi|null
+        -getUtilityFolder() string
+        +resolve() DataviewTask[]
+    }
+
+    class RaidQuery {
+        -getDv() DataviewApi|null
+        +resolve() DataviewPage[]
+    }
+
+    class RefQuery {
+        -getDv() DataviewApi|null
+        +resolve() DataviewPage[]
+        +getReferenceTopicTree() TopicNode[]
+        +getTopicDescendants(name) string[]
     }
 
     class IEntityCreationService {
@@ -41,7 +65,6 @@ classDiagram
         +createInboxNote(name, engagementName?) Promise~TFile~
         +createRecurringMeetingEvent(meetingName, options?) Promise~TFile~
         +createRaidItem(name, raidType, engagement?, owner?) Promise~TFile~
-        +validateResult(result) void
     }
 
     class EntityCreationService {
@@ -92,9 +115,15 @@ classDiagram
     }
 
     class EntityHierarchyService {
-        -queryService IQueryService
+        -getDv() DataviewApi|null
+        -folders FolderSettings
         +resolveClientName(page) string|null
         +resolveEngagementName(page) string|null
+        +getEngagementForEntity(file) DataviewPage|null
+        +getClientForEntity(file) DataviewPage|null
+        +getParentProject(file) DataviewPage|null
+        +getEngagementNameForPath(path) string|null
+        +getClientFromEngagementLink(engagementLink) string|null
     }
 
     class ITemplateService {
@@ -237,7 +266,49 @@ classDiagram
     IEntityService --|> IEntityCreationService
     IEntityService --|> IEntityConversionService
 
-    QueryService ..|> IQueryService
+    class ViewStateStore {
+        <<interface>>
+        +load(key) ViewState|null
+        +save(key, state) Promise~void~
+        +isOwnWrite(file, value) boolean
+    }
+
+    class FrontmatterIO {
+        <<interface>>
+        +read(file) Record|null
+        +write(file, mutate) Promise~void~
+    }
+
+    class FrontmatterViewStore {
+        -io FrontmatterIO
+        -getFile() TFile|null
+        -pending PendingEcho|null
+        +load(key) ViewState|null
+        +save(key, state) Promise~void~
+        +isOwnWrite(file, value) boolean
+    }
+
+    class SettingsViewStore {
+        -getBag() Record
+        -persist() Promise~void~
+        +load(key) ViewState|null
+        +save(key, state) Promise~void~
+        +isOwnWrite() boolean
+    }
+
+    class ObsidianFrontmatterIO {
+        -app App
+        +read(file) Record|null
+        +write(file, mutate) Promise~void~
+    }
+
+    QueryService ..|> IEntityQueryService
+    TaskQuery ..|> IEntityQuery
+    TaskQuery ..> QueryService : dv()
+    RaidQuery ..|> IEntityQuery
+    RaidQuery ..> QueryService : dv()
+    RefQuery ..|> IEntityQuery
+    RefQuery ..> QueryService : dv()
     EntityCreationService ..|> IEntityCreationService
     EntityConversionService ..|> IEntityConversionService
     EntityService ..|> IEntityService
@@ -252,4 +323,113 @@ classDiagram
     CommandExecutor ..|> ICommandExecutor
     VaultScaffoldService ..|> IScaffoldService
     TestDataService ..|> ITestDataService
+    FrontmatterViewStore ..|> ViewStateStore
+    SettingsViewStore ..|> ViewStateStore
+    ObsidianFrontmatterIO ..|> FrontmatterIO
+    FrontmatterViewStore --> FrontmatterIO : read / write
+
+    class IViewRenderer~TItem~ {
+        <<interface>>
+        +mode string
+        +ownsFacet? string
+        +render(ctx) void
+    }
+    class ViewRenderContext~TItem~ {
+        +container HTMLElement
+        +items TItem[]
+        +filters DashboardFilters
+        +onFilterChange(patch) void
+        +helpers TaskRenderHelpers
+    }
+    ContextViewRenderer ..|> IViewRenderer
+    DateViewRenderer ..|> IViewRenderer
+    PriorityViewRenderer ..|> IViewRenderer
+    TagViewRenderer ..|> IViewRenderer
+    RaidMatrixRenderer ..|> IViewRenderer
+    RaidItemGroupRenderer ..|> IViewRenderer
+    RaidDashboardRenderer ..|> IViewRenderer
+    RaidDashboardRenderer --> RaidMatrixRenderer : composes
+    RaidDashboardRenderer --> RaidItemGroupRenderer : composes
+    TopicViewRenderer ..|> IViewRenderer
+    FlatGroupedViewRenderer ..|> IViewRenderer
+    IViewRenderer ..> ViewRenderContext : render(ctx)
+
+    class Facet~Item~ {
+        +key string
+        +accessor?(item) unknown
+        +predicate?(item, selected) boolean
+        +appliesWhen?(viewMode) boolean
+    }
+    class FilterSpec~Item~ {
+        <<interface>>
+        +facets Facet[]
+        +specWithout(key) FilterSpec
+    }
+    class FilterState {
+        +selections Record~string,unknown~
+        +viewMode string
+    }
+    class FilterEngine {
+        <<pure>>
+        +apply(items, spec, state) Item[]
+    }
+    FilterSpec *-- Facet
+    FilterEngine ..> FilterSpec : catalog
+    FilterEngine ..> FilterState : selections + viewMode
+    TaskFilterService ..> FilterEngine : delegates
+    TaskFilterService ..> FilterSpec : buildTaskFilterSpec
+
+    class DashboardShell~TItem,THelpers~ {
+        <<POJO, Obsidian-free>>
+        -deps DashboardShellDeps
+        +render(outputEl) Promise~void~
+    }
+    class DashboardViewComponent {
+        <<interface>>
+        +render() void
+        +refreshOutput() void
+        +destroy() void
+    }
+    class DashboardRenderChild {
+        +onload() void
+        +onunload() void
+        +render() void
+    }
+    class DashboardItemViewHost {
+        +onOpen() Promise~void~
+        +onClose() Promise~void~
+    }
+    class ReferenceDashboardItemView {
+        +onOpen() Promise~void~
+    }
+    class ReferenceDashboardView {
+        +render() void
+        +refreshOutput() void
+        +destroy() void
+    }
+    DashboardShell ..> IEntityQuery : resolve()
+    DashboardShell ..> FilterEngine : apply()
+    DashboardShell ..> IViewRenderer : render(ctx)
+    DashboardRenderChild ..> DashboardViewComponent : hosts
+    DashboardItemViewHost ..> DashboardViewComponent : hosts
+    DashboardRenderChild ..> ViewStateStore : persist / isOwnWrite
+    DashboardItemViewHost ..> ViewStateStore : persist
+    ReferenceDashboardItemView --|> DashboardItemViewHost
+    ReferenceDashboardItemView ..> SettingsViewStore : persist
+    ReferenceDashboardView ..|> DashboardViewComponent
+    ReferenceDashboardView ..> DashboardShell : builds
+    ReferenceDashboardView ..> RefQuery : query
+
+    class EntityQueryRegistry {
+        <<factory table, Partial-tolerant>>
+        +register(type, factory) void
+        +resolve(type, getDv) IEntityQuery|null
+    }
+    class ENTITY_KINDS {
+        <<identity catalog, keyed by EntityType>>
+        tag? / folder? / fields
+    }
+    EntityQueryRegistry ..> IEntityQuery : factory builds
+    EntityQueryRegistry ..> RaidQuery : back-fill
+    EntityQueryRegistry ..> RefQuery : back-fill
 ```

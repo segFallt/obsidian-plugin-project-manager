@@ -628,6 +628,27 @@ details[open] .pm-filter-section__title::before {
   border-color: var(--interactive-accent);
 }
 
+.pm-tasks-toolbar__group-by {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--font-ui-small);
+}
+
+.pm-tasks-toolbar__group-by-label {
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.pm-tasks-toolbar__group-by-select {
+  padding: 4px 6px;
+  border-radius: var(--radius-m);
+  border: 1px solid var(--background-modifier-border);
+  background-color: var(--background-primary);
+  color: var(--text-normal);
+  font-size: var(--font-ui-small);
+}
+
 .pm-tasks-toolbar__filters-btn {
   display: flex;
   align-items: center;
@@ -1004,6 +1025,15 @@ details[open] .pm-filter-section__title::before {
 /* ─── RAID Dashboard ─────────────────────────────────────────── */
 
 .pm-raid-dashboard {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* The shell repaints this output region on every refresh; the filter panel
+   above it is built once and survives. Mirrors the parent's column gap so the
+   matrix, count strip, and item sections keep their original spacing. */
+.pm-raid-dashboard__output {
   display: flex;
   flex-direction: column;
   gap: 16px;

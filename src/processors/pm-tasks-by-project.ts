@@ -7,8 +7,9 @@ import type {
   SavedByProjectFilters,
   ProjectStatus,
 } from "../types";
-import { DEFAULT_TASK_VIEW_STATUSES, PRIORITY_FALLBACK, DEBOUNCE_MS, ENTITY_TAGS, CSS_CLS, MSG, LOG_CONTEXT } from "../constants";
-import { renderError } from "./dom-helpers";
+import { DEFAULT_TASK_VIEW_STATUSES, PRIORITY_FALLBACK, DEBOUNCE_MS, ENTITY_TAGS, CSS_CLS, MSG, LOG_CONTEXT, HTML_TAG } from "../constants";
+import { debounced } from "../utils/debounce";
+import { renderError, createInternalLink } from "./dom-helpers";
 import type { ITaskSortService } from "../services/interfaces";
 import type { TaskListRenderer } from "./task-list-renderer";
 import { FilterChipSelect } from "../ui/components/filter-chip-select";
@@ -19,7 +20,8 @@ import { FilterChipSelect } from "../ui/components/filter-chip-select";
 export class ByProjectView {
   private filters!: ByProjectFilters;
   private outputEl!: HTMLElement;
-  private debounceTimer: ReturnType<typeof setTimeout> | null = null;
+  private searchControlsEl: HTMLElement | null = null;
+  private readonly search = debounced(() => this.runDebouncedRefresh(), DEBOUNCE_MS.SEARCH);
   private chipSelects: FilterChipSelect[] = [];
 
   constructor(
@@ -35,10 +37,10 @@ export class ByProjectView {
   render(): void {
     this.services.loggerService.debug(`pm-tasks-by-project rendering, mode: "${this.config.mode}"`, LOG_CONTEXT.TASKS_BY_PROJECT);
     this.initFilters();
-    const root = this.containerEl.createDiv({ cls: "pm-tasks-by-project" });
+    const root = this.containerEl.createDiv({ cls: CSS_CLS.TASKS_BY_PROJECT });
     const controlsEl = root.createDiv({ cls: "pm-tasks-by-project__controls" });
     this.renderControls(controlsEl);
-    this.outputEl = root.createDiv({ cls: "pm-tasks-by-project__output" });
+    this.outputEl = root.createDiv({ cls: CSS_CLS.TASKS_BY_PROJECT_OUTPUT });
     void this.refreshByProjectOutput(this.outputEl);
   }
 
@@ -270,9 +272,10 @@ export class ByProjectView {
     if (!hasIncomplete && !hasComplete) return;
 
     const projectEl = container.createDiv({ cls: "pm-tasks-project-group" });
-    projectEl.createEl("h2", {
+    const projectTitle = projectEl.createEl(HTML_TAG.H2, {
       cls: "pm-tasks-project-group__title",
-    }).innerHTML = `<a class="${CSS_CLS.INTERNAL_LINK}" data-href="${project.file.path}" href="${project.file.path}">${project.file.name}</a>`;
+    });
+    createInternalLink(projectTitle, project.file.path, project.file.name);
 
     if (incompleteTasks.length > 0) {
       await this.renderer.renderTaskList(projectEl, incompleteTasks);
@@ -281,7 +284,7 @@ export class ByProjectView {
     for (const note of projectNotes) {
       const noteTasks = [...note.file.tasks].filter((t) => !t.completed);
       if (noteTasks.length > 0) {
-        projectEl.createEl("h3").innerHTML = `<a class="${CSS_CLS.INTERNAL_LINK}" data-href="${note.file.path}" href="${note.file.path}">${note.file.name}</a>`;
+        createInternalLink(projectEl.createEl(HTML_TAG.H3), note.file.path, note.file.name);
         await this.renderer.renderTaskList(projectEl, noteTasks);
       }
     }
@@ -297,12 +300,22 @@ export class ByProjectView {
   }
 
   private debouncedRefreshByProject(controlsEl: HTMLElement): void {
-    if (this.debounceTimer) clearTimeout(this.debounceTimer);
-    this.debounceTimer = setTimeout(() => {
-      const root = controlsEl.closest(".pm-tasks-by-project");
-      if (!root) return;
-      const outputEl = root.querySelector(".pm-tasks-by-project__output");
-      if (outputEl instanceof HTMLElement) void this.refreshByProjectOutput(outputEl);
-    }, DEBOUNCE_MS.SEARCH);
+    this.searchControlsEl = controlsEl;
+    this.search.trigger();
+  }
+
+  private runDebouncedRefresh(): void {
+    const controlsEl = this.searchControlsEl;
+    if (!controlsEl) return;
+    const root = controlsEl.closest(`.${CSS_CLS.TASKS_BY_PROJECT}`);
+    if (!root) return;
+    const outputEl = root.querySelector(`.${CSS_CLS.TASKS_BY_PROJECT_OUTPUT}`);
+    if (outputEl instanceof HTMLElement) void this.refreshByProjectOutput(outputEl);
+  }
+
+  /** Cancels any pending debounced refresh and releases filter components. */
+  destroy(): void {
+    this.search.cancel();
+    this.destroyChipSelects();
   }
 }

@@ -3,6 +3,8 @@ import { COMMAND_IDS } from "../command-ids";
 import type { CommandServices, AddCommandFn } from "../plugin-context";
 import { SuggesterModal } from "../ui/modals/suggester-modal";
 import type { DataviewPage } from "../types";
+import { COMMAND_NAMES, LOG_CONTEXT, CMD_ERROR_LABEL, ACTION_CTX_FIELD } from "../constants";
+import { withCommandErrorNotice } from "./command-error-notice";
 
 /**
  * PM: Create Recurring Meeting Event
@@ -18,13 +20,13 @@ export function registerCreateRecurringMeetingEventCommand(
 ): void {
   addCommand({
     id: COMMAND_IDS.CREATE_RECURRING_MEETING_EVENT,
-    name: "PM: Create Recurring Meeting Event",
+    name: COMMAND_NAMES.CREATE_RECURRING_MEETING_EVENT,
     callback: async () => {
       let meetingName: string | null = null;
 
       // Check for pre-selected parent from action button context
       const pendingCtx = services.actionContext.consume();
-      if (pendingCtx?.field === "recurring-meeting") {
+      if (pendingCtx?.field === ACTION_CTX_FIELD.RECURRING_MEETING) {
         meetingName = pendingCtx.value;
       }
 
@@ -48,13 +50,14 @@ export function registerCreateRecurringMeetingEventCommand(
         meetingName = selected.file.name;
       }
 
-      services.loggerService.debug(`create-recurring-meeting-event invoked: "${meetingName}"`, 'create-recurring-meeting-event');
-      try {
-        await services.entityService.createRecurringMeetingEvent(meetingName);
-      } catch (err) {
-        services.loggerService.error(String(err), "create-recurring-meeting-event", err);
-        new Notice(`Error creating event: ${String(err)}`);
-      }
+      const resolvedMeetingName = meetingName;
+      services.loggerService.debug(`${LOG_CONTEXT.CREATE_RECURRING_MEETING_EVENT} invoked: "${resolvedMeetingName}"`, LOG_CONTEXT.CREATE_RECURRING_MEETING_EVENT);
+      await withCommandErrorNotice(
+        services.loggerService,
+        LOG_CONTEXT.CREATE_RECURRING_MEETING_EVENT,
+        (err) => `${CMD_ERROR_LABEL.CREATE_RECURRING_MEETING_EVENT}: ${String(err)}`,
+        () => services.entityService.createRecurringMeetingEvent(resolvedMeetingName)
+      );
     },
   });
 }

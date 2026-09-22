@@ -1,7 +1,8 @@
 import { TFile } from "obsidian";
 import type { App, Plugin } from "obsidian";
 import type { RaidType, RaidDirection } from "../types";
-import { DIRECTION_LABELS, DIRECTION_ICONS } from "./raid-constants";
+import { FM_KEY, JS_TYPE } from "../constants";
+import { DIRECTION_LABELS, DIRECTION_ICONS, RAID_TYPES } from "../raid-constants";
 
 // Generic fallback labels when raid-type cannot be resolved
 const GENERIC_LABELS: Record<RaidDirection, string> = {
@@ -110,9 +111,9 @@ function resolveRaidTypeFromPath(linkedPath: string, app: App): RaidType | null 
   if (!(file instanceof TFile)) return null;
 
   const cache = app.metadataCache.getFileCache(file);
-  const raidType: unknown = cache?.frontmatter?.["raid-type"];
+  const raidType: unknown = cache?.frontmatter?.[FM_KEY.RAID_TYPE];
 
-  if (typeof raidType === "string" && ["Risk", "Assumption", "Issue", "Decision"].includes(raidType)) {
+  if (typeof raidType === JS_TYPE.STRING && RAID_TYPES.includes(raidType as RaidType)) {
     return raidType as RaidType;
   }
 

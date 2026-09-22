@@ -1,6 +1,6 @@
 import type { App, Command, MarkdownPostProcessorContext } from "obsidian";
 import type {
-  IQueryService,
+  IEntityQueryService,
   IEntityService,
   IEntityHierarchyService,
   INavigationService,
@@ -14,6 +14,7 @@ import type {
   ITestDataService,
 } from "./services/interfaces";
 import type { ProjectManagerSettings } from "./settings";
+import type ProjectManagerPlugin from "./main";
 
 /**
  * Narrow service bag consumed by commands.
@@ -26,8 +27,9 @@ import type { ProjectManagerSettings } from "./settings";
 export interface CommandServices {
   app: App;
   settings: ProjectManagerSettings;
-  queryService: IQueryService;
+  queryService: IEntityQueryService;
   entityService: IEntityService;
+  hierarchyService: IEntityHierarchyService;
   loggerService: ILoggerService;
   actionContext: IActionContextManager;
 }
@@ -36,7 +38,7 @@ export interface CommandServices {
 export interface TaskProcessorServices {
   app: App;
   settings: ProjectManagerSettings;
-  queryService: IQueryService;
+  queryService: IEntityQueryService;
   hierarchyService: IEntityHierarchyService;
   taskParser: ITaskParser;
   loggerService: ILoggerService;
@@ -48,7 +50,7 @@ export interface TaskProcessorServices {
 export interface PropertyProcessorServices {
   app: App;
   settings: ProjectManagerSettings;
-  queryService: IQueryService;
+  queryService: IEntityQueryService;
   loggerService: ILoggerService;
 }
 
@@ -73,6 +75,17 @@ export interface ActionProcessorServices {
   actionContext: IActionContextManager;
 }
 
+/** The action-service keys the entity-view processor forwards to its action buttons. */
+export const ENTITY_VIEW_ACTION_KEYS = ["commandExecutor", "actionContext"] as const;
+
+/**
+ * Narrow interface for the entity-view processor: the property/table reads plus
+ * the action-button collaborators (`commandExecutor`/`actionContext`) — nothing
+ * more. The concrete plugin satisfies it structurally.
+ */
+export type EntityViewProcessorServices = PropertyProcessorServices &
+  Pick<ActionProcessorServices, (typeof ENTITY_VIEW_ACTION_KEYS)[number]>;
+
 /** Narrow interface for scaffold command consumers. */
 export interface ScaffoldCommandServices {
   scaffoldService: IScaffoldService;
@@ -87,7 +100,7 @@ export interface ScaffoldCommandServices {
 export interface PluginServices {
   app: App;
   settings: ProjectManagerSettings;
-  queryService: IQueryService;
+  queryService: IEntityQueryService;
   entityService: IEntityService;
   taskParser: ITaskParser;
   scaffoldService: IScaffoldService;
@@ -104,13 +117,37 @@ export interface PluginServices {
 export interface ReferenceProcessorServices {
   app: App;
   settings: ProjectManagerSettings;
-  queryService: IQueryService;
+  queryService: IEntityQueryService;
   hierarchyService: IEntityHierarchyService;
   navigationService: INavigationService;
   loggerService: ILoggerService;
   commandExecutor: ICommandExecutor;
   actionContext: IActionContextManager;
   saveSettings: () => Promise<void>;
+}
+
+/**
+ * Builds the ReferenceProcessorServices bag from a plugin instance.
+ *
+ * Co-located with the interface so the identical field-for-field literal is
+ * defined once rather than hand-maintained in every consumer (the item view
+ * and the processor registrar). The plugin is referenced type-only to keep
+ * this module free of any runtime import cycle.
+ */
+export function buildReferenceProcessorServices(
+  plugin: ProjectManagerPlugin
+): ReferenceProcessorServices {
+  return {
+    app: plugin.app,
+    settings: plugin.settings,
+    queryService: plugin.queryService,
+    hierarchyService: plugin.hierarchyService,
+    navigationService: plugin.navigationService,
+    loggerService: plugin.loggerService,
+    commandExecutor: plugin.commandExecutor,
+    actionContext: plugin.actionContext,
+    saveSettings: plugin.saveSettings.bind(plugin),
+  };
 }
 
 /** Bound version of Plugin.addCommand, passed from the wiring layer. */

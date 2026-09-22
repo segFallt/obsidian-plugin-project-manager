@@ -1,6 +1,6 @@
-# Project Manager Plugin — User Guide
+# Engagement Project Manager Plugin — User Guide
 
-Project Manager is an Obsidian plugin that turns your vault into a structured project management workspace. It introduces a client → engagement → project hierarchy, a RAID tracker, a task dashboard, and a reference knowledge base — all built on standard Obsidian notes and frontmatter.
+Engagement Project Manager is an Obsidian plugin that turns your vault into a structured project management workspace. It introduces a client → engagement → project hierarchy, a RAID tracker, a task dashboard, and a reference knowledge base — all built on standard Obsidian notes and frontmatter.
 
 ---
 
@@ -10,7 +10,7 @@ Project Manager is an Obsidian plugin that turns your vault into a structured pr
 |---|---------|----------------|
 | 1 | [Getting Started](01-getting-started.md) | Installation, vault setup, folder structure, entity overview |
 | 2 | [Settings Reference](02-settings-reference.md) | Every setting explained |
-| 3 | [Commands Reference](03-commands-reference.md) | All 16 commands with pre-conditions and modal flows |
+| 3 | [Commands Reference](03-commands-reference.md) | All 18 commands with pre-conditions and modal flows |
 | 4 | [Code Block Processors](04-processors/) | Detailed reference for all 9 `pm-*` code blocks |
 | 5 | [Entity Templates](05-entity-templates.md) | Standard note structure for each of the 11 entity types |
 | 6 | [Workflows](06-workflows.md) | End-to-end walkthroughs of common multi-step operations |

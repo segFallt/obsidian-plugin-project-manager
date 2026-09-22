@@ -37,6 +37,22 @@ export interface ObsidianVault {
 }
 
 /**
+ * A plugin's settings tab as registered on `app.setting`. `display()` renders the
+ * tab's controls into `containerEl`, which is available headless without opening
+ * Obsidian's built-in Settings modal.
+ */
+export interface ObsidianPluginSettingTab {
+  id: string;
+  name: string;
+  display: () => void;
+  containerEl: HTMLElement;
+}
+
+export interface ObsidianSetting {
+  pluginTabs: ObsidianPluginSettingTab[];
+}
+
+/**
  * Augments `Window` with the Obsidian `app` object available in the renderer.
  * Cast `window` to this type inside page.evaluate() to access Obsidian internals.
  */
@@ -47,5 +63,6 @@ export interface ObsidianWindow extends Window {
     workspace?: ObsidianWorkspace;
     metadataCache?: ObsidianMetadataCache;
     vault?: ObsidianVault;
+    setting?: ObsidianSetting;
   };
 }

@@ -4,10 +4,13 @@ import type { Editor, MarkdownView, MarkdownFileInfo } from "obsidian";
 import type { CommandServices, AddCommandFn } from "../plugin-context";
 import { SuggesterModal } from "../ui/modals/suggester-modal";
 import type { DataviewPage, RaidType, RaidDirection } from "../types";
-import { DIRECTION_LABELS, DIRECTION_ICONS, ATX_HEADING_RE } from "../processors/raid-constants";
-import { MSG, LOG_CONTEXT } from "../constants";
+import { DIRECTION_LABELS, DIRECTION_ICONS, ATX_HEADING_RE, formatRaidBadge } from "../raid-constants";
+import { MSG, LOG_CONTEXT, COMMAND_NAMES, CMD_ERROR_LABEL, ENTITY_TYPE } from "../constants";
 import { normalizeToName } from "../utils/link-utils";
+import { ENTITY_QUERIES } from "../entity-registry";
+import { isActiveRaid, matchesRaidContext } from "../services/raid-filter";
 import { isSectionHeadingLine } from "../processors/raid-reference-parser";
+import { withCommandErrorNotice } from "./command-error-notice";
 
 // ─── Direction picker helpers ─────────────────────────────────────────────────
 
@@ -54,7 +57,7 @@ export function registerTagRaidReferenceCommand(
 ): void {
   addCommand({
     id: COMMAND_IDS.TAG_RAID_REFERENCE,
-    name: "PM: Tag Line as RAID Reference",
+    name: COMMAND_NAMES.TAG_RAID_REFERENCE,
     editorCallback: async (editor: Editor, ctx: MarkdownView | MarkdownFileInfo) => {
       const view = ctx as MarkdownView;
       const file = view.file;
@@ -76,12 +79,18 @@ export function registerTagRaidReferenceCommand(
       const clientName = fm["client"] as string | undefined;
       const engagementName = fm["engagement"] as string | undefined;
 
-      // Fetch all active RAID items and context-matched items.
-      // Skip context lookup when neither key is present (or both are empty strings) —
-      // no frontmatter context means no items can match, so contextItems stays empty.
-      const allItems = services.queryService.getActiveRaidItems();
+      // Fetch all active RAID items (base read sorted raised-date desc, then
+      // narrowed to active) and, when the current note carries client/engagement
+      // context, the subset matching that context. Skip the context filter when
+      // neither key is present (or both are empty strings) — no frontmatter
+      // context means no items can match, so contextItems stays empty.
+      const baseItems =
+        ENTITY_QUERIES.resolve(ENTITY_TYPE.RAID_ITEM, () => services.queryService.dv())?.resolve() ?? [];
+      const allItems = baseItems.filter(isActiveRaid);
       const contextItems = (clientName || engagementName)
-        ? services.queryService.getRaidItemsForContext(clientName, engagementName)
+        ? allItems.filter((item) =>
+            matchesRaidContext(item, clientName, engagementName, services.hierarchyService)
+          )
         : [];
 
       if (allItems.length === 0) {
@@ -123,33 +132,35 @@ export function registerTagRaidReferenceCommand(
       }
 
       services.loggerService.debug(
-        `tag-raid-reference: tagging line ${lineNumber} with {raid:${selectedDirection.direction}}[[${selectedItem.file.name}]]`,
+        `${LOG_CONTEXT.TAG_RAID_REFERENCE}: tagging line ${lineNumber} with ${formatRaidBadge(selectedDirection.direction, selectedItem.file.name)}`,
         LOG_CONTEXT.TAG_RAID_REFERENCE
       );
 
-      try {
-        editor.setLine(
-          lineNumber,
-          currentLine + ` {raid:${selectedDirection.direction}}[[${selectedItem.file.name}]]`
-        );
+      await withCommandErrorNotice(
+        services.loggerService,
+        LOG_CONTEXT.TAG_RAID_REFERENCE,
+        (err) => `${CMD_ERROR_LABEL.TAG_RAID_REFERENCE}: ${String(err)}`,
+        () => {
+          editor.setLine(
+            lineNumber,
+            currentLine + ` ${formatRaidBadge(selectedDirection.direction, selectedItem.file.name)}`
+          );
 
-        // Differentiated success feedback: a section (ATX heading) reference pulls
-        // in the whole section beneath it, whereas a line reference is line-scoped.
-        // The appended annotation text is identical in both cases (no new syntax).
-        // Reuse the parser's context-aware detection so a `#`-line inside a code
-        // fence or front-matter (which the processor renders as line scope) does
-        // not falsely report a section reference.
-        const headingMatch = ATX_HEADING_RE.exec(currentLine);
-        if (headingMatch && isSectionHeadingLine(fullContent, lineNumber)) {
-          const headingText = currentLine.slice(headingMatch[0].length).trim();
-          new Notice(MSG.RAID_REFERENCE_TAGGED_SECTION(headingText));
-        } else {
-          new Notice(MSG.RAID_REFERENCE_TAGGED_LINE);
+          // Differentiated success feedback: a section (ATX heading) reference pulls
+          // in the whole section beneath it, whereas a line reference is line-scoped.
+          // The appended annotation text is identical in both cases (no new syntax).
+          // Reuse the parser's context-aware detection so a `#`-line inside a code
+          // fence or front-matter (which the processor renders as line scope) does
+          // not falsely report a section reference.
+          const headingMatch = ATX_HEADING_RE.exec(currentLine);
+          if (headingMatch && isSectionHeadingLine(fullContent, lineNumber)) {
+            const headingText = currentLine.slice(headingMatch[0].length).trim();
+            new Notice(MSG.RAID_REFERENCE_TAGGED_SECTION(headingText));
+          } else {
+            new Notice(MSG.RAID_REFERENCE_TAGGED_LINE);
+          }
         }
-      } catch (err) {
-        services.loggerService.error(String(err), LOG_CONTEXT.TAG_RAID_REFERENCE, err);
-        new Notice(`Error tagging line: ${String(err)}`);
-      }
+      );
     },
   });
 }

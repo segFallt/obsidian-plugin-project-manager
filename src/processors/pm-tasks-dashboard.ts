@@ -1,25 +1,28 @@
 import type { TaskProcessorServices } from "../plugin-context";
 import type {
   PmTasksConfig,
-  DataviewApi,
   DataviewTask,
+  DataviewApi,
   DashboardFilters,
   SavedDashboardFilters,
   DueDateFilter,
   DueDatePreset,
+  StartDateFilter,
+  ScheduledDateFilter,
   MeetingDateFilter,
   InboxStatusFilter,
   SortKey,
-  SortField,
-  SortDirection,
+  GroupByDateField,
   ProjectStatus,
   TaskContext,
   TaskPriority,
 } from "../types";
-import { CONTEXT, ENTITY_TAGS, TASK_CONTEXTS, DUE_DATE_PRESETS, DEFAULT_DUE_DATE_FILTER, DEBOUNCE_MS, MSG, LOG_CONTEXT, VIEW_MODE } from "../constants";
+import { CONTEXT, ENTITY_TAGS, TASK_CONTEXTS, TASK_PRIORITIES, DUE_DATE_PRESET, DUE_DATE_PRESETS, DEFAULT_DUE_DATE_FILTER, DEFAULT_START_DATE_FILTER, DEFAULT_SCHEDULED_DATE_FILTER, START_DATE_PRESET, SCHEDULED_DATE_PRESET, INBOX_STATUS_FILTER, MEETING_DATE_FILTER, TASK_PRIORITY_PILL_LABEL, DEBOUNCE_MS, MSG, TASK_DASHBOARD_MSG, LOG_CONTEXT, VIEW_MODE, CSS_CLS, HTML_TAG, INPUT_TYPE, DOM_EVENT, DOM_ATTR, TASK_DRAWER_TEXT, SORT_FIELD, SORT_DIRECTION, GROUP_BY_DATE_FIELD, GROUP_BY_DATE_OPTIONS, TASKS_TOOLBAR_TEXT, CSS_DISPLAY } from "../constants";
+import { debounced } from "../utils/debounce";
 import { renderError } from "./dom-helpers";
-import type { ITaskFilterService } from "../services/interfaces";
 import type { ITaskSortService } from "../services/interfaces";
+import type { IEntityQuery } from "../services/entity-query";
+import { buildTaskFilterSpec, buildTaskFilterState, isDueDateFilterActive, isStartDateFilterActive, isScheduledDateFilterActive } from "../services/filter-engine";
 import { presetToDateRange } from "../utils/date-utils";
 import type { TaskListRenderer } from "./task-list-renderer";
 import { FilterChipSelect } from "../ui/components/filter-chip-select";
@@ -28,17 +31,49 @@ import { ContextViewRenderer } from "./dashboard-views/context-view-renderer";
 import { DateViewRenderer } from "./dashboard-views/date-view-renderer";
 import { PriorityViewRenderer } from "./dashboard-views/priority-view-renderer";
 import { TagViewRenderer } from "./dashboard-views/tag-view-renderer";
-import { getTaskContext } from "../utils/task-utils";
+import { getTaskContext, getParentProjectPath, getParentRecurringMeetingPath } from "../utils/task-utils";
+import type { TaskRenderHelpers } from "./view-renderer";
+import { DashboardShell } from "./dashboard-shell";
+import type { DashboardShellDeps } from "./dashboard-shell";
 
-// ─── Legacy sort migration map ────────────────────────────────────────────────
+// ─── Sort-by string resolution ────────────────────────────────────────────────
 
-/** Maps legacy sortBy string values to the current SortKey[] format. */
-const LEGACY_SORT_MAP: Record<string, SortKey[]> = {
-  "dueDate-asc": [{ field: "dueDate" as SortField, direction: "asc" as SortDirection }],
-  "dueDate-desc": [{ field: "dueDate" as SortField, direction: "desc" as SortDirection }],
-  "priority-asc": [{ field: "priority" as SortField, direction: "asc" as SortDirection }],
-  "priority-desc": [{ field: "priority" as SortField, direction: "desc" as SortDirection }],
+/**
+ * Maps a string `sortBy` value to the current SortKey[] format. Covers both the
+ * pre-refactor composite strings persisted in saved data (which must stay
+ * byte-identical) and the documented single-field string shorthands, so a block
+ * authored as `sortBy: startDate-asc` resolves the same as the array form.
+ */
+const SORT_BY_STRING_MAP: Record<string, SortKey[]> = {
+  "dueDate-asc": [{ field: SORT_FIELD.DUE_DATE, direction: SORT_DIRECTION.ASC }],
+  "dueDate-desc": [{ field: SORT_FIELD.DUE_DATE, direction: SORT_DIRECTION.DESC }],
+  "priority-asc": [{ field: SORT_FIELD.PRIORITY, direction: SORT_DIRECTION.ASC }],
+  "priority-desc": [{ field: SORT_FIELD.PRIORITY, direction: SORT_DIRECTION.DESC }],
+  "startDate-asc": [{ field: SORT_FIELD.START_DATE, direction: SORT_DIRECTION.ASC }],
+  "startDate-desc": [{ field: SORT_FIELD.START_DATE, direction: SORT_DIRECTION.DESC }],
+  "scheduledDate-asc": [{ field: SORT_FIELD.SCHEDULED_DATE, direction: SORT_DIRECTION.ASC }],
+  "scheduledDate-desc": [{ field: SORT_FIELD.SCHEDULED_DATE, direction: SORT_DIRECTION.DESC }],
 };
+
+/** Resolves a persisted or authored `sortBy` value (string shorthand or current array) to `SortKey[]`. */
+export function resolveSortBy(raw: unknown): SortKey[] {
+  if (!raw) return [];
+  if (Array.isArray(raw)) return raw as SortKey[];
+  if (typeof raw === "string") return SORT_BY_STRING_MAP[raw] ?? [];
+  return [];
+}
+
+/**
+ * Structural view of a no-date-preset-plus-range filter (start/scheduled),
+ * used by the shared range-section renderer so it need not know the concrete
+ * filter type. Callers bridge back to the specific `StartDateFilter` /
+ * `ScheduledDateFilter` in their `setFilter`.
+ */
+interface RangeDateFilterView {
+  selectedPresets: readonly string[];
+  rangeFrom: string | null;
+  rangeTo: string | null;
+}
 
 /**
  * Renders the full dashboard mode: filter controls and all four view renderers
@@ -47,41 +82,38 @@ const LEGACY_SORT_MAP: Record<string, SortKey[]> = {
 export class DashboardView {
   private filters!: DashboardFilters;
   private outputEl!: HTMLElement;
-  private debounceTimer: ReturnType<typeof setTimeout> | null = null;
+  private searchControlsEl: HTMLElement | null = null;
+  private readonly search = debounced(() => this.runDebouncedRefresh(), DEBOUNCE_MS.SEARCH);
   private chipSelects: FilterChipSelect[] = [];
   private isDrawerOpen = false;
   private chipsBarEl: HTMLElement | null = null;
   private drawerEl: HTMLElement | null = null;
   private filtersBtnEl: HTMLButtonElement | null = null;
   private filtersBadgeEl: HTMLElement | null = null;
+  private groupByControlEl: HTMLElement | null = null;
   private drawerComponents: Array<{ destroy(): void }> = [];
-  private readonly contextRenderer: ContextViewRenderer;
-  private readonly dateRenderer: DateViewRenderer;
-  private readonly priorityRenderer: PriorityViewRenderer;
-  private readonly tagRenderer: TagViewRenderer;
+  private readonly contextRenderer = new ContextViewRenderer();
+  private readonly dateRenderer = new DateViewRenderer();
+  private readonly priorityRenderer = new PriorityViewRenderer();
+  private readonly tagRenderer = new TagViewRenderer();
 
   constructor(
     private readonly containerEl: HTMLElement,
     private readonly config: PmTasksConfig,
     private readonly services: TaskProcessorServices,
-    private readonly filterService: ITaskFilterService,
     private readonly sortService: ITaskSortService,
     private readonly renderer: TaskListRenderer,
+    private readonly entityQuery: IEntityQuery<DataviewTask>,
     private readonly savedFilters?: SavedDashboardFilters | null,
     private readonly onSaveFilters?: ((filters: SavedDashboardFilters | null) => void) | null
-  ) {
-    this.contextRenderer = new ContextViewRenderer(services, sortService, renderer);
-    this.dateRenderer = new DateViewRenderer(sortService, renderer);
-    this.priorityRenderer = new PriorityViewRenderer(sortService, renderer);
-    this.tagRenderer = new TagViewRenderer(sortService, renderer);
-  }
+  ) {}
 
   render(): void {
     this.services.loggerService.debug(`pm-tasks-dashboard rendering, mode: "${this.config.mode}"`, LOG_CONTEXT.TASKS_DASHBOARD);
     this.initFilters();
-    const root = this.containerEl.createDiv({ cls: "pm-tasks-dashboard" });
+    const root = this.containerEl.createDiv({ cls: CSS_CLS.TASKS_DASHBOARD });
     this.renderControls(root);
-    this.outputEl = root.createDiv({ cls: "pm-tasks-dashboard__output" });
+    this.outputEl = root.createDiv({ cls: CSS_CLS.TASKS_DASHBOARD_OUTPUT });
     void this.refreshDashboardOutput(this.outputEl);
   }
 
@@ -95,9 +127,9 @@ export class DashboardView {
     const cfg = this.config;
     const saved = this.savedFilters;
 
-    // Migrate legacy sortBy string → SortKey[]
+    // Resolve sortBy (string shorthand or array) → SortKey[]
     const rawSortBy = saved?.sortBy ?? cfg.sortBy;
-    const sortBy: SortKey[] = this.migrateLegacySortBy(rawSortBy as unknown);
+    const sortBy: SortKey[] = resolveSortBy(rawSortBy as unknown);
 
     // Backward-compat migration: legacy saved state may be a string, an old
     // object with mode/presets fields, the old rangeFrom/rangeTo/includeNoDate shape,
@@ -181,9 +213,14 @@ export class DashboardView {
     this.filters = {
       viewMode: saved?.viewMode ?? cfg.viewMode ?? this.services.settings.ui.defaultTaskViewMode,
       sortBy,
+      // Absent (pre-feature state or unset config) ⇒ Due, preserving existing grouping.
+      groupByDateField: saved?.groupByDateField ?? cfg.groupByDateField ?? GROUP_BY_DATE_FIELD.DUE,
       showCompleted: saved?.showCompleted ?? cfg.showCompleted ?? this.services.settings.ui.showCompletedByDefault,
       contextFilter: saved?.contextFilter ?? cfg.contextFilter ?? [],
       dueDateFilter,
+      // No legacy shapes for these keys — absent saved value ⇒ inactive filter.
+      startDateFilter: saved?.startDateFilter ?? cfg.startDateFilter ?? DEFAULT_START_DATE_FILTER,
+      scheduledDateFilter: saved?.scheduledDateFilter ?? cfg.scheduledDateFilter ?? DEFAULT_SCHEDULED_DATE_FILTER,
       priorityFilter: saved?.priorityFilter ?? cfg.priorityFilter ?? [],
       projectStatusFilter: saved?.projectStatusFilter ?? cfg.projectStatusFilter ?? [],
       // Backward-compat: "Inactive" was the saved value before the filter was renamed to "Complete".
@@ -208,13 +245,6 @@ export class DashboardView {
     }
   }
 
-  private migrateLegacySortBy(raw: unknown): SortKey[] {
-    if (!raw) return [];
-    if (Array.isArray(raw)) return raw as SortKey[];
-    if (typeof raw === "string") return LEGACY_SORT_MAP[raw] ?? [];
-    return [];
-  }
-
   // ─── Controls rendering ───────────────────────────────────────────────────
 
   private renderControls(root: HTMLElement): void {
@@ -227,64 +257,71 @@ export class DashboardView {
     };
 
     // === TOOLBAR ===
-    const toolbar = root.createDiv({ cls: "pm-tasks-toolbar" });
+    const toolbar = root.createDiv({ cls: CSS_CLS.TASKS_TOOLBAR });
 
     // View mode tabs
-    const tabsEl = toolbar.createDiv({ cls: "pm-tasks-toolbar__view-tabs" });
+    const tabsEl = toolbar.createDiv({ cls: CSS_CLS.TASKS_TOOLBAR_VIEW_TABS });
     const viewModes: Array<{ value: typeof f.viewMode; label: string }> = [
-      { value: VIEW_MODE.CONTEXT, label: "Context" },
-      { value: VIEW_MODE.DATE, label: "Date" },
-      { value: VIEW_MODE.PRIORITY, label: "Priority" },
-      { value: VIEW_MODE.TAG, label: "Tag" },
+      { value: VIEW_MODE.CONTEXT, label: TASKS_TOOLBAR_TEXT.VIEW_CONTEXT },
+      { value: VIEW_MODE.DATE, label: TASKS_TOOLBAR_TEXT.VIEW_DATE },
+      { value: VIEW_MODE.PRIORITY, label: TASKS_TOOLBAR_TEXT.VIEW_PRIORITY },
+      { value: VIEW_MODE.TAG, label: TASKS_TOOLBAR_TEXT.VIEW_TAG },
     ];
     for (const { value, label } of viewModes) {
-      const tab = tabsEl.createEl("button", {
-        cls: value === f.viewMode ? "pm-tasks-toolbar__tab pm-tasks-toolbar__tab--active" : "pm-tasks-toolbar__tab",
+      const tab = tabsEl.createEl(HTML_TAG.BUTTON, {
+        cls:
+          value === f.viewMode
+            ? `${CSS_CLS.TASKS_TOOLBAR_TAB} ${CSS_CLS.TASKS_TOOLBAR_TAB_ACTIVE}`
+            : CSS_CLS.TASKS_TOOLBAR_TAB,
         text: label,
       });
-      tab.addEventListener("click", () => {
+      tab.addEventListener(DOM_EVENT.CLICK, () => {
         f.viewMode = value;
-        tabsEl.querySelectorAll(".pm-tasks-toolbar__tab").forEach((t) => {
-          t.classList.toggle("pm-tasks-toolbar__tab--active", t === tab);
+        tabsEl.querySelectorAll(`.${CSS_CLS.TASKS_TOOLBAR_TAB}`).forEach((t) => {
+          t.classList.toggle(CSS_CLS.TASKS_TOOLBAR_TAB_ACTIVE, t === tab);
         });
+        this.syncGroupByVisibility();
         this.persistFilters();
         this.debouncedRefresh(root);
       });
     }
 
+    // Group-by-date-field dropdown (only meaningful in the Date view)
+    this.renderGroupByControl(toolbar, f, onChange);
+
     // Search input (flex-grows)
-    const searchInput = toolbar.createEl("input", {
-      type: "text",
-      placeholder: "Search tasks…",
-      cls: "pm-tasks-toolbar__search",
+    const searchInput = toolbar.createEl(HTML_TAG.INPUT, {
+      type: INPUT_TYPE.TEXT,
+      placeholder: TASKS_TOOLBAR_TEXT.SEARCH_PLACEHOLDER,
+      cls: CSS_CLS.TASKS_TOOLBAR_SEARCH,
     });
-    searchInput.setAttribute("aria-label", "Search tasks");
+    searchInput.setAttribute(DOM_ATTR.ARIA_LABEL, TASKS_TOOLBAR_TEXT.SEARCH_ARIA);
     searchInput.value = f.searchText;
-    searchInput.addEventListener("input", () => {
+    searchInput.addEventListener(DOM_EVENT.INPUT, () => {
       f.searchText = searchInput.value.toLowerCase();
       this.debouncedRefresh(root);
     });
 
     // Filters button
-    this.filtersBtnEl = toolbar.createEl("button", {
-      cls: "pm-tasks-toolbar__filters-btn",
+    this.filtersBtnEl = toolbar.createEl(HTML_TAG.BUTTON, {
+      cls: CSS_CLS.TASKS_TOOLBAR_FILTERS_BTN,
     });
-    this.filtersBtnEl.createSpan({ text: "⚙ Filters " });
-    this.filtersBadgeEl = this.filtersBtnEl.createSpan({ cls: "pm-tasks-filter-badge" });
-    this.filtersBtnEl.addEventListener("click", () => {
+    this.filtersBtnEl.createSpan({ text: TASKS_TOOLBAR_TEXT.FILTERS_BTN });
+    this.filtersBadgeEl = this.filtersBtnEl.createSpan({ cls: CSS_CLS.TASKS_FILTER_BADGE });
+    this.filtersBtnEl.addEventListener(DOM_EVENT.CLICK, () => {
       this.isDrawerOpen = !this.isDrawerOpen;
       if (this.drawerEl) {
-        this.drawerEl.style.display = this.isDrawerOpen ? "" : "none";
+        this.drawerEl.style.display = this.isDrawerOpen ? CSS_DISPLAY.DEFAULT : CSS_DISPLAY.NONE;
       }
     });
 
     // === CHIPS BAR (placeholder — filled by updateChipsBar) ===
-    this.chipsBarEl = root.createDiv({ cls: "pm-tasks-chips-bar" });
-    this.chipsBarEl.style.display = "none";
+    this.chipsBarEl = root.createDiv({ cls: CSS_CLS.TASKS_CHIPS_BAR });
+    this.chipsBarEl.style.display = CSS_DISPLAY.NONE;
 
     // === DRAWER ===
-    this.drawerEl = root.createDiv({ cls: "pm-tasks-drawer" });
-    this.drawerEl.style.display = this.isDrawerOpen ? "" : "none";
+    this.drawerEl = root.createDiv({ cls: CSS_CLS.TASKS_DRAWER });
+    this.drawerEl.style.display = this.isDrawerOpen ? CSS_DISPLAY.DEFAULT : CSS_DISPLAY.NONE;
     this.renderDrawer(this.drawerEl, f, onChange, root);
 
     // Initial badge and chips update
@@ -292,12 +329,43 @@ export class DashboardView {
     this.updateChipsBar();
   }
 
+  /**
+   * Renders the Date-view group-by dropdown (Group by: [Due ▾]). Threads the
+   * selection into `groupByDateField`; the control is only shown while the Date
+   * view is active (toggled by `syncGroupByVisibility`).
+   */
+  private renderGroupByControl(toolbar: HTMLElement, f: DashboardFilters, onChange: () => void): void {
+    const wrap = toolbar.createDiv({ cls: CSS_CLS.TASKS_GROUP_BY });
+    wrap.createSpan({ cls: CSS_CLS.TASKS_GROUP_BY_LABEL, text: TASKS_TOOLBAR_TEXT.GROUP_BY_LABEL });
+
+    const select = wrap.createEl(HTML_TAG.SELECT, { cls: CSS_CLS.TASKS_GROUP_BY_SELECT });
+    select.setAttribute(DOM_ATTR.ARIA_LABEL, TASKS_TOOLBAR_TEXT.GROUP_BY_ARIA);
+    for (const option of GROUP_BY_DATE_OPTIONS) {
+      select.createEl(HTML_TAG.OPTION, { value: option.value, text: option.label });
+    }
+    select.value = f.groupByDateField;
+    select.addEventListener(DOM_EVENT.CHANGE, () => {
+      f.groupByDateField = select.value as GroupByDateField;
+      onChange();
+    });
+
+    this.groupByControlEl = wrap;
+    this.syncGroupByVisibility();
+  }
+
+  /** Shows the group-by dropdown only while the Date view mode is active. */
+  private syncGroupByVisibility(): void {
+    if (!this.groupByControlEl) return;
+    this.groupByControlEl.style.display =
+      this.filters.viewMode === VIEW_MODE.DATE ? CSS_DISPLAY.DEFAULT : CSS_DISPLAY.NONE;
+  }
+
   // ─── Drawer rendering ─────────────────────────────────────────────────────
 
   private renderDrawer(drawerEl: HTMLElement, f: DashboardFilters, onChange: () => void, root: HTMLElement): void {
     // Sort Order section
-    const sortSection = drawerEl.createDiv({ cls: "pm-tasks-drawer__section" });
-    sortSection.createDiv({ cls: "pm-tasks-drawer__section-label", text: "↕ SORT ORDER" });
+    const sortSection = drawerEl.createDiv({ cls: CSS_CLS.TASKS_DRAWER_SECTION });
+    sortSection.createDiv({ cls: CSS_CLS.TASKS_DRAWER_SECTION_LABEL, text: TASK_DRAWER_TEXT.SORT_ORDER_LABEL });
     const sortContainer = sortSection.createDiv();
     const sortBuilder = new SortKeyBuilder(sortContainer, {
       keys: [...f.sortBy],
@@ -306,14 +374,14 @@ export class DashboardView {
     this.drawerComponents.push(sortBuilder);
     this.chipSelects = []; // reset — chipSelects are a subset of drawerComponents
 
-    drawerEl.createEl("hr", { cls: "pm-tasks-drawer__divider" });
+    drawerEl.createEl(HTML_TAG.HR, { cls: CSS_CLS.TASKS_DRAWER_DIVIDER });
 
     // Completed + Due Date (2-col grid)
-    const completedDueGrid = drawerEl.createDiv({ cls: "pm-tasks-drawer__grid" });
+    const completedDueGrid = drawerEl.createDiv({ cls: CSS_CLS.TASKS_DRAWER_GRID });
 
     // Completed (left)
-    const completedSection = completedDueGrid.createDiv({ cls: "pm-tasks-drawer__section" });
-    completedSection.createDiv({ cls: "pm-tasks-drawer__section-label", text: "✓ COMPLETED TASKS" });
+    const completedSection = completedDueGrid.createDiv({ cls: CSS_CLS.TASKS_DRAWER_SECTION });
+    completedSection.createDiv({ cls: CSS_CLS.TASKS_DRAWER_SECTION_LABEL, text: TASK_DRAWER_TEXT.COMPLETED_TASKS_LABEL });
     const completedToggle = completedSection.createDiv({ cls: "pm-tasks-toggle-row" });
     const track = completedToggle.createDiv({
       cls: f.showCompleted ? "pm-tasks-toggle-track pm-tasks-toggle-track--on" : "pm-tasks-toggle-track",
@@ -327,30 +395,54 @@ export class DashboardView {
     });
 
     // Due Date (right)
-    const dueDateSection = completedDueGrid.createDiv({ cls: "pm-tasks-drawer__section" });
-    dueDateSection.createDiv({ cls: "pm-tasks-drawer__section-label", text: "📅 DUE DATE" });
+    const dueDateSection = completedDueGrid.createDiv({ cls: CSS_CLS.TASKS_DRAWER_SECTION });
+    dueDateSection.createDiv({ cls: CSS_CLS.TASKS_DRAWER_SECTION_LABEL, text: TASK_DRAWER_TEXT.DUE_DATE_LABEL });
     this.renderDrawerDueDateSection(dueDateSection, f, onChange);
 
-    drawerEl.createEl("hr", { cls: "pm-tasks-drawer__divider" });
+    drawerEl.createEl(HTML_TAG.HR, { cls: CSS_CLS.TASKS_DRAWER_DIVIDER });
+
+    // Start Date + Scheduled Date (2-col grid)
+    const startSchedGrid = drawerEl.createDiv({ cls: CSS_CLS.TASKS_DRAWER_GRID });
+
+    const startDateSection = startSchedGrid.createDiv({ cls: CSS_CLS.TASKS_DRAWER_SECTION });
+    startDateSection.createDiv({ cls: CSS_CLS.TASKS_DRAWER_SECTION_LABEL, text: TASK_DRAWER_TEXT.START_DATE_LABEL });
+    this.renderRangeDateSection(startDateSection, {
+      getFilter: () => f.startDateFilter,
+      setFilter: (next) => { f.startDateFilter = next as StartDateFilter; },
+      noDatePreset: START_DATE_PRESET.NO_DATE,
+      fromAria: TASK_DRAWER_TEXT.START_RANGE_FROM_ARIA,
+      toAria: TASK_DRAWER_TEXT.START_RANGE_TO_ARIA,
+      onChange,
+    });
+
+    const scheduledDateSection = startSchedGrid.createDiv({ cls: CSS_CLS.TASKS_DRAWER_SECTION });
+    scheduledDateSection.createDiv({ cls: CSS_CLS.TASKS_DRAWER_SECTION_LABEL, text: TASK_DRAWER_TEXT.SCHEDULED_DATE_LABEL });
+    this.renderRangeDateSection(scheduledDateSection, {
+      getFilter: () => f.scheduledDateFilter,
+      setFilter: (next) => { f.scheduledDateFilter = next as ScheduledDateFilter; },
+      noDatePreset: SCHEDULED_DATE_PRESET.NO_DATE,
+      fromAria: TASK_DRAWER_TEXT.SCHEDULED_RANGE_FROM_ARIA,
+      toAria: TASK_DRAWER_TEXT.SCHEDULED_RANGE_TO_ARIA,
+      onChange,
+    });
+
+    drawerEl.createEl(HTML_TAG.HR, { cls: CSS_CLS.TASKS_DRAWER_DIVIDER });
 
     // Priority + Context (2-col grid)
-    const priCtxGrid = drawerEl.createDiv({ cls: "pm-tasks-drawer__grid" });
-    const prioritySection = priCtxGrid.createDiv({ cls: "pm-tasks-drawer__section" });
-    prioritySection.createDiv({ cls: "pm-tasks-drawer__section-label", text: "⚡ PRIORITY" });
-    this.renderPillGroup(prioritySection, [
-      { value: 1, label: "🔴 Urgent" },
-      { value: 2, label: "🟠 High" },
-      { value: 3, label: "🟡 Medium" },
-      { value: 4, label: "🔵 Low" },
-    ], f.priorityFilter, (val) => {
+    const priCtxGrid = drawerEl.createDiv({ cls: CSS_CLS.TASKS_DRAWER_GRID });
+    const prioritySection = priCtxGrid.createDiv({ cls: CSS_CLS.TASKS_DRAWER_SECTION });
+    prioritySection.createDiv({ cls: CSS_CLS.TASKS_DRAWER_SECTION_LABEL, text: TASK_DRAWER_TEXT.PRIORITY_LABEL });
+    this.renderPillGroup(prioritySection,
+      TASK_PRIORITIES.map((p) => ({ value: p, label: TASK_PRIORITY_PILL_LABEL[p] })),
+      f.priorityFilter, (val) => {
       const v = val as TaskPriority;
       if (f.priorityFilter.includes(v)) f.priorityFilter = f.priorityFilter.filter((p) => p !== v);
       else f.priorityFilter = [...f.priorityFilter, v];
       onChange();
     });
 
-    const contextSection = priCtxGrid.createDiv({ cls: "pm-tasks-drawer__section" });
-    contextSection.createDiv({ cls: "pm-tasks-drawer__section-label", text: "📁 CONTEXT TYPE" });
+    const contextSection = priCtxGrid.createDiv({ cls: CSS_CLS.TASKS_DRAWER_SECTION });
+    contextSection.createDiv({ cls: CSS_CLS.TASKS_DRAWER_SECTION_LABEL, text: TASK_DRAWER_TEXT.CONTEXT_TYPE_LABEL });
     this.renderPillGroup(contextSection, TASK_CONTEXTS.map((c) => ({ value: c, label: c })),
       f.contextFilter, (val) => {
         const v = val as TaskContext;
@@ -359,12 +451,12 @@ export class DashboardView {
         onChange();
       });
 
-    drawerEl.createEl("hr", { cls: "pm-tasks-drawer__divider" });
+    drawerEl.createEl(HTML_TAG.HR, { cls: CSS_CLS.TASKS_DRAWER_DIVIDER });
 
     // Client + Engagement (2-col grid)
-    const clientEngGrid = drawerEl.createDiv({ cls: "pm-tasks-drawer__grid" });
-    const clientSection = clientEngGrid.createDiv({ cls: "pm-tasks-drawer__section" });
-    clientSection.createDiv({ cls: "pm-tasks-drawer__section-label", text: "🏢 CLIENT" });
+    const clientEngGrid = drawerEl.createDiv({ cls: CSS_CLS.TASKS_DRAWER_GRID });
+    const clientSection = clientEngGrid.createDiv({ cls: CSS_CLS.TASKS_DRAWER_SECTION });
+    clientSection.createDiv({ cls: CSS_CLS.TASKS_DRAWER_SECTION_LABEL, text: TASK_DRAWER_TEXT.CLIENT_LABEL });
     const activeClients = this.services.queryService.getActiveEntitiesByTag(ENTITY_TAGS.client);
     const clientChipSelect = new FilterChipSelect(clientSection, this.services.app, {
       options: activeClients.map((p) => ({ value: p.file.name, displayText: p.file.name })),
@@ -378,8 +470,8 @@ export class DashboardView {
     this.chipSelects.push(clientChipSelect);
     this.drawerComponents.push(clientChipSelect);
 
-    const engSection = clientEngGrid.createDiv({ cls: "pm-tasks-drawer__section" });
-    engSection.createDiv({ cls: "pm-tasks-drawer__section-label", text: "📎 ENGAGEMENT" });
+    const engSection = clientEngGrid.createDiv({ cls: CSS_CLS.TASKS_DRAWER_SECTION });
+    engSection.createDiv({ cls: CSS_CLS.TASKS_DRAWER_SECTION_LABEL, text: TASK_DRAWER_TEXT.ENGAGEMENT_LABEL });
     const activeEngagements = this.services.queryService.getActiveEntitiesByTag(ENTITY_TAGS.engagement);
     const engChipSelect = new FilterChipSelect(engSection, this.services.app, {
       options: activeEngagements.map((p) => ({ value: p.file.name, displayText: p.file.name })),
@@ -393,15 +485,15 @@ export class DashboardView {
     this.chipSelects.push(engChipSelect);
     this.drawerComponents.push(engChipSelect);
 
-    drawerEl.createEl("hr", { cls: "pm-tasks-drawer__divider" });
+    drawerEl.createEl(HTML_TAG.HR, { cls: CSS_CLS.TASKS_DRAWER_DIVIDER });
 
     // Context-specific filters
-    const ctxSpecSection = drawerEl.createDiv({ cls: "pm-tasks-drawer__section" });
-    ctxSpecSection.createDiv({ cls: "pm-tasks-drawer__section-label", text: "⚙ CONTEXT-SPECIFIC FILTERS" });
-    const ctxSpecGrid = ctxSpecSection.createDiv({ cls: "pm-tasks-drawer__grid" });
+    const ctxSpecSection = drawerEl.createDiv({ cls: CSS_CLS.TASKS_DRAWER_SECTION });
+    ctxSpecSection.createDiv({ cls: CSS_CLS.TASKS_DRAWER_SECTION_LABEL, text: TASK_DRAWER_TEXT.CONTEXT_SPECIFIC_LABEL });
+    const ctxSpecGrid = ctxSpecSection.createDiv({ cls: CSS_CLS.TASKS_DRAWER_GRID });
 
-    const projStatusSection = ctxSpecGrid.createDiv({ cls: "pm-tasks-drawer__section" });
-    projStatusSection.createEl("span", { text: "Project Status:", cls: "pm-tasks-drawer__section-label" });
+    const projStatusSection = ctxSpecGrid.createDiv({ cls: CSS_CLS.TASKS_DRAWER_SECTION });
+    projStatusSection.createSpan({ text: TASK_DRAWER_TEXT.PROJECT_STATUS_LABEL, cls: CSS_CLS.TASKS_DRAWER_SECTION_LABEL });
     this.renderPillGroup(projStatusSection, (["New", "Active", "On Hold", "Complete"] as ProjectStatus[]).map((s) => ({ value: s, label: s })),
       f.projectStatusFilter, (val) => {
         const v = val as ProjectStatus;
@@ -410,75 +502,81 @@ export class DashboardView {
         onChange();
       });
 
-    const inboxStatusSection = ctxSpecGrid.createDiv({ cls: "pm-tasks-drawer__section" });
-    inboxStatusSection.createEl("span", { text: "Inbox Status:", cls: "pm-tasks-drawer__section-label" });
+    const inboxStatusSection = ctxSpecGrid.createDiv({ cls: CSS_CLS.TASKS_DRAWER_SECTION });
+    inboxStatusSection.createSpan({ text: TASK_DRAWER_TEXT.INBOX_STATUS_LABEL, cls: CSS_CLS.TASKS_DRAWER_SECTION_LABEL });
     this.renderPillGroup(inboxStatusSection, (["All", "Active", "Complete"] as InboxStatusFilter[]).map((s) => ({ value: s, label: s })),
       [f.inboxStatusFilter], (val) => {
         f.inboxStatusFilter = val as InboxStatusFilter;
         onChange();
       }, true /* single select */);
 
-    const meetingDateSection = ctxSpecGrid.createDiv({ cls: "pm-tasks-drawer__section" });
-    meetingDateSection.createEl("span", { text: "Meeting Date:", cls: "pm-tasks-drawer__section-label" });
+    const meetingDateSection = ctxSpecGrid.createDiv({ cls: CSS_CLS.TASKS_DRAWER_SECTION });
+    meetingDateSection.createSpan({ text: TASK_DRAWER_TEXT.MEETING_DATE_LABEL, cls: CSS_CLS.TASKS_DRAWER_SECTION_LABEL });
     this.renderPillGroup(meetingDateSection, (["All", "Today", "This Week", "Past"] as MeetingDateFilter[]).map((s) => ({ value: s, label: s })),
       [f.meetingDateFilter], (val) => {
         f.meetingDateFilter = val as MeetingDateFilter;
         onChange();
       }, true /* single select */);
 
-    drawerEl.createEl("hr", { cls: "pm-tasks-drawer__divider" });
+    drawerEl.createEl(HTML_TAG.HR, { cls: CSS_CLS.TASKS_DRAWER_DIVIDER });
 
     // Tags
-    const tagsSection = drawerEl.createDiv({ cls: "pm-tasks-drawer__section" });
-    tagsSection.createDiv({ cls: "pm-tasks-drawer__section-label", text: "🏷 TAGS" });
-    const dv = this.services.queryService.dv();
-    if (dv) {
-      const allTasks = this.getAllTasks(dv);
-      const allTags = [...new Set(allTasks.flatMap((t) => t.tags ?? []))].sort();
-      if (allTags.length > 0) {
-        const tagChipSelect = new FilterChipSelect(tagsSection, this.services.app, {
-          options: allTags.map((tag) => ({ value: tag, displayText: tag })),
-          selectedValues: [...f.tagFilter],
-          placeholder: "type…",
-          ariaLabel: "Filter by tag",
-          includeUnassigned: f.includeUntagged,
-          unassignedLabel: "Include untagged",
-          onChange: (values, incl) => { f.tagFilter = values; f.includeUntagged = incl; onChange(); },
-        });
-        this.chipSelects.push(tagChipSelect);
-        this.drawerComponents.push(tagChipSelect);
-      }
-    }
+    this.renderTagFilterSection(drawerEl, f, onChange);
 
     // Clear Filters button at bottom of drawer
-    const clearBtnRow = drawerEl.createDiv({ cls: "pm-tasks-drawer__section" });
+    const clearBtnRow = drawerEl.createDiv({ cls: CSS_CLS.TASKS_DRAWER_SECTION });
     clearBtnRow.createEl("button", { text: "✕ Clear All Filters", cls: "pm-tasks-toolbar__clear-btn" })
       .addEventListener("click", () => {
         this.onSaveFilters?.(null);
         this.destroyDrawerComponents();
         this.isDrawerOpen = false;
         // Re-render entire dashboard from scratch
-        const dashboard = root.closest(".pm-tasks-dashboard") ?? root;
+        const dashboard = root.closest(`.${CSS_CLS.TASKS_DASHBOARD}`) ?? root;
         dashboard.empty();
         this.initFilters();
         this.renderControls(dashboard as HTMLElement);
-        this.outputEl = (dashboard as HTMLElement).createDiv({ cls: "pm-tasks-dashboard__output" });
+        this.outputEl = (dashboard as HTMLElement).createDiv({ cls: CSS_CLS.TASKS_DASHBOARD_OUTPUT });
         void this.refreshDashboardOutput(this.outputEl);
       });
   }
 
+  /** Renders the drawer's tag filter: a labelled section with a chip-select over every task tag. */
+  private renderTagFilterSection(drawerEl: HTMLElement, f: DashboardFilters, onChange: () => void): void {
+    const tagsSection = drawerEl.createDiv({ cls: CSS_CLS.TASKS_DRAWER_SECTION });
+    tagsSection.createDiv({ cls: CSS_CLS.TASKS_DRAWER_SECTION_LABEL, text: TASK_DRAWER_TEXT.TAGS_LABEL });
+    const allTags = [...new Set(this.entityQuery.resolve().flatMap((t) => t.tags ?? []))].sort();
+    if (allTags.length === 0) return;
+    const tagChipSelect = new FilterChipSelect(tagsSection, this.services.app, {
+      options: allTags.map((tag) => ({ value: tag, displayText: tag })),
+      selectedValues: [...f.tagFilter],
+      placeholder: TASK_DRAWER_TEXT.TAG_FILTER_PLACEHOLDER,
+      ariaLabel: TASK_DRAWER_TEXT.TAG_FILTER_ARIA,
+      includeUnassigned: f.includeUntagged,
+      unassignedLabel: TASK_DRAWER_TEXT.INCLUDE_UNTAGGED_LABEL,
+      onChange: (values, incl) => { f.tagFilter = values; f.includeUntagged = incl; onChange(); },
+    });
+    this.chipSelects.push(tagChipSelect);
+    this.drawerComponents.push(tagChipSelect);
+  }
+
+  /** Composes the pill CSS class for a due-date preset given its active/warn state. */
+  private static pillClass(isActive: boolean, isWarn: boolean): string {
+    if (!isActive) return CSS_CLS.TASKS_PILL;
+    return `${CSS_CLS.TASKS_PILL} ${isWarn ? CSS_CLS.TASKS_PILL_WARN : CSS_CLS.TASKS_PILL_ACTIVE}`;
+  }
+
   private renderDrawerDueDateSection(container: HTMLElement, f: DashboardFilters, onChange: () => void): void {
     // Preset pills
-    const pillGroup = container.createDiv({ cls: "pm-tasks-pill-group" });
+    const pillGroup = container.createDiv({ cls: CSS_CLS.TASKS_PILL_GROUP });
     const presets: DueDatePreset[] = [...DUE_DATE_PRESETS];
     for (const preset of presets) {
+      const isOverdue = preset === DUE_DATE_PRESET.OVERDUE;
       const isActive = f.dueDateFilter.selectedPresets.includes(preset);
-      const isOverdue = preset === "Overdue";
-      const cls = isActive
-        ? (isOverdue ? "pm-tasks-pill pm-tasks-pill--warn" : "pm-tasks-pill pm-tasks-pill--active")
-        : "pm-tasks-pill";
-      const pill = pillGroup.createEl("button", { cls, text: preset });
-      pill.addEventListener("click", () => {
+      const pill = pillGroup.createEl(HTML_TAG.BUTTON, {
+        cls: DashboardView.pillClass(isActive, isOverdue),
+        text: preset,
+      });
+      pill.addEventListener(DOM_EVENT.CLICK, () => {
         const currentPresets = f.dueDateFilter.selectedPresets;
         if (currentPresets.includes(preset)) {
           f.dueDateFilter = { ...f.dueDateFilter, selectedPresets: currentPresets.filter((p) => p !== preset) };
@@ -488,25 +586,23 @@ export class DashboardView {
           fromInput.value = "";
           toInput.value = "";
         }
-        pill.className = f.dueDateFilter.selectedPresets.includes(preset)
-          ? (preset === "Overdue" ? "pm-tasks-pill pm-tasks-pill--warn" : "pm-tasks-pill pm-tasks-pill--active")
-          : "pm-tasks-pill";
+        pill.className = DashboardView.pillClass(f.dueDateFilter.selectedPresets.includes(preset), isOverdue);
         onChange();
       });
     }
 
     // Custom range
-    const rangeRow = container.createDiv({ cls: "pm-date-range" });
-    rangeRow.createSpan({ text: "From:" });
-    const fromInput = rangeRow.createEl("input", { type: "date", cls: "pm-date-range-input" });
+    const rangeRow = container.createDiv({ cls: CSS_CLS.TASKS_DATE_RANGE });
+    rangeRow.createSpan({ text: TASK_DRAWER_TEXT.RANGE_FROM_LABEL });
+    const fromInput = rangeRow.createEl(HTML_TAG.INPUT, { type: INPUT_TYPE.DATE, cls: CSS_CLS.TASKS_DATE_RANGE_INPUT });
     fromInput.value = f.dueDateFilter.rangeFrom ?? "";
-    fromInput.setAttribute("aria-label", "Filter from date");
-    rangeRow.createSpan({ text: "→" });
-    const toInput = rangeRow.createEl("input", { type: "date", cls: "pm-date-range-input" });
+    fromInput.setAttribute(DOM_ATTR.ARIA_LABEL, TASK_DRAWER_TEXT.DUE_RANGE_FROM_ARIA);
+    rangeRow.createSpan({ text: TASK_DRAWER_TEXT.RANGE_SEPARATOR });
+    const toInput = rangeRow.createEl(HTML_TAG.INPUT, { type: INPUT_TYPE.DATE, cls: CSS_CLS.TASKS_DATE_RANGE_INPUT });
     toInput.value = f.dueDateFilter.rangeTo ?? "";
-    toInput.setAttribute("aria-label", "Filter to date");
+    toInput.setAttribute(DOM_ATTR.ARIA_LABEL, TASK_DRAWER_TEXT.DUE_RANGE_TO_ARIA);
 
-    fromInput.addEventListener("change", () => {
+    fromInput.addEventListener(DOM_EVENT.CHANGE, () => {
       f.dueDateFilter = {
         selectedPresets: [],
         rangeFrom: fromInput.value || null,
@@ -514,12 +610,77 @@ export class DashboardView {
       };
       onChange();
     });
-    toInput.addEventListener("change", () => {
+    toInput.addEventListener(DOM_EVENT.CHANGE, () => {
       f.dueDateFilter = {
         selectedPresets: [],
         rangeFrom: f.dueDateFilter.rangeFrom,
         rangeTo: toInput.value || null,
       };
+      onChange();
+    });
+  }
+
+  /**
+   * Renders a start/scheduled-style date filter section: a single no-date preset
+   * pill plus an inclusive From/To custom range. The no-date pill and the range
+   * are mutually exclusive — entering a range clears the pill and vice-versa.
+   */
+  private renderRangeDateSection(
+    container: HTMLElement,
+    opts: {
+      getFilter: () => RangeDateFilterView;
+      setFilter: (next: RangeDateFilterView) => void;
+      noDatePreset: string;
+      fromAria: string;
+      toAria: string;
+      onChange: () => void;
+    }
+  ): void {
+    const { getFilter, setFilter, noDatePreset, fromAria, toAria, onChange } = opts;
+    const initial = getFilter();
+
+    const isNoDateActive = (): boolean => getFilter().selectedPresets.includes(noDatePreset);
+    const syncPill = (): void => {
+      pill.className = DashboardView.pillClass(isNoDateActive(), false);
+    };
+
+    const pillGroup = container.createDiv({ cls: CSS_CLS.TASKS_PILL_GROUP });
+    const pill = pillGroup.createEl(HTML_TAG.BUTTON, {
+      cls: DashboardView.pillClass(initial.selectedPresets.includes(noDatePreset), false),
+      text: noDatePreset,
+    });
+    pill.addEventListener(DOM_EVENT.CLICK, () => {
+      if (isNoDateActive()) {
+        setFilter({ selectedPresets: [], rangeFrom: null, rangeTo: null });
+      } else {
+        // Enabling the no-date preset clears any custom range.
+        setFilter({ selectedPresets: [noDatePreset], rangeFrom: null, rangeTo: null });
+        fromInput.value = "";
+        toInput.value = "";
+      }
+      syncPill();
+      onChange();
+    });
+
+    const rangeRow = container.createDiv({ cls: CSS_CLS.TASKS_DATE_RANGE });
+    rangeRow.createSpan({ text: TASK_DRAWER_TEXT.RANGE_FROM_LABEL });
+    const fromInput = rangeRow.createEl(HTML_TAG.INPUT, { type: INPUT_TYPE.DATE, cls: CSS_CLS.TASKS_DATE_RANGE_INPUT });
+    fromInput.value = initial.rangeFrom ?? "";
+    fromInput.setAttribute(DOM_ATTR.ARIA_LABEL, fromAria);
+    rangeRow.createSpan({ text: TASK_DRAWER_TEXT.RANGE_SEPARATOR });
+    const toInput = rangeRow.createEl(HTML_TAG.INPUT, { type: INPUT_TYPE.DATE, cls: CSS_CLS.TASKS_DATE_RANGE_INPUT });
+    toInput.value = initial.rangeTo ?? "";
+    toInput.setAttribute(DOM_ATTR.ARIA_LABEL, toAria);
+
+    // Entering either range bound clears the no-date preset (mutually exclusive).
+    fromInput.addEventListener(DOM_EVENT.CHANGE, () => {
+      setFilter({ selectedPresets: [], rangeFrom: fromInput.value || null, rangeTo: getFilter().rangeTo });
+      syncPill();
+      onChange();
+    });
+    toInput.addEventListener(DOM_EVENT.CHANGE, () => {
+      setFilter({ selectedPresets: [], rangeFrom: getFilter().rangeFrom, rangeTo: toInput.value || null });
+      syncPill();
       onChange();
     });
   }
@@ -562,14 +723,14 @@ export class DashboardView {
       return;
     }
     this.chipsBarEl.style.display = "";
-    const label = this.chipsBarEl.createEl("span");
+    const label = this.chipsBarEl.createSpan();
     label.style.cssText = "font-size:var(--font-smaller);color:var(--text-muted);text-transform:uppercase;letter-spacing:0.06em;";
-    label.textContent = "Filters:";
+    label.textContent = TASK_DRAWER_TEXT.CHIPS_LABEL;
     for (const { label: chipLabel, onRemove } of chips) {
-      const chip = this.chipsBarEl.createSpan({ cls: "pm-tasks-filter-chip" });
+      const chip = this.chipsBarEl.createSpan({ cls: CSS_CLS.TASKS_FILTER_CHIP });
       chip.createSpan({ text: chipLabel });
-      const removeBtn = chip.createSpan({ cls: "pm-tasks-filter-chip__remove", text: "×" });
-      removeBtn.addEventListener("click", () => { onRemove(); });
+      const removeBtn = chip.createSpan({ cls: CSS_CLS.TASKS_FILTER_CHIP_REMOVE, text: TASK_DRAWER_TEXT.CHIP_REMOVE });
+      removeBtn.addEventListener(DOM_EVENT.CLICK, () => { onRemove(); });
     }
   }
 
@@ -584,51 +745,73 @@ export class DashboardView {
     };
 
     for (const preset of f.dueDateFilter.selectedPresets) {
-      chips.push({ label: `📅 ${preset}`, onRemove: () => {
+      chips.push({ label: TASK_DRAWER_TEXT.dueDateChip(preset), onRemove: () => {
         f.dueDateFilter = { ...f.dueDateFilter, selectedPresets: f.dueDateFilter.selectedPresets.filter((p) => p !== preset) };
         rerender();
       }});
     }
     if (f.dueDateFilter.rangeFrom || f.dueDateFilter.rangeTo) {
-      const rangeLabel = `📅 ${f.dueDateFilter.rangeFrom ?? "…"} → ${f.dueDateFilter.rangeTo ?? "…"}`;
-      chips.push({ label: rangeLabel, onRemove: () => {
+      chips.push({ label: TASK_DRAWER_TEXT.dueDateChip(TASK_DRAWER_TEXT.rangeLabel(f.dueDateFilter.rangeFrom, f.dueDateFilter.rangeTo)), onRemove: () => {
         f.dueDateFilter = { ...f.dueDateFilter, rangeFrom: null, rangeTo: null };
         rerender();
       }});
     }
+    for (const preset of f.startDateFilter.selectedPresets) {
+      chips.push({ label: TASK_DRAWER_TEXT.startDateChip(preset), onRemove: () => {
+        f.startDateFilter = { ...f.startDateFilter, selectedPresets: f.startDateFilter.selectedPresets.filter((p) => p !== preset) };
+        rerender();
+      }});
+    }
+    if (f.startDateFilter.rangeFrom || f.startDateFilter.rangeTo) {
+      chips.push({ label: TASK_DRAWER_TEXT.startDateChip(TASK_DRAWER_TEXT.rangeLabel(f.startDateFilter.rangeFrom, f.startDateFilter.rangeTo)), onRemove: () => {
+        f.startDateFilter = { ...f.startDateFilter, rangeFrom: null, rangeTo: null };
+        rerender();
+      }});
+    }
+    for (const preset of f.scheduledDateFilter.selectedPresets) {
+      chips.push({ label: TASK_DRAWER_TEXT.scheduledDateChip(preset), onRemove: () => {
+        f.scheduledDateFilter = { ...f.scheduledDateFilter, selectedPresets: f.scheduledDateFilter.selectedPresets.filter((p) => p !== preset) };
+        rerender();
+      }});
+    }
+    if (f.scheduledDateFilter.rangeFrom || f.scheduledDateFilter.rangeTo) {
+      chips.push({ label: TASK_DRAWER_TEXT.scheduledDateChip(TASK_DRAWER_TEXT.rangeLabel(f.scheduledDateFilter.rangeFrom, f.scheduledDateFilter.rangeTo)), onRemove: () => {
+        f.scheduledDateFilter = { ...f.scheduledDateFilter, rangeFrom: null, rangeTo: null };
+        rerender();
+      }});
+    }
     for (const p of f.priorityFilter) {
-      const labels: Record<number, string> = { 1: "🔴 Urgent", 2: "🟠 High", 3: "🟡 Medium", 4: "🔵 Low" };
-      chips.push({ label: `⚡ ${labels[p] ?? String(p)}`, onRemove: () => {
+      chips.push({ label: TASK_DRAWER_TEXT.priorityChip(TASK_PRIORITY_PILL_LABEL[p] ?? String(p)), onRemove: () => {
         f.priorityFilter = f.priorityFilter.filter((v) => v !== p);
         rerender();
       }});
     }
     for (const ctx of f.contextFilter) {
-      chips.push({ label: `📁 ${ctx}`, onRemove: () => {
+      chips.push({ label: TASK_DRAWER_TEXT.contextChip(ctx), onRemove: () => {
         f.contextFilter = f.contextFilter.filter((c) => c !== ctx);
         rerender();
       }});
     }
     for (const client of f.clientFilter) {
-      chips.push({ label: `🏢 ${client}`, onRemove: () => {
+      chips.push({ label: TASK_DRAWER_TEXT.clientChip(client), onRemove: () => {
         f.clientFilter = f.clientFilter.filter((c) => c !== client);
         rerender();
       }});
     }
     for (const eng of f.engagementFilter) {
-      chips.push({ label: `📎 ${eng}`, onRemove: () => {
+      chips.push({ label: TASK_DRAWER_TEXT.engagementChip(eng), onRemove: () => {
         f.engagementFilter = f.engagementFilter.filter((e) => e !== eng);
         rerender();
       }});
     }
     for (const tag of f.tagFilter) {
-      chips.push({ label: `🏷 ${tag}`, onRemove: () => {
+      chips.push({ label: TASK_DRAWER_TEXT.tagChip(tag), onRemove: () => {
         f.tagFilter = f.tagFilter.filter((t) => t !== tag);
         rerender();
       }});
     }
     if (f.showCompleted) {
-      chips.push({ label: "✓ Completed", onRemove: () => { f.showCompleted = false; rerender(); }});
+      chips.push({ label: TASK_DRAWER_TEXT.COMPLETED_CHIP, onRemove: () => { f.showCompleted = false; rerender(); }});
     }
     return chips;
   }
@@ -648,14 +831,16 @@ export class DashboardView {
     let count = 0;
     if (f.sortBy.length > 0) count++;
     if (f.showCompleted) count++;
-    if (f.dueDateFilter.selectedPresets.length > 0 || f.dueDateFilter.rangeFrom !== null || f.dueDateFilter.rangeTo !== null) count++;
+    if (isDueDateFilterActive(f.dueDateFilter)) count++;
+    if (isStartDateFilterActive(f.startDateFilter)) count++;
+    if (isScheduledDateFilterActive(f.scheduledDateFilter)) count++;
     if (f.priorityFilter.length > 0) count++;
     if (f.contextFilter.length > 0) count++;
     if (f.clientFilter.length > 0 || f.includeUnassignedClients) count++;
     if (f.engagementFilter.length > 0 || f.includeUnassignedEngagements) count++;
     if (f.projectStatusFilter.length > 0) count++;
-    if (f.inboxStatusFilter !== "All") count++;
-    if (f.meetingDateFilter !== "All") count++;
+    if (f.inboxStatusFilter !== INBOX_STATUS_FILTER.ALL) count++;
+    if (f.meetingDateFilter !== MEETING_DATE_FILTER.ALL) count++;
     if (f.tagFilter.length > 0 || f.includeUntagged) count++;
     return count;
   }
@@ -671,52 +856,99 @@ export class DashboardView {
   // ─── Output rendering ─────────────────────────────────────────────────────
 
   private async refreshDashboardOutput(outputEl: HTMLElement): Promise<void> {
-    outputEl.empty();
-
     const dv = this.services.queryService.dv();
     if (!dv) {
-      outputEl.createEl("em", { text: MSG.DATAVIEW_UNAVAILABLE });
+      outputEl.empty();
+      outputEl.createEl(HTML_TAG.EM, { text: MSG.DATAVIEW_UNAVAILABLE });
       return;
     }
 
     try {
-      const f = this.filters;
-      let allTasks = this.getAllTasks(dv);
-
-      allTasks = this.filterService.applyDashboardFilters(
-        allTasks,
-        f,
-        dv,
-        this.services.hierarchyService
-      );
-
-      if (allTasks.length === 0) {
-        outputEl.createEl("em", { text: "No tasks match the current filters." });
-        return;
-      }
-
-      // Pre-compute maps for new sort fields
-      const folders = this.services.settings.folders;
-      const contextMap = new Map(allTasks.map((t) => [t.path, getTaskContext(t, folders)]));
-      const mtimeMap = new Map(allTasks.map((t) => [t.path, dv.page(t.path)?.file.mtime.valueOf() ?? 0]));
-
-      const viewRenderers: Record<string, () => Promise<void>> = {
-        [VIEW_MODE.CONTEXT]: () => this.contextRenderer.render(outputEl, allTasks, f, dv, contextMap, mtimeMap),
-        [VIEW_MODE.DATE]: () => this.dateRenderer.render(outputEl, allTasks, f, contextMap, mtimeMap),
-        [VIEW_MODE.PRIORITY]: () => this.priorityRenderer.render(outputEl, allTasks, f, contextMap, mtimeMap),
-        [VIEW_MODE.TAG]: () => this.tagRenderer.render(outputEl, allTasks, f, contextMap, mtimeMap),
-      };
-      const viewRenderer = viewRenderers[f.viewMode];
-      if (viewRenderer) {
-        await viewRenderer();
-      } else {
-        renderError(outputEl, `Unknown view mode: ${String(f.viewMode)}`);
-      }
+      await this.buildShell(outputEl, dv).render(outputEl);
     } catch (err) {
       this.services.loggerService.error(String(err), LOG_CONTEXT.TASKS_DASHBOARD, err);
       outputEl.empty();
-      renderError(outputEl, `pm-tasks error: ${String(err)}`);
+      renderError(outputEl, TASK_DASHBOARD_MSG.ERROR(String(err)));
     }
+  }
+
+  /**
+   * Assembles the generic {@link DashboardShell} from this view's existing
+   * collaborators: the task query, the four view renderers, the task
+   * spec/state builders that drive the `FilterEngine`, and the precomputed
+   * render helpers. The shell owns only the data-flow; all filter UI,
+   * persistence, and teardown stay on this view.
+   */
+  private buildShell(
+    outputEl: HTMLElement,
+    dv: DataviewApi
+  ): DashboardShell<DataviewTask, TaskRenderHelpers> {
+    const deps: DashboardShellDeps<DataviewTask, TaskRenderHelpers> = {
+      query: this.entityQuery,
+      views: {
+        [VIEW_MODE.CONTEXT]: this.contextRenderer,
+        [VIEW_MODE.DATE]: this.dateRenderer,
+        [VIEW_MODE.PRIORITY]: this.priorityRenderer,
+        [VIEW_MODE.TAG]: this.tagRenderer,
+      },
+      getViewMode: () => this.filters.viewMode,
+      getFilters: () => this.filters,
+      buildSpec: () =>
+        buildTaskFilterSpec({
+          folders: this.services.settings.folders,
+          dv,
+          hierarchyService: this.services.hierarchyService,
+        }),
+      buildState: () => buildTaskFilterState(this.filters),
+      buildHelpers: (items) => this.buildTaskRenderHelpers(items, dv),
+      onFilterChange: (patch) => {
+        Object.assign(this.filters, patch);
+        this.persistFilters();
+        void this.refreshDashboardOutput(outputEl);
+      },
+      emptyMessage: TASK_DASHBOARD_MSG.NO_TASKS_MATCH,
+      onUnknownMode: (el, mode) => renderError(el, TASK_DASHBOARD_MSG.UNKNOWN_VIEW_MODE(mode)),
+    };
+    return new DashboardShell(deps);
+  }
+
+  /**
+   * Pre-resolves every Dataview read the read-pure view renderers need into a
+   * `TaskRenderHelpers`: the parent-path map (context-appropriate parent per
+   * task, with an entry for every task — the path is built from front-matter
+   * without an existence check, preserving the lazy semantic) and the
+   * display-name map (with the raw path substituted for a missing page).
+   */
+  private buildTaskRenderHelpers(allTasks: DataviewTask[], dv: DataviewApi): TaskRenderHelpers {
+    const folders = this.services.settings.folders;
+    // Pre-compute maps for the sort fields the read-pure renderers consume.
+    const contextMap = new Map(allTasks.map((t) => [t.path, getTaskContext(t, folders)]));
+    const mtimeMap = new Map(allTasks.map((t) => [t.path, dv.page(t.path)?.file.mtime.valueOf() ?? 0]));
+    const parentPathMap = new Map<string, string | null>();
+    for (const t of allTasks) {
+      const taskContext = contextMap.get(t.path);
+      let parentPath: string | null = null;
+      if (taskContext === CONTEXT.PROJECT) {
+        parentPath = getParentProjectPath(t.link.path, dv, folders.projects);
+      } else if (taskContext === CONTEXT.RECURRING_MEETING) {
+        parentPath = getParentRecurringMeetingPath(t.link.path, dv, folders.meetingsRecurring);
+      }
+      parentPathMap.set(t.link.path, parentPath);
+    }
+    const namePaths = new Set<string>();
+    for (const t of allTasks) namePaths.add(t.link.path);
+    for (const p of parentPathMap.values()) if (p) namePaths.add(p);
+    const nameMap = new Map<string, string>();
+    for (const p of namePaths) nameMap.set(p, dv.page(p)?.file.name ?? p);
+
+    return {
+      sortService: this.sortService,
+      taskRenderer: this.renderer,
+      contextMap,
+      mtimeMap,
+      parentPathMap,
+      nameMap,
+    };
   }
 
   private persistFilters(): void {
@@ -725,9 +957,12 @@ export class DashboardView {
     const toSave: SavedDashboardFilters = {
       viewMode: f.viewMode,
       sortBy: f.sortBy,
+      groupByDateField: f.groupByDateField,
       showCompleted: f.showCompleted,
       contextFilter: f.contextFilter,
       dueDateFilter: f.dueDateFilter,
+      startDateFilter: f.startDateFilter,
+      scheduledDateFilter: f.scheduledDateFilter,
       priorityFilter: f.priorityFilter,
       projectStatusFilter: f.projectStatusFilter,
       inboxStatusFilter: f.inboxStatusFilter,
@@ -743,21 +978,23 @@ export class DashboardView {
   }
 
   private debouncedRefresh(controlsEl: HTMLElement): void {
-    if (this.debounceTimer) clearTimeout(this.debounceTimer);
-    this.debounceTimer = setTimeout(() => {
-      const dashboard = controlsEl.closest(".pm-tasks-dashboard");
-      if (!dashboard) return;
-      const outputEl = dashboard.querySelector(".pm-tasks-dashboard__output");
-      if (outputEl instanceof HTMLElement) void this.refreshDashboardOutput(outputEl);
-    }, DEBOUNCE_MS.SEARCH);
+    this.searchControlsEl = controlsEl;
+    this.search.trigger();
   }
 
-  // ─── Task querying ────────────────────────────────────────────────────────
+  private runDebouncedRefresh(): void {
+    const controlsEl = this.searchControlsEl;
+    if (!controlsEl) return;
+    const dashboard = controlsEl.closest(`.${CSS_CLS.TASKS_DASHBOARD}`);
+    if (!dashboard) return;
+    const outputEl = dashboard.querySelector(`.${CSS_CLS.TASKS_DASHBOARD_OUTPUT}`);
+    if (outputEl instanceof HTMLElement) void this.refreshDashboardOutput(outputEl);
+  }
 
-  private getAllTasks(dv: DataviewApi): DataviewTask[] {
-    const utilityPrefix = this.services.settings.folders.utility + "/";
-    const pages = [...dv.pages().where((p) => !p.file.path.startsWith(utilityPrefix))];
-    return pages.flatMap((p) => [...p.file.tasks]);
+  /** Cancels any pending debounced refresh and releases drawer/filter components. */
+  destroy(): void {
+    this.search.cancel();
+    this.destroyDrawerComponents();
   }
 
 }

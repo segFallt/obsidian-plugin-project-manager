@@ -2,7 +2,8 @@ import { Notice } from "obsidian";
 import { COMMAND_IDS } from "../command-ids";
 import type { CommandServices, AddCommandFn } from "../plugin-context";
 import { InputModal } from "../ui/modals/input-modal";
-import { MSG } from "../constants";
+import { MSG, COMMAND_NAMES, CMD_MODAL, LOG_CONTEXT, CMD_ERROR_LABEL } from "../constants";
+import { withCommandErrorNotice } from "./command-error-notice";
 
 /**
  * PM: Create Project Note
@@ -12,7 +13,7 @@ import { MSG } from "../constants";
 export function registerCreateProjectNoteCommand(services: CommandServices, addCommand: AddCommandFn): void {
   addCommand({
     id: COMMAND_IDS.CREATE_PROJECT_NOTE,
-    name: "PM: Create Project Note",
+    name: COMMAND_NAMES.CREATE_PROJECT_NOTE,
     callback: async () => {
       const activeFile = services.app.workspace.getActiveFile();
 
@@ -32,7 +33,7 @@ export function registerCreateProjectNoteCommand(services: CommandServices, addC
         return;
       }
 
-      const modal = new InputModal(services.app, "New project note name:", "Note name");
+      const modal = new InputModal(services.app, CMD_MODAL.CREATE_PROJECT_NOTE.title, CMD_MODAL.CREATE_PROJECT_NOTE.placeholder);
       const noteName = await modal.prompt();
 
       if (!noteName) {
@@ -40,13 +41,13 @@ export function registerCreateProjectNoteCommand(services: CommandServices, addC
         return;
       }
 
-      services.loggerService.debug(`create-project-note invoked: "${noteName}", dir: "${notesDir}"`, 'create-project-note');
-      try {
-        await services.entityService.createProjectNote(activeFile, noteName);
-      } catch (err) {
-        services.loggerService.error(String(err), "create-project-note", err);
-        new Notice(`Error creating project note: ${String(err)}`);
-      }
+      services.loggerService.debug(`${LOG_CONTEXT.CREATE_PROJECT_NOTE} invoked: "${noteName}", dir: "${notesDir}"`, LOG_CONTEXT.CREATE_PROJECT_NOTE);
+      await withCommandErrorNotice(
+        services.loggerService,
+        LOG_CONTEXT.CREATE_PROJECT_NOTE,
+        (err) => `${CMD_ERROR_LABEL.CREATE_PROJECT_NOTE}: ${String(err)}`,
+        () => services.entityService.createProjectNote(activeFile, noteName)
+      );
     },
   });
 }

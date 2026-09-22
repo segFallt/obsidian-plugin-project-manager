@@ -10,7 +10,7 @@ classDiagram
         <<superset>>
         +app App
         +settings ProjectManagerSettings
-        +queryService IQueryService
+        +queryService IEntityQueryService
         +entityService IEntityService
         +taskParser ITaskParser
         +scaffoldService IScaffoldService
@@ -26,8 +26,9 @@ classDiagram
     class CommandServices {
         +app App
         +settings ProjectManagerSettings
-        +queryService IQueryService
+        +queryService IEntityQueryService
         +entityService IEntityService
+        +hierarchyService IEntityHierarchyService
         +loggerService ILoggerService
         +actionContext IActionContextManager
     }
@@ -35,7 +36,7 @@ classDiagram
     class TaskProcessorServices {
         +app App
         +settings ProjectManagerSettings
-        +queryService IQueryService
+        +queryService IEntityQueryService
         +hierarchyService IEntityHierarchyService
         +taskParser ITaskParser
         +loggerService ILoggerService
@@ -46,7 +47,7 @@ classDiagram
     class PropertyProcessorServices {
         +app App
         +settings ProjectManagerSettings
-        +queryService IQueryService
+        +queryService IEntityQueryService
         +loggerService ILoggerService
     }
 
@@ -65,7 +66,7 @@ classDiagram
 
     class RaidProcessorServices {
         +app App
-        +queryService IQueryService
+        +queryService IEntityQueryService
         +hierarchyService IEntityHierarchyService
         +loggerService ILoggerService
     }
@@ -73,7 +74,7 @@ classDiagram
     class ReferenceProcessorServices {
         +app App
         +settings ProjectManagerSettings
-        +queryService IQueryService
+        +queryService IEntityQueryService
         +hierarchyService IEntityHierarchyService
         +loggerService ILoggerService
     }
@@ -127,6 +128,10 @@ classDiagram
         <<processor>>
     }
 
+    class EntityViewProcessorServices {
+        <<interface>>
+    }
+
     PluginServices ..> CommandServices : narrows to
     PluginServices ..> TaskProcessorServices : narrows to
     PluginServices ..> PropertyProcessorServices : narrows to
@@ -134,6 +139,7 @@ classDiagram
     PluginServices ..> ScaffoldCommandServices : narrows to
     PluginServices ..> RaidProcessorServices : narrows to
     PluginServices ..> ReferenceProcessorServices : narrows to
+    PropertyProcessorServices ..> EntityViewProcessorServices : composed into
 
     CreateProjectCommand ..> CommandServices : consumes
     CreateClientCommand ..> CommandServices : consumes
@@ -155,5 +161,5 @@ classDiagram
 
     PmReferencesProcessor ..> ReferenceProcessorServices : consumes
 
-    PmEntityViewProcessor ..> PluginServices : consumes
+    PmEntityViewProcessor ..> EntityViewProcessorServices : consumes
 ```

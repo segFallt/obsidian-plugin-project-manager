@@ -1,24 +1,18 @@
-import type { DataviewTask, DashboardFilters } from "../../types";
-import type { ITaskSortService } from "../../services/interfaces";
-import type { TaskListRenderer } from "../task-list-renderer";
+import type { DataviewTask } from "../../types";
+import { HTML_TAG, TAG_VIEW_LABEL, VIEW_MODE } from "../../constants";
+import type { IViewRenderer, ViewRenderContext } from "../view-renderer";
 
 /**
  * Renders tasks grouped by tag. Tags are sorted alphabetically.
  * Untagged tasks appear last under "📌 Untagged".
  */
-export class TagViewRenderer {
-  constructor(
-    private readonly sortService: ITaskSortService,
-    private readonly renderer: TaskListRenderer
-  ) {}
+export class TagViewRenderer implements IViewRenderer<DataviewTask> {
+  readonly mode = VIEW_MODE.TAG;
 
-  async render(
-    container: HTMLElement,
-    tasks: DataviewTask[],
-    f: DashboardFilters,
-    contextMap?: Map<string, string>,
-    mtimeMap?: Map<string, number>
-  ): Promise<void> {
+  async render(ctx: ViewRenderContext<DataviewTask>): Promise<void> {
+    const { container, items: tasks, filters: f, helpers } = ctx;
+    const { sortService, taskRenderer, contextMap, mtimeMap } = helpers;
+
     const tagMap: Record<string, DataviewTask[]> = {};
     const untagged: DataviewTask[] = [];
 
@@ -35,13 +29,13 @@ export class TagViewRenderer {
     }
 
     for (const tag of Object.keys(tagMap).sort()) {
-      container.createEl("h2", { text: tag });
-      await this.renderer.renderTaskList(container, this.sortService.sortTasks(tagMap[tag], f.sortBy, contextMap, mtimeMap));
+      container.createEl(HTML_TAG.H2, { text: tag });
+      await taskRenderer.renderTaskList(container, sortService.sortTasks(tagMap[tag], f.sortBy, contextMap, mtimeMap));
     }
 
     if (untagged.length > 0) {
-      container.createEl("h2", { text: "📌 Untagged" });
-      await this.renderer.renderTaskList(container, this.sortService.sortTasks(untagged, f.sortBy, contextMap, mtimeMap));
+      container.createEl(HTML_TAG.H2, { text: TAG_VIEW_LABEL.UNTAGGED });
+      await taskRenderer.renderTaskList(container, sortService.sortTasks(untagged, f.sortBy, contextMap, mtimeMap));
     }
   }
 }

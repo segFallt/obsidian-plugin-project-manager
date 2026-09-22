@@ -12,7 +12,8 @@ function createSvc(existingFiles: Parameters<typeof createMockApp>[0] = []) {
   const obsidianApp = app as unknown as import("obsidian").App;
   const templates = new TemplateService();
   const navigation = new NavigationService(obsidianApp);
-  const creation = new EntityCreationService(obsidianApp, DEFAULT_SETTINGS, templates, navigation);
+  const notification = { notify: vi.fn() };
+  const creation = new EntityCreationService(obsidianApp, DEFAULT_SETTINGS, templates, navigation, notification);
   const svc = new EntityConversionService(obsidianApp, DEFAULT_SETTINGS, creation);
   return { svc, app };
 }

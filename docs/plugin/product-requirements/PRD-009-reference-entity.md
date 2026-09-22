@@ -125,7 +125,7 @@ The Reference Dashboard is hosted in a dedicated Obsidian `ItemView` panel, regi
 
 **View type constant:** `PM_REFERENCE_DASHBOARD_VIEW_TYPE = "pm-reference-dashboard"` (exported from `src/constants.ts`)
 
-**Activation command:** `PM: Open Reference Dashboard` (command ID: `project-manager:open-reference-dashboard`). Registered during `onLayoutReady`. If the view is already open in any leaf, the command reveals it instead of creating a duplicate. Otherwise it opens in the right sidebar (`workspace.getRightLeaf(false)`).
+**Activation command:** `PM: Open Reference Dashboard` (command ID: `engagement-project-manager:open-reference-dashboard`). Registered during `onLayoutReady`. If the view is already open in any leaf, the command reveals it instead of creating a duplicate. Otherwise it opens in the right sidebar (`workspace.getRightLeaf(false)`).
 
 **Ribbon icon:** Displayed when `settings.ui.showRibbonIcons` is `true`. Uses the `book-open` icon. Clicking the icon calls the same activation helper as the command.
 
@@ -554,11 +554,11 @@ All three component instances must have `destroy()` called in `onClose()` to rel
 - [ ] Cross-dimension filter logic is AND; same-dimension is OR
 - [ ] Search field filters reference cards by title (case-insensitive substring)
 - [ ] `"also in <Primary Topic>"` hint appears on cards in non-primary topic groups
-- [ ] Filter state persisted to `pm-references-filters` frontmatter; restored on page reload
+- [ ] Filter state persisted to plugin settings (`settings.ui.referenceDashboardFilters`, via `SettingsViewStore`); restored on next load
 - [ ] When Dataview is unavailable, a `.pm-error` element is shown (not a thrown error)
 - [ ] By Topic view renders a topic-tree sidebar using the hierarchy from `getReferenceTopicTree()`; nested topics are indented under their parent (issue #70)
 - [ ] Clicking a tree node sets `selectedNode` and filters the reference list to that topic and all its descendants via `getTopicDescendants()`; clicking the active node again clears the selection (issue #70)
-- [ ] `selectedNode` is persisted to `pm-references-filters` frontmatter and restored on page reload (issue #70)
+- [ ] `selectedNode` is persisted to plugin settings (`settings.ui.referenceDashboardFilters`, via `SettingsViewStore`) and restored on next load (issue #70)
 
 ### Settings & Scaffold
 
