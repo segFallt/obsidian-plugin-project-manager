@@ -38,6 +38,8 @@ export interface ObsidianWorkspace {
   getActiveFile: () => ObsidianFile | null;
   /** All open leaves currently hosting a view of the given registered type. */
   getLeavesOfType: (viewType: string) => ObsidianWorkspaceLeaf[];
+  /** Debounced request to persist the current layout to the vault's workspace.json. */
+  requestSaveLayout: () => void;
 }
 
 export interface ObsidianMetadataCache {

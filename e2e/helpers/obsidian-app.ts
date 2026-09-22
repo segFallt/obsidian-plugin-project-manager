@@ -1,7 +1,10 @@
 import { spawn, ChildProcess } from 'child_process';
+import { existsSync, statSync } from 'fs';
+import { resolve } from 'path';
 import { chromium, Browser, Page } from '@playwright/test';
-import { OBSIDIAN_CONFIG_DIR } from './vault-manager';
+import { OBSIDIAN_CONFIG_DIR, writeObsidianConfig } from './vault-manager';
 import { LIVE_PAGE_REACQUIRE_ATTEMPTS, REACQUIRE_BACKOFF_MS } from './constants';
+import { ObsidianWindow } from './types';
 
 /**
  * Anything able to hand back the current live renderer page. `ObsidianApp`
@@ -223,6 +226,75 @@ export async function launchObsidian(): Promise<ObsidianApp> {
       return candidate;
     },
   };
+}
+
+/** Timeout for the workspace layout to be persisted to disk before quitting (ms). */
+const WORKSPACE_LAYOUT_SAVE_TIMEOUT_MS = 10_000;
+
+/** Poll interval while waiting for workspace.json to be rewritten (ms). */
+const WORKSPACE_LAYOUT_POLL_MS = 200;
+
+/**
+ * Relative path of the persisted workspace layout inside a vault. Obsidian
+ * rewrites this file when {@link ObsidianWorkspace.requestSaveLayout} flushes.
+ */
+const WORKSPACE_LAYOUT_RELATIVE_PATH = '.obsidian/workspace.json';
+
+/**
+ * Persist the workspace layout to the vault's workspace.json, then wait until the
+ * file is actually rewritten so the leaves open now are restored on the next
+ * launch. `requestSaveLayout` is debounced, so this triggers it and then polls the
+ * file's mtime rather than assuming an immediate synchronous write.
+ */
+async function persistWorkspaceLayout(
+  app: ObsidianApp,
+  vaultPath: string,
+): Promise<void> {
+  const workspaceFile = resolve(vaultPath, WORKSPACE_LAYOUT_RELATIVE_PATH);
+  const baselineMtimeMs = existsSync(workspaceFile)
+    ? statSync(workspaceFile).mtimeMs
+    : 0;
+
+  await waitOnLivePage(app, (page) =>
+    page.evaluate(() => {
+      (window as unknown as ObsidianWindow).app?.workspace?.requestSaveLayout();
+    }),
+  );
+
+  const deadline = Date.now() + WORKSPACE_LAYOUT_SAVE_TIMEOUT_MS;
+  while (Date.now() < deadline) {
+    if (existsSync(workspaceFile) && statSync(workspaceFile).mtimeMs > baselineMtimeMs) {
+      return;
+    }
+    await delay(WORKSPACE_LAYOUT_POLL_MS);
+  }
+  throw new Error(
+    `relaunchObsidian: workspace layout was not written to ${workspaceFile} within ` +
+      `${WORKSPACE_LAYOUT_SAVE_TIMEOUT_MS / 1_000}s, so a relaunch would not restore the open leaves.`,
+  );
+}
+
+/**
+ * Persist the layout, close Obsidian, and relaunch it against the same vault and
+ * config dir, returning a fresh {@link ObsidianApp}.
+ *
+ * The XDG config dir ({@link OBSIDIAN_CONFIG_DIR}) and the vault at `vaultPath`
+ * are reused — {@link writeObsidianConfig} re-points Obsidian at the same vault,
+ * and no new vault is minted — so the persisted workspace (including any open
+ * leaves) is restored on the new launch. The layout is saved before quitting via
+ * {@link persistWorkspaceLayout}. Re-acquire the live page from the returned app
+ * through {@link ObsidianApp.getVaultPage}; the previous app's page is invalid
+ * once its renderer is gone.
+ */
+export async function relaunchObsidian(
+  app: ObsidianApp,
+  vaultPath: string,
+): Promise<ObsidianApp> {
+  await persistWorkspaceLayout(app, vaultPath);
+  await closeObsidian(app);
+  // Re-point Obsidian at the same vault (createTempVault would mint a new one).
+  writeObsidianConfig(vaultPath);
+  return launchObsidian();
 }
 
 /**
