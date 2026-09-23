@@ -32,9 +32,10 @@ jobs:
 
       - name: Extract release notes from CHANGELOG.md
         if: steps.tag.outputs.proceed == 'true'
+        env:
+          TAG: ${{ steps.tag.outputs.tag }}
         run: |
-          awk '/^## \[/{found++} found==1{print} found==2{exit}' CHANGELOG.md > /tmp/release-notes.md
-          [ -s /tmp/release-notes.md ] || { echo "ERROR: No release notes extracted from CHANGELOG.md — check CHANGELOG format"; exit 1; }
+          sh .ci/extract-release-notes.sh "${TAG#v}" > /tmp/release-notes.md
 
       - name: Setup Node.js
         if: steps.tag.outputs.proceed == 'true'

@@ -159,20 +159,33 @@ Runs on every `v*` tag:
 
 1. **`validate-version`** — Confirms the tag name matches `manifest.json`
 2. **`build`** — Runs `npm run build`, produces `main.js`, `manifest.json`, `styles.css` as artifacts
-3. **`publish`** — Uploads artifacts to the GitLab Generic Package Registry, extracts release notes from `CHANGELOG.md`, creates a GitLab Release with asset links
+3. **`publish`** — Uploads artifacts to the GitLab Generic Package Registry, extracts release notes from `CHANGELOG.md` via the shared `sh .ci/extract-release-notes.sh "$VERSION"` script (see below), creates a GitLab Release with asset links
 
 ### GitHub Release (`auto-tag.yml`)
 
 Runs on every push to `main` when `manifest.json` changes. Entirely self-contained — does not depend on GitLab pushing tags to GitHub.
 
 1. **Create tag** — Reads version from `manifest.json`, creates `v<version>` tag on GitHub. Idempotent — skips cleanly if the tag already exists.
-2. **Extract release notes** — Reads the matching `## [<version>]` section from `CHANGELOG.md`.
+2. **Extract release notes** — Reads the matching `## [<version>]` section from `CHANGELOG.md` via the shared `sh .ci/extract-release-notes.sh "${TAG#v}"` script (see below).
 3. **Quality gate** — `npm ci` → `npm run lint` → `npm run test:coverage` → `npm run build`
 4. **Create GitHub Release** — Uploads `main.js`, `manifest.json`, `styles.css` (if present); notes sourced from `CHANGELOG.md`.
 
 **Key release flags:**
 - `--prerelease` when version tag contains `-`
 - `--latest` for stable releases
+
+### Shared release-notes extraction (`.ci/extract-release-notes.sh`)
+
+Both the GitLab `publish` job and the GitHub `auto-tag.yml` workflow build their release notes through the same script, so a release produces byte-identical notes on both hosts:
+
+```bash
+sh .ci/extract-release-notes.sh <version> [changelog]
+```
+
+- Prints the body of the `## [<version>]` section only — the `## [<version>]` header line is omitted (both release UIs render the version as the release title).
+- Matches **by version**, so a leading `## [Unreleased]` section (or any other ordering) never affects the output.
+- When the version has no section, or the section is empty, prints `Release v<version>` and exits 0 — it never emits another section's notes.
+- POSIX `sh` + `awk` only (no `jq`/`node`/`sed`); invoked via `sh .ci/…` so it needs no executable bit. GitLab passes `${CI_COMMIT_TAG#v}`; GitHub passes the tag with its leading `v` stripped.
 
 ---
 
