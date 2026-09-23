@@ -2,18 +2,18 @@
 # bump-version.sh — Bump plugin version, update CHANGELOG, commit.
 #
 # Usage — Phase 1 (prepare):
-#   .ci/bump-version.sh patch          # 1.0.0 → 1.0.1
-#   .ci/bump-version.sh minor          # 1.0.0 → 1.1.0
-#   .ci/bump-version.sh major          # 1.0.0 → 2.0.0
-#   .ci/bump-version.sh 2.5.0          # explicit stable version
-#   .ci/bump-version.sh 0.2.0-beta.1   # explicit pre-release version
+#   sh .ci/bump-version.sh patch          # 1.0.0 → 1.0.1
+#   sh .ci/bump-version.sh minor          # 1.0.0 → 1.1.0
+#   sh .ci/bump-version.sh major          # 1.0.0 → 2.0.0
+#   sh .ci/bump-version.sh 2.5.0          # explicit stable version
+#   sh .ci/bump-version.sh 0.2.0-beta.1   # explicit pre-release version
 #
 #   Bumps package.json (and syncs manifest.json / versions.json via
 #   version-bump.mjs), then prepends a CHANGELOG template section.
 #   Prints instructions and exits. Does NOT commit or tag.
 #
 # Usage — Phase 2 (commit):
-#   .ci/bump-version.sh --commit <x.y.z[-pre.N]>
+#   sh .ci/bump-version.sh --commit <x.y.z[-pre.N]>
 #
 #   Verifies package.json is already at <x.y.z>, checks that the CHANGELOG
 #   entry for [<x.y.z>] has no unfilled placeholder lines (bare "-"), then
@@ -68,7 +68,7 @@ if [ "$BUMP_ARG" = "--commit" ]; then
 
   if [ "$CURRENT" != "$COMMIT_VERSION" ]; then
     echo "ERROR: package.json version is '$CURRENT', expected '$COMMIT_VERSION'."
-    echo "       Run '.ci/bump-version.sh $COMMIT_VERSION' first (Phase 1)."
+    echo "       Run 'sh .ci/bump-version.sh $COMMIT_VERSION' first (Phase 1)."
     exit 1
   fi
 
@@ -197,5 +197,5 @@ echo "Prepended template section to $CHANGELOG"
 echo ""
 echo "  → Edit $CHANGELOG to fill in the release notes, then run:"
 echo ""
-echo "  .ci/bump-version.sh --commit $NEW_VERSION"
+echo "  sh .ci/bump-version.sh --commit $NEW_VERSION"
 echo ""

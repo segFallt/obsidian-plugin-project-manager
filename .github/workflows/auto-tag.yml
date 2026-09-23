@@ -19,7 +19,7 @@ jobs:
       - name: Check version tag
         id: tag
         run: |
-          VERSION=$(jq -r '.version' manifest.json)
+          VERSION=$(sh .ci/read-version.sh)
           TAG="v${VERSION}"
           if git ls-remote --tags origin "$TAG" | grep -q "$TAG"; then
             echo "Tag $TAG already exists — skipping auto-tag"
@@ -63,9 +63,10 @@ jobs:
       - name: Detect release type
         if: steps.tag.outputs.proceed == 'true'
         id: release_type
+        env:
+          TAG: ${{ steps.tag.outputs.tag }}
         run: |
-          TAG="${{ steps.tag.outputs.tag }}"
-          if [[ "$TAG" == *-* ]]; then
+          if [ "$(sh .ci/is-prerelease.sh "$TAG")" = "true" ]; then
             echo "flags=--prerelease" >> "$GITHUB_OUTPUT"
           else
             echo "flags=--latest" >> "$GITHUB_OUTPUT"
