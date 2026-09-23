@@ -66,9 +66,7 @@ e2e-validate:
   stage: validate
   script:
     - npm ci
-    - npx tsc --noEmit --project e2e/tsconfig.json
-    - node scripts/validate-e2e-fixtures.js
-    - npx playwright test --list --config e2e/playwright.config.ts
+    - npm run validate:e2e
   rules:
     - if: $CI_PIPELINE_SOURCE == 'merge_request_event' && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == 'main'
       changes:
