@@ -66,3 +66,32 @@ and engagement chains yield nothing, `resolveClientName` resolves the parent
 project's own direct/engagement client. This is single-level and bounded — it
 does not follow another `relatedProject` hop on the parent — so a malformed
 parent chain cannot recurse without end.
+
+## Reuse by contextual search
+
+The `pm-search` scope facets (`src/services/search-filter.ts`) do **not**
+re-implement any of this traversal. The client and engagement scope predicates
+call `resolveClientName` / `resolveEngagementName` on each candidate page and keep
+it when the resolved name matches a selected scope name (OR within a facet), and
+`SearchService` reuses the same two methods to build each result's Client ›
+Engagement breadcrumb. The person scope facet is the one addition search brings:
+`PersonAssociationResolver.peopleOf(page)` is a separate, focused resolver
+(Person note self, RAID `owner`, meeting `attendees` / `default-attendees`, and
+the `reports-to` chain), because person links are not part of the upward
+client/engagement chain — there is no downward multi-hop traversal and no
+team-members field.
+
+```mermaid
+flowchart LR
+    Candidate["entity candidate page"] --> ClientFacet["client scope facet"]
+    Candidate --> EngFacet["engagement scope facet"]
+    Candidate --> PersonFacet["person scope facet"]
+    ClientFacet --> RCN["EntityHierarchyService.resolveClientName(page)"]
+    EngFacet --> REN["EntityHierarchyService.resolveEngagementName(page)"]
+    PersonFacet --> PAR["PersonAssociationResolver.peopleOf(page)"]
+    RCN --> Keep{"matches a<br/>selected name?"}
+    REN --> Keep
+    PAR --> Keep
+    Keep -->|"Yes (OR within facet, AND across facets)"| InScope["kept in results"]
+    Keep -->|"No"| Dropped["filtered out"]
+```

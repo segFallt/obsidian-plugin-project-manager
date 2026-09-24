@@ -106,12 +106,26 @@ Settings are persisted in Obsidian's plugin data store (`data.json`) via `loadDa
 ProjectManagerSettings {
   folders: FolderSettings       // 13 folder paths (includes references, referenceTopics)
   defaults: DefaultValueSettings // clientStatus, engagementStatus, projectStatus, defaultTaskViewStatuses
-  ui: UiPreferenceSettings       // showRibbonIcons, defaultTaskViewMode, showCompletedByDefault
+  ui: UiPreferenceSettings       // showRibbonIcons, defaultTaskViewMode, showCompletedByDefault,
+                                 // referenceDashboardFilters, savedSearchFilters
   logging: LoggingSettings       // enabled, logDirectory, minLevel, maxRetentionDays
 }
 ```
 
 `FolderSettings` includes `references: string` and `referenceTopics: string` in addition to the 11 existing keys. Settings are deep-merged at load time so that vaults with older saved settings (missing these keys) receive the defaults rather than reverting all folders to defaults.
+
+`UiPreferenceSettings` also carries two persisted view-filter objects: `referenceDashboardFilters` (the Reference Dashboard's saved filters — see PRD-009 §3.8) and `savedSearchFilters` (the `pm-search` panel's saved type and scope filters). Both are written through the shared `SettingsViewStore`. Only their **shape** is a settings-schema concern; the behavioural specification for `savedSearchFilters` lives in PRD-010 §3.8:
+
+```typescript
+ui.savedSearchFilters {
+  clients?: string[]       // resolved client names in scope
+  engagements?: string[]   // resolved engagement names in scope
+  people?: string[]        // person names in scope
+  types?: EntityType[]     // enabled entity-type toggles; empty/absent = every type
+}
+```
+
+Because the settings deep-merge is only two levels deep (top level and the `ui` object), the nested `savedSearchFilters` object is replaced wholesale on upgrade rather than key-merged; each sub-key is read defensively and defaulted at read time.
 
 ### 4.2 Test Data Generation Order
 
@@ -213,38 +227,39 @@ Rules: patch for bug fixes, minor for new backward-compatible features, major fo
 
 ### 9.2 Version Files
 
-Three files must always agree on the current version. `npm version` (via `version-bump.mjs`) keeps them in sync automatically:
+Three files must always agree on the current version. `.ci/bump-version.sh` (which drives `version-bump.mjs`) keeps them in sync automatically:
 
 | File | Role |
 |------|------|
-| `package.json` | Source of truth for `npm version` |
+| `package.json` | Source of truth for the version bump |
 | `manifest.json` | Read by Obsidian; always updated (stable + pre-release) |
 | `versions.json` | Maps stable versions → `minAppVersion`; **only updated for stable releases** |
 
 ### 9.3 Version Bump Command
 
+The canonical flow is the two-phase, changelog-aware `.ci/bump-version.sh`; CI creates the tag automatically once the release MR merges to `main` — there is no manual tag push:
+
 ```bash
-npm version <new-version>
-git push && git push --tags
+sh .ci/bump-version.sh <major|minor|patch|x.y.z>   # Phase 1: bump versions + changelog template
+# edit CHANGELOG.md to fill in the release notes
+sh .ci/bump-version.sh --commit <x.y.z>            # Phase 2: validate changelog + release commit
 ```
 
-`version-bump.mjs` writes the new version to `manifest.json`, adds a `versions.json` entry only for stable (no `-` suffix), and stages both files.
+`bump-version.sh` drives `version-bump.mjs`, which writes the new version to `manifest.json` and adds a `versions.json` entry only for stable releases (no `-` suffix). See `docs/devops/versioning-and-releases.md` for the full runbook.
 
-### 9.4 Release Pipeline (GitHub)
+### 9.4 Release Pipeline (GitLab + GitHub)
 
-**PR Validation (`pr-validation.yml`)** — runs on every PR to `main`:
-- Lint → Test with coverage → Build
+Both hosts run equivalent pipelines — `.gitlab-ci.yml` on GitLab and the workflows under `.github/workflows/` on GitHub. Host-agnostic behaviours are defined once in shared `.ci/` scripts plus one npm entrypoint that both pipelines invoke, so each behaviour runs identically on both hosts; host-native concerns (release creation and the tag-creation mechanism) stay per-host.
 
-**Release (`release.yml`)** — runs on every push to `main`:
-1. Quality gate (lint + test:coverage).
-2. Extract version from `manifest.json`.
-3. Detect release type (`is_prerelease` = version contains `-`).
-4. Three-state release check: skip if tag + release already exist; create release only if tag exists but no release; full flow otherwise.
-5. Build (`npm run build`).
-6. Create annotated git tag.
-7. Create GitHub Release, uploading `main.js`, `manifest.json`, `styles.css`.
+**Quality gate (MR/PR to `main`)** — `mr-validate` (`.gitlab-ci.yml`) and `validate` (`pr-validation.yml`): lint → test with coverage → build.
 
-Key flags: `prerelease: true` for pre-release versions; `make_latest: true` only for stable releases.
+**e2e static checks** — both pipelines' `e2e-validate` jobs run the shared `npm run validate:e2e` entrypoint (e2e TypeScript check → fixture validation → Playwright enumeration).
+
+**Auto-tag** — the GitLab `auto-tag` job and the GitHub `auto-tag.yml` workflow, both path-filtered to `manifest.json` changes (not every push), read the version via the shared `.ci/read-version.sh` and create the `v<version>` tag (idempotent — skip if it already exists).
+
+**Release** — GitLab's tag pipeline (`validate-version` → `build` → `publish`) and GitHub's `auto-tag.yml` build the release notes via the shared `.ci/extract-release-notes.sh` and classify pre-releases via the shared `.ci/is-prerelease.sh`, then create the release: GitLab uploads to the Generic Package Registry and calls the Releases API; GitHub runs `gh release create` with `--prerelease` for pre-release versions and `--latest` for stable.
+
+Shared building blocks: `.ci/extract-release-notes.sh`, `.ci/read-version.sh`, `.ci/is-prerelease.sh`, and the `validate:e2e` npm script. Step-by-step detail lives in `docs/devops/versioning-and-releases.md`.
 
 ---
 
@@ -272,8 +287,8 @@ Key flags: `prerelease: true` for pre-release versions; `make_latest: true` only
 - [ ] Dataview absence shows a Notice at startup but does not prevent the plugin from loading.
 - [ ] Query-based processors show "Dataview is not available" when Dataview is absent.
 - [ ] Tasks plugin absent → Notice shown at startup; plugin loads normally; `pm-tasks` date/priority filters return no results.
-- [ ] `npm version <new-version>` updates `manifest.json` and `versions.json` (stable only) atomically.
-- [ ] Release workflow creates a GitHub Release with the correct `prerelease` and `make_latest` flags.
+- [ ] `.ci/bump-version.sh` updates `manifest.json` and `versions.json` (stable only) consistently, and CI auto-tags on merge to `main`.
+- [ ] The GitLab and GitHub release pipelines create a release with the correct pre-release/latest flags, using the shared `.ci/` scripts.
 
 ---
 
@@ -282,4 +297,3 @@ Key flags: `prerelease: true` for pre-release versions; `make_latest: true` only
 - Per-vault or per-note settings overrides.
 - Settings import/export.
 - Automated Obsidian version floor bumps (the `minAppVersion` in `manifest.json` is set manually).
-- GitLab CI pipeline (referenced in PROJECT.md as forthcoming; not yet implemented).

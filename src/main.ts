@@ -1,6 +1,6 @@
 import { Notice, Plugin } from "obsidian";
 import { ProjectManagerSettings, DEFAULT_SETTINGS, ProjectManagerSettingTab, mergeSettings } from "./settings";
-import { ReferenceDashboardItemView } from "./views";
+import { ReferenceDashboardItemView, PmSearchItemView } from "./views";
 import { QueryService } from "./services/query-service";
 import { EntityHierarchyService } from "./services/entity-hierarchy-service";
 import { EntityService } from "./services/entity-service";
@@ -46,6 +46,8 @@ import {
   MAIN_MSG,
   REFERENCE_DASHBOARD_ICON,
   REFERENCE_DASHBOARD_RIBBON_TITLE,
+  PM_SEARCH_ICON,
+  PM_SEARCH_RIBBON_TITLE,
   WORKSPACE_LEAF_TYPE,
 } from "./constants";
 
@@ -94,6 +96,10 @@ export default class ProjectManagerPlugin extends Plugin {
       ReferenceDashboardItemView.VIEW_TYPE,
       (leaf) => new ReferenceDashboardItemView(leaf, this)
     );
+    this.registerView(
+      PmSearchItemView.VIEW_TYPE,
+      (leaf) => new PmSearchItemView(leaf, this)
+    );
 
     // Deferred to layout-ready: dependency warnings need other community plugins
     // to have finished loading; commands, ribbon, processors, and entity queries
@@ -106,9 +112,17 @@ export default class ProjectManagerPlugin extends Plugin {
         name: COMMAND_NAMES.OPEN_REFERENCE_DASHBOARD,
         callback: () => { void activateReferenceDashboard(this); },
       });
+      this.addCommand({
+        id: COMMAND_IDS.OPEN_SEARCH,
+        name: COMMAND_NAMES.OPEN_SEARCH,
+        callback: () => { void activateSearch(this); },
+      });
       if (this.settings.ui.showRibbonIcons) {
         this.addRibbonIcon(REFERENCE_DASHBOARD_ICON, REFERENCE_DASHBOARD_RIBBON_TITLE, () => {
           void activateReferenceDashboard(this);
+        });
+        this.addRibbonIcon(PM_SEARCH_ICON, PM_SEARCH_RIBBON_TITLE, () => {
+          void activateSearch(this);
         });
       }
       registerAllProcessors(this);
@@ -120,6 +134,7 @@ export default class ProjectManagerPlugin extends Plugin {
 
   onunload() {
     this.app.workspace.detachLeavesOfType(ReferenceDashboardItemView.VIEW_TYPE);
+    this.app.workspace.detachLeavesOfType(PmSearchItemView.VIEW_TYPE);
     this.loggerService.info(MAIN_MSG.PLUGIN_UNLOADING, LOG_CONTEXT.MAIN);
     void this.loggerService.flush();
     this.loggerServiceImpl.destroy();
@@ -216,5 +231,23 @@ async function activateReferenceDashboard(plugin: ProjectManagerPlugin): Promise
   const leaf = plugin.app.workspace.getLeaf(WORKSPACE_LEAF_TYPE.TAB);
   if (!leaf) return;
   await leaf.setViewState({ type: ReferenceDashboardItemView.VIEW_TYPE, active: true });
+  void plugin.app.workspace.revealLeaf(leaf);
+}
+
+// ─── Helper: activate pm-search panel ─────────────────────────────────────────
+
+/**
+ * Opens the pm-search panel in the main editor pane as a new tab. If the view
+ * is already open in any leaf, reveals it instead of creating a duplicate.
+ */
+async function activateSearch(plugin: ProjectManagerPlugin): Promise<void> {
+  const existing = plugin.app.workspace.getLeavesOfType(PmSearchItemView.VIEW_TYPE);
+  if (existing.length > 0) {
+    void plugin.app.workspace.revealLeaf(existing[0]);
+    return;
+  }
+  const leaf = plugin.app.workspace.getLeaf(WORKSPACE_LEAF_TYPE.TAB);
+  if (!leaf) return;
+  await leaf.setViewState({ type: PmSearchItemView.VIEW_TYPE, active: true });
   void plugin.app.workspace.revealLeaf(leaf);
 }

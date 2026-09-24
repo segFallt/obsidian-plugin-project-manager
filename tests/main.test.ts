@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { App } from "obsidian";
 import ProjectManagerPlugin from "@/main";
 import { DATAVIEW_PLUGIN_ID, TASKS_PLUGIN_ID } from "@/constants";
-import { ReferenceDashboardItemView } from "@/views";
+import { ReferenceDashboardItemView, PmSearchItemView } from "@/views";
 
 // ─── Mock Notice ──────────────────────────────────────────────────────────────
 // vi.hoisted ensures the factory function runs before module-level imports,
@@ -260,5 +260,110 @@ describe("ProjectManagerPlugin — view/service registration timing", () => {
     const messages = MockNotice.mock.calls.map((c) => String(c[0]));
     expect(messages.some((m) => m.includes("Dataview"))).toBe(true);
     expect(messages.some((m) => m.includes("Tasks"))).toBe(true);
+  });
+});
+
+// ─── pm-search wiring ──────────────────────────────────────────────────────────
+
+/**
+ * Loads the plugin, captures the open-search command callback, and returns it
+ * alongside the plugin. Mirrors loadPluginAndGetDashboardCommand for pm-search.
+ */
+async function loadPluginAndGetSearchCommand(app: App) {
+  const plugin = new ProjectManagerPlugin(app, {} as never);
+
+  let openSearchCallback: (() => void) | undefined;
+  const originalAddCommand = plugin.addCommand.bind(plugin);
+  plugin.addCommand = (command: CommandDef) => {
+    if (command.id === "open-search") {
+      openSearchCallback = command.callback;
+    }
+    return originalAddCommand(command);
+  };
+
+  await plugin.onload();
+
+  return { plugin, openSearchCallback };
+}
+
+describe("activateSearch", () => {
+  let plugin: ProjectManagerPlugin;
+
+  afterEach(() => {
+    plugin?.onunload();
+  });
+
+  it("calls getLeaf('tab'), setViewState, and revealLeaf when no existing view is open", async () => {
+    const { app, mockLeaf, getLeafSpy, getLeavesOfTypeSpy, revealLeafSpy } =
+      buildAppWithWorkspaceSpy();
+
+    getLeavesOfTypeSpy.mockReturnValue([]);
+
+    const { plugin: p, openSearchCallback } = await loadPluginAndGetSearchCommand(app);
+    plugin = p;
+
+    expect(openSearchCallback).toBeDefined();
+    openSearchCallback!();
+
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(getLeafSpy).toHaveBeenCalledWith("tab");
+    expect(mockLeaf.setViewState).toHaveBeenCalledWith({
+      type: PmSearchItemView.VIEW_TYPE,
+      active: true,
+    });
+    expect(revealLeafSpy).toHaveBeenCalledWith(mockLeaf);
+  });
+
+  it("reveals the existing leaf and does not call getLeaf when the view is already open", async () => {
+    const { app, getLeafSpy, getLeavesOfTypeSpy, revealLeafSpy } = buildAppWithWorkspaceSpy();
+
+    const existingLeaf = { setViewState: vi.fn() };
+    getLeavesOfTypeSpy.mockReturnValue([existingLeaf]);
+
+    const { plugin: p, openSearchCallback } = await loadPluginAndGetSearchCommand(app);
+    plugin = p;
+
+    expect(openSearchCallback).toBeDefined();
+    openSearchCallback!();
+
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(getLeafSpy).not.toHaveBeenCalled();
+    expect(revealLeafSpy).toHaveBeenCalledWith(existingLeaf);
+  });
+});
+
+describe("ProjectManagerPlugin — pm-search view registration", () => {
+  let plugin: ProjectManagerPlugin;
+
+  afterEach(() => {
+    plugin?.onunload();
+  });
+
+  it("registers the pm-search view type during onload", async () => {
+    const app = buildApp([DATAVIEW_PLUGIN_ID, TASKS_PLUGIN_ID]);
+    plugin = new ProjectManagerPlugin(app, {} as never);
+    const registerViewSpy = vi.spyOn(plugin, "registerView");
+
+    await plugin.onload();
+
+    expect(registerViewSpy).toHaveBeenCalledWith(
+      PmSearchItemView.VIEW_TYPE,
+      expect.any(Function)
+    );
+  });
+
+  it("detaches pm-search leaves on unload", async () => {
+    const app = buildApp([DATAVIEW_PLUGIN_ID, TASKS_PLUGIN_ID]);
+    const detachSpy = vi.fn();
+    app.workspace.detachLeavesOfType =
+      detachSpy as unknown as typeof app.workspace.detachLeavesOfType;
+
+    plugin = new ProjectManagerPlugin(app, {} as never);
+    await plugin.onload();
+    plugin.onunload();
+
+    expect(detachSpy).toHaveBeenCalledWith(PmSearchItemView.VIEW_TYPE);
   });
 });

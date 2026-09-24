@@ -2,7 +2,7 @@
  * Shared constants for the Project Manager plugin.
  * Mirrors the vault's constants.js for consistency.
  */
-import type { DueDatePreset, DueDateFilter, StartDateFilter, ScheduledDateFilter, EntityType } from "./types";
+import type { DueDatePreset, DueDateFilter, StartDateFilter, ScheduledDateFilter, EntityType, EntityFamily } from "./types";
 
 export const CLIENT_STATUSES = ["Active", "Inactive"] as const;
 export const ENGAGEMENT_STATUSES = ["Active", "Inactive"] as const;
@@ -111,6 +111,32 @@ export const REF_FACET_KEY = {
   ENGAGEMENTS: "engagements",
   SEARCH_TEXT: "searchText",
 } as const;
+
+/**
+ * Filter facet keys for the entity search scope. Each keys a `FilterEngine` facet
+ * that narrows fuzzy-ranked candidates by a hierarchy or person constraint —
+ * `CLIENT`/`ENGAGEMENT` resolve up the entity hierarchy, `PERSON` matches the
+ * people associated with a candidate.
+ */
+export const SEARCH_FACET_KEY = {
+  CLIENT: "client",
+  ENGAGEMENT: "engagement",
+  PERSON: "person",
+} as const;
+
+/** The `SearchScope` / `SavedSearchFilters` leg each scope facet populates. */
+export const SCOPE_LEG = {
+  CLIENTS: "clients",
+  ENGAGEMENTS: "engagements",
+  PEOPLE: "people",
+} as const;
+
+/** Scope facet keys in the order their controls and chips render. */
+export const SEARCH_FACET_ORDER = [
+  SEARCH_FACET_KEY.CLIENT,
+  SEARCH_FACET_KEY.ENGAGEMENT,
+  SEARCH_FACET_KEY.PERSON,
+] as const;
 
 /** The facet keys gated to the "context" view mode. */
 export const CONTEXT_FACET_KEYS = [
@@ -386,6 +412,7 @@ export const LOG_CONTEXT = {
   TAG_RAID_REFERENCE: "tag-raid-reference",
   REFERENCE_DASHBOARD_VIEW: "pm-reference-dashboard-view",
   REFERENCES_PROCESSOR: "pm-references-processor",
+  PM_SEARCH_VIEW: "pm-search-view",
   RECURRING_EVENTS: "pm-recurring-events",
   CREATE_CLIENT: "create-client",
   CREATE_ENGAGEMENT: "create-engagement",
@@ -464,6 +491,137 @@ export const ENTITY_TYPE = {
   REFERENCE: "reference",
   REFERENCE_TOPIC: "reference-topic",
 } as const satisfies Record<string, EntityType>;
+
+/**
+ * Every {@link EntityType} in registration order — the full set the search panel
+ * ranks across when no type filter is applied. Derived from {@link ENTITY_TYPE}
+ * so it stays exhaustive as new kinds are added.
+ */
+export const ALL_ENTITY_TYPES: EntityType[] = Object.values(ENTITY_TYPE);
+
+/**
+ * Enumeration strategies an {@link EntityType} descriptor is read through: a
+ * tagged type is listed by its Dataview tag, an untagged type by its folder.
+ * A const object plus derived type keeps the two literals out of call sites.
+ */
+export const ENUM_STRATEGY = {
+  TAG: "tag",
+  FOLDER: "folder",
+} as const;
+
+/**
+ * Display labels for each {@link EntityType} — the user-facing name shown in
+ * search results, type filters, and chips. Sourced here so the presentation
+ * registry composes named constants rather than inlining literals.
+ */
+export const ENTITY_LABEL = {
+  [ENTITY_TYPE.CLIENT]: "Client",
+  [ENTITY_TYPE.ENGAGEMENT]: "Engagement",
+  [ENTITY_TYPE.PROJECT]: "Project",
+  [ENTITY_TYPE.PERSON]: "Person",
+  [ENTITY_TYPE.INBOX]: "Inbox Note",
+  [ENTITY_TYPE.SINGLE_MEETING]: "Single Meeting",
+  [ENTITY_TYPE.RECURRING_MEETING]: "Recurring Meeting",
+  [ENTITY_TYPE.RECURRING_MEETING_EVENT]: "Recurring Meeting Event",
+  [ENTITY_TYPE.PROJECT_NOTE]: "Project Note",
+  [ENTITY_TYPE.RAID_ITEM]: "RAID Item",
+  [ENTITY_TYPE.REFERENCE]: "Reference",
+  [ENTITY_TYPE.REFERENCE_TOPIC]: "Reference Topic",
+} as const satisfies Record<EntityType, string>;
+
+/**
+ * Presentation families the {@link EntityType}s group under in the type filter.
+ * Each key is a family identifier; {@link ENTITY_FAMILY_LABEL} carries its
+ * heading and {@link ENTITY_FAMILY_GROUPS} maps its member types.
+ */
+export const ENTITY_FAMILY = {
+  ACCOUNTS: "accounts",
+  PEOPLE: "people",
+  MEETINGS: "meetings",
+  CAPTURE: "capture",
+  KNOWLEDGE: "knowledge",
+  RISK: "risk",
+} as const;
+
+/** Heading label shown above each family's row of type toggles. */
+export const ENTITY_FAMILY_LABEL = {
+  [ENTITY_FAMILY.ACCOUNTS]: "Accounts",
+  [ENTITY_FAMILY.PEOPLE]: "People",
+  [ENTITY_FAMILY.MEETINGS]: "Meetings",
+  [ENTITY_FAMILY.CAPTURE]: "Capture",
+  [ENTITY_FAMILY.KNOWLEDGE]: "Knowledge",
+  [ENTITY_FAMILY.RISK]: "Risk",
+} as const satisfies Record<EntityFamily, string>;
+
+/**
+ * Obsidian/Lucide icon ids for each {@link EntityType}, rendered in the search
+ * panel's icon gutter and type toggles.
+ */
+export const ENTITY_ICON = {
+  [ENTITY_TYPE.CLIENT]: "building-2",
+  [ENTITY_TYPE.ENGAGEMENT]: "briefcase",
+  [ENTITY_TYPE.PROJECT]: "folder-kanban",
+  [ENTITY_TYPE.PERSON]: "user",
+  [ENTITY_TYPE.INBOX]: "inbox",
+  [ENTITY_TYPE.SINGLE_MEETING]: "calendar",
+  [ENTITY_TYPE.RECURRING_MEETING]: "calendar-clock",
+  [ENTITY_TYPE.RECURRING_MEETING_EVENT]: "calendar-check",
+  [ENTITY_TYPE.PROJECT_NOTE]: "file-text",
+  [ENTITY_TYPE.RAID_ITEM]: "shield-alert",
+  [ENTITY_TYPE.REFERENCE]: "book-open",
+  [ENTITY_TYPE.REFERENCE_TOPIC]: "folder-tree",
+} as const satisfies Record<EntityType, string>;
+
+/**
+ * CSS custom-property *token names* for each {@link EntityType}'s family colour.
+ * These reference the token only; the hex each token resolves to is defined
+ * separately in the styling foundation, so consumers stay theme-driven.
+ */
+export const ENTITY_FAMILY_COLOR_TOKEN = {
+  [ENTITY_TYPE.CLIENT]: "--pm-entity-client",
+  [ENTITY_TYPE.ENGAGEMENT]: "--pm-entity-engagement",
+  [ENTITY_TYPE.PROJECT]: "--pm-entity-project",
+  [ENTITY_TYPE.PERSON]: "--pm-entity-person",
+  [ENTITY_TYPE.INBOX]: "--pm-entity-inbox",
+  [ENTITY_TYPE.SINGLE_MEETING]: "--pm-entity-single-meeting",
+  [ENTITY_TYPE.RECURRING_MEETING]: "--pm-entity-recurring-meeting",
+  [ENTITY_TYPE.RECURRING_MEETING_EVENT]: "--pm-entity-recurring-meeting-event",
+  [ENTITY_TYPE.PROJECT_NOTE]: "--pm-entity-project-note",
+  [ENTITY_TYPE.RAID_ITEM]: "--pm-entity-raid-item",
+  [ENTITY_TYPE.REFERENCE]: "--pm-entity-reference",
+  [ENTITY_TYPE.REFERENCE_TOPIC]: "--pm-entity-reference-topic",
+} as const satisfies Record<EntityType, string>;
+
+/**
+ * The {@link EntityType} each search scope facet draws its candidate options and
+ * chip dot colour from. The one place a facet maps to a kind, so the scope
+ * controls read options and colours from the presentation registry with no
+ * per-facet branch (OCP).
+ */
+export const SEARCH_FACET_ENTITY_TYPE = {
+  [SEARCH_FACET_KEY.CLIENT]: ENTITY_TYPE.CLIENT,
+  [SEARCH_FACET_KEY.ENGAGEMENT]: ENTITY_TYPE.ENGAGEMENT,
+  [SEARCH_FACET_KEY.PERSON]: ENTITY_TYPE.PERSON,
+} as const satisfies Record<string, EntityType>;
+
+/** Label, type-ahead placeholder, and accessible name for each scope facet's control. */
+export const SEARCH_FACET_TEXT = {
+  [SEARCH_FACET_KEY.CLIENT]: {
+    label: "Client",
+    placeholder: "Add a client…",
+    aria: "Filter by client",
+  },
+  [SEARCH_FACET_KEY.ENGAGEMENT]: {
+    label: "Engagement",
+    placeholder: "Add an engagement…",
+    aria: "Filter by engagement",
+  },
+  [SEARCH_FACET_KEY.PERSON]: {
+    label: "Person",
+    placeholder: "Add a person…",
+    aria: "Filter by person",
+  },
+} as const;
 
 // ─── Frontmatter keys ─────────────────────────────────────────────────────
 
@@ -626,6 +784,61 @@ export const CSS_CLS = {
   TASKS_CHIPS_BAR: "pm-tasks-chips-bar",
   TASKS_FILTER_CHIP: "pm-tasks-filter-chip",
   TASKS_FILTER_CHIP_REMOVE: "pm-tasks-filter-chip__remove",
+  // pm-search panel (ItemView shell: command zone + results area)
+  PM_SEARCH: "pm-search",
+  PM_SEARCH_COMMAND_ZONE: "pm-search__cz",
+  PM_SEARCH_RESULTS: "pm-search__results",
+  // pm-search box (leading glyph + text field + trailing clear button)
+  PM_SEARCH_INPUT: "pm-search__input",
+  PM_SEARCH_INPUT_ICON: "pm-search__input-icon",
+  PM_SEARCH_INPUT_FIELD: "pm-search__input-field",
+  PM_SEARCH_CLEAR: "pm-search__clear",
+  // pm-search count row
+  PM_SEARCH_COUNT: "pm-search__count",
+  // pm-search result row (button: icon gutter + main column + type pill)
+  PM_SEARCH_RESULT: "pm-search__result",
+  PM_SEARCH_RESULT_ICON: "pm-search__result-icon",
+  PM_SEARCH_RESULT_MAIN: "pm-search__result-main",
+  PM_SEARCH_RESULT_NAME: "pm-search__result-name",
+  PM_SEARCH_RESULT_TYPE: "pm-search__result-type",
+  PM_SEARCH_CRUMB: "pm-search__crumb",
+  PM_SEARCH_CRUMB_SEP: "pm-search__crumb-sep",
+  PM_SEARCH_HL: "hl",
+  // pm-search empty / no-result / Dataview-absent states
+  PM_SEARCH_EMPTY: "pm-search__empty",
+  PM_SEARCH_EMPTY_ICON: "pm-search__empty-icon",
+  PM_SEARCH_EMPTY_TITLE: "pm-search__empty-title",
+  PM_SEARCH_EMPTY_LINE: "pm-search__empty-line",
+  // pm-search filter zone (add button, active-scope chips bar, collapsible drawer)
+  PM_SEARCH_FILTER_ZONE: "pm-search__filter-zone",
+  PM_SEARCH_DRAWER: "pm-search__drawer",
+  PM_SEARCH_DRAWER_OPEN: "pm-search__drawer--open",
+  // pm-search scope controls (add-filter button + clear button)
+  PM_SEARCH_CONTROLS: "pm-search__controls",
+  PM_SEARCH_ADD: "pm-search__add",
+  PM_SEARCH_ADD_ICON: "pm-search__add-icon",
+  PM_SEARCH_ADD_LABEL: "pm-search__add-label",
+  PM_SEARCH_ADD_CHEVRON: "pm-search__add-chevron",
+  PM_SEARCH_CLEAR_FILTERS: "pm-search__clear-filters",
+  // pm-search scope facets in the drawer (each a FilterChipSelect)
+  PM_SEARCH_FACET: "pm-search__facet",
+  PM_SEARCH_FACET_LABEL: "pm-search__facet-label",
+  // pm-search type toggles (family-grouped, bounded set)
+  PM_SEARCH_TYPES: "pm-search__types",
+  PM_SEARCH_TYPE_GROUP: "pm-search__type-group",
+  PM_SEARCH_TYPE_GROUP_HEADING: "pm-search__type-group-heading",
+  PM_SEARCH_TYPE_ROW: "pm-search__type-row",
+  PM_SEARCH_TTOG: "pm-search__ttog",
+  PM_SEARCH_TTOG_DOT: "pm-search__ttog-dot",
+  PM_SEARCH_TTOG_LABEL: "pm-search__ttog-label",
+  // pm-search active-scope chips bar
+  PM_SEARCH_CHIPS: "pm-search__chips",
+  PM_SEARCH_CHIPS_EMPTY: "pm-search__chips-empty",
+  PM_SEARCH_CHIP: "pm-search__chip",
+  PM_SEARCH_CHIP_DOT: "pm-search__chip-dot",
+  PM_SEARCH_CHIP_HOME: "pm-search__chip-home",
+  PM_SEARCH_CHIP_LABEL: "pm-search__chip-label",
+  PM_SEARCH_CHIP_REMOVE: "pm-search__chip-remove",
   // References dashboard (ItemView panel + view components)
   REFERENCE_DASHBOARD_VIEW: "pm-reference-dashboard-view",
   REFERENCE_DASHBOARD_ACTIONS: "pm-reference-dashboard__actions",
@@ -769,8 +982,19 @@ export const DOM_ATTR = {
   HREF: "href",
   DATA_HREF: "data-href",
   DATA_DEPTH: "data-depth",
+  DATA_ENTITY_TYPE: "data-entity-type",
+  DATA_FACET: "data-facet",
   OPEN: "open",
   ARIA_LABEL: "aria-label",
+  ARIA_PRESSED: "aria-pressed",
+  ARIA_EXPANDED: "aria-expanded",
+  ARIA_HIDDEN: "aria-hidden",
+} as const;
+
+/** String values for boolean-valued ARIA state attributes. */
+export const ARIA_BOOL = {
+  TRUE: "true",
+  FALSE: "false",
 } as const;
 
 /** Input element `type` attribute values. */
@@ -923,6 +1147,15 @@ export const REFERENCE_VIEW_MODE = {
   ENGAGEMENT: "engagement",
 } as const;
 
+/**
+ * The single `FilterState.viewMode` value carried through entity-search scoping.
+ * Search has no view-mode-gated facets, so the value only satisfies the
+ * `FilterEngine` state shape and never gates a facet.
+ */
+export const SEARCH_VIEW_MODE = {
+  DEFAULT: "search",
+} as const;
+
 /** User-facing messages for the References dashboard. */
 export const REFERENCES_DASHBOARD_MSG = {
   INVALID_CONFIG: "Invalid pm-references config.",
@@ -996,6 +1229,7 @@ export const COMMAND_NAMES = {
   UPDATE_REFERENCE_TOPIC: "PM: Update Reference Topic",
   CREATE_REFERENCE: "PM: Create Reference",
   OPEN_REFERENCE_DASHBOARD: "PM: Open Reference Dashboard",
+  OPEN_SEARCH: "PM: Open Search",
 } as const;
 
 /** Optional-parent picker labels shared across entity-creation modals. */
@@ -1070,6 +1304,12 @@ export const CREATED_LABEL = "Created";
 /** Newline character used when composing multi-line note content. */
 export const NL = "\n";
 
+/** Vault path segment separator. */
+export const PATH_SEPARATOR = "/";
+
+/** Delimiter joining a facet key and value into a composite inferred-chip key (a control char, never in either part). */
+export const INFERRED_KEY_SEP = "\u0000";
+
 /** Display label for the "no value" option prepended to nullable select fields. */
 export const SELECT_NONE_LABEL = "(none)";
 /** Sentinel value marking the "no value" option / an unset nullable select field. */
@@ -1105,3 +1345,85 @@ export const WORKSPACE_LEAF_TYPE = {
  * (within the `settings.ui` bag), consumed by the {@link SettingsViewStore}.
  */
 export const REFERENCE_DASHBOARD_STATE_KEY = "referenceDashboardFilters";
+
+// ─── pm-search panel identifiers ──────────────────────────────────────────
+
+/** Obsidian view type for the pm-search ItemView panel. */
+export const PM_SEARCH_VIEW_TYPE = "pm-search";
+
+/** Ribbon / tab icon id for the pm-search ItemView panel. */
+export const PM_SEARCH_ICON = "search";
+
+/** Ribbon-icon tooltip for opening the pm-search panel. */
+export const PM_SEARCH_RIBBON_TITLE = "Open Search";
+
+/**
+ * Settings dot-path key the pm-search panel persists its whole filter state under
+ * (scope selections + type toggles) within the `settings.ui` bag, consumed by the
+ * {@link SettingsViewStore} — mirrors the Reference Dashboard's own filter key.
+ */
+export const SAVED_SEARCH_FILTERS_STATE_KEY = "savedSearchFilters";
+
+/**
+ * Lucide icon ids used by the pm-search panel's own chrome (not the per-entity
+ * row icons, which come from {@link ENTITY_ICON} via the presentation registry).
+ */
+export const PM_SEARCH_GLYPH = {
+  /** Leading glyph inside the search box. */
+  SEARCH: "search",
+  /** Trailing clear button glyph. */
+  CLEAR: "x",
+  /** No-match empty-state glyph. */
+  NO_MATCH: "search-x",
+  /** Dataview-unavailable empty-state glyph (a crossed-out screen). */
+  DATAVIEW_OFF: "monitor-off",
+  /** Trailing chevron on the add button; rotates when the drawer is open. */
+  CHEVRON: "chevron-down",
+  /** Remove glyph on an active-scope chip. */
+  CHIP_REMOVE: "x",
+  /** Leading glyph on the "Narrow by…" scope add button. */
+  ADD: "plus",
+  /** Prefix glyph marking an inferred (auto-seeded) scope chip. */
+  HOME: "home",
+} as const;
+
+/** The inline CSS custom property a result row's family colour is threaded through. */
+export const PM_SEARCH_FAMILY_VAR = "--pm-row-family";
+
+/** The inline CSS custom property a type toggle's / chip's family-colour dot is threaded through. */
+export const PM_SEARCH_DOT_VAR = "--pm-family-dot";
+
+/** Static, user-facing text for the pm-search panel. */
+export const PM_SEARCH_TEXT = {
+  TITLE: "Search",
+  PLACEHOLDER: "Search entities by name…",
+  CLEAR_ARIA: "Clear search",
+  /** Right-aligned count row copy; always plural ("1 results" is acceptable here). */
+  resultCount: (count: number): string => `${count} results`,
+  /** Count row when Dataview is unavailable, so no count can be shown. */
+  COUNT_UNAVAILABLE: "—",
+  /** Breadcrumb segment separator (Client › Engagement). */
+  CRUMB_SEPARATOR: "›",
+  /** Breadcrumb shown for a reference that resolves to no client or engagement. */
+  CRUMB_KNOWLEDGE_BASE: "Knowledge base",
+  /** No-match state: title interpolates the current query, plus a guidance line. */
+  noMatchTitle: (query: string): string => `No matches for "${query}"`,
+  NO_MATCH_LINE: "Try a shorter or different query.",
+  /** Dataview-unavailable state title and guidance line. */
+  DATAVIEW_TITLE: "Search needs Dataview",
+  DATAVIEW_LINE: "Enable the Dataview plugin so the vault can be indexed.",
+  /** Accessible name for an active-scope chip's remove control. */
+  typeChipRemoveAria: (label: string): string => `Remove ${label} filter`,
+  /** Scope add button label ("search within" entry point). */
+  ADD_BTN: "Narrow by client, engagement, person…",
+  /** Accessible name for the scope add button. */
+  ADD_ARIA: "Add a client, engagement, or person filter",
+  /** Clear-all-filters button label. */
+  CLEAR_FILTERS: "Clear",
+  /** Accessible name for the clear-all-filters button. */
+  CLEAR_FILTERS_ARIA: "Clear all filters",
+  /** Empty active-scope bar copy shown when no filter is active. */
+  EMPTY_BAR: "Searching the whole vault. Add a filter to narrow.",
+  /** Accessible name for a scope chip's remove control. */
+  scopeChipRemoveAria: (value: string): string => `Remove ${value} filter`,
+} as const;

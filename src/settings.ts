@@ -2,7 +2,7 @@ import { App, Notice, PluginSettingTab, Setting } from "obsidian";
 import type ProjectManagerPlugin from "./main";
 import { DEFAULT_FOLDERS } from "./constants";
 import { COMMAND_IDS } from "./command-ids";
-import type { SavedReferenceFilters } from "./types";
+import type { SavedReferenceFilters, SavedSearchFilters } from "./types";
 
 export interface LoggingSettings {
   enabled: boolean;
@@ -40,6 +40,7 @@ export interface UiPreferenceSettings {
   defaultTaskViewMode: "context" | "date" | "priority" | "tag";
   showCompletedByDefault: boolean;
   referenceDashboardFilters: SavedReferenceFilters;
+  savedSearchFilters: SavedSearchFilters;
 }
 
 export interface ProjectManagerSettings {
@@ -82,6 +83,12 @@ export const DEFAULT_SETTINGS: ProjectManagerSettings = {
       clients: [],
       engagements: [],
       selectedNode: undefined,
+    },
+    savedSearchFilters: {
+      clients: [],
+      engagements: [],
+      people: [],
+      types: [],
     },
   },
   logging: {

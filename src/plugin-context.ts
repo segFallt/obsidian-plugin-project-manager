@@ -12,9 +12,15 @@ import type {
   ITaskFilterService,
   ITaskSortService,
   ITestDataService,
+  ISearchService,
 } from "./services/interfaces";
+import type { DataviewApi } from "./types";
 import type { ProjectManagerSettings } from "./settings";
 import type ProjectManagerPlugin from "./main";
+import { SearchService } from "./services/search-service";
+import { EntityEnumerator } from "./services/entity-enumerator";
+import { PersonAssociationResolver } from "./services/person-association-resolver";
+import { PreparedFuzzyMatcher } from "./services/prepared-fuzzy-matcher";
 
 /**
  * Narrow service bag consumed by commands.
@@ -147,6 +153,57 @@ export function buildReferenceProcessorServices(
     commandExecutor: plugin.commandExecutor,
     actionContext: plugin.actionContext,
     saveSettings: plugin.saveSettings.bind(plugin),
+  };
+}
+
+/**
+ * Narrow service bag for the search panel's view component (ISP).
+ *
+ * The panel runs fuzzy search ({@link ISearchService}), resolves a selected
+ * result's file and opens it (`app` + `navigationService`), probes Dataview
+ * availability to distinguish the "no matches" and "Dataview off" states
+ * (`getDv`), lists a facet's candidate names for the scope controls
+ * ({@link EntityEnumerator}), resolves the active note's client/engagement to
+ * auto-seed inferred scope chips ({@link IEntityHierarchyService}), and reports
+ * open failures without swallowing them (`loggerService`). It depends on
+ * abstractions, never on the concrete plugin.
+ */
+export interface SearchViewServices {
+  app: App;
+  searchService: ISearchService;
+  navigationService: INavigationService;
+  hierarchyService: IEntityHierarchyService;
+  enumerator: EntityEnumerator;
+  loggerService: ILoggerService;
+  /** Live Dataview API, or null when Dataview is unavailable. */
+  getDv: () => DataviewApi | null;
+}
+
+/**
+ * Builds the {@link SearchViewServices} bag from a plugin instance, co-located
+ * with the interface so the field-for-field literal lives in one place. The
+ * search pipeline's collaborators are composed here from the plugin's real
+ * services; the plugin is referenced type-only to keep this module free of a
+ * runtime cycle.
+ */
+export function buildSearchViewServices(plugin: ProjectManagerPlugin): SearchViewServices {
+  const getDv = (): DataviewApi | null => plugin.queryService.dv();
+  const enumerator = new EntityEnumerator(plugin.queryService);
+  const searchService = new SearchService({
+    getDv,
+    enumerator,
+    hierarchyService: plugin.hierarchyService,
+    personResolver: new PersonAssociationResolver(getDv, plugin.settings.folders),
+    matcher: new PreparedFuzzyMatcher(),
+  });
+  return {
+    app: plugin.app,
+    searchService,
+    navigationService: plugin.navigationService,
+    hierarchyService: plugin.hierarchyService,
+    enumerator,
+    loggerService: plugin.loggerService,
+    getDv,
   };
 }
 

@@ -5,7 +5,7 @@
 
 // `import type` keeps this a type-only edge: constants.ts already imports from
 // this module the same way, so both edges are erased by tsc/esbuild — no runtime cycle.
-import type { SORT_FIELD, SORT_DIRECTION, START_DATE_PRESET, SCHEDULED_DATE_PRESET, GROUP_BY_DATE_FIELD } from "./constants";
+import type { SORT_FIELD, SORT_DIRECTION, START_DATE_PRESET, SCHEDULED_DATE_PRESET, GROUP_BY_DATE_FIELD, ENUM_STRATEGY, ENTITY_FAMILY } from "./constants";
 
 // ─── Entity Types ──────────────────────────────────────────────────────────
 
@@ -27,6 +27,63 @@ export type EntityType =
   | "raid-item"
   | "reference"
   | "reference-topic";
+
+/** How an entity type is enumerated — by its Dataview tag or by its folder. */
+export type EnumStrategy = (typeof ENUM_STRATEGY)[keyof typeof ENUM_STRATEGY];
+
+/** The presentation family an {@link EntityType} groups under in the type filter. */
+export type EntityFamily = (typeof ENTITY_FAMILY)[keyof typeof ENTITY_FAMILY];
+
+/** A vault page paired with the {@link EntityType} it was enumerated or resolved as. */
+export interface EntityCandidate {
+  page: DataviewPage;
+  type: EntityType;
+}
+
+/**
+ * The scope a search is constrained to. Each populated leg is an OR set of names;
+ * across legs the constraints combine with AND (a candidate must satisfy every
+ * populated leg). An absent or empty leg imposes no constraint.
+ */
+export interface SearchScope {
+  /** Resolved client names a candidate must resolve up to (any of). */
+  clients?: string[];
+  /** Resolved engagement names a candidate must resolve up to (any of). */
+  engagements?: string[];
+  /** Person names a candidate must be associated with (any of). */
+  people?: string[];
+}
+
+/**
+ * One fuzzy-ranked, scope-constrained search hit: the matched page, the
+ * {@link EntityType} it was enumerated as, and its resolved hierarchy
+ * breadcrumb (client / engagement), each present only when it resolves.
+ */
+export interface SearchResult {
+  page: DataviewPage;
+  type: EntityType;
+  client?: string;
+  engagement?: string;
+}
+
+/**
+ * The pm-search panel's whole filter state persisted to settings: the scope
+ * selections (client / engagement / person names) plus the enabled entity-type
+ * toggles. Every field is optional so a value the merge dropped — {@link
+ * import("./settings").mergeSettings} replaces the whole `savedSearchFilters`
+ * object rather than merging its sub-keys — defaults defensively at read time and
+ * a future-added sub-key can never leave an existing user's state `undefined`.
+ */
+export interface SavedSearchFilters {
+  /** Selected client names (OR within the facet). */
+  clients?: string[];
+  /** Selected engagement names (OR within the facet). */
+  engagements?: string[];
+  /** Selected person names (OR within the facet). */
+  people?: string[];
+  /** Enabled entity-type toggles; empty (or absent) means every type. */
+  types?: EntityType[];
+}
 
 // ─── Reference Types ───────────────────────────────────────────────────────
 

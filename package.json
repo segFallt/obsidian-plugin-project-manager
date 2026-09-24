@@ -1,6 +1,6 @@
 {
   "name": "obsidian-project-manager",
-  "version": "0.5.0-beta.3",
+  "version": "0.5.0-beta.4",
   "description": "Client-Engagement-Project hierarchy manager for Obsidian",
   "main": "main.js",
   "scripts": {
@@ -13,6 +13,7 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test --config e2e/playwright.config.ts",
+    "validate:e2e": "tsc --noEmit --project e2e/tsconfig.json && node scripts/validate-e2e-fixtures.js && playwright test --list --config e2e/playwright.config.ts",
     "version": "node version-bump.mjs && git add manifest.json versions.json"
   },
   "devDependencies": {

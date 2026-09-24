@@ -19,7 +19,7 @@ jobs:
       - name: Check version tag
         id: tag
         run: |
-          VERSION=$(jq -r '.version' manifest.json)
+          VERSION=$(sh .ci/read-version.sh)
           TAG="v${VERSION}"
           if git ls-remote --tags origin "$TAG" | grep -q "$TAG"; then
             echo "Tag $TAG already exists — skipping auto-tag"
@@ -32,9 +32,10 @@ jobs:
 
       - name: Extract release notes from CHANGELOG.md
         if: steps.tag.outputs.proceed == 'true'
+        env:
+          TAG: ${{ steps.tag.outputs.tag }}
         run: |
-          awk '/^## \[/{found++} found==1{print} found==2{exit}' CHANGELOG.md > /tmp/release-notes.md
-          [ -s /tmp/release-notes.md ] || { echo "ERROR: No release notes extracted from CHANGELOG.md — check CHANGELOG format"; exit 1; }
+          sh .ci/extract-release-notes.sh "${TAG#v}" > /tmp/release-notes.md
 
       - name: Setup Node.js
         if: steps.tag.outputs.proceed == 'true'
@@ -62,9 +63,10 @@ jobs:
       - name: Detect release type
         if: steps.tag.outputs.proceed == 'true'
         id: release_type
+        env:
+          TAG: ${{ steps.tag.outputs.tag }}
         run: |
-          TAG="${{ steps.tag.outputs.tag }}"
-          if [[ "$TAG" == *-* ]]; then
+          if [ "$(sh .ci/is-prerelease.sh "$TAG")" = "true" ]; then
             echo "flags=--prerelease" >> "$GITHUB_OUTPUT"
           else
             echo "flags=--latest" >> "$GITHUB_OUTPUT"

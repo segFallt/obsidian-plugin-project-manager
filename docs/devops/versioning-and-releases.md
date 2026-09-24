@@ -24,7 +24,7 @@ This project uses [Semantic Versioning](https://semver.org/) (`MAJOR.MINOR.PATCH
 
 ## The Three Version Files
 
-All three files must always agree on the current version. `.ci/bump-version.sh` keeps them in sync — never edit them by hand.
+All three files must always agree on the current version. `sh .ci/bump-version.sh` keeps them in sync — never edit them by hand.
 
 ### `package.json`
 ```json
@@ -65,14 +65,14 @@ Always start from a release branch — never run the bump steps directly on `mai
 
 2. **Run Phase 1** — bump the version and generate a changelog template:
    ```bash
-   .ci/bump-version.sh patch   # or minor / major / explicit version e.g. 0.2.0
+   sh .ci/bump-version.sh patch   # or minor / major / explicit version e.g. 0.2.0
    ```
 
 3. **Edit `CHANGELOG.md`** — replace the placeholder lines with real release notes.
 
 4. **Run Phase 2** — validate the changelog and create the release commit:
    ```bash
-   .ci/bump-version.sh --commit <x.y.z>
+   sh .ci/bump-version.sh --commit <x.y.z>
    ```
 
 5. **Push the branch and open an MR** targeting `main`. Once merged:
@@ -83,13 +83,13 @@ Always start from a release branch — never run the bump steps directly on `mai
 
 ## Phase 1 — Bump version and prepare changelog
 
-Run `.ci/bump-version.sh` with the desired bump type or an explicit version:
+Run `sh .ci/bump-version.sh` with the desired bump type or an explicit version:
 
 ```bash
-.ci/bump-version.sh patch   # 1.0.0 → 1.0.1
-.ci/bump-version.sh minor   # 1.0.0 → 1.1.0
-.ci/bump-version.sh major   # 1.0.0 → 2.0.0
-.ci/bump-version.sh 2.5.0   # explicit version
+sh .ci/bump-version.sh patch   # 1.0.0 → 1.0.1
+sh .ci/bump-version.sh minor   # 1.0.0 → 1.1.0
+sh .ci/bump-version.sh major   # 1.0.0 → 2.0.0
+sh .ci/bump-version.sh 2.5.0   # explicit version
 ```
 
 This script:
@@ -107,7 +107,7 @@ Edit `CHANGELOG.md` to replace the placeholder lines with real release notes bef
 Once the changelog is filled in, run Phase 2:
 
 ```bash
-.ci/bump-version.sh --commit <x.y.z>
+sh .ci/bump-version.sh --commit <x.y.z>
 ```
 
 This script:
@@ -149,7 +149,7 @@ Runs on every MR targeting `main`. All three checks must pass before merging:
 
 ### Auto-tag (`auto-tag` job in `.gitlab-ci.yml`)
 
-Runs on every push to `main` when `manifest.json` changes. Reads the version from `manifest.json` and creates the `v<version>` tag via the GitLab API using `RELEASE_TOKEN`. Idempotent — skips silently if the tag already exists.
+Runs on every push to `main` when `manifest.json` changes. Reads the version from `manifest.json` via the shared `sh .ci/read-version.sh` helper (see below) and creates the `v<version>` tag via the GitLab API using `RELEASE_TOKEN`. Idempotent — skips silently if the tag already exists.
 
 **Prerequisite:** A CI/CD variable named `RELEASE_TOKEN` must be configured in **Settings → CI/CD → Variables**: a project or group access token with **Developer+ role** and **`write_repository` scope**, marked as **Protected**.
 
@@ -157,22 +157,49 @@ Runs on every push to `main` when `manifest.json` changes. Reads the version fro
 
 Runs on every `v*` tag:
 
-1. **`validate-version`** — Confirms the tag name matches `manifest.json`
+1. **`validate-version`** — Confirms the tag name matches `manifest.json` (read via the shared `sh .ci/read-version.sh` helper)
 2. **`build`** — Runs `npm run build`, produces `main.js`, `manifest.json`, `styles.css` as artifacts
-3. **`publish`** — Uploads artifacts to the GitLab Generic Package Registry, extracts release notes from `CHANGELOG.md`, creates a GitLab Release with asset links
+3. **`publish`** — Uploads artifacts to the GitLab Generic Package Registry, extracts release notes from `CHANGELOG.md` via the shared `sh .ci/extract-release-notes.sh "$VERSION"` script (see below), creates a GitLab Release with asset links
 
 ### GitHub Release (`auto-tag.yml`)
 
 Runs on every push to `main` when `manifest.json` changes. Entirely self-contained — does not depend on GitLab pushing tags to GitHub.
 
 1. **Create tag** — Reads version from `manifest.json`, creates `v<version>` tag on GitHub. Idempotent — skips cleanly if the tag already exists.
-2. **Extract release notes** — Reads the matching `## [<version>]` section from `CHANGELOG.md`.
+2. **Extract release notes** — Reads the matching `## [<version>]` section from `CHANGELOG.md` via the shared `sh .ci/extract-release-notes.sh "${TAG#v}"` script (see below).
 3. **Quality gate** — `npm ci` → `npm run lint` → `npm run test:coverage` → `npm run build`
 4. **Create GitHub Release** — Uploads `main.js`, `manifest.json`, `styles.css` (if present); notes sourced from `CHANGELOG.md`.
 
-**Key release flags:**
+**Key release flags:** (pre-release is detected by the shared `sh .ci/is-prerelease.sh` helper — see below)
 - `--prerelease` when version tag contains `-`
 - `--latest` for stable releases
+
+### Shared release-notes extraction (`.ci/extract-release-notes.sh`)
+
+Both the GitLab `publish` job and the GitHub `auto-tag.yml` workflow build their release notes through the same script, so a release produces byte-identical notes on both hosts:
+
+```bash
+sh .ci/extract-release-notes.sh <version> [changelog]
+```
+
+- Prints the body of the `## [<version>]` section only — the `## [<version>]` header line is omitted (both release UIs render the version as the release title).
+- Matches **by version**, so a leading `## [Unreleased]` section (or any other ordering) never affects the output.
+- When the version has no section, or the section is empty, prints `Release v<version>` and exits 0 — it never emits another section's notes.
+- POSIX `sh` + `awk` only (no `jq`/`node`/`sed`); invoked via `sh .ci/…` so it needs no executable bit. GitLab passes `${CI_COMMIT_TAG#v}`; GitHub passes the tag with its leading `v` stripped.
+
+### Shared version helpers (`.ci/read-version.sh`, `.ci/is-prerelease.sh`)
+
+Version reading and pre-release detection are shared across both hosts so they behave identically:
+
+```bash
+sh .ci/read-version.sh [manifest]     # prints the bare version (no leading "v")
+sh .ci/is-prerelease.sh <version>     # prints "true" / "false"
+```
+
+- **`read-version.sh`** — reads the `version` from a manifest (default `manifest.json`) and prints it with no leading `v`. POSIX `sh` + `sed` only (no `jq`/`node`), so it runs on the GitLab `auto-tag` job's `alpine:latest` (busybox) image as well as Debian/GNU. Used by the GitLab `auto-tag` and `validate-version` jobs and the GitHub `auto-tag.yml` "Check version tag" step.
+- **`is-prerelease.sh`** — prints `true` when the version carries a pre-release suffix (contains `-`) and `false` otherwise. POSIX `case`, never bash `[[ ]]`. Used by the GitLab `publish` job and the GitHub "Detect release type" step.
+
+All `.ci/` scripts — these two, `extract-release-notes.sh`, and `bump-version.sh` — are invoked as `sh .ci/<script>.sh …`, so none depends on carrying an executable bit (they are committed mode `100644`).
 
 ---
 
@@ -194,7 +221,7 @@ Runs on every push to `main` when `manifest.json` changes. Entirely self-contain
 ### `minAppVersion`
 - Defined in `manifest.json`
 - The minimum Obsidian version required to install/run this plugin
-- Change it manually in `manifest.json` before running `.ci/bump-version.sh` when you need to raise the floor
+- Change it manually in `manifest.json` before running `sh .ci/bump-version.sh` when you need to raise the floor
 - Once a stable version is tagged, the `minAppVersion` for that release is permanently recorded in `versions.json`
 
 ### `versions.json` purpose
@@ -237,17 +264,17 @@ If `RELEASE_TOKEN` is not set, the `auto-tag` job will fail with a `401 Unauthor
 
 ```
 0.1.13-beta.21  (current)
-      ↓  .ci/bump-version.sh 0.1.13  →  fill CHANGELOG  →  --commit  →  MR
+      ↓  sh .ci/bump-version.sh 0.1.13  →  fill CHANGELOG  →  --commit  →  MR
 0.1.13          (stable)
-      ↓  .ci/bump-version.sh minor   →  fill CHANGELOG  →  --commit  →  MR
+      ↓  sh .ci/bump-version.sh minor   →  fill CHANGELOG  →  --commit  →  MR
 0.2.0-beta.1    (start next feature cycle — use explicit version)
       ↓  ...iterate betas...
 0.2.0-beta.N
-      ↓  .ci/bump-version.sh 0.2.0   →  fill CHANGELOG  →  --commit  →  MR
+      ↓  sh .ci/bump-version.sh 0.2.0   →  fill CHANGELOG  →  --commit  →  MR
 0.2.0           (stable minor)
       ↓  ...continue through 0.x.0 milestones...
 1.0.0-rc.1      (release candidate for 1.0)
-      ↓  .ci/bump-version.sh 1.0.0   →  fill CHANGELOG  →  --commit  →  MR
+      ↓  sh .ci/bump-version.sh 1.0.0   →  fill CHANGELOG  →  --commit  →  MR
 1.0.0           (first major stable release)
 ```
 
@@ -255,9 +282,9 @@ If `RELEASE_TOKEN` is not set, the `auto-tag` job will fail with a `401 Unauthor
 
 ```bash
 git checkout -b release/v0.1.14
-.ci/bump-version.sh patch          # bumps to 0.1.14
+sh .ci/bump-version.sh patch          # bumps to 0.1.14
 # edit CHANGELOG.md
-.ci/bump-version.sh --commit 0.1.14
+sh .ci/bump-version.sh --commit 0.1.14
 git push origin HEAD
 # open MR → merge → CI auto-tags v0.1.14
 ```

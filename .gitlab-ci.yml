@@ -7,7 +7,9 @@
 #
 # Mirrors the GitHub Actions workflows:
 #   - pr-validation.yml  →  mr-validate job
-#   - release.yml        →  validate-version / build / publish jobs (tag-triggered)
+#   - auto-tag.yml       →  validate-version / build / publish jobs (release flow)
+# Host-agnostic release-notes extraction is shared: both hosts run
+# `sh .ci/extract-release-notes.sh` rather than a duplicated inline awk.
 #
 # Notable differences from GitHub Actions:
 #   - Release assets are uploaded to the GitLab Generic Package Registry and
@@ -64,9 +66,7 @@ e2e-validate:
   stage: validate
   script:
     - npm ci
-    - npx tsc --noEmit --project e2e/tsconfig.json
-    - node scripts/validate-e2e-fixtures.js
-    - npx playwright test --list --config e2e/playwright.config.ts
+    - npm run validate:e2e
   rules:
     - if: $CI_PIPELINE_SOURCE == 'merge_request_event' && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == 'main'
       changes:
@@ -101,8 +101,7 @@ auto-tag:
   script:
     - |
       set -eu
-      VERSION=$(cat manifest.json | sed -n 's/.*"version": *"\([^"]*\)".*/\1/p' | head -1)
-      [ -n "$VERSION" ] || { echo "ERROR: Could not extract version from manifest.json"; exit 1; }
+      VERSION=$(sh .ci/read-version.sh)
       TAG="v${VERSION}"
       echo "Detected version: $VERSION"
       HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
@@ -147,7 +146,7 @@ validate-version:
     - |
       set -euo pipefail
       TAG_VERSION="${CI_COMMIT_TAG#v}"
-      MANIFEST_VERSION=$(node -p "require('./manifest.json').version")
+      MANIFEST_VERSION=$(sh .ci/read-version.sh)
       if [ "$TAG_VERSION" != "$MANIFEST_VERSION" ]; then
         echo "ERROR: Tag version '$TAG_VERSION' does not match manifest.json version '$MANIFEST_VERSION'"
         exit 1
@@ -181,8 +180,7 @@ publish:
     - |
       set -euo pipefail
       VERSION="${CI_COMMIT_TAG#v}"
-      IS_PRERELEASE="false"
-      echo "$VERSION" | grep -q '-' && IS_PRERELEASE="true"
+      IS_PRERELEASE=$(sh .ci/is-prerelease.sh "$VERSION")
 
       BASE_PKG_URL="$CI_API_V4_URL/projects/$CI_PROJECT_ID/packages/generic/release/$CI_COMMIT_TAG"
 
@@ -194,11 +192,9 @@ publish:
           "$BASE_PKG_URL/$FILE"
       done
 
-      # Extract release notes from CHANGELOG.md (the section for this version)
-      awk '/^## \['"$VERSION"'\]/{found=1; next} /^## \[/ && found{exit} found{print}' CHANGELOG.md > /tmp/release-notes.md
-      if [ ! -s /tmp/release-notes.md ]; then
-        echo "Release $CI_COMMIT_TAG" > /tmp/release-notes.md
-      fi
+      # Extract release notes for this version via the shared script (matches
+      # by version, body-only, falls back to "Release v<version>" when absent).
+      sh .ci/extract-release-notes.sh "$VERSION" > /tmp/release-notes.md
 
       node -e "
         const fs   = require('fs');

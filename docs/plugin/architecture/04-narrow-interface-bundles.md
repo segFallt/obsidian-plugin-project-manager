@@ -132,6 +132,20 @@ classDiagram
         <<interface>>
     }
 
+    class SearchViewServices {
+        +app App
+        +searchService ISearchService
+        +navigationService INavigationService
+        +hierarchyService IEntityHierarchyService
+        +enumerator EntityEnumerator
+        +loggerService ILoggerService
+        +getDv() DataviewApi|null
+    }
+
+    class PmSearchView {
+        <<view>>
+    }
+
     PluginServices ..> CommandServices : narrows to
     PluginServices ..> TaskProcessorServices : narrows to
     PluginServices ..> PropertyProcessorServices : narrows to
@@ -162,4 +176,7 @@ classDiagram
     PmReferencesProcessor ..> ReferenceProcessorServices : consumes
 
     PmEntityViewProcessor ..> EntityViewProcessorServices : consumes
+
+    PluginServices ..> SearchViewServices : composed by buildSearchViewServices()
+    PmSearchView ..> SearchViewServices : consumes
 ```

@@ -397,6 +397,58 @@ export abstract class AbstractInputSuggest<T> extends PopoverSuggest<T> {
   }
 }
 
+// ─── setIcon stub ─────────────────────────────────────────────────────────────
+// Models Obsidian's setIcon(parent, iconId): it injects an SVG glyph into the
+// parent. The stub appends a <svg> carrying the icon id on `data-icon` so tests
+// can assert which glyph a surface rendered, mirroring Obsidian's behaviour of
+// replacing the parent's icon contents.
+
+export function setIcon(parent: HTMLElement, iconId: string): void {
+  const existing = parent.querySelector("svg");
+  if (existing) existing.remove();
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.classList.add("svg-icon");
+  svg.setAttribute("data-icon", iconId);
+  parent.appendChild(svg);
+}
+
+// ─── prepareFuzzySearch stub ──────────────────────────────────────────────────
+// Faithful minimal model of Obsidian's prepareFuzzySearch: returns a matcher
+// function that yields { score, matches } when every query character occurs in
+// `text` in order (case-insensitive), or null otherwise. A higher score is a
+// better match — a contiguous match at the start scores 0, and gaps or a later
+// first match subtract from the score.
+
+export interface SearchResult {
+  score: number;
+  matches: Array<[number, number]>;
+}
+
+export function prepareFuzzySearch(query: string): (text: string) => SearchResult | null {
+  const q = query.toLowerCase();
+  return (text: string): SearchResult | null => {
+    if (q.length === 0) return { score: 0, matches: [] };
+
+    const t = text.toLowerCase();
+    const matches: Array<[number, number]> = [];
+    let score = 0;
+    let cursor = 0;
+    let previous = -1;
+
+    for (const char of q) {
+      const found = t.indexOf(char, cursor);
+      if (found === -1) return null;
+      // Penalise a gap since the previous matched char, or a late first match.
+      score -= previous === -1 ? found : found - previous - 1;
+      matches.push([found, found + 1]);
+      previous = found;
+      cursor = found + 1;
+    }
+
+    return { score, matches };
+  };
+}
+
 // ─── parseYaml stub ───────────────────────────────────────────────────────────
 // Simple YAML parser that handles the patterns used by this plugin's processors.
 

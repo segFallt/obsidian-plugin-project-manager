@@ -1781,3 +1781,639 @@ details[open] .pm-filter-section__title::before {
 .pm-references-summary__open-btn {
   align-self: flex-start;
 }
+
+/* ============================================================
+   pm-search — central --pm-* styling tokens + panel shell
+   The --pm-* custom properties are the canonical, reusable
+   styling foundation shared by every pm-search surface. Neutrals
+   and the panel identity map to Obsidian theme variables so the
+   panel adapts to the active theme; the entity-family colours are
+   fixed accents (Obsidian has no per-entity variable). The
+   Catppuccin Mocha hex noted in comments is the dark-theme
+   reference the mockups were drawn against.
+   ============================================================ */
+
+:root {
+  /* Neutrals → closest Obsidian theme variable (reference hex noted) */
+  --pm-crust: var(--background-primary-alt);              /* #11111b */
+  --pm-mantle: var(--background-secondary);               /* #181825 */
+  --pm-base: var(--background-primary);                   /* #1e1e2e */
+  --pm-surface0: var(--background-modifier-border);       /* #313244 */
+  --pm-surface1: var(--background-modifier-border-hover); /* #45475a */
+  --pm-surface2: var(--background-modifier-border-focus); /* #585b70 */
+  --pm-overlay0: var(--text-faint);                       /* #6c7086 */
+  --pm-overlay2: var(--text-muted);                       /* #9399b2 */
+  --pm-subtext0: var(--text-muted);                       /* #a6adc8 */
+  --pm-subtext1: var(--text-normal);                      /* #bac2de */
+  --pm-text: var(--text-normal);                          /* #cdd6f4 */
+
+  /* Identity + highlight */
+  --pm-blue: var(--interactive-accent);                   /* #89b4fa — panel identity */
+  --pm-sky: #89dceb;                                      /* fuzzy-match highlight (fixed accent) */
+
+  /* Entity-family fixed-accent tokens (fixed hex — no per-entity theme var) */
+  --pm-entity-client: #89b4fa;
+  --pm-entity-engagement: #a6e3a1;
+  --pm-entity-project: #94e2d5;
+  --pm-entity-person: #fab387;
+  --pm-entity-single-meeting: #f5c2e7;
+  --pm-entity-recurring-meeting: #f5c2e7;
+  --pm-entity-recurring-meeting-event: #f5c2e7;
+  --pm-entity-inbox: #f9e2af;
+  --pm-entity-project-note: #9399b2;
+  --pm-entity-raid-item: #eba0ac;
+  --pm-entity-reference: #cba6f7;
+  --pm-entity-reference-topic: #b4befe;
+
+  /* Shape + motion catalog (radii and transition duration) */
+  --pm-radius-input: 6px;
+  --pm-radius-row: 7px;
+  --pm-radius-chip: 10px;
+  --pm-radius-pill: 13px;
+  --pm-radius-panel: 10px;
+  --pm-transition: 0.13s;
+
+  /* Spacing scale — the shared step scale the panel surfaces lay out on */
+  --pm-space-2xs: 2px;
+  --pm-space-xs: 6px;
+  --pm-space-8: 8px;
+  --pm-space-sm: 10px;
+  --pm-space-md: 12px;
+  --pm-space-lg: 26px;
+  --pm-space-xl: 34px;
+
+  /* Type-pill inner padding (vertical / horizontal) */
+  --pm-pill-pad-y: 1px;
+  --pm-pill-pad-x: 7px;
+
+  /* Icon sizes across the panel's surfaces */
+  --pm-icon-search: 16px;   /* leading search-box glyph */
+  --pm-icon-clear: 18px;    /* trailing clear button */
+  --pm-icon-row: 15px;      /* result-row family icon */
+  --pm-icon-gutter: 26px;   /* result-row icon gutter box */
+  --pm-icon-empty: 22px;    /* empty-state glyph */
+
+  /* Font sizes */
+  --pm-font-input: 14px;
+  --pm-font-name: 13px;
+  --pm-font-count: 12px;
+  --pm-font-crumb: 11px;
+  --pm-font-pill: 10px;
+
+  /* Font weights */
+  --pm-weight-normal: 400;
+  --pm-weight-medium: 500;
+  --pm-weight-semibold: 600;
+  --pm-weight-pill: 650;
+  --pm-weight-hl: 750;
+
+  /* Family-colour tint strength for the result-row icon gutter background */
+  --pm-family-tint-alpha: 12%;
+
+  /* Panel dimensions */
+  --pm-panel-width: 370px;
+
+  /* Borders + focus ring */
+  --pm-border-width: 1px;
+  --pm-focus-ring-width: 2px;
+  --pm-focus-ring-alpha: 28%;
+
+  /* Filter drawer, type toggles, and active-scope chips */
+  --pm-space-3: 3px;                    /* toggle / chip vertical padding */
+  --pm-space-5: 5px;                    /* gap between toggles in a family row */
+  --pm-space-9: 9px;                    /* toggle / chip horizontal padding */
+  --pm-font-chip: 11px;                 /* toggle, chip, and filter-button text */
+  --pm-weight-bold: 700;                /* family heading weight */
+  --pm-radius-toggle: 12px;             /* toggle and chip corner radius */
+  --pm-radius-round: 50%;               /* circular dots and the chip remove hit-area */
+  --pm-icon-btn: 16px;                  /* filter-button glyph and chevron */
+  --pm-icon-chip-remove: 13px;          /* glyph inside a chip's remove control */
+  --pm-chip-remove-size: 16px;          /* chip remove round hit-area */
+  --pm-dot-size: 7px;                   /* leading family-colour dot */
+  --pm-dot-idle-alpha: 45%;             /* dot opacity on an unpressed toggle */
+  --pm-toggle-on-bg-alpha: 12%;         /* pressed-toggle background blue tint */
+  --pm-toggle-on-border-alpha: 55%;     /* pressed-toggle / open-drawer border blue tint */
+  --pm-chevron-open-rotate: 180deg;     /* chevron flip when the drawer is open */
+
+  /* Scope controls (add button + clear button), facets, and scope chips */
+  --pm-space-7: 7px;                    /* add-button vertical padding */
+  --pm-space-11: 11px;                  /* add-button horizontal padding */
+  --pm-font-chip-lg: 11.5px;            /* active-scope chip text */
+  --pm-icon-add: 12px;                  /* leading "+" glyph on the add button */
+  --pm-icon-add-chevron: 12px;          /* trailing chevron on the add button */
+  --pm-icon-chip-home: 11px;            /* inferred-chip leading home glyph */
+  --pm-dot-size-chip: 8px;              /* active-scope chip family-colour dot */
+  --pm-add-open-border-alpha: 45%;      /* open add-button solid border blue tint */
+}
+
+/* ─── pm-search panel shell ─────────────────────────────────── */
+
+/* Root panel: a vertical flex stack, ~370px wide and fluid to 100%. */
+.pm-search {
+  display: flex;
+  flex-direction: column;
+  width: var(--pm-panel-width);
+  max-width: 100%;
+  height: 100%;
+  background-color: var(--pm-base);
+  color: var(--pm-text);
+  border-radius: var(--pm-radius-panel);
+}
+
+/* Command zone — search box, filter zone (button + chips bar + drawer), and count. */
+.pm-search__cz {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pm-space-sm);
+  padding: var(--pm-space-md);
+  background-color: var(--pm-base);
+  border-bottom: var(--pm-border-width) solid var(--pm-surface0);
+}
+
+/* Results area — scrollable list of matches. */
+.pm-search__results {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--pm-space-xs);
+}
+
+/* ─── Search box ─────────────────────────────────────────────── */
+
+/* A bordered row: leading glyph, the text field, a trailing clear button. */
+.pm-search__input {
+  display: flex;
+  align-items: center;
+  gap: var(--pm-space-8);
+  width: 100%;
+  padding: var(--pm-space-8) var(--pm-space-sm);
+  background-color: var(--pm-mantle);
+  border: var(--pm-border-width) solid var(--pm-surface1);
+  border-radius: var(--pm-radius-row);
+}
+
+/* Focus-within lifts the whole box to the accent border + blue ring. */
+.pm-search__input:focus-within {
+  border-color: var(--pm-blue);
+  box-shadow: 0 0 0 var(--pm-focus-ring-width) color-mix(in srgb, var(--pm-blue) var(--pm-focus-ring-alpha), transparent);
+}
+
+.pm-search__input-icon {
+  display: inline-flex;
+  flex: 0 0 auto;
+  color: var(--pm-overlay2);
+}
+
+.pm-search__input-icon svg {
+  width: var(--pm-icon-search);
+  height: var(--pm-icon-search);
+}
+
+/* The text field carries no chrome of its own — the wrapper owns border/ring. */
+.pm-search__input-field {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: none;
+  outline: none;
+  box-shadow: none;
+  color: var(--pm-text);
+  font-size: var(--pm-font-input);
+  font-weight: var(--pm-weight-medium);
+}
+
+.pm-search__input-field:focus {
+  box-shadow: none;
+}
+
+.pm-search__input-field::placeholder {
+  color: var(--pm-overlay0);
+  font-weight: var(--pm-weight-normal);
+}
+
+/* Trailing clear button — hidden by inline style until the field is non-empty. */
+.pm-search__clear {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  cursor: pointer;
+  color: var(--pm-overlay0);
+}
+
+.pm-search__clear:hover {
+  color: var(--pm-text);
+}
+
+.pm-search__clear svg {
+  width: var(--pm-icon-clear);
+  height: var(--pm-icon-clear);
+}
+
+/* ─── Count row ──────────────────────────────────────────────── */
+
+.pm-search__count {
+  text-align: right;
+  font-size: var(--pm-font-count);
+  font-variant-numeric: tabular-nums;
+  color: var(--pm-overlay0);
+}
+
+/* ─── Result row ─────────────────────────────────────────────── */
+
+.pm-search__result {
+  display: flex;
+  align-items: center;
+  gap: var(--pm-space-sm);
+  width: 100%;
+  padding: var(--pm-space-8);
+  background: transparent;
+  border: none;
+  border-radius: var(--pm-radius-row);
+  cursor: pointer;
+  text-align: left;
+}
+
+.pm-search__result:hover,
+.pm-search__result:focus {
+  background-color: var(--pm-mantle);
+}
+
+.pm-search__result:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 var(--pm-border-width) var(--pm-surface2);
+}
+
+/* Icon gutter: family colour tints the background and strokes the glyph. */
+.pm-search__result-icon {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: var(--pm-icon-gutter);
+  height: var(--pm-icon-gutter);
+  border-radius: var(--pm-radius-input);
+  background-color: color-mix(in srgb, var(--pm-row-family) var(--pm-family-tint-alpha), transparent);
+  color: var(--pm-row-family);
+}
+
+.pm-search__result-icon svg {
+  width: var(--pm-icon-row);
+  height: var(--pm-icon-row);
+}
+
+/* Main column: name row above the breadcrumb. */
+.pm-search__result-main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pm-space-2xs);
+  flex: 1;
+  min-width: 0;
+}
+
+.pm-search__result-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--pm-font-name);
+  font-weight: var(--pm-weight-semibold);
+  color: var(--pm-text);
+}
+
+.pm-search__result-name .hl {
+  color: var(--pm-sky);
+  font-weight: var(--pm-weight-hl);
+}
+
+/* Type pill: right-aligned, non-shrinking. */
+.pm-search__result-type {
+  flex: 0 0 auto;
+  align-self: center;
+  padding: var(--pm-pill-pad-y) var(--pm-pill-pad-x);
+  background-color: var(--pm-surface0);
+  border: var(--pm-border-width) solid var(--pm-surface1);
+  border-radius: var(--pm-radius-chip);
+  font-size: var(--pm-font-pill);
+  font-weight: var(--pm-weight-pill);
+  color: var(--pm-subtext0);
+}
+
+/* Breadcrumb: Client › Engagement, ellipsised. */
+.pm-search__crumb {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--pm-font-crumb);
+  font-weight: var(--pm-weight-medium);
+  color: var(--pm-overlay0);
+}
+
+.pm-search__crumb-sep {
+  margin: 0 var(--pm-space-xs);
+  color: var(--pm-surface2);
+}
+
+/* ─── Empty / no-result / Dataview-absent states ─────────────── */
+
+.pm-search__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--pm-space-xs);
+  padding: var(--pm-space-xl) var(--pm-space-lg);
+  text-align: center;
+}
+
+.pm-search__empty-icon {
+  display: inline-flex;
+  color: var(--pm-overlay0);
+}
+
+.pm-search__empty-icon svg {
+  width: var(--pm-icon-empty);
+  height: var(--pm-icon-empty);
+}
+
+.pm-search__empty-title {
+  font-size: var(--pm-font-name);
+  font-weight: var(--pm-weight-semibold);
+  color: var(--pm-text);
+}
+
+.pm-search__empty-line {
+  font-size: var(--pm-font-count);
+  color: var(--pm-overlay2);
+}
+
+/* ─── Filter zone: drawer toggle, chips bar, collapsible drawer ─────────────── */
+
+.pm-search__filter-zone {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pm-space-xs);
+}
+
+
+/* Collapsible drawer: hidden until the toggle opens it; holds the type toggles. */
+.pm-search__drawer {
+  display: none;
+  padding: var(--pm-space-md);
+  background-color: var(--pm-mantle);
+  border: var(--pm-border-width) solid var(--pm-surface1);
+  border-radius: var(--pm-radius-panel);
+}
+
+.pm-search__drawer--open {
+  display: block;
+}
+
+/* ─── Scope controls: "Narrow by…" add button + Clear ───────────────────────── */
+
+.pm-search__controls {
+  display: flex;
+  align-items: center;
+  gap: var(--pm-space-8);
+}
+
+/* Full-width dashed add button; the scope "search within" entry point. */
+.pm-search__add {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--pm-space-xs);
+  padding: var(--pm-space-7) var(--pm-space-11);
+  background-color: var(--pm-base);
+  color: var(--pm-subtext0);
+  border: var(--pm-border-width) dashed var(--pm-surface2);
+  border-radius: var(--pm-radius-row);
+  font-size: var(--pm-font-count);
+  font-weight: var(--pm-weight-semibold);
+  cursor: pointer;
+}
+
+.pm-search__add:hover {
+  color: var(--pm-text);
+  border-color: var(--pm-blue);
+}
+
+/* Open state: a solid blue border and a flipped chevron. */
+.pm-search__add[aria-expanded="true"] {
+  color: var(--pm-text);
+  border-style: solid;
+  border-color: color-mix(in srgb, var(--pm-blue) var(--pm-add-open-border-alpha), transparent);
+}
+
+/* Leading "+" is the panel-blue accent; the label fills the button width. */
+.pm-search__add-icon {
+  display: inline-flex;
+  color: var(--pm-blue);
+}
+
+.pm-search__add-icon svg {
+  width: var(--pm-icon-add);
+  height: var(--pm-icon-add);
+}
+
+.pm-search__add-label {
+  flex: 1;
+  text-align: left;
+}
+
+.pm-search__add-chevron {
+  display: inline-flex;
+  color: var(--pm-overlay0);
+}
+
+.pm-search__add-chevron svg {
+  width: var(--pm-icon-add-chevron);
+  height: var(--pm-icon-add-chevron);
+}
+
+.pm-search__add[aria-expanded="true"] .pm-search__add-chevron {
+  transform: rotate(var(--pm-chevron-open-rotate));
+}
+
+/* Clear-all-filters text button; shown only while a filter is active (inline style). */
+.pm-search__clear-filters {
+  padding: 0;
+  background: transparent;
+  border: none;
+  color: var(--pm-blue);
+  font-size: var(--pm-font-count);
+  font-weight: var(--pm-weight-semibold);
+  cursor: pointer;
+}
+
+/* ─── Scope facets (client / engagement / person) ───────────────────────────── */
+
+.pm-search__facet {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pm-space-xs);
+  margin-bottom: var(--pm-space-md);
+}
+
+.pm-search__facet-label {
+  font-size: var(--pm-font-chip);
+  font-weight: var(--pm-weight-pill);
+  color: var(--pm-subtext0);
+}
+
+/* ─── Type toggles (family-grouped) ─────────────────────────────────────────── */
+
+.pm-search__types {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pm-space-sm);
+}
+
+.pm-search__type-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pm-space-xs);
+}
+
+.pm-search__type-group-heading {
+  font-size: var(--pm-font-pill);
+  font-weight: var(--pm-weight-bold);
+  color: var(--pm-overlay0);
+}
+
+.pm-search__type-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pm-space-5);
+}
+
+/* Toggle chip: family dot + label; the pressed state carries the panel-blue accent. */
+.pm-search__ttog {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--pm-space-xs);
+  padding: var(--pm-space-3) var(--pm-space-9);
+  background-color: var(--pm-base);
+  color: var(--pm-subtext0);
+  border: var(--pm-border-width) solid var(--pm-surface1);
+  border-radius: var(--pm-radius-toggle);
+  font-size: var(--pm-font-chip);
+  font-weight: var(--pm-weight-semibold);
+  cursor: pointer;
+}
+
+.pm-search__ttog[aria-pressed="true"] {
+  color: var(--pm-text);
+  background-color: color-mix(in srgb, var(--pm-blue) var(--pm-toggle-on-bg-alpha), transparent);
+  border-color: color-mix(in srgb, var(--pm-blue) var(--pm-toggle-on-border-alpha), transparent);
+}
+
+/* Leading family-colour dot: dimmed on an unpressed toggle, full colour when pressed. */
+.pm-search__ttog-dot {
+  flex: 0 0 auto;
+  width: var(--pm-dot-size);
+  height: var(--pm-dot-size);
+  border-radius: var(--pm-radius-round);
+  background-color: color-mix(in srgb, var(--pm-family-dot) var(--pm-dot-idle-alpha), transparent);
+}
+
+.pm-search__ttog[aria-pressed="true"] .pm-search__ttog-dot {
+  background-color: var(--pm-family-dot);
+}
+
+/* ─── Active-scope chips bar ─────────────────────────────────────────────────── */
+
+.pm-search__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pm-space-xs);
+}
+
+.pm-search__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--pm-space-xs);
+  padding: var(--pm-space-3) var(--pm-space-5) var(--pm-space-3) var(--pm-space-9);
+  background-color: var(--pm-mantle);
+  border: var(--pm-border-width) solid var(--pm-surface1);
+  border-radius: var(--pm-radius-pill);
+  font-size: var(--pm-font-chip-lg);
+  font-weight: var(--pm-weight-semibold);
+  color: var(--pm-subtext1);
+}
+
+/* Chip dot always shows the full family colour (chips list only active facets/types). */
+.pm-search__chip-dot {
+  flex: 0 0 auto;
+  width: var(--pm-dot-size-chip);
+  height: var(--pm-dot-size-chip);
+  border-radius: var(--pm-radius-round);
+  background-color: var(--pm-family-dot);
+}
+
+/* Inferred (auto-seeded) scope chips prefix a home glyph. */
+.pm-search__chip-home {
+  display: inline-flex;
+  color: var(--pm-overlay2);
+}
+
+.pm-search__chip-home svg {
+  width: var(--pm-icon-chip-home);
+  height: var(--pm-icon-chip-home);
+}
+
+/* Empty active-scope bar guidance line. */
+.pm-search__chips-empty {
+  font-style: italic;
+  font-size: var(--pm-font-count);
+  color: var(--pm-overlay2);
+}
+
+.pm-search__chip-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--pm-chip-remove-size);
+  height: var(--pm-chip-remove-size);
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: var(--pm-radius-round);
+  color: var(--pm-overlay0);
+  cursor: pointer;
+}
+
+.pm-search__chip-remove:hover {
+  color: var(--pm-text);
+}
+
+.pm-search__chip-remove svg {
+  width: var(--pm-icon-chip-remove);
+  height: var(--pm-icon-chip-remove);
+}
+
+/* Motion only when the viewer has not asked to reduce it. */
+@media (prefers-reduced-motion: no-preference) {
+  .pm-search__input {
+    transition: border-color var(--pm-transition), box-shadow var(--pm-transition),
+      transform var(--pm-transition);
+  }
+
+  .pm-search__result {
+    transition: background-color var(--pm-transition), box-shadow var(--pm-transition);
+  }
+
+  .pm-search__add,
+  .pm-search__clear-filters,
+  .pm-search__ttog,
+  .pm-search__chip-remove {
+    transition: color var(--pm-transition), background-color var(--pm-transition),
+      border-color var(--pm-transition);
+  }
+
+  .pm-search__add-chevron {
+    transition: transform var(--pm-transition);
+  }
+}

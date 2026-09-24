@@ -80,6 +80,15 @@ export function createInternalLink(
 }
 
 /**
+ * Wraps a CSS custom-property token name in a `var()` reference, e.g.
+ * `--pm-entity-client` → `var(--pm-entity-client)`, for use as an inline style
+ * value that resolves against the theme's token layer.
+ */
+export function cssVar(token: string): string {
+  return `var(${token})`;
+}
+
+/**
  * Renders a styled error message into the given container.
  * @param padding — Optional CSS padding value applied to the error element
  */

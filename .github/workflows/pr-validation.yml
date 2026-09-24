@@ -65,11 +65,5 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: TypeScript check (e2e)
-        run: npx tsc --noEmit --project e2e/tsconfig.json
-
-      - name: Validate e2e fixtures
-        run: node scripts/validate-e2e-fixtures.js
-
-      - name: Playwright test enumeration
-        run: npx playwright test --list --config e2e/playwright.config.ts
+      - name: Validate e2e (static checks)
+        run: npm run validate:e2e
