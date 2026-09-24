@@ -12,9 +12,15 @@ import type {
   ITaskFilterService,
   ITaskSortService,
   ITestDataService,
+  ISearchService,
 } from "./services/interfaces";
+import type { DataviewApi } from "./types";
 import type { ProjectManagerSettings } from "./settings";
 import type ProjectManagerPlugin from "./main";
+import { SearchService } from "./services/search-service";
+import { EntityEnumerator } from "./services/entity-enumerator";
+import { PersonAssociationResolver } from "./services/person-association-resolver";
+import { PreparedFuzzyMatcher } from "./services/prepared-fuzzy-matcher";
 
 /**
  * Narrow service bag consumed by commands.
@@ -153,23 +159,43 @@ export function buildReferenceProcessorServices(
 /**
  * Narrow service bag for the search panel's view component (ISP).
  *
- * The panel opens a chosen result, so it needs navigation and nothing else on
- * the current shell. It is deliberately its own interface rather than a reuse
- * of a fuller processor bag, so the panel sees only what it uses; later search
- * work extends this bag rather than widening an existing one.
+ * The panel runs fuzzy search ({@link ISearchService}), resolves a selected
+ * result's file and opens it (`app` + `navigationService`), probes Dataview
+ * availability to distinguish the "no matches" and "Dataview off" states
+ * (`getDv`), and reports open failures without swallowing them
+ * (`loggerService`). It depends on abstractions, never on the concrete plugin.
  */
 export interface SearchViewServices {
+  app: App;
+  searchService: ISearchService;
   navigationService: INavigationService;
+  loggerService: ILoggerService;
+  /** Live Dataview API, or null when Dataview is unavailable. */
+  getDv: () => DataviewApi | null;
 }
 
 /**
  * Builds the {@link SearchViewServices} bag from a plugin instance, co-located
  * with the interface so the field-for-field literal lives in one place. The
- * plugin is referenced type-only to keep this module free of a runtime cycle.
+ * search pipeline's collaborators are composed here from the plugin's real
+ * services; the plugin is referenced type-only to keep this module free of a
+ * runtime cycle.
  */
 export function buildSearchViewServices(plugin: ProjectManagerPlugin): SearchViewServices {
+  const getDv = (): DataviewApi | null => plugin.queryService.dv();
+  const searchService = new SearchService({
+    getDv,
+    enumerator: new EntityEnumerator(plugin.queryService),
+    hierarchyService: plugin.hierarchyService,
+    personResolver: new PersonAssociationResolver(getDv, plugin.settings.folders),
+    matcher: new PreparedFuzzyMatcher(),
+  });
   return {
+    app: plugin.app,
+    searchService,
     navigationService: plugin.navigationService,
+    loggerService: plugin.loggerService,
+    getDv,
   };
 }
 

@@ -397,6 +397,21 @@ export abstract class AbstractInputSuggest<T> extends PopoverSuggest<T> {
   }
 }
 
+// ─── setIcon stub ─────────────────────────────────────────────────────────────
+// Models Obsidian's setIcon(parent, iconId): it injects an SVG glyph into the
+// parent. The stub appends a <svg> carrying the icon id on `data-icon` so tests
+// can assert which glyph a surface rendered, mirroring Obsidian's behaviour of
+// replacing the parent's icon contents.
+
+export function setIcon(parent: HTMLElement, iconId: string): void {
+  const existing = parent.querySelector("svg");
+  if (existing) existing.remove();
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.classList.add("svg-icon");
+  svg.setAttribute("data-icon", iconId);
+  parent.appendChild(svg);
+}
+
 // ─── prepareFuzzySearch stub ──────────────────────────────────────────────────
 // Faithful minimal model of Obsidian's prepareFuzzySearch: returns a matcher
 // function that yields { score, matches } when every query character occurs in

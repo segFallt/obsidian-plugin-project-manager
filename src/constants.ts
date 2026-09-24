@@ -398,6 +398,7 @@ export const LOG_CONTEXT = {
   TAG_RAID_REFERENCE: "tag-raid-reference",
   REFERENCE_DASHBOARD_VIEW: "pm-reference-dashboard-view",
   REFERENCES_PROCESSOR: "pm-references-processor",
+  PM_SEARCH_VIEW: "pm-search-view",
   RECURRING_EVENTS: "pm-recurring-events",
   CREATE_CLIENT: "create-client",
   CREATE_ENGAGEMENT: "create-engagement",
@@ -476,6 +477,13 @@ export const ENTITY_TYPE = {
   REFERENCE: "reference",
   REFERENCE_TOPIC: "reference-topic",
 } as const satisfies Record<string, EntityType>;
+
+/**
+ * Every {@link EntityType} in registration order — the full set the search panel
+ * ranks across when no type filter is applied. Derived from {@link ENTITY_TYPE}
+ * so it stays exhaustive as new kinds are added.
+ */
+export const ALL_ENTITY_TYPES: EntityType[] = Object.values(ENTITY_TYPE);
 
 /**
  * Enumeration strategies an {@link EntityType} descriptor is read through: a
@@ -711,6 +719,27 @@ export const CSS_CLS = {
   PM_SEARCH: "pm-search",
   PM_SEARCH_COMMAND_ZONE: "pm-search__cz",
   PM_SEARCH_RESULTS: "pm-search__results",
+  // pm-search box (leading glyph + text field + trailing clear button)
+  PM_SEARCH_INPUT: "pm-search__input",
+  PM_SEARCH_INPUT_ICON: "pm-search__input-icon",
+  PM_SEARCH_INPUT_FIELD: "pm-search__input-field",
+  PM_SEARCH_CLEAR: "pm-search__clear",
+  // pm-search count row
+  PM_SEARCH_COUNT: "pm-search__count",
+  // pm-search result row (button: icon gutter + main column + type pill)
+  PM_SEARCH_RESULT: "pm-search__result",
+  PM_SEARCH_RESULT_ICON: "pm-search__result-icon",
+  PM_SEARCH_RESULT_MAIN: "pm-search__result-main",
+  PM_SEARCH_RESULT_NAME: "pm-search__result-name",
+  PM_SEARCH_RESULT_TYPE: "pm-search__result-type",
+  PM_SEARCH_CRUMB: "pm-search__crumb",
+  PM_SEARCH_CRUMB_SEP: "pm-search__crumb-sep",
+  PM_SEARCH_HL: "hl",
+  // pm-search empty / no-result / Dataview-absent states
+  PM_SEARCH_EMPTY: "pm-search__empty",
+  PM_SEARCH_EMPTY_ICON: "pm-search__empty-icon",
+  PM_SEARCH_EMPTY_TITLE: "pm-search__empty-title",
+  PM_SEARCH_EMPTY_LINE: "pm-search__empty-line",
   // References dashboard (ItemView panel + view components)
   REFERENCE_DASHBOARD_VIEW: "pm-reference-dashboard-view",
   REFERENCE_DASHBOARD_ACTIONS: "pm-reference-dashboard__actions",
@@ -1221,7 +1250,41 @@ export const PM_SEARCH_RIBBON_TITLE = "Open Search";
  */
 export const PM_SEARCH_STATE_KEY = "pmSearchViewState";
 
+/**
+ * Lucide icon ids used by the pm-search panel's own chrome (not the per-entity
+ * row icons, which come from {@link ENTITY_ICON} via the presentation registry).
+ */
+export const PM_SEARCH_GLYPH = {
+  /** Leading glyph inside the search box. */
+  SEARCH: "search",
+  /** Trailing clear button glyph. */
+  CLEAR: "x",
+  /** No-match empty-state glyph. */
+  NO_MATCH: "search-x",
+  /** Dataview-unavailable empty-state glyph (a crossed-out screen). */
+  DATAVIEW_OFF: "monitor-off",
+} as const;
+
+/** The inline CSS custom property a result row's family colour is threaded through. */
+export const PM_SEARCH_FAMILY_VAR = "--pm-row-family";
+
 /** Static, user-facing text for the pm-search panel. */
 export const PM_SEARCH_TEXT = {
   TITLE: "Search",
+  PLACEHOLDER: "Search entities by name…",
+  CLEAR_ARIA: "Clear search",
+  /** Right-aligned count row copy; always plural ("1 results" is acceptable here). */
+  resultCount: (count: number): string => `${count} results`,
+  /** Count row when Dataview is unavailable, so no count can be shown. */
+  COUNT_UNAVAILABLE: "—",
+  /** Breadcrumb segment separator (Client › Engagement). */
+  CRUMB_SEPARATOR: "›",
+  /** Breadcrumb shown for a reference that resolves to no client or engagement. */
+  CRUMB_KNOWLEDGE_BASE: "Knowledge base",
+  /** No-match state: title interpolates the current query, plus a guidance line. */
+  noMatchTitle: (query: string): string => `No matches for "${query}"`,
+  NO_MATCH_LINE: "Try a shorter or different query.",
+  /** Dataview-unavailable state title and guidance line. */
+  DATAVIEW_TITLE: "Search needs Dataview",
+  DATAVIEW_LINE: "Enable the Dataview plugin so the vault can be indexed.",
 } as const;

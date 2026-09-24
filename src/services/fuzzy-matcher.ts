@@ -27,8 +27,9 @@ export interface IFuzzyMatcher {
  * Ranks candidates by how well the query matches each candidate's file name.
  * The query is prepared once and the resulting scorer applied to every
  * candidate; non-matches (a `null` score) are excluded, and the survivors are
- * ordered by descending score. Pure and matcher-injected — no `obsidian`
- * import — so it is fully unit-testable with a fake matcher.
+ * ordered by descending score, ties broken alphabetically by name so ordering
+ * is deterministic. Pure and matcher-injected — no `obsidian` import — so it is
+ * fully unit-testable with a fake matcher.
  */
 export function rankCandidatesByName(
   candidates: EntityCandidate[],
@@ -41,6 +42,8 @@ export function rankCandidatesByName(
     const score = scorer(candidate.page.file.name);
     if (score !== null) scored.push({ candidate, score });
   }
-  scored.sort((a, b) => b.score - a.score);
+  scored.sort(
+    (a, b) => b.score - a.score || a.candidate.page.file.name.localeCompare(b.candidate.page.file.name)
+  );
   return scored.map((entry) => entry.candidate);
 }

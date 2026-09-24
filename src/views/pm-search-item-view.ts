@@ -1,47 +1,16 @@
 import type { WorkspaceLeaf } from "obsidian";
 import type ProjectManagerPlugin from "../main";
 import { buildSearchViewServices } from "../plugin-context";
-import type { SearchViewServices } from "../plugin-context";
+import { PmSearchView } from "./pm-search-view";
 import { DashboardItemViewHost } from "../processors/dashboard-item-view-host";
 import type { DashboardItemViewConfig } from "../processors/dashboard-item-view-host";
-import type { DashboardViewComponent } from "../processors/dashboard-render-child";
 import { SettingsViewStore } from "../processors/view-state-store";
 import {
   PM_SEARCH_VIEW_TYPE,
   PM_SEARCH_ICON,
   PM_SEARCH_STATE_KEY,
   PM_SEARCH_TEXT,
-  CSS_CLS,
 } from "../constants";
-
-/**
- * The search panel's view component. It lays out the panel shell — a command
- * zone (the future home of the search box, type chips, scope, and result
- * count) and a scrollable results area — into its host element. Both zones are
- * empty structure for now: the search box, filter controls, and result
- * rendering are mounted by later work through this same seam.
- */
-class PmSearchView implements DashboardViewComponent {
-  constructor(
-    private readonly container: HTMLElement,
-    private readonly services: SearchViewServices
-  ) {}
-
-  render(): void {
-    this.container.empty();
-    const root = this.container.createDiv({ cls: CSS_CLS.PM_SEARCH });
-    root.createDiv({ cls: CSS_CLS.PM_SEARCH_COMMAND_ZONE });
-    root.createDiv({ cls: CSS_CLS.PM_SEARCH_RESULTS });
-  }
-
-  refreshOutput(): void {
-    // The shell has no data-flow yet, so there is nothing to repaint.
-  }
-
-  destroy(): void {
-    this.container.empty();
-  }
-}
 
 /**
  * ItemView panel for pm-search.

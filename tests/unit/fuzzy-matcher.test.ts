@@ -25,6 +25,15 @@ describe("rankCandidatesByName", () => {
     expect(ranked.map((c) => c.page.file.name)).toEqual(["Charlie", "Delta", "Alpha"]);
   });
 
+  it("breaks equal-score ties alphabetically by name", () => {
+    const candidates = [candidate("Charlie"), candidate("Alpha"), candidate("Bravo")];
+    const matcher = fakeMatcher({ Alpha: 5, Bravo: 5, Charlie: 5 });
+
+    const ranked = rankCandidatesByName(candidates, "x", matcher);
+
+    expect(ranked.map((c) => c.page.file.name)).toEqual(["Alpha", "Bravo", "Charlie"]);
+  });
+
   it("returns an empty list when nothing matches", () => {
     const candidates = [candidate("Alpha"), candidate("Bravo")];
     const matcher = fakeMatcher({ Alpha: null, Bravo: null });

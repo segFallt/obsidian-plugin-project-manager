@@ -1,6 +1,12 @@
 import { describe, it, expect, vi } from "vitest";
 import { PmSearchItemView } from "@/views/pm-search-item-view";
-import { PM_SEARCH_VIEW_TYPE, PM_SEARCH_ICON, PM_SEARCH_TEXT } from "@/constants";
+import {
+  PM_SEARCH_VIEW_TYPE,
+  PM_SEARCH_ICON,
+  PM_SEARCH_TEXT,
+  CSS_CLS,
+  DEFAULT_FOLDERS,
+} from "@/constants";
 import { App } from "obsidian";
 
 // ─── Mock plugin factory ──────────────────────────────────────────────────────
@@ -11,8 +17,26 @@ function makePlugin(ui: Record<string, unknown> = {}) {
   return {
     app,
     saveSettings,
-    settings: { ui },
+    settings: { ui, folders: DEFAULT_FOLDERS },
     navigationService: { openFile: vi.fn().mockResolvedValue(undefined) },
+    // Dataview off by default — the panel renders its "needs Dataview" state.
+    queryService: {
+      dv: () => null,
+      getEntitiesByTag: () => [],
+      getEntitiesByFolder: () => [],
+    },
+    hierarchyService: {
+      resolveClientName: () => null,
+      resolveEngagementName: () => null,
+    },
+    loggerService: {
+      debug: vi.fn(),
+      info: vi.fn(),
+      warn: vi.fn(),
+      error: vi.fn(),
+      flush: vi.fn().mockResolvedValue(undefined),
+      cleanOldLogs: vi.fn().mockResolvedValue(undefined),
+    },
   };
 }
 
@@ -57,23 +81,20 @@ describe("PmSearchItemView", () => {
     });
   });
 
-  describe("onOpen() — shell layout", () => {
+  describe("onOpen() — panel layout", () => {
     it("renders the .pm-search root panel inside contentEl", async () => {
       const { view } = makeView();
       await view.onOpen();
-      expect(view.contentEl.querySelector(".pm-search")).not.toBeNull();
+      expect(view.contentEl.querySelector(`.${CSS_CLS.PM_SEARCH}`)).not.toBeNull();
     });
 
-    it("renders an empty command zone and a results area", async () => {
+    it("mounts the search box, count row, and results area into the command zone", async () => {
       const { view } = makeView();
       await view.onOpen();
-      const cz = view.contentEl.querySelector(".pm-search__cz");
-      const results = view.contentEl.querySelector(".pm-search__results");
-      expect(cz).not.toBeNull();
-      expect(results).not.toBeNull();
-      // Shell only — neither zone has any controls or results yet.
-      expect(cz?.childElementCount).toBe(0);
-      expect(results?.childElementCount).toBe(0);
+      const cz = view.contentEl.querySelector(`.${CSS_CLS.PM_SEARCH_COMMAND_ZONE}`);
+      expect(cz?.querySelector(`.${CSS_CLS.PM_SEARCH_INPUT_FIELD}`)).not.toBeNull();
+      expect(cz?.querySelector(`.${CSS_CLS.PM_SEARCH_COUNT}`)).not.toBeNull();
+      expect(view.contentEl.querySelector(`.${CSS_CLS.PM_SEARCH_RESULTS}`)).not.toBeNull();
     });
 
     it("does not register a vault modify listener (settings-backed, no echo)", async () => {
@@ -83,13 +104,13 @@ describe("PmSearchItemView", () => {
       expect(vaultOn).not.toHaveBeenCalledWith("modify", expect.any(Function));
     });
 
-    it("re-opening rebuilds a single shell rather than stacking duplicates", async () => {
+    it("re-opening rebuilds a single panel rather than stacking duplicates", async () => {
       const { view } = makeView();
       await view.onOpen();
       // render() empties the container first, so a second open replaces the
-      // shell rather than appending a second .pm-search root.
+      // panel rather than appending a second .pm-search root.
       await view.onOpen();
-      expect(view.contentEl.querySelectorAll(".pm-search").length).toBe(1);
+      expect(view.contentEl.querySelectorAll(`.${CSS_CLS.PM_SEARCH}`).length).toBe(1);
     });
   });
 

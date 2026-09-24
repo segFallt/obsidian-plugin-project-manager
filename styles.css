@@ -1834,9 +1834,41 @@ details[open] .pm-filter-section__title::before {
   --pm-transition: 0.13s;
 
   /* Spacing scale — the shared step scale the panel surfaces lay out on */
+  --pm-space-2xs: 2px;
   --pm-space-xs: 6px;
+  --pm-space-8: 8px;
   --pm-space-sm: 10px;
   --pm-space-md: 12px;
+  --pm-space-lg: 26px;
+  --pm-space-xl: 34px;
+
+  /* Type-pill inner padding (vertical / horizontal) */
+  --pm-pill-pad-y: 1px;
+  --pm-pill-pad-x: 7px;
+
+  /* Icon sizes across the panel's surfaces */
+  --pm-icon-search: 16px;   /* leading search-box glyph */
+  --pm-icon-clear: 18px;    /* trailing clear button */
+  --pm-icon-row: 15px;      /* result-row family icon */
+  --pm-icon-gutter: 26px;   /* result-row icon gutter box */
+  --pm-icon-empty: 22px;    /* empty-state glyph */
+
+  /* Font sizes */
+  --pm-font-input: 14px;
+  --pm-font-name: 13px;
+  --pm-font-count: 12px;
+  --pm-font-crumb: 11px;
+  --pm-font-pill: 10px;
+
+  /* Font weights */
+  --pm-weight-normal: 400;
+  --pm-weight-medium: 500;
+  --pm-weight-semibold: 600;
+  --pm-weight-pill: 650;
+  --pm-weight-hl: 750;
+
+  /* Family-colour tint strength for the result-row icon gutter background */
+  --pm-family-tint-alpha: 12%;
 
   /* Panel dimensions */
   --pm-panel-width: 370px;
@@ -1871,13 +1903,6 @@ details[open] .pm-filter-section__title::before {
   border-bottom: var(--pm-border-width) solid var(--pm-surface0);
 }
 
-/* Focus ring for inputs mounted in the command zone (keyboard-operable). */
-.pm-search__cz input:focus {
-  outline: none;
-  border-color: var(--pm-blue);
-  box-shadow: 0 0 0 var(--pm-focus-ring-width) color-mix(in srgb, var(--pm-blue) var(--pm-focus-ring-alpha), transparent);
-}
-
 /* Results area — scrollable list of matches. */
 .pm-search__results {
   flex: 1;
@@ -1886,10 +1911,225 @@ details[open] .pm-filter-section__title::before {
   padding: var(--pm-space-xs);
 }
 
+/* ─── Search box ─────────────────────────────────────────────── */
+
+/* A bordered row: leading glyph, the text field, a trailing clear button. */
+.pm-search__input {
+  display: flex;
+  align-items: center;
+  gap: var(--pm-space-8);
+  width: 100%;
+  padding: var(--pm-space-8) var(--pm-space-sm);
+  background-color: var(--pm-mantle);
+  border: var(--pm-border-width) solid var(--pm-surface1);
+  border-radius: var(--pm-radius-row);
+}
+
+/* Focus-within lifts the whole box to the accent border + blue ring. */
+.pm-search__input:focus-within {
+  border-color: var(--pm-blue);
+  box-shadow: 0 0 0 var(--pm-focus-ring-width) color-mix(in srgb, var(--pm-blue) var(--pm-focus-ring-alpha), transparent);
+}
+
+.pm-search__input-icon {
+  display: inline-flex;
+  flex: 0 0 auto;
+  color: var(--pm-overlay2);
+}
+
+.pm-search__input-icon svg {
+  width: var(--pm-icon-search);
+  height: var(--pm-icon-search);
+}
+
+/* The text field carries no chrome of its own — the wrapper owns border/ring. */
+.pm-search__input-field {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: none;
+  outline: none;
+  box-shadow: none;
+  color: var(--pm-text);
+  font-size: var(--pm-font-input);
+  font-weight: var(--pm-weight-medium);
+}
+
+.pm-search__input-field:focus {
+  box-shadow: none;
+}
+
+.pm-search__input-field::placeholder {
+  color: var(--pm-overlay0);
+  font-weight: var(--pm-weight-normal);
+}
+
+/* Trailing clear button — hidden by inline style until the field is non-empty. */
+.pm-search__clear {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  cursor: pointer;
+  color: var(--pm-overlay0);
+}
+
+.pm-search__clear:hover {
+  color: var(--pm-text);
+}
+
+.pm-search__clear svg {
+  width: var(--pm-icon-clear);
+  height: var(--pm-icon-clear);
+}
+
+/* ─── Count row ──────────────────────────────────────────────── */
+
+.pm-search__count {
+  text-align: right;
+  font-size: var(--pm-font-count);
+  font-variant-numeric: tabular-nums;
+  color: var(--pm-overlay0);
+}
+
+/* ─── Result row ─────────────────────────────────────────────── */
+
+.pm-search__result {
+  display: flex;
+  align-items: center;
+  gap: var(--pm-space-sm);
+  width: 100%;
+  padding: var(--pm-space-8);
+  background: transparent;
+  border: none;
+  border-radius: var(--pm-radius-row);
+  cursor: pointer;
+  text-align: left;
+}
+
+.pm-search__result:hover,
+.pm-search__result:focus {
+  background-color: var(--pm-mantle);
+}
+
+.pm-search__result:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 var(--pm-border-width) var(--pm-surface2);
+}
+
+/* Icon gutter: family colour tints the background and strokes the glyph. */
+.pm-search__result-icon {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: var(--pm-icon-gutter);
+  height: var(--pm-icon-gutter);
+  border-radius: var(--pm-radius-input);
+  background-color: color-mix(in srgb, var(--pm-row-family) var(--pm-family-tint-alpha), transparent);
+  color: var(--pm-row-family);
+}
+
+.pm-search__result-icon svg {
+  width: var(--pm-icon-row);
+  height: var(--pm-icon-row);
+}
+
+/* Main column: name row above the breadcrumb. */
+.pm-search__result-main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pm-space-2xs);
+  flex: 1;
+  min-width: 0;
+}
+
+.pm-search__result-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--pm-font-name);
+  font-weight: var(--pm-weight-semibold);
+  color: var(--pm-text);
+}
+
+.pm-search__result-name .hl {
+  color: var(--pm-sky);
+  font-weight: var(--pm-weight-hl);
+}
+
+/* Type pill: right-aligned, non-shrinking. */
+.pm-search__result-type {
+  flex: 0 0 auto;
+  align-self: center;
+  padding: var(--pm-pill-pad-y) var(--pm-pill-pad-x);
+  background-color: var(--pm-surface0);
+  border: var(--pm-border-width) solid var(--pm-surface1);
+  border-radius: var(--pm-radius-chip);
+  font-size: var(--pm-font-pill);
+  font-weight: var(--pm-weight-pill);
+  color: var(--pm-subtext0);
+}
+
+/* Breadcrumb: Client › Engagement, ellipsised. */
+.pm-search__crumb {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--pm-font-crumb);
+  font-weight: var(--pm-weight-medium);
+  color: var(--pm-overlay0);
+}
+
+.pm-search__crumb-sep {
+  margin: 0 var(--pm-space-xs);
+  color: var(--pm-surface2);
+}
+
+/* ─── Empty / no-result / Dataview-absent states ─────────────── */
+
+.pm-search__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--pm-space-xs);
+  padding: var(--pm-space-xl) var(--pm-space-lg);
+  text-align: center;
+}
+
+.pm-search__empty-icon {
+  display: inline-flex;
+  color: var(--pm-overlay0);
+}
+
+.pm-search__empty-icon svg {
+  width: var(--pm-icon-empty);
+  height: var(--pm-icon-empty);
+}
+
+.pm-search__empty-title {
+  font-size: var(--pm-font-name);
+  font-weight: var(--pm-weight-semibold);
+  color: var(--pm-text);
+}
+
+.pm-search__empty-line {
+  font-size: var(--pm-font-count);
+  color: var(--pm-overlay2);
+}
+
 /* Motion only when the viewer has not asked to reduce it. */
 @media (prefers-reduced-motion: no-preference) {
-  .pm-search__cz input {
+  .pm-search__input {
     transition: border-color var(--pm-transition), box-shadow var(--pm-transition),
       transform var(--pm-transition);
+  }
+
+  .pm-search__result {
+    transition: background-color var(--pm-transition), box-shadow var(--pm-transition);
   }
 }
