@@ -5,12 +5,14 @@ import { PmSearchView } from "./pm-search-view";
 import { DashboardItemViewHost } from "../processors/dashboard-item-view-host";
 import type { DashboardItemViewConfig } from "../processors/dashboard-item-view-host";
 import { SettingsViewStore } from "../processors/view-state-store";
+import type { ViewState } from "../processors/view-state-store";
 import {
   PM_SEARCH_VIEW_TYPE,
   PM_SEARCH_ICON,
-  PM_SEARCH_STATE_KEY,
+  SAVED_SEARCH_FILTERS_STATE_KEY,
   PM_SEARCH_TEXT,
 } from "../constants";
+import type { SavedSearchFilters } from "../types";
 
 /**
  * ItemView panel for pm-search.
@@ -34,12 +36,20 @@ export class PmSearchItemView extends DashboardItemViewHost {
       () => plugin.settings.ui as unknown as Record<string, unknown>,
       () => plugin.saveSettings()
     );
+    const stateKey = SAVED_SEARCH_FILTERS_STATE_KEY;
 
     const config: DashboardItemViewConfig = {
       store,
-      stateKey: PM_SEARCH_STATE_KEY,
-      createView: (_persist, container) =>
-        new PmSearchView(container, buildSearchViewServices(plugin)),
+      stateKey,
+      createView: (persist, container) => {
+        const saved = store.load(stateKey) as SavedSearchFilters | null;
+        return new PmSearchView(
+          container,
+          buildSearchViewServices(plugin),
+          saved,
+          (filters) => persist(filters as ViewState | null)
+        );
+      },
     };
 
     super(leaf, config);

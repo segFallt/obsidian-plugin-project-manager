@@ -66,6 +66,25 @@ export interface SearchResult {
   engagement?: string;
 }
 
+/**
+ * The pm-search panel's whole filter state persisted to settings: the scope
+ * selections (client / engagement / person names) plus the enabled entity-type
+ * toggles. Every field is optional so a value the merge dropped — {@link
+ * import("./settings").mergeSettings} replaces the whole `savedSearchFilters`
+ * object rather than merging its sub-keys — defaults defensively at read time and
+ * a future-added sub-key can never leave an existing user's state `undefined`.
+ */
+export interface SavedSearchFilters {
+  /** Selected client names (OR within the facet). */
+  clients?: string[];
+  /** Selected engagement names (OR within the facet). */
+  engagements?: string[];
+  /** Selected person names (OR within the facet). */
+  people?: string[];
+  /** Enabled entity-type toggles; empty (or absent) means every type. */
+  types?: EntityType[];
+}
+
 // ─── Reference Types ───────────────────────────────────────────────────────
 
 export type ReferenceViewMode = "topic" | "client" | "engagement";

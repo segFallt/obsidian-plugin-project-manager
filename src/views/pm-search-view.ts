@@ -6,7 +6,14 @@ import type { EntityPresentation, EntityFamilyGroup } from "../entity-registry";
 import { cssVar } from "../processors/dom-helpers";
 import { debounced } from "../utils/debounce";
 import type { Debounced } from "../utils/debounce";
-import type { DataviewPage, EntityType, SearchResult, SearchScope } from "../types";
+import { FilterChipSelect } from "../ui/components/filter-chip-select";
+import type {
+  AutocompleteOption,
+  DataviewPage,
+  EntityType,
+  SavedSearchFilters,
+  SearchResult,
+} from "../types";
 import {
   ALL_ENTITY_TYPES,
   ARIA_BOOL,
@@ -15,72 +22,95 @@ import {
   DEBOUNCE_MS,
   DOM_ATTR,
   DOM_EVENT,
+  ENTITY_FAMILY_COLOR_TOKEN,
   ENTITY_FAMILY_LABEL,
   ENTITY_TYPE,
   HTML_TAG,
+  INFERRED_KEY_SEP,
   INPUT_TYPE,
   LOG_CONTEXT,
   PM_SEARCH_DOT_VAR,
   PM_SEARCH_FAMILY_VAR,
   PM_SEARCH_GLYPH,
   PM_SEARCH_TEXT,
+  SEARCH_FACET_ENTITY_TYPE,
+  SEARCH_FACET_KEY,
+  SEARCH_FACET_ORDER,
+  SEARCH_FACET_TEXT,
 } from "../constants";
+import {
+  activeTypesOf,
+  clearFilterState,
+  facetValues,
+  hasActiveFilter,
+  initSearchFilterState,
+  scopeOf,
+  serializeSearchFilters,
+  setFacetValues,
+} from "./search-filter-state";
+import type { SearchFacetKey, SearchFilterState } from "./search-filter-state";
 
 /** A query compiled once per repaint, then applied to each row's name for match highlighting. */
 type FuzzyHighlighter = ReturnType<typeof prepareFuzzySearch>;
 
-/** Empty scope — this panel applies no hierarchy/person constraint. */
-const NO_SCOPE: SearchScope = {};
-
 /** Types whose breadcrumb reads "Knowledge base" when no client/engagement resolves. */
 const KNOWLEDGE_BASE_TYPES = new Set<EntityType>([ENTITY_TYPE.REFERENCE, ENTITY_TYPE.REFERENCE_TOPIC]);
 
-/**
- * In-memory filter state driving the search. The type filter is the set of
- * {@link EntityType}s results narrow to; an empty set means every type. Held as
- * a plain seam so scope facets can be added and the whole state persisted later.
- */
-interface SearchState {
-  typeFilter: Set<EntityType>;
+/** Composite key marking one facet value as inferred (auto-seeded from the active note). */
+function inferredKey(key: SearchFacetKey, value: string): string {
+  return `${key}${INFERRED_KEY_SEP}${value}`;
 }
 
 /**
  * The search panel's view component: a fuzzy search box, a filter zone (a drawer
- * toggle button, an active-scope chips bar, and a collapsible drawer of
- * family-grouped entity-type toggles), a right-aligned count row, and a ranked
- * results list, all wired to {@link SearchViewServices}. It holds the query and
- * the type filter, debounces input, and repaints on each change; results narrow
- * to the selected types (or every type when none are selected). Each toggle and
- * its active-scope chip drive the one `SearchState.typeFilter` and stay in sync.
- * Row and toggle label / icon / family colour come solely from
- * {@link ENTITY_PRESENTATION}, and the family grouping from
- * {@link ENTITY_FAMILY_GROUPS} (registry-driven, no per-type branches). Selecting
- * a row opens the underlying file through the navigation service. An empty query
- * browses every entity with no highlighting; an absent Dataview renders a
- * dedicated state and never throws.
+ * toggle, a "Narrow by…" scope add button with a Clear button, an active-scope
+ * chips bar, and a collapsible drawer of client/engagement/person scope facets
+ * plus family-grouped entity-type toggles), a right-aligned count row, and a
+ * ranked results list, all wired to {@link SearchViewServices}.
+ *
+ * {@link SearchFilterState} is the single source of truth: scope facets, active
+ * chips, the search call, and persistence all read and write it. Each scope facet
+ * reuses {@link FilterChipSelect}; its candidate names and chip-dot colour come
+ * from {@link SEARCH_FACET_ENTITY_TYPE} via the presentation registry (no per-view
+ * style map). On open the active note's client/engagement are resolved and
+ * pre-added as inferred chips (a home-glyph prefix). OR combines within a facet,
+ * AND across facets and the type filter — the search service applies the scope.
+ * The whole state persists to settings on every change and restores on reopen.
  */
 export class PmSearchView implements DashboardViewComponent {
   private query = "";
-  private readonly state: SearchState = { typeFilter: new Set<EntityType>() };
+  private readonly state: SearchFilterState;
   private inputEl!: HTMLInputElement;
   private clearBtn!: HTMLButtonElement;
-  private filterBtnEl!: HTMLButtonElement;
+  private addBtnEl!: HTMLButtonElement;
+  private clearFiltersBtnEl!: HTMLButtonElement;
   private drawerEl!: HTMLElement;
   private chipsBarEl!: HTMLElement;
   private countEl!: HTMLElement;
   private resultsEl!: HTMLElement;
   private drawerOpen = false;
+  private seeded = false;
   private readonly typeToggleEls = new Map<EntityType, HTMLButtonElement>();
+  private readonly facetEls = new Map<SearchFacetKey, HTMLElement>();
+  private readonly facetChipSelects = new Map<SearchFacetKey, FilterChipSelect>();
+  private readonly inferred = new Set<string>();
   private readonly search: Debounced = debounced(() => this.repaint(), DEBOUNCE_MS.SEARCH);
 
   constructor(
     private readonly container: HTMLElement,
-    private readonly services: SearchViewServices
-  ) {}
+    private readonly services: SearchViewServices,
+    savedFilters: SavedSearchFilters | null = null,
+    private readonly onSaveFilters: (filters: SavedSearchFilters | null) => void = () => {}
+  ) {
+    this.state = initSearchFilterState(savedFilters);
+  }
 
   render(): void {
     this.container.empty();
     this.typeToggleEls.clear();
+    this.destroyChipSelects();
+    this.facetEls.clear();
+    this.autoSeed();
     const root = this.container.createDiv({ cls: CSS_CLS.PM_SEARCH });
     const commandZone = root.createDiv({ cls: CSS_CLS.PM_SEARCH_COMMAND_ZONE });
     this.buildSearchBox(commandZone);
@@ -97,8 +127,44 @@ export class PmSearchView implements DashboardViewComponent {
 
   destroy(): void {
     this.search.cancel();
+    this.destroyChipSelects();
     this.typeToggleEls.clear();
+    this.facetEls.clear();
     this.container.empty();
+  }
+
+  // ─── Auto-seed from the active note ──────────────────────────────────────────
+
+  /**
+   * Once per open, resolves the active note's client and engagement and pre-adds
+   * each (when it resolves and is not already selected) as an inferred scope chip.
+   */
+  private autoSeed(): void {
+    if (this.seeded) return;
+    this.seeded = true;
+    const page = this.activeNotePage();
+    if (!page) return;
+    this.seedFacet(SEARCH_FACET_KEY.CLIENT, this.services.hierarchyService.resolveClientName(page));
+    this.seedFacet(
+      SEARCH_FACET_KEY.ENGAGEMENT,
+      this.services.hierarchyService.resolveEngagementName(page)
+    );
+  }
+
+  /** The active note's Dataview page, or null when there is none or Dataview is absent. */
+  private activeNotePage(): DataviewPage | null {
+    const dv = this.services.getDv();
+    const file = this.services.app.workspace?.getActiveFile?.() ?? null;
+    if (!dv || !file) return null;
+    return dv.page(file.path) ?? null;
+  }
+
+  private seedFacet(key: SearchFacetKey, value: string | null): void {
+    if (!value) return;
+    const values = facetValues(this.state, key);
+    if (values.includes(value)) return;
+    setFacetValues(this.state, key, [...values, value]);
+    this.inferred.add(inferredKey(key, value));
   }
 
   // ─── Search box ────────────────────────────────────────────────────────────
@@ -148,43 +214,132 @@ export class PmSearchView implements DashboardViewComponent {
     this.clearBtn.style.display = this.query.length > 0 ? CSS_DISPLAY.DEFAULT : CSS_DISPLAY.NONE;
   }
 
-  // ─── Filter zone (button + chips bar + drawer) ───────────────────────────────
+  // ─── Filter zone (button + scope controls + chips bar + drawer) ──────────────
 
   private buildFilterZone(commandZone: HTMLElement): void {
     const zone = commandZone.createDiv({ cls: CSS_CLS.PM_SEARCH_FILTER_ZONE });
-    this.buildFilterButton(zone);
+    this.buildScopeControls(zone);
     this.buildActiveChipsBar(zone);
     this.buildDrawer(zone);
   }
 
-  /** The drawer toggle: a filter glyph, a label, and a chevron that rotates when open. */
-  private buildFilterButton(zone: HTMLElement): void {
-    this.filterBtnEl = zone.createEl(HTML_TAG.BUTTON, {
-      cls: CSS_CLS.PM_SEARCH_FILTER_BTN,
-      attr: {
-        [DOM_ATTR.ARIA_LABEL]: PM_SEARCH_TEXT.FILTER_ARIA,
-        [DOM_ATTR.ARIA_EXPANDED]: ARIA_BOOL.FALSE,
-      },
-    });
-    const icon = this.filterBtnEl.createSpan({ cls: CSS_CLS.PM_SEARCH_FILTER_BTN_ICON });
-    setIcon(icon, PM_SEARCH_GLYPH.FILTER);
-    this.filterBtnEl.createSpan({ cls: CSS_CLS.PM_SEARCH_FILTER_BTN_LABEL, text: PM_SEARCH_TEXT.FILTER_BTN });
-    const chevron = this.filterBtnEl.createSpan({ cls: CSS_CLS.PM_SEARCH_FILTER_BTN_CHEVRON });
-    setIcon(chevron, PM_SEARCH_GLYPH.CHEVRON);
-    this.filterBtnEl.addEventListener(DOM_EVENT.CLICK, () => this.setDrawerOpen(!this.drawerOpen));
+  /** The "Narrow by…" scope add button (the drawer toggle) plus the Clear button. */
+  private buildScopeControls(zone: HTMLElement): void {
+    const controls = zone.createDiv({ cls: CSS_CLS.PM_SEARCH_CONTROLS });
+    this.buildAddButton(controls);
+    this.buildClearFiltersButton(controls);
   }
 
-  /** Reflects the open state on the button (`aria-expanded`) and the drawer (open modifier). */
+  private buildAddButton(controls: HTMLElement): void {
+    this.addBtnEl = controls.createEl(HTML_TAG.BUTTON, {
+      cls: CSS_CLS.PM_SEARCH_ADD,
+      attr: {
+        [DOM_ATTR.ARIA_LABEL]: PM_SEARCH_TEXT.ADD_ARIA,
+        [DOM_ATTR.ARIA_EXPANDED]: this.drawerAriaValue(),
+      },
+    });
+    const plus = this.addBtnEl.createSpan({ cls: CSS_CLS.PM_SEARCH_ADD_ICON });
+    setIcon(plus, PM_SEARCH_GLYPH.ADD);
+    this.addBtnEl.createSpan({ cls: CSS_CLS.PM_SEARCH_ADD_LABEL, text: PM_SEARCH_TEXT.ADD_BTN });
+    const chevron = this.addBtnEl.createSpan({ cls: CSS_CLS.PM_SEARCH_ADD_CHEVRON });
+    setIcon(chevron, PM_SEARCH_GLYPH.CHEVRON);
+    this.addBtnEl.addEventListener(DOM_EVENT.CLICK, () => this.setDrawerOpen(!this.drawerOpen));
+  }
+
+  private buildClearFiltersButton(controls: HTMLElement): void {
+    this.clearFiltersBtnEl = controls.createEl(HTML_TAG.BUTTON, {
+      cls: CSS_CLS.PM_SEARCH_CLEAR_FILTERS,
+      text: PM_SEARCH_TEXT.CLEAR_FILTERS,
+      attr: { [DOM_ATTR.ARIA_LABEL]: PM_SEARCH_TEXT.CLEAR_FILTERS_ARIA },
+    });
+    this.clearFiltersBtnEl.addEventListener(DOM_EVENT.CLICK, () => this.onClearFilters());
+    this.updateClearFiltersVisibility();
+  }
+
+  /** `aria-expanded` string reflecting the drawer's open state. */
+  private drawerAriaValue(): string {
+    return this.drawerOpen ? ARIA_BOOL.TRUE : ARIA_BOOL.FALSE;
+  }
+
+  /** Reflects the open state on the add button (`aria-expanded`) and the drawer (open modifier). */
   private setDrawerOpen(open: boolean): void {
     this.drawerOpen = open;
-    this.filterBtnEl.setAttribute(DOM_ATTR.ARIA_EXPANDED, open ? ARIA_BOOL.TRUE : ARIA_BOOL.FALSE);
+    this.addBtnEl.setAttribute(DOM_ATTR.ARIA_EXPANDED, this.drawerAriaValue());
     this.drawerEl.classList.toggle(CSS_CLS.PM_SEARCH_DRAWER_OPEN, open);
   }
 
-  /** The collapsible drawer; holds the type toggles and is the seam scope facets extend. */
+  /** The collapsible drawer: the client/engagement/person scope facets then the type toggles. */
   private buildDrawer(zone: HTMLElement): void {
     this.drawerEl = zone.createDiv({ cls: CSS_CLS.PM_SEARCH_DRAWER });
+    this.drawerEl.classList.toggle(CSS_CLS.PM_SEARCH_DRAWER_OPEN, this.drawerOpen);
+    this.buildScopeFacets(this.drawerEl);
     this.buildTypeToggleGroups(this.drawerEl);
+  }
+
+  // ─── Scope facets (client / engagement / person) ─────────────────────────────
+
+  private buildScopeFacets(drawer: HTMLElement): void {
+    for (const key of SEARCH_FACET_ORDER) {
+      const facet = drawer.createDiv({ cls: CSS_CLS.PM_SEARCH_FACET, attr: { [DOM_ATTR.DATA_FACET]: key } });
+      this.facetEls.set(key, facet);
+      this.buildScopeFacet(key);
+    }
+  }
+
+  /** (Re)builds one facet's label and reusable {@link FilterChipSelect} from current state. */
+  private buildScopeFacet(key: SearchFacetKey): void {
+    const facet = this.facetEls.get(key);
+    if (!facet) return;
+    facet.empty();
+    const text = SEARCH_FACET_TEXT[key];
+    facet.createDiv({ cls: CSS_CLS.PM_SEARCH_FACET_LABEL, text: text.label });
+    const chipSelect = new FilterChipSelect(facet, this.services.app, {
+      options: this.facetOptions(key),
+      selectedValues: [...facetValues(this.state, key)],
+      placeholder: text.placeholder,
+      ariaLabel: text.aria,
+      showUnassignedCheckbox: false,
+      onChange: (values) => this.onScopeChange(key, values),
+    });
+    this.facetChipSelects.get(key)?.destroy();
+    this.facetChipSelects.set(key, chipSelect);
+  }
+
+  /** The facet's candidate names, sourced from the shared entity substrate (no new query). */
+  private facetOptions(key: SearchFacetKey): AutocompleteOption[] {
+    const type = SEARCH_FACET_ENTITY_TYPE[key];
+    return this.services.enumerator
+      .candidates(type)
+      .map((candidate) => ({ value: candidate.page.file.name, displayText: candidate.page.file.name }));
+  }
+
+  private onScopeChange(key: SearchFacetKey, values: string[]): void {
+    for (const removed of facetValues(this.state, key)) {
+      if (!values.includes(removed)) this.inferred.delete(inferredKey(key, removed));
+    }
+    setFacetValues(this.state, key, values);
+    this.afterFilterChange();
+  }
+
+  private onRemoveScopeChip(key: SearchFacetKey, value: string): void {
+    setFacetValues(
+      this.state,
+      key,
+      facetValues(this.state, key).filter((v) => v !== value)
+    );
+    this.inferred.delete(inferredKey(key, value));
+    this.buildScopeFacet(key); // resync the drawer editor with the removed value
+    this.afterFilterChange();
+  }
+
+  private onClearFilters(): void {
+    clearFilterState(this.state);
+    this.inferred.clear();
+    for (const [type, toggle] of this.typeToggleEls) {
+      toggle.setAttribute(DOM_ATTR.ARIA_PRESSED, this.pressedValue(type));
+    }
+    for (const key of SEARCH_FACET_ORDER) this.buildScopeFacet(key);
+    this.afterFilterChange();
   }
 
   // ─── Type toggles (family-grouped) ───────────────────────────────────────────
@@ -226,6 +381,44 @@ export class PmSearchView implements DashboardViewComponent {
     this.syncTypeControls();
   }
 
+  private onRemoveType(type: EntityType): void {
+    this.state.typeFilter.delete(type);
+    this.syncTypeControls();
+  }
+
+  /** Mirrors the type filter across every toggle, then applies the filter change. */
+  private syncTypeControls(): void {
+    for (const [type, toggle] of this.typeToggleEls) {
+      toggle.setAttribute(DOM_ATTR.ARIA_PRESSED, this.pressedValue(type));
+    }
+    this.afterFilterChange();
+  }
+
+  /** `aria-pressed` string for a type, driven by the shared filter set. */
+  private pressedValue(type: EntityType): string {
+    return this.state.typeFilter.has(type) ? ARIA_BOOL.TRUE : ARIA_BOOL.FALSE;
+  }
+
+  // ─── Filter-change fan-out ───────────────────────────────────────────────────
+
+  /** Repaints the chips bar, updates the Clear control, persists, and re-runs the search. */
+  private afterFilterChange(): void {
+    this.renderActiveChips();
+    this.updateClearFiltersVisibility();
+    this.persist();
+    this.repaint();
+  }
+
+  private persist(): void {
+    this.onSaveFilters(serializeSearchFilters(this.state));
+  }
+
+  private updateClearFiltersVisibility(): void {
+    this.clearFiltersBtnEl.style.display = hasActiveFilter(this.state)
+      ? CSS_DISPLAY.DEFAULT
+      : CSS_DISPLAY.NONE;
+  }
+
   // ─── Active-scope chips bar ──────────────────────────────────────────────────
 
   private buildActiveChipsBar(zone: HTMLElement): void {
@@ -235,7 +428,38 @@ export class PmSearchView implements DashboardViewComponent {
 
   private renderActiveChips(): void {
     this.chipsBarEl.empty();
-    for (const type of this.activeChipTypes()) this.buildTypeChip(this.chipsBarEl, type);
+    let scopeChipCount = 0;
+    for (const key of SEARCH_FACET_ORDER) {
+      for (const value of facetValues(this.state, key)) {
+        this.buildScopeChip(this.chipsBarEl, key, value);
+        scopeChipCount++;
+      }
+    }
+    const types = this.activeChipTypes();
+    for (const type of types) this.buildTypeChip(this.chipsBarEl, type);
+    if (scopeChipCount === 0 && types.length === 0) {
+      this.chipsBarEl.createDiv({ cls: CSS_CLS.PM_SEARCH_CHIPS_EMPTY, text: PM_SEARCH_TEXT.EMPTY_BAR });
+    }
+  }
+
+  /** A removable scope chip: a facet-colour dot, an inferred home glyph, the name, and a remove control. */
+  private buildScopeChip(bar: HTMLElement, key: SearchFacetKey, value: string): void {
+    const chip = bar.createDiv({ cls: CSS_CLS.PM_SEARCH_CHIP, attr: { [DOM_ATTR.DATA_FACET]: key } });
+    this.paintDot(chip, CSS_CLS.PM_SEARCH_CHIP_DOT, ENTITY_FAMILY_COLOR_TOKEN[SEARCH_FACET_ENTITY_TYPE[key]]);
+    if (this.inferred.has(inferredKey(key, value))) {
+      const home = chip.createSpan({
+        cls: CSS_CLS.PM_SEARCH_CHIP_HOME,
+        attr: { [DOM_ATTR.ARIA_HIDDEN]: ARIA_BOOL.TRUE },
+      });
+      setIcon(home, PM_SEARCH_GLYPH.HOME);
+    }
+    chip.createSpan({ cls: CSS_CLS.PM_SEARCH_CHIP_LABEL, text: value });
+    const remove = chip.createEl(HTML_TAG.BUTTON, {
+      cls: CSS_CLS.PM_SEARCH_CHIP_REMOVE,
+      attr: { [DOM_ATTR.ARIA_LABEL]: PM_SEARCH_TEXT.scopeChipRemoveAria(value) },
+    });
+    setIcon(remove, PM_SEARCH_GLYPH.CHIP_REMOVE);
+    remove.addEventListener(DOM_EVENT.CLICK, () => this.onRemoveScopeChip(key, value));
   }
 
   /** A removable chip for one enabled type: a family-colour dot, its label, and a remove control. */
@@ -255,49 +479,36 @@ export class PmSearchView implements DashboardViewComponent {
     remove.addEventListener(DOM_EVENT.CLICK, () => this.onRemoveType(type));
   }
 
-  private onRemoveType(type: EntityType): void {
-    this.state.typeFilter.delete(type);
-    this.syncTypeControls();
-  }
-
-  // ─── Type-filter synchronisation ─────────────────────────────────────────────
-
-  /** Mirrors the type filter across every toggle and the chips bar, then repaints results. */
-  private syncTypeControls(): void {
-    for (const [type, toggle] of this.typeToggleEls) {
-      toggle.setAttribute(DOM_ATTR.ARIA_PRESSED, this.pressedValue(type));
-    }
-    this.renderActiveChips();
-    this.repaint();
-  }
-
-  /** `aria-pressed` string for a type, driven by the shared filter set. */
-  private pressedValue(type: EntityType): string {
-    return this.state.typeFilter.has(type) ? ARIA_BOOL.TRUE : ARIA_BOOL.FALSE;
-  }
-
-  /** Enabled types in toggle order, so their chips read left-to-right like the drawer. */
+  /** Enabled types in registration order (stable and independent of toggle DOM). */
   private activeChipTypes(): EntityType[] {
-    return [...this.typeToggleEls.keys()].filter((type) => this.state.typeFilter.has(type));
-  }
-
-  /** The selected types, or every type when none are selected ("no filter = all"). */
-  private activeTypes(): EntityType[] {
-    if (this.state.typeFilter.size === 0) return ALL_ENTITY_TYPES;
     return ALL_ENTITY_TYPES.filter((type) => this.state.typeFilter.has(type));
   }
 
-  /** A decorative family-colour dot; the colour is threaded through an inline custom property. */
+  /** A decorative family-colour dot from a presentation descriptor. */
   private buildFamilyDot(parent: HTMLElement, cls: string, presentation: EntityPresentation): void {
+    this.paintDot(parent, cls, presentation.familyColorToken);
+  }
+
+  /** Paints a decorative dot, threading a family-colour token through an inline custom property. */
+  private paintDot(parent: HTMLElement, cls: string, colorToken: string): void {
     const dot = parent.createSpan({ cls, attr: { [DOM_ATTR.ARIA_HIDDEN]: ARIA_BOOL.TRUE } });
-    dot.style.setProperty(PM_SEARCH_DOT_VAR, cssVar(presentation.familyColorToken));
+    dot.style.setProperty(PM_SEARCH_DOT_VAR, cssVar(colorToken));
+  }
+
+  private destroyChipSelects(): void {
+    for (const chipSelect of this.facetChipSelects.values()) chipSelect.destroy();
+    this.facetChipSelects.clear();
   }
 
   // ─── Repaint (count + results) ───────────────────────────────────────────────
 
   private repaint(): void {
     const dataviewAvailable = this.services.getDv() !== null;
-    const results = this.services.searchService.search(this.query, NO_SCOPE, this.activeTypes());
+    const results = this.services.searchService.search(
+      this.query,
+      scopeOf(this.state),
+      activeTypesOf(this.state)
+    );
     this.renderCount(dataviewAvailable, results.length);
     this.renderResults(dataviewAvailable, results);
   }

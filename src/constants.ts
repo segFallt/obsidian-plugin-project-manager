@@ -124,6 +124,20 @@ export const SEARCH_FACET_KEY = {
   PERSON: "person",
 } as const;
 
+/** The `SearchScope` / `SavedSearchFilters` leg each scope facet populates. */
+export const SCOPE_LEG = {
+  CLIENTS: "clients",
+  ENGAGEMENTS: "engagements",
+  PEOPLE: "people",
+} as const;
+
+/** Scope facet keys in the order their controls and chips render. */
+export const SEARCH_FACET_ORDER = [
+  SEARCH_FACET_KEY.CLIENT,
+  SEARCH_FACET_KEY.ENGAGEMENT,
+  SEARCH_FACET_KEY.PERSON,
+] as const;
+
 /** The facet keys gated to the "context" view mode. */
 export const CONTEXT_FACET_KEYS = [
   FACET_KEY.PROJECT_STATUS,
@@ -578,6 +592,37 @@ export const ENTITY_FAMILY_COLOR_TOKEN = {
   [ENTITY_TYPE.REFERENCE_TOPIC]: "--pm-entity-reference-topic",
 } as const satisfies Record<EntityType, string>;
 
+/**
+ * The {@link EntityType} each search scope facet draws its candidate options and
+ * chip dot colour from. The one place a facet maps to a kind, so the scope
+ * controls read options and colours from the presentation registry with no
+ * per-facet branch (OCP).
+ */
+export const SEARCH_FACET_ENTITY_TYPE = {
+  [SEARCH_FACET_KEY.CLIENT]: ENTITY_TYPE.CLIENT,
+  [SEARCH_FACET_KEY.ENGAGEMENT]: ENTITY_TYPE.ENGAGEMENT,
+  [SEARCH_FACET_KEY.PERSON]: ENTITY_TYPE.PERSON,
+} as const satisfies Record<string, EntityType>;
+
+/** Label, type-ahead placeholder, and accessible name for each scope facet's control. */
+export const SEARCH_FACET_TEXT = {
+  [SEARCH_FACET_KEY.CLIENT]: {
+    label: "Client",
+    placeholder: "Add a client…",
+    aria: "Filter by client",
+  },
+  [SEARCH_FACET_KEY.ENGAGEMENT]: {
+    label: "Engagement",
+    placeholder: "Add an engagement…",
+    aria: "Filter by engagement",
+  },
+  [SEARCH_FACET_KEY.PERSON]: {
+    label: "Person",
+    placeholder: "Add a person…",
+    aria: "Filter by person",
+  },
+} as const;
+
 // ─── Frontmatter keys ─────────────────────────────────────────────────────
 
 /** All frontmatter property key strings used across the plugin. */
@@ -764,14 +809,20 @@ export const CSS_CLS = {
   PM_SEARCH_EMPTY_ICON: "pm-search__empty-icon",
   PM_SEARCH_EMPTY_TITLE: "pm-search__empty-title",
   PM_SEARCH_EMPTY_LINE: "pm-search__empty-line",
-  // pm-search filter zone (filter button, active-scope chips bar, collapsible drawer)
+  // pm-search filter zone (add button, active-scope chips bar, collapsible drawer)
   PM_SEARCH_FILTER_ZONE: "pm-search__filter-zone",
-  PM_SEARCH_FILTER_BTN: "pm-search__filter-btn",
-  PM_SEARCH_FILTER_BTN_ICON: "pm-search__filter-btn-icon",
-  PM_SEARCH_FILTER_BTN_LABEL: "pm-search__filter-btn-label",
-  PM_SEARCH_FILTER_BTN_CHEVRON: "pm-search__filter-btn-chevron",
   PM_SEARCH_DRAWER: "pm-search__drawer",
   PM_SEARCH_DRAWER_OPEN: "pm-search__drawer--open",
+  // pm-search scope controls (add-filter button + clear button)
+  PM_SEARCH_CONTROLS: "pm-search__controls",
+  PM_SEARCH_ADD: "pm-search__add",
+  PM_SEARCH_ADD_ICON: "pm-search__add-icon",
+  PM_SEARCH_ADD_LABEL: "pm-search__add-label",
+  PM_SEARCH_ADD_CHEVRON: "pm-search__add-chevron",
+  PM_SEARCH_CLEAR_FILTERS: "pm-search__clear-filters",
+  // pm-search scope facets in the drawer (each a FilterChipSelect)
+  PM_SEARCH_FACET: "pm-search__facet",
+  PM_SEARCH_FACET_LABEL: "pm-search__facet-label",
   // pm-search type toggles (family-grouped, bounded set)
   PM_SEARCH_TYPES: "pm-search__types",
   PM_SEARCH_TYPE_GROUP: "pm-search__type-group",
@@ -782,8 +833,10 @@ export const CSS_CLS = {
   PM_SEARCH_TTOG_LABEL: "pm-search__ttog-label",
   // pm-search active-scope chips bar
   PM_SEARCH_CHIPS: "pm-search__chips",
+  PM_SEARCH_CHIPS_EMPTY: "pm-search__chips-empty",
   PM_SEARCH_CHIP: "pm-search__chip",
   PM_SEARCH_CHIP_DOT: "pm-search__chip-dot",
+  PM_SEARCH_CHIP_HOME: "pm-search__chip-home",
   PM_SEARCH_CHIP_LABEL: "pm-search__chip-label",
   PM_SEARCH_CHIP_REMOVE: "pm-search__chip-remove",
   // References dashboard (ItemView panel + view components)
@@ -930,6 +983,7 @@ export const DOM_ATTR = {
   DATA_HREF: "data-href",
   DATA_DEPTH: "data-depth",
   DATA_ENTITY_TYPE: "data-entity-type",
+  DATA_FACET: "data-facet",
   OPEN: "open",
   ARIA_LABEL: "aria-label",
   ARIA_PRESSED: "aria-pressed",
@@ -1253,6 +1307,9 @@ export const NL = "\n";
 /** Vault path segment separator. */
 export const PATH_SEPARATOR = "/";
 
+/** Delimiter joining a facet key and value into a composite inferred-chip key (a control char, never in either part). */
+export const INFERRED_KEY_SEP = "\u0000";
+
 /** Display label for the "no value" option prepended to nullable select fields. */
 export const SELECT_NONE_LABEL = "(none)";
 /** Sentinel value marking the "no value" option / an unset nullable select field. */
@@ -1301,10 +1358,11 @@ export const PM_SEARCH_ICON = "search";
 export const PM_SEARCH_RIBBON_TITLE = "Open Search";
 
 /**
- * Settings dot-path key the pm-search panel persists its view state under
- * (within the `settings.ui` bag), consumed by the {@link SettingsViewStore}.
+ * Settings dot-path key the pm-search panel persists its whole filter state under
+ * (scope selections + type toggles) within the `settings.ui` bag, consumed by the
+ * {@link SettingsViewStore} — mirrors the Reference Dashboard's own filter key.
  */
-export const PM_SEARCH_STATE_KEY = "pmSearchViewState";
+export const SAVED_SEARCH_FILTERS_STATE_KEY = "savedSearchFilters";
 
 /**
  * Lucide icon ids used by the pm-search panel's own chrome (not the per-entity
@@ -1319,12 +1377,14 @@ export const PM_SEARCH_GLYPH = {
   NO_MATCH: "search-x",
   /** Dataview-unavailable empty-state glyph (a crossed-out screen). */
   DATAVIEW_OFF: "monitor-off",
-  /** Leading glyph on the filter drawer's toggle button. */
-  FILTER: "list-filter",
-  /** Trailing chevron on the filter button; rotates when the drawer is open. */
+  /** Trailing chevron on the add button; rotates when the drawer is open. */
   CHEVRON: "chevron-down",
   /** Remove glyph on an active-scope chip. */
   CHIP_REMOVE: "x",
+  /** Leading glyph on the "Narrow by…" scope add button. */
+  ADD: "plus",
+  /** Prefix glyph marking an inferred (auto-seeded) scope chip. */
+  HOME: "home",
 } as const;
 
 /** The inline CSS custom property a result row's family colour is threaded through. */
@@ -1352,10 +1412,18 @@ export const PM_SEARCH_TEXT = {
   /** Dataview-unavailable state title and guidance line. */
   DATAVIEW_TITLE: "Search needs Dataview",
   DATAVIEW_LINE: "Enable the Dataview plugin so the vault can be indexed.",
-  /** Filter drawer toggle button label. */
-  FILTER_BTN: "Filter",
-  /** Accessible name for the filter drawer toggle button. */
-  FILTER_ARIA: "Toggle entity type filters",
   /** Accessible name for an active-scope chip's remove control. */
   typeChipRemoveAria: (label: string): string => `Remove ${label} filter`,
+  /** Scope add button label ("search within" entry point). */
+  ADD_BTN: "Narrow by client, engagement, person…",
+  /** Accessible name for the scope add button. */
+  ADD_ARIA: "Add a client, engagement, or person filter",
+  /** Clear-all-filters button label. */
+  CLEAR_FILTERS: "Clear",
+  /** Accessible name for the clear-all-filters button. */
+  CLEAR_FILTERS_ARIA: "Clear all filters",
+  /** Empty active-scope bar copy shown when no filter is active. */
+  EMPTY_BAR: "Searching the whole vault. Add a filter to narrow.",
+  /** Accessible name for a scope chip's remove control. */
+  scopeChipRemoveAria: (value: string): string => `Remove ${value} filter`,
 } as const;

@@ -162,13 +162,18 @@ export function buildReferenceProcessorServices(
  * The panel runs fuzzy search ({@link ISearchService}), resolves a selected
  * result's file and opens it (`app` + `navigationService`), probes Dataview
  * availability to distinguish the "no matches" and "Dataview off" states
- * (`getDv`), and reports open failures without swallowing them
- * (`loggerService`). It depends on abstractions, never on the concrete plugin.
+ * (`getDv`), lists a facet's candidate names for the scope controls
+ * ({@link EntityEnumerator}), resolves the active note's client/engagement to
+ * auto-seed inferred scope chips ({@link IEntityHierarchyService}), and reports
+ * open failures without swallowing them (`loggerService`). It depends on
+ * abstractions, never on the concrete plugin.
  */
 export interface SearchViewServices {
   app: App;
   searchService: ISearchService;
   navigationService: INavigationService;
+  hierarchyService: IEntityHierarchyService;
+  enumerator: EntityEnumerator;
   loggerService: ILoggerService;
   /** Live Dataview API, or null when Dataview is unavailable. */
   getDv: () => DataviewApi | null;
@@ -183,9 +188,10 @@ export interface SearchViewServices {
  */
 export function buildSearchViewServices(plugin: ProjectManagerPlugin): SearchViewServices {
   const getDv = (): DataviewApi | null => plugin.queryService.dv();
+  const enumerator = new EntityEnumerator(plugin.queryService);
   const searchService = new SearchService({
     getDv,
-    enumerator: new EntityEnumerator(plugin.queryService),
+    enumerator,
     hierarchyService: plugin.hierarchyService,
     personResolver: new PersonAssociationResolver(getDv, plugin.settings.folders),
     matcher: new PreparedFuzzyMatcher(),
@@ -194,6 +200,8 @@ export function buildSearchViewServices(plugin: ProjectManagerPlugin): SearchVie
     app: plugin.app,
     searchService,
     navigationService: plugin.navigationService,
+    hierarchyService: plugin.hierarchyService,
+    enumerator,
     loggerService: plugin.loggerService,
     getDv,
   };
