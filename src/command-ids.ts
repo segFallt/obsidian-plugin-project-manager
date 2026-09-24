@@ -29,6 +29,7 @@ export const COMMAND_IDS = {
   UPDATE_REFERENCE_TOPIC: "update-reference-topic",
   CREATE_REFERENCE: "create-reference",
   OPEN_REFERENCE_DASHBOARD: "open-reference-dashboard",
+  OPEN_SEARCH: "open-search",
 } as const;
 
 export type CommandId = (typeof COMMAND_IDS)[keyof typeof COMMAND_IDS];

@@ -1781,3 +1781,115 @@ details[open] .pm-filter-section__title::before {
 .pm-references-summary__open-btn {
   align-self: flex-start;
 }
+
+/* ============================================================
+   pm-search — central --pm-* styling tokens + panel shell
+   The --pm-* custom properties are the canonical, reusable
+   styling foundation shared by every pm-search surface. Neutrals
+   and the panel identity map to Obsidian theme variables so the
+   panel adapts to the active theme; the entity-family colours are
+   fixed accents (Obsidian has no per-entity variable). The
+   Catppuccin Mocha hex noted in comments is the dark-theme
+   reference the mockups were drawn against.
+   ============================================================ */
+
+:root {
+  /* Neutrals → closest Obsidian theme variable (reference hex noted) */
+  --pm-crust: var(--background-primary-alt);              /* #11111b */
+  --pm-mantle: var(--background-secondary);               /* #181825 */
+  --pm-base: var(--background-primary);                   /* #1e1e2e */
+  --pm-surface0: var(--background-modifier-border);       /* #313244 */
+  --pm-surface1: var(--background-modifier-border-hover); /* #45475a */
+  --pm-surface2: var(--background-modifier-border-focus); /* #585b70 */
+  --pm-overlay0: var(--text-faint);                       /* #6c7086 */
+  --pm-overlay2: var(--text-muted);                       /* #9399b2 */
+  --pm-subtext0: var(--text-muted);                       /* #a6adc8 */
+  --pm-subtext1: var(--text-normal);                      /* #bac2de */
+  --pm-text: var(--text-normal);                          /* #cdd6f4 */
+
+  /* Identity + highlight */
+  --pm-blue: var(--interactive-accent);                   /* #89b4fa — panel identity */
+  --pm-sky: #89dceb;                                      /* fuzzy-match highlight (fixed accent) */
+
+  /* Entity-family fixed-accent tokens (fixed hex — no per-entity theme var) */
+  --pm-entity-client: #89b4fa;
+  --pm-entity-engagement: #a6e3a1;
+  --pm-entity-project: #94e2d5;
+  --pm-entity-person: #fab387;
+  --pm-entity-single-meeting: #f5c2e7;
+  --pm-entity-recurring-meeting: #f5c2e7;
+  --pm-entity-recurring-meeting-event: #f5c2e7;
+  --pm-entity-inbox: #f9e2af;
+  --pm-entity-project-note: #9399b2;
+  --pm-entity-raid-item: #eba0ac;
+  --pm-entity-reference: #cba6f7;
+  --pm-entity-reference-topic: #b4befe;
+
+  /* Shape + motion catalog (radii and transition duration) */
+  --pm-radius-input: 6px;
+  --pm-radius-row: 7px;
+  --pm-radius-chip: 10px;
+  --pm-radius-pill: 13px;
+  --pm-radius-panel: 10px;
+  --pm-transition: 0.13s;
+
+  /* Spacing scale — the shared step scale the panel surfaces lay out on */
+  --pm-space-xs: 6px;
+  --pm-space-sm: 10px;
+  --pm-space-md: 12px;
+
+  /* Panel dimensions */
+  --pm-panel-width: 370px;
+
+  /* Borders + focus ring */
+  --pm-border-width: 1px;
+  --pm-focus-ring-width: 2px;
+  --pm-focus-ring-alpha: 28%;
+}
+
+/* ─── pm-search panel shell ─────────────────────────────────── */
+
+/* Root panel: a vertical flex stack, ~370px wide and fluid to 100%. */
+.pm-search {
+  display: flex;
+  flex-direction: column;
+  width: var(--pm-panel-width);
+  max-width: 100%;
+  height: 100%;
+  background-color: var(--pm-base);
+  color: var(--pm-text);
+  border-radius: var(--pm-radius-panel);
+}
+
+/* Command zone — future home of the search box, type chips, scope, and count. */
+.pm-search__cz {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pm-space-sm);
+  padding: var(--pm-space-md);
+  background-color: var(--pm-base);
+  border-bottom: var(--pm-border-width) solid var(--pm-surface0);
+}
+
+/* Focus ring for inputs mounted in the command zone (keyboard-operable). */
+.pm-search__cz input:focus {
+  outline: none;
+  border-color: var(--pm-blue);
+  box-shadow: 0 0 0 var(--pm-focus-ring-width) color-mix(in srgb, var(--pm-blue) var(--pm-focus-ring-alpha), transparent);
+}
+
+/* Results area — scrollable list of matches. */
+.pm-search__results {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--pm-space-xs);
+}
+
+/* Motion only when the viewer has not asked to reduce it. */
+@media (prefers-reduced-motion: no-preference) {
+  .pm-search__cz input {
+    transition: border-color var(--pm-transition), box-shadow var(--pm-transition),
+      transform var(--pm-transition);
+  }
+}

@@ -695,6 +695,10 @@ export const CSS_CLS = {
   TASKS_CHIPS_BAR: "pm-tasks-chips-bar",
   TASKS_FILTER_CHIP: "pm-tasks-filter-chip",
   TASKS_FILTER_CHIP_REMOVE: "pm-tasks-filter-chip__remove",
+  // pm-search panel (ItemView shell: command zone + results area)
+  PM_SEARCH: "pm-search",
+  PM_SEARCH_COMMAND_ZONE: "pm-search__cz",
+  PM_SEARCH_RESULTS: "pm-search__results",
   // References dashboard (ItemView panel + view components)
   REFERENCE_DASHBOARD_VIEW: "pm-reference-dashboard-view",
   REFERENCE_DASHBOARD_ACTIONS: "pm-reference-dashboard__actions",
@@ -1065,6 +1069,7 @@ export const COMMAND_NAMES = {
   UPDATE_REFERENCE_TOPIC: "PM: Update Reference Topic",
   CREATE_REFERENCE: "PM: Create Reference",
   OPEN_REFERENCE_DASHBOARD: "PM: Open Reference Dashboard",
+  OPEN_SEARCH: "PM: Open Search",
 } as const;
 
 /** Optional-parent picker labels shared across entity-creation modals. */
@@ -1177,3 +1182,25 @@ export const WORKSPACE_LEAF_TYPE = {
  * (within the `settings.ui` bag), consumed by the {@link SettingsViewStore}.
  */
 export const REFERENCE_DASHBOARD_STATE_KEY = "referenceDashboardFilters";
+
+// ─── pm-search panel identifiers ──────────────────────────────────────────
+
+/** Obsidian view type for the pm-search ItemView panel. */
+export const PM_SEARCH_VIEW_TYPE = "pm-search";
+
+/** Ribbon / tab icon id for the pm-search ItemView panel. */
+export const PM_SEARCH_ICON = "search";
+
+/** Ribbon-icon tooltip for opening the pm-search panel. */
+export const PM_SEARCH_RIBBON_TITLE = "Open Search";
+
+/**
+ * Settings dot-path key the pm-search panel persists its view state under
+ * (within the `settings.ui` bag), consumed by the {@link SettingsViewStore}.
+ */
+export const PM_SEARCH_STATE_KEY = "pmSearchViewState";
+
+/** Static, user-facing text for the pm-search panel. */
+export const PM_SEARCH_TEXT = {
+  TITLE: "Search",
+} as const;

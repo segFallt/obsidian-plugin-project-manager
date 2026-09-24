@@ -150,6 +150,29 @@ export function buildReferenceProcessorServices(
   };
 }
 
+/**
+ * Narrow service bag for the search panel's view component (ISP).
+ *
+ * The panel opens a chosen result, so it needs navigation and nothing else on
+ * the current shell. It is deliberately its own interface rather than a reuse
+ * of a fuller processor bag, so the panel sees only what it uses; later search
+ * work extends this bag rather than widening an existing one.
+ */
+export interface SearchViewServices {
+  navigationService: INavigationService;
+}
+
+/**
+ * Builds the {@link SearchViewServices} bag from a plugin instance, co-located
+ * with the interface so the field-for-field literal lives in one place. The
+ * plugin is referenced type-only to keep this module free of a runtime cycle.
+ */
+export function buildSearchViewServices(plugin: ProjectManagerPlugin): SearchViewServices {
+  return {
+    navigationService: plugin.navigationService,
+  };
+}
+
 /** Bound version of Plugin.addCommand, passed from the wiring layer. */
 export type AddCommandFn = (cmd: Command) => void;
 
