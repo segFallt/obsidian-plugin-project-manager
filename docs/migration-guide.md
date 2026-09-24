@@ -113,6 +113,8 @@ One dashboard filter-state migration runs **automatically** on upgrade — no us
 
 The **References dashboard** needs no migration: it has always persisted to plugin settings (`settings.ui.referenceDashboardFilters`, now via the shared `SettingsViewStore`) rather than note frontmatter, and it reads and writes the same settings key — nothing is reshaped or moved.
 
+The **search panel** (`PM: Open Search`) needs no migration either: it is new, and its filter state persists to plugin settings (`settings.ui.savedSearchFilters`, via the shared `SettingsViewStore`) rather than note frontmatter. Existing vaults have no saved value, so each sub-key falls back to its default on first load; because the settings deep-merge is only two levels deep, the panel defaults any missing `savedSearchFilters` sub-key at read time, so a later added field cannot leave an existing user's filter `undefined`.
+
 ---
 
 ## Step 5: Verify

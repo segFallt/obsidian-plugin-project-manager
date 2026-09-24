@@ -13,6 +13,7 @@ Layer 1: Services & Utils          (pure logic, Dataview API wrapper, independen
 - **`src/processors/`** — Markdown code block processors (e.g. `pm-tasks`, `pm-references`, `pm-properties`). Each processor is a `MarkdownRenderChild` subclass that renders into `containerEl` inside `.markdown-rendered`.
 - **`src/views/`** — Obsidian `ItemView` panels. These render into `contentEl` which lives entirely outside `.markdown-rendered`, eliminating note-level CSS interference. Currently contains:
   - `ReferenceDashboardItemView` (`pm-reference-dashboard`) — the note-less side-panel host (a `DashboardItemViewHost` subclass) for the `ReferenceDashboardView` component, which runs on the shared dashboard shell. Filter state is persisted to plugin settings (via `SettingsViewStore`) instead of note frontmatter.
+  - `PmSearchItemView` (`pm-search`) — the note-less panel host (a `DashboardItemViewHost` subclass) for the `PmSearchView` contextual-search component. Receives a narrow `SearchViewServices` bundle (built by `buildSearchViewServices`) and reads the theme-adaptive `--pm-*` token layer and the `ENTITY_PRESENTATION` registry. See PRD-010 and diagram [01](architecture/01-service-class-diagram.md).
 - **`src/ui/`** — Reusable UI components (e.g. `FilterChipSelect`, `PropertySuggest`) consumed by processors, views, and modals.
 
 ## Detailed UML Diagrams
@@ -21,14 +22,14 @@ Mermaid diagrams for deep structural reference, located in [`docs/plugin/archite
 
 | Diagram | Description |
 |---------|-------------|
-| [01 — Service Class Diagram](architecture/01-service-class-diagram.md) | All service interfaces and their implementations |
-| [02 — Service Dependency Graph](architecture/02-service-dependency-graph.md) | Directed dependency graph across all service classes |
-| [03 — Plugin Initialization Sequence](architecture/03-plugin-initialization-sequence.md) | `onload()` → `initServices()` → `registerAllCommands()` → `registerAllProcessors()` |
-| [04 — Narrow Interface Bundles](architecture/04-narrow-interface-bundles.md) | ISP narrow-interface pattern and consumer mapping |
+| [01 — Service Class Diagram](architecture/01-service-class-diagram.md) | All service interfaces and their implementations, including `SearchService` and the search substrate |
+| [02 — Service Dependency Graph](architecture/02-service-dependency-graph.md) | Directed dependency graph across all service classes, including the `pm-search` view-service wiring |
+| [03 — Plugin Initialization Sequence](architecture/03-plugin-initialization-sequence.md) | `onload()` → `initServices()` → `registerAllCommands()` → `registerAllProcessors()`, plus the `pm-search` `registerView` and `PM: Open Search` command/ribbon |
+| [04 — Narrow Interface Bundles](architecture/04-narrow-interface-bundles.md) | ISP narrow-interface pattern and consumer mapping, including `SearchViewServices` |
 | [05 — Processor Class Hierarchy](architecture/05-processor-class-hierarchy.md) | All processors, their base class, and view-class compositions |
 | [06 — Command Execution Sequence](architecture/06-command-execution-sequence.md) | End-to-end `CreateProjectCommand` execution traced |
 | [07 — Task Processing Pipeline](architecture/07-task-processing-pipeline.md) | `pm-tasks` dashboard data flow and filter persistence loop |
-| [08 — Entity Hierarchy Resolution](architecture/08-entity-hierarchy-resolution.md) | Dual-path client/engagement resolution logic |
+| [08 — Entity Hierarchy Resolution](architecture/08-entity-hierarchy-resolution.md) | Dual-path client/engagement resolution logic, reused by the search scope facets |
 
 ## Service Dependency Graph
 
@@ -50,8 +51,11 @@ main.ts (Plugin)
   ├── commandExecutor: CommandExecutor(app)
   ├── testDataService: TestDataService(app, settings, creationService as IEntityMaterializer, loggerService)
   ├── commands/*   → CommandServices (narrow subset of services)
-  └── processors/* → TaskProcessorServices | PropertyProcessorServices | ActionProcessorServices | RaidProcessorServices | ReferenceProcessorServices
+  ├── processors/* → TaskProcessorServices | PropertyProcessorServices | ActionProcessorServices | RaidProcessorServices | ReferenceProcessorServices
+  └── views/*      → SearchViewServices (app, searchService, navigationService, hierarchyService, enumerator, loggerService, getDv), composed per-open by buildSearchViewServices
 ```
+
+> **Search view axis.** The `pm-search` panel does not take a plugin-field service. `buildSearchViewServices(plugin)` composes a `SearchService` on open from the plugin's real collaborators — `EntityEnumerator(queryService)`, `hierarchyService`, `PersonAssociationResolver(getDv, folders)`, and a `PreparedFuzzyMatcher` — and hands the panel a narrow `SearchViewServices` bundle. The service depends only on abstractions and carries no `obsidian` import, so it unit-tests headless.
 
 > **Entity read axis.** The pm-tasks dashboard does not read Dataview directly; it resolves its data through the `IEntityQuery<TItem>` contract (`src/services/entity-query.ts`), with `TaskQuery` built per-block in the pm-tasks processor. This is the read primitive the dashboard shell composes — `TaskQuery`, `RaidQuery`, and `RefQuery` all implement the same one-`resolve()` contract, one per entity type. `RefQuery` additionally owns the reference-topic tree derivation the topic view renders from.
 
@@ -138,6 +142,15 @@ Canonical resolver for entity hierarchy (client and engagement) from a `Dataview
 - `resolveEngagementName(page)` — runs `getEngagementNameForPath(page.file.path)`.
 - `getEngagementForEntity` / `getClientForEntity` / `getParentProject` / `getEngagementNameForPath` / `getClientFromEngagementLink` — the underlying traversal primitives (class methods, off the narrow interface).
 
+### `SearchService` (`src/services/search-service.ts`)
+Powers the contextual-search panel behind the narrow `ISearchService` (`search(query, scope, types)`). It composes the pipeline: enumerate the requested types' candidates → fuzzy-rank by file name → constrain by the active scope facets through the pure `FilterEngine` → map each survivor to a `SearchResult` (with its resolved client/engagement breadcrumb). Ranking order is preserved through scoping and mapping. It depends only on abstractions and carries no `obsidian` import; an empty scope imposes no hierarchy constraint, and an absent Dataview yields `[]` without throwing. Its collaborators:
+
+- **`EntityEnumerator` (`src/services/entity-enumerator.ts`)** — lists a type's candidate pages from the `ENTITY_KINDS` descriptor: a `tag`-strategy kind by its Dataview tag, a `folder`-strategy kind by its folder. Dispatch is by strategy alone, so a new entity type is enumerated by its registration. It depends on the narrow `IEntityEnumerationQuery` (tag + folder reads), not the full query service.
+- **`EntityTypeResolver` (`src/services/entity-type-resolver.ts`)** — labels a page with its `EntityType`, matching by tag first and by the most specific (longest) folder otherwise, so a nested page resolves to its own kind rather than an ancestor's. Registry-driven, no per-type branch.
+- **`IFuzzyMatcher` / `PreparedFuzzyMatcher` (`src/services/fuzzy-matcher.ts`, `prepared-fuzzy-matcher.ts`)** — ranking sits behind an injectable `IFuzzyMatcher` (DIP); `PreparedFuzzyMatcher` is the one unit that wraps Obsidian's `prepareFuzzySearch`, compiling the query once and reusing the scorer across candidates. `rankCandidatesByName` is pure and matcher-injected, so it unit-tests with a fake matcher.
+- **`PersonAssociationResolver` (`src/services/person-association-resolver.ts`)** — resolves the people associated with a page for the person scope facet, reading only fields the model carries: the Person note itself, a RAID item's `owner`, a meeting's `attendees`, a recurring meeting's `default-attendees`, and the `reports-to` chain (cycle-guarded). There is no team/team-members field. Exposed via the narrow `IPersonAssociationResolver`.
+- **Scope facets (`src/services/search-filter.ts`)** — a `FilterSpec` over the shared `FilterEngine`: keyed client / engagement / person facets whose predicates capture the hierarchy service and person resolver. Client and engagement reuse `EntityHierarchyService.resolveClientName` / `resolveEngagementName` (the RAID and task filters set this precedent); OR within a facet, AND across facets. Adding a scope dimension is one entry in the `SCOPE_DIMENSIONS` table (OCP).
+
 ### `TemplateService` (`src/services/template-service.ts`)
 Returns template strings for all 9 entity types via a static lookup map. Template strings are defined as named exports in `src/services/template-constants.ts`. Templates use `{{variable}}` placeholders processed by `processTemplate()`.
 
@@ -212,6 +225,14 @@ The `pm-references` code block renders a compact **summary card** (reference cou
 - **Filter** — a reference `FilterSpec` (`src/services/reference-filter.ts`) over the shared `FilterEngine`: a keyed search facet plus captured-predicate facets for topics (normalized-name intersection), clients (resolved via `IEntityHierarchyService`), and engagements. `selectedNode` is **not** a facet (it is renderer scoping/display state) and `viewMode` selects the renderer.
 - **Render** — three renderers the shell dispatches by `viewMode` (`src/processors/reference-views/`): `TopicViewRenderer` (sidebar tree + nested groups) and a single `FlatGroupedViewRenderer` instantiated twice (client / engagement), differing only in the name each resolves. All are read-pure `IViewRenderer`s: the sidebars build from the **unfiltered** node-set supplied via `ctx.helpers` (topic tree + all references), the content groups from the already-filtered `ctx.items`, and a node click emits `onFilterChange({ selectedNode })`. Shared card/group/empty-state DOM lives in `reference-card-renderer.ts`.
 - **Host & persistence** — hosted by the generic `DashboardItemViewHost` (the note-less ItemView twin of `DashboardRenderChild`; registers no vault-modify listener). Filter state persists through the `ViewStateStore` (`SettingsViewStore`) under `settings.ui.referenceDashboardFilters`. Only the durable subset (`viewMode`/`topics`/`clients`/`engagements`/`selectedNode`) is saved — `searchText` stays ephemeral, enforced by the `SavedReferenceFilters` type. The summary-card processor routes its `selectedNode` pre-selection through the **same** store key (read-modify-write) so the two writers never race.
+
+### Contextual search (`pm-search`)
+The `pm-search` panel is a note-less `ItemView`, not a code block. `PmSearchItemView` (a `DashboardItemViewHost` subclass) hosts the `PmSearchView` component: a fuzzy search box, a "Narrow by…" scope add button, a client/engagement/person scope drawer, a family-grouped entity-type filter, an active-scope chips bar (scope and type chips, with auto-seeded home-glyph chips inferred from the active note), a count row, and a ranked results list, all reading the theme-adaptive `--pm-*` tokens and the `ENTITY_PRESENTATION` registry. Selecting a row opens the note via `NavigationService.openFile`; when Dataview is off the panel renders a dedicated state and never throws.
+
+- **Read + rank + scope** — `SearchService` (see *Key Services* above) composes `EntityEnumerator`, the injectable `IFuzzyMatcher`, and the client/engagement/person scope facets. The panel drives the full pipeline: `PmSearchView` projects its scope facets and type toggles into the `search(query, scope, types)` call.
+- **View services** — `buildSearchViewServices(plugin)` composes the pipeline on open and hands the panel a narrow `SearchViewServices` bundle (ISP), never the full `PluginServices`.
+- **Identity getters are constructor-safe** — `getViewType()` / `getDisplayText()` / `getIcon()` return module constants, so a restored `pm-search` leaf resolves to the real view (the Obsidian 1.7.2 `super()`-calls-`getViewType()` contract).
+- **Host & persistence** — hosted by the generic `DashboardItemViewHost` (the note-less twin of `DashboardRenderChild`; registers no vault-modify listener). Its `SettingsViewStore` persists panel state under `settings.ui.savedSearchFilters` (PRD-010 §3.8): the scope facet selections and the enabled type toggles are serialized on every change and restored on next open, while the query string and the drawer's open/closed state stay ephemeral. `initSearchFilterState` defaults any missing sub-key at read time, so the two-level `mergeSettings` cannot leave a facet `undefined`.
 
 ### `MarkdownPostProcessor` — RAID Badge Renderer
 Registered via `registerMarkdownPostProcessor` (not a code block processor). Scans rendered HTML for `{raid:(positive|negative|neutral)}` text nodes adjacent to internal wikilinks, resolves the linked RAID item's type from `metadataCache`, and replaces the pair with a styled `<span class="raid-badge">` + preserved link. Direction is mapped to a type-specific label (e.g. `positive` + Risk → "Mitigates").

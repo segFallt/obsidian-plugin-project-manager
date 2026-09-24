@@ -175,6 +175,8 @@ Reference → topics[]   → Reference Topic
 
 Client resolution checks `reference.client` first; if absent, falls back to `reference.engagement → engagement.client`. This is consistent with the existing task traversal pattern.
 
+**Contextual search reuses this spine.** The `pm-search` panel's client and engagement scope facets constrain results by resolving each candidate's ancestor client/engagement through the **same** traversal chains above, rather than defining their own — the requirements-level chains are the shared contract, and the `EntityHierarchyService` implementation that walks them is described in `architecture.md`. Search adds one relationship the chains above do not cover: a **person** association, resolved from a Person note itself, a RAID item's `owner`, a meeting's `attendees` / `default-attendees`, and the `reports-to` chain (there is no team-members field). See PRD-010 for the search requirements.
+
 ---
 
 ## 4. Data Requirements

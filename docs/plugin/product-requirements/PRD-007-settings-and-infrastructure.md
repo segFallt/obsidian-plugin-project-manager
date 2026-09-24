@@ -106,12 +106,26 @@ Settings are persisted in Obsidian's plugin data store (`data.json`) via `loadDa
 ProjectManagerSettings {
   folders: FolderSettings       // 13 folder paths (includes references, referenceTopics)
   defaults: DefaultValueSettings // clientStatus, engagementStatus, projectStatus, defaultTaskViewStatuses
-  ui: UiPreferenceSettings       // showRibbonIcons, defaultTaskViewMode, showCompletedByDefault
+  ui: UiPreferenceSettings       // showRibbonIcons, defaultTaskViewMode, showCompletedByDefault,
+                                 // referenceDashboardFilters, savedSearchFilters
   logging: LoggingSettings       // enabled, logDirectory, minLevel, maxRetentionDays
 }
 ```
 
 `FolderSettings` includes `references: string` and `referenceTopics: string` in addition to the 11 existing keys. Settings are deep-merged at load time so that vaults with older saved settings (missing these keys) receive the defaults rather than reverting all folders to defaults.
+
+`UiPreferenceSettings` also carries two persisted view-filter objects: `referenceDashboardFilters` (the Reference Dashboard's saved filters — see PRD-009 §3.8) and `savedSearchFilters` (the `pm-search` panel's saved type and scope filters). Both are written through the shared `SettingsViewStore`. Only their **shape** is a settings-schema concern; the behavioural specification for `savedSearchFilters` lives in PRD-010 §3.8:
+
+```typescript
+ui.savedSearchFilters {
+  clients?: string[]       // resolved client names in scope
+  engagements?: string[]   // resolved engagement names in scope
+  people?: string[]        // person names in scope
+  types?: EntityType[]     // enabled entity-type toggles; empty/absent = every type
+}
+```
+
+Because the settings deep-merge is only two levels deep (top level and the `ui` object), the nested `savedSearchFilters` object is replaced wholesale on upgrade rather than key-merged; each sub-key is read defensively and defaulted at read time.
 
 ### 4.2 Test Data Generation Order
 

@@ -11,7 +11,7 @@ sequenceDiagram
     Obsidian->>ProjectManagerPlugin: onload()
     ProjectManagerPlugin->>ProjectManagerPlugin: loadSettings()
 
-    Note over ProjectManagerPlugin,initServices: In onload(), before the workspace restores its layout —<br/>a restored pm-reference-dashboard leaf resolves during layout restore,<br/>so its view type must be registered and its services built by then.
+    Note over ProjectManagerPlugin,initServices: In onload(), before the workspace restores its layout —<br/>a restored pm-reference-dashboard or pm-search leaf resolves during layout restore,<br/>so its view type must be registered and its services built by then.
 
     ProjectManagerPlugin->>initServices: initServices()
 
@@ -45,7 +45,8 @@ sequenceDiagram
 
     ProjectManagerPlugin->>ProjectManagerPlugin: loggerService.info("Plugin initialized")
     ProjectManagerPlugin->>Obsidian: registerView(pm-reference-dashboard, leaf => new ReferenceDashboardItemView(...))
-    ProjectManagerPlugin->>Obsidian: addSettingTab()
+    ProjectManagerPlugin->>Obsidian: registerView(pm-search, leaf => new PmSearchItemView(...))
+    ProjectManagerPlugin->>ProjectManagerPlugin: addSettingTab()
 
     Note over Obsidian,registerAllProcessors: onLayoutReady — deferred until other community plugins have loaded.<br/>Commands, ribbon, and processors do not gate the dashboard view's ability to render.
     Obsidian-->>ProjectManagerPlugin: onLayoutReady callback fires
@@ -73,7 +74,9 @@ sequenceDiagram
     registerAllCommands-->>ProjectManagerPlugin: commands registered
 
     ProjectManagerPlugin->>ProjectManagerPlugin: addCommand(Open Reference Dashboard)
+    ProjectManagerPlugin->>ProjectManagerPlugin: addCommand(PM: Open Search)
     ProjectManagerPlugin->>ProjectManagerPlugin: addRibbonIcon(book-open) if settings.ui.showRibbonIcons
+    ProjectManagerPlugin->>ProjectManagerPlugin: addRibbonIcon(search) if settings.ui.showRibbonIcons
 
     ProjectManagerPlugin->>registerAllProcessors: registerAllProcessors(plugin)
     Note over registerAllProcessors: Registers code block and post processors

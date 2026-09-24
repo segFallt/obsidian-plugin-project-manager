@@ -66,4 +66,28 @@ flowchart TD
     Settings --> TestDataService
     TemplateService --> TestDataService
     LoggerService --> TestDataService
+
+    subgraph SearchView["pm-search view — composed per-open by buildSearchViewServices()"]
+        EntityEnumerator["EntityEnumerator"]
+        PersonAssociationResolver["PersonAssociationResolver"]
+        PreparedFuzzyMatcher["PreparedFuzzyMatcher"]
+        SearchService["SearchService"]
+        SearchViewServices["SearchViewServices (bundle)"]
+        PmSearchView["PmSearchView"]
+    end
+
+    QueryService --> EntityEnumerator
+    QueryService --> SearchService
+    Settings --> PersonAssociationResolver
+    EntityEnumerator --> SearchService
+    EntityHierarchyService --> SearchService
+    PersonAssociationResolver --> SearchService
+    PreparedFuzzyMatcher --> SearchService
+
+    SearchService --> SearchViewServices
+    NavigationService --> SearchViewServices
+    EntityHierarchyService --> SearchViewServices
+    EntityEnumerator --> SearchViewServices
+    LoggerService --> SearchViewServices
+    SearchViewServices --> PmSearchView
 ```

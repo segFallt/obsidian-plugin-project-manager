@@ -439,4 +439,85 @@ classDiagram
     EntityQueryRegistry ..> IEntityQuery : factory builds
     EntityQueryRegistry ..> RaidQuery : back-fill
     EntityQueryRegistry ..> RefQuery : back-fill
+
+    %% ─── Contextual search (pm-search) ───────────────────────────────
+    class ISearchService {
+        <<interface>>
+        +search(query, scope, types) SearchResult[]
+    }
+    class SearchService {
+        -deps SearchServiceDeps
+        +search(query, scope, types) SearchResult[]
+    }
+    class IEntityEnumerationQuery {
+        <<interface>>
+        +getEntitiesByTag(tag) DataviewPage[]
+        +getEntitiesByFolder(folder) DataviewPage[]
+    }
+    class EntityEnumerator {
+        -query IEntityEnumerationQuery
+        +candidates(type) EntityCandidate[]
+    }
+    class EntityTypeResolver {
+        +resolve(page) EntityType|null
+    }
+    class IFuzzyMatcher {
+        <<interface>>
+        +prepare(query) FuzzyScorer
+    }
+    class PreparedFuzzyMatcher {
+        +prepare(query) FuzzyScorer
+    }
+    class IPersonAssociationResolver {
+        <<interface>>
+        +peopleOf(page) string[]
+    }
+    class PersonAssociationResolver {
+        -getDv() DataviewApi|null
+        -folders FolderSettings
+        +peopleOf(page) string[]
+    }
+    class ENTITY_PRESENTATION {
+        <<presentation registry, keyed by EntityType>>
+        label / icon / familyColorToken
+    }
+    class SearchViewServices {
+        <<interface>>
+        +app App
+        +searchService ISearchService
+        +navigationService INavigationService
+        +hierarchyService IEntityHierarchyService
+        +enumerator EntityEnumerator
+        +loggerService ILoggerService
+        +getDv() DataviewApi|null
+    }
+    class PmSearchItemView {
+        +getViewType() string
+        +getDisplayText() string
+        +getIcon() string
+    }
+    class PmSearchView {
+        +render() void
+        +refreshOutput() void
+        +destroy() void
+    }
+
+    SearchService ..|> ISearchService
+    SearchService o--> EntityEnumerator : enumerate
+    SearchService o--> IFuzzyMatcher : rank
+    SearchService ..> IEntityHierarchyService : client/engagement scope + breadcrumb
+    SearchService ..> IPersonAssociationResolver : person scope
+    SearchService ..> FilterEngine : scope facets (search-filter FilterSpec)
+    EntityEnumerator --> IEntityEnumerationQuery : reads
+    EntityEnumerator ..> ENTITY_KINDS : tag/folder strategy
+    EntityTypeResolver ..> ENTITY_KINDS : tag-first, longest-folder
+    PreparedFuzzyMatcher ..|> IFuzzyMatcher
+    PreparedFuzzyMatcher ..> prepareFuzzySearch : wraps
+    PersonAssociationResolver ..|> IPersonAssociationResolver
+    PmSearchItemView --|> DashboardItemViewHost
+    PmSearchItemView ..> SettingsViewStore : persist (savedSearchFilters)
+    PmSearchView ..|> DashboardViewComponent
+    PmSearchView ..> ENTITY_PRESENTATION : label / icon / family colour
+    PmSearchView --> SearchViewServices : receives
+    SearchViewServices ..> ISearchService : bundles
 ```

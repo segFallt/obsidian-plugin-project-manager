@@ -302,3 +302,13 @@ Opens the Reference Dashboard, a filterable view of all reference documents in t
 **Pre-conditions:** None.
 
 **Behaviour:** Opens the Reference Dashboard view in a new tab in the main editor pane. If the dashboard is already open in any leaf, that leaf is revealed instead of opening a duplicate.
+
+### PM: Open Search
+
+Opens the search panel, a fuzzy finder for every project-management entity in the vault (see [Search Panel](07-search-panel.md)).
+
+**Invocation:** Command palette · Ribbon icon (`search` — shown when **Settings → Show ribbon icons** is enabled)
+
+**Pre-conditions:** None. (Dataview must be enabled for results to appear; otherwise the panel shows a "Search needs Dataview" message.)
+
+**Behaviour:** Opens the search panel in a new tab in the main editor pane. If the panel is already open in any leaf, that leaf is revealed instead of opening a duplicate.

@@ -226,4 +226,15 @@ Single Meeting → engagement → Engagement → client → Client
 Recurring Meeting Event → recurring-meeting → Recurring Meeting → engagement → Engagement → client → Client
 ```
 
-This enables the task dashboard's client/engagement filters to correctly group tasks from project notes, single meetings, and recurring meeting events under their ancestor client and engagement.
+This enables the task dashboard's client/engagement filters to correctly group tasks from project notes, single meetings, and recurring meeting events under their ancestor client and engagement. The `pm-search` panel's client and engagement scope facets reuse these same chains (via `EntityHierarchyService`); its person scope facet adds a person-association resolution over `owner`, `attendees` / `default-attendees`, and the `reports-to` chain (see PRD-001 §3.5 and PRD-010).
+
+## Persisted UI State
+
+Beyond entity frontmatter, the plugin persists a small amount of view-filter state in its own settings store (`data.json`), not in note frontmatter. Two objects live under `settings.ui`, each written through the shared `SettingsViewStore`:
+
+| Key | Written by | Shape (see PRD) |
+|-----|------------|-----------------|
+| `ui.referenceDashboardFilters` | Reference Dashboard panel | `viewMode`, `topics[]`, `clients[]`, `engagements[]`, `selectedNode` (PRD-009 §3.8) |
+| `ui.savedSearchFilters` | `pm-search` panel | `clients[]`, `engagements[]`, `people[]`, `types[]` (PRD-010 §3.8) |
+
+Both are note-less side panels, so neither writes a frontmatter filter key. The nested objects are replaced wholesale on a settings upgrade (the deep-merge is two levels deep), so each sub-key is read defensively and defaulted at read time.

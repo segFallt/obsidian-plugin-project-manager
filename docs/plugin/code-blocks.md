@@ -289,6 +289,8 @@ filter:
 
 Filter state (active chips and view mode) is persisted to **plugin settings** (`settings.ui.referenceDashboardFilters`, via the shared `SettingsViewStore`) and restored on next load; the search text is intentionally ephemeral and clears on reload. The References dashboard is a note-less side panel with no host note, so it does **not** write to note frontmatter; there is no `pm-references-filters` frontmatter key.
 
+> **Related panel — `pm-search`.** Contextual search is delivered as a command-activated `ItemView` panel (`PM: Open Search`), **not** a code block, so it has no entry in this reference — see the user guide's [Search Panel](user-guide/07-search-panel.md) page and PRD-010. Like the References dashboard, it is note-less and persists its filter state to plugin settings under `settings.ui.savedSearchFilters` (via the same `SettingsViewStore`), never to note frontmatter.
+
 ---
 
 ## `pm-recurring-events`
