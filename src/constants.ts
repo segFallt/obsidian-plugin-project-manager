@@ -112,6 +112,18 @@ export const REF_FACET_KEY = {
   SEARCH_TEXT: "searchText",
 } as const;
 
+/**
+ * Filter facet keys for the entity search scope. Each keys a `FilterEngine` facet
+ * that narrows fuzzy-ranked candidates by a hierarchy or person constraint —
+ * `CLIENT`/`ENGAGEMENT` resolve up the entity hierarchy, `PERSON` matches the
+ * people associated with a candidate.
+ */
+export const SEARCH_FACET_KEY = {
+  CLIENT: "client",
+  ENGAGEMENT: "engagement",
+  PERSON: "person",
+} as const;
+
 /** The facet keys gated to the "context" view mode. */
 export const CONTEXT_FACET_KEYS = [
   FACET_KEY.PROJECT_STATUS,
@@ -994,6 +1006,15 @@ export const REFERENCE_VIEW_MODE = {
   TOPIC: "topic",
   CLIENT: "client",
   ENGAGEMENT: "engagement",
+} as const;
+
+/**
+ * The single `FilterState.viewMode` value carried through entity-search scoping.
+ * Search has no view-mode-gated facets, so the value only satisfies the
+ * `FilterEngine` state shape and never gates a facet.
+ */
+export const SEARCH_VIEW_MODE = {
+  DEFAULT: "search",
 } as const;
 
 /** User-facing messages for the References dashboard. */

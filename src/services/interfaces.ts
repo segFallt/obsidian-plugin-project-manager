@@ -13,6 +13,8 @@ import type {
   ParsedTask,
   EntityType,
   SortKey,
+  SearchScope,
+  SearchResult,
 } from "../types";
 
 /**
@@ -205,6 +207,31 @@ export interface IEntityHierarchyService {
   resolveClientName(page: DataviewPage): string | null;
   /** Returns the resolved engagement name for a page, or null if none can be found. */
   resolveEngagementName(page: DataviewPage): string | null;
+}
+
+/**
+ * Resolves the set of person names associated with an entity page (self for a
+ * Person note, a RAID item's owner, a meeting's attendees, and the reports-to
+ * chain). The narrow abstraction the person scope facet depends on.
+ */
+export interface IPersonAssociationResolver {
+  /** Normalised, de-duplicated person names associated with the page. */
+  peopleOf(page: DataviewPage): string[];
+}
+
+/**
+ * Fuzzy name search over enumerated entities, constrained by an optional
+ * hierarchy/person scope. Narrow by design (ISP): a consumer takes this
+ * interface, never the full service bundle.
+ */
+export interface ISearchService {
+  /**
+   * Fuzzy-ranks the pages of the requested `types` by `query` (non-matches
+   * dropped, best first), keeps those satisfying every populated `scope` leg,
+   * and returns them as {@link SearchResult}s. An empty scope imposes no
+   * hierarchy constraint; returns `[]` (never throws) when Dataview is absent.
+   */
+  search(query: string, scope: SearchScope, types: EntityType[]): SearchResult[];
 }
 
 /** Narrow service bundle consumed by RAID processors. */

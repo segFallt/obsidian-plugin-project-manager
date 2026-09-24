@@ -37,6 +37,32 @@ export interface EntityCandidate {
   type: EntityType;
 }
 
+/**
+ * The scope a search is constrained to. Each populated leg is an OR set of names;
+ * across legs the constraints combine with AND (a candidate must satisfy every
+ * populated leg). An absent or empty leg imposes no constraint.
+ */
+export interface SearchScope {
+  /** Resolved client names a candidate must resolve up to (any of). */
+  clients?: string[];
+  /** Resolved engagement names a candidate must resolve up to (any of). */
+  engagements?: string[];
+  /** Person names a candidate must be associated with (any of). */
+  people?: string[];
+}
+
+/**
+ * One fuzzy-ranked, scope-constrained search hit: the matched page, the
+ * {@link EntityType} it was enumerated as, and its resolved hierarchy
+ * breadcrumb (client / engagement), each present only when it resolves.
+ */
+export interface SearchResult {
+  page: DataviewPage;
+  type: EntityType;
+  client?: string;
+  engagement?: string;
+}
+
 // ─── Reference Types ───────────────────────────────────────────────────────
 
 export type ReferenceViewMode = "topic" | "client" | "engagement";
