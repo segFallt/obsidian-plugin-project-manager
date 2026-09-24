@@ -9,7 +9,18 @@ import { PersonAssociationResolver } from "@/services/person-association-resolve
 import { PreparedFuzzyMatcher } from "@/services/prepared-fuzzy-matcher";
 import { QueryService } from "@/services/query-service";
 import { createMockDataviewApi, type MockPageData } from "../mocks/dataview-mock";
-import { CSS_CLS, DEFAULT_FOLDERS, DEBOUNCE_MS, ENTITY_LABEL, ENTITY_TYPE, PM_SEARCH_TEXT } from "@/constants";
+import {
+  ALL_ENTITY_TYPES,
+  ARIA_BOOL,
+  CSS_CLS,
+  DEFAULT_FOLDERS,
+  DEBOUNCE_MS,
+  DOM_ATTR,
+  ENTITY_LABEL,
+  ENTITY_TYPE,
+  PM_SEARCH_TEXT,
+} from "@/constants";
+import type { EntityType } from "@/types";
 import type { FolderSettings } from "@/settings";
 import type { DataviewApi } from "@/types";
 
@@ -66,6 +77,16 @@ function type(container: HTMLElement, text: string): void {
 
 const rowNames = (container: HTMLElement): string[] =>
   [...container.querySelectorAll(`.${CSS_CLS.PM_SEARCH_RESULT_NAME}`)].map((el) => el.textContent ?? "");
+
+const typeToggle = (container: HTMLElement, type: EntityType): HTMLButtonElement =>
+  container.querySelector<HTMLButtonElement>(
+    `.${CSS_CLS.PM_SEARCH_TTOG}[${DOM_ATTR.DATA_ENTITY_TYPE}="${type}"]`
+  )!;
+
+const typeChip = (container: HTMLElement, type: EntityType): HTMLElement | null =>
+  container.querySelector<HTMLElement>(
+    `.${CSS_CLS.PM_SEARCH_CHIP}[${DOM_ATTR.DATA_ENTITY_TYPE}="${type}"]`
+  );
 
 describe("PmSearchView", () => {
   beforeEach(() => vi.useFakeTimers());
@@ -150,6 +171,87 @@ describe("PmSearchView", () => {
     expect(empty?.querySelector(`.${CSS_CLS.PM_SEARCH_EMPTY_TITLE}`)?.textContent).toBe(
       PM_SEARCH_TEXT.DATAVIEW_TITLE
     );
+  });
+
+  it("narrows the search to a single type when one toggle is enabled", () => {
+    const { container, services } = makeHarness(VAULT);
+    const searchSpy = vi.spyOn(services.searchService, "search");
+    const view = new PmSearchView(container, services);
+    view.render();
+
+    typeToggle(container, ENTITY_TYPE.CLIENT).click();
+
+    // The search is re-run with only the selected type, and the browse results
+    // restrict to the three client notes (the engagement/project drop out).
+    expect(searchSpy.mock.calls.at(-1)?.[2]).toEqual([ENTITY_TYPE.CLIENT]);
+    const names = rowNames(container);
+    expect(names).toHaveLength(3);
+    expect(names).toContain("Acme");
+    expect(names).not.toContain("Acme Phase 1");
+  });
+
+  it("narrows the search to exactly the enabled types when several toggles are pressed", () => {
+    const { container, services } = makeHarness(VAULT);
+    const searchSpy = vi.spyOn(services.searchService, "search");
+    const view = new PmSearchView(container, services);
+    view.render();
+
+    typeToggle(container, ENTITY_TYPE.CLIENT).click();
+    typeToggle(container, ENTITY_TYPE.PERSON).click();
+
+    expect(searchSpy.mock.calls.at(-1)?.[2]).toEqual([ENTITY_TYPE.CLIENT, ENTITY_TYPE.PERSON]);
+  });
+
+  it("restores all types once the last type toggle is cleared", () => {
+    const { container, services } = makeHarness(VAULT);
+    const searchSpy = vi.spyOn(services.searchService, "search");
+    const view = new PmSearchView(container, services);
+    view.render();
+
+    const toggle = typeToggle(container, ENTITY_TYPE.CLIENT);
+    toggle.click(); // enable
+    toggle.click(); // disable — back to "no filter = all"
+
+    expect(searchSpy.mock.calls.at(-1)?.[2]).toEqual(ALL_ENTITY_TYPES);
+  });
+
+  it("keeps a toggle and its active-scope chip in sync", () => {
+    const { container, services } = makeHarness(VAULT);
+    const view = new PmSearchView(container, services);
+    view.render();
+
+    const toggle = typeToggle(container, ENTITY_TYPE.CLIENT);
+    toggle.click();
+
+    // Enabling the toggle presses it and adds a matching chip.
+    expect(toggle.getAttribute(DOM_ATTR.ARIA_PRESSED)).toBe(ARIA_BOOL.TRUE);
+    const chip = typeChip(container, ENTITY_TYPE.CLIENT);
+    expect(chip).not.toBeNull();
+    expect(chip?.textContent).toContain(ENTITY_LABEL[ENTITY_TYPE.CLIENT]);
+
+    // Removing the chip un-presses the toggle and drops the chip.
+    chip!.querySelector<HTMLButtonElement>(`.${CSS_CLS.PM_SEARCH_CHIP_REMOVE}`)!.click();
+    expect(toggle.getAttribute(DOM_ATTR.ARIA_PRESSED)).toBe(ARIA_BOOL.FALSE);
+    expect(typeChip(container, ENTITY_TYPE.CLIENT)).toBeNull();
+  });
+
+  it("opens and closes the filter drawer from the filter button", () => {
+    const { container, services } = makeHarness(VAULT);
+    const view = new PmSearchView(container, services);
+    view.render();
+
+    const button = container.querySelector<HTMLButtonElement>(`.${CSS_CLS.PM_SEARCH_FILTER_BTN}`)!;
+    const drawer = container.querySelector<HTMLElement>(`.${CSS_CLS.PM_SEARCH_DRAWER}`)!;
+    expect(button.getAttribute(DOM_ATTR.ARIA_EXPANDED)).toBe(ARIA_BOOL.FALSE);
+    expect(drawer.classList.contains(CSS_CLS.PM_SEARCH_DRAWER_OPEN)).toBe(false);
+
+    button.click();
+    expect(button.getAttribute(DOM_ATTR.ARIA_EXPANDED)).toBe(ARIA_BOOL.TRUE);
+    expect(drawer.classList.contains(CSS_CLS.PM_SEARCH_DRAWER_OPEN)).toBe(true);
+
+    button.click();
+    expect(button.getAttribute(DOM_ATTR.ARIA_EXPANDED)).toBe(ARIA_BOOL.FALSE);
+    expect(drawer.classList.contains(CSS_CLS.PM_SEARCH_DRAWER_OPEN)).toBe(false);
   });
 
   it("shows the result count and clears cleanly on destroy", () => {

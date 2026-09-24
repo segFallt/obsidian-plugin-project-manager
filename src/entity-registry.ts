@@ -1,4 +1,5 @@
 import type { DataviewApi, DataviewPage, EntityType, EnumStrategy } from "./types";
+import type { EntityFamily } from "./types";
 import {
   ENTITY_TAGS,
   DEFAULT_FOLDERS,
@@ -6,6 +7,7 @@ import {
   ENUM_STRATEGY,
   ENTITY_LABEL,
   ENTITY_ICON,
+  ENTITY_FAMILY,
   ENTITY_FAMILY_COLOR_TOKEN,
 } from "./constants";
 import { ENTITY_FIELDS } from "./processors/entity-field-config";
@@ -90,6 +92,37 @@ export const ENTITY_PRESENTATION: Record<EntityType, EntityPresentation> = {
   [ENTITY_TYPE.REFERENCE]: { label: ENTITY_LABEL[ENTITY_TYPE.REFERENCE], icon: ENTITY_ICON[ENTITY_TYPE.REFERENCE], familyColorToken: ENTITY_FAMILY_COLOR_TOKEN[ENTITY_TYPE.REFERENCE] },
   [ENTITY_TYPE.REFERENCE_TOPIC]: { label: ENTITY_LABEL[ENTITY_TYPE.REFERENCE_TOPIC], icon: ENTITY_ICON[ENTITY_TYPE.REFERENCE_TOPIC], familyColorToken: ENTITY_FAMILY_COLOR_TOKEN[ENTITY_TYPE.REFERENCE_TOPIC] },
 };
+
+/**
+ * ─── Entity family grouping ──────────────────────────────────────────────────
+ *
+ * One ordered group per presentation family: the family key (its heading is read
+ * from {@link ENTITY_FAMILY_LABEL}) paired with its member {@link EntityType}s in
+ * display order. This is the single source the type filter iterates to lay out
+ * its family-grouped toggles, so grouping and ordering live in one place and the
+ * view carries no per-type family branch (OCP).
+ */
+export interface EntityFamilyGroup {
+  /** Family key, whose heading label is looked up in `ENTITY_FAMILY_LABEL`. */
+  family: EntityFamily;
+  /** Member types, in the order their toggles render within the family row. */
+  types: EntityType[];
+}
+
+export const ENTITY_FAMILY_GROUPS: EntityFamilyGroup[] = [
+  { family: ENTITY_FAMILY.ACCOUNTS, types: [ENTITY_TYPE.CLIENT, ENTITY_TYPE.ENGAGEMENT, ENTITY_TYPE.PROJECT] },
+  { family: ENTITY_FAMILY.PEOPLE, types: [ENTITY_TYPE.PERSON] },
+  {
+    family: ENTITY_FAMILY.MEETINGS,
+    types: [ENTITY_TYPE.SINGLE_MEETING, ENTITY_TYPE.RECURRING_MEETING, ENTITY_TYPE.RECURRING_MEETING_EVENT],
+  },
+  { family: ENTITY_FAMILY.CAPTURE, types: [ENTITY_TYPE.INBOX] },
+  {
+    family: ENTITY_FAMILY.KNOWLEDGE,
+    types: [ENTITY_TYPE.REFERENCE, ENTITY_TYPE.REFERENCE_TOPIC, ENTITY_TYPE.PROJECT_NOTE],
+  },
+  { family: ENTITY_FAMILY.RISK, types: [ENTITY_TYPE.RAID_ITEM] },
+];
 
 /**
  * ─── Entity query registry ───────────────────────────────────────────────────

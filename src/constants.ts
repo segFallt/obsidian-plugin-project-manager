@@ -2,7 +2,7 @@
  * Shared constants for the Project Manager plugin.
  * Mirrors the vault's constants.js for consistency.
  */
-import type { DueDatePreset, DueDateFilter, StartDateFilter, ScheduledDateFilter, EntityType } from "./types";
+import type { DueDatePreset, DueDateFilter, StartDateFilter, ScheduledDateFilter, EntityType, EntityFamily } from "./types";
 
 export const CLIENT_STATUSES = ["Active", "Inactive"] as const;
 export const ENGAGEMENT_STATUSES = ["Active", "Inactive"] as const;
@@ -516,6 +516,30 @@ export const ENTITY_LABEL = {
 } as const satisfies Record<EntityType, string>;
 
 /**
+ * Presentation families the {@link EntityType}s group under in the type filter.
+ * Each key is a family identifier; {@link ENTITY_FAMILY_LABEL} carries its
+ * heading and {@link ENTITY_FAMILY_GROUPS} maps its member types.
+ */
+export const ENTITY_FAMILY = {
+  ACCOUNTS: "accounts",
+  PEOPLE: "people",
+  MEETINGS: "meetings",
+  CAPTURE: "capture",
+  KNOWLEDGE: "knowledge",
+  RISK: "risk",
+} as const;
+
+/** Heading label shown above each family's row of type toggles. */
+export const ENTITY_FAMILY_LABEL = {
+  [ENTITY_FAMILY.ACCOUNTS]: "Accounts",
+  [ENTITY_FAMILY.PEOPLE]: "People",
+  [ENTITY_FAMILY.MEETINGS]: "Meetings",
+  [ENTITY_FAMILY.CAPTURE]: "Capture",
+  [ENTITY_FAMILY.KNOWLEDGE]: "Knowledge",
+  [ENTITY_FAMILY.RISK]: "Risk",
+} as const satisfies Record<EntityFamily, string>;
+
+/**
  * Obsidian/Lucide icon ids for each {@link EntityType}, rendered in the search
  * panel's icon gutter and type toggles.
  */
@@ -740,6 +764,28 @@ export const CSS_CLS = {
   PM_SEARCH_EMPTY_ICON: "pm-search__empty-icon",
   PM_SEARCH_EMPTY_TITLE: "pm-search__empty-title",
   PM_SEARCH_EMPTY_LINE: "pm-search__empty-line",
+  // pm-search filter zone (filter button, active-scope chips bar, collapsible drawer)
+  PM_SEARCH_FILTER_ZONE: "pm-search__filter-zone",
+  PM_SEARCH_FILTER_BTN: "pm-search__filter-btn",
+  PM_SEARCH_FILTER_BTN_ICON: "pm-search__filter-btn-icon",
+  PM_SEARCH_FILTER_BTN_LABEL: "pm-search__filter-btn-label",
+  PM_SEARCH_FILTER_BTN_CHEVRON: "pm-search__filter-btn-chevron",
+  PM_SEARCH_DRAWER: "pm-search__drawer",
+  PM_SEARCH_DRAWER_OPEN: "pm-search__drawer--open",
+  // pm-search type toggles (family-grouped, bounded set)
+  PM_SEARCH_TYPES: "pm-search__types",
+  PM_SEARCH_TYPE_GROUP: "pm-search__type-group",
+  PM_SEARCH_TYPE_GROUP_HEADING: "pm-search__type-group-heading",
+  PM_SEARCH_TYPE_ROW: "pm-search__type-row",
+  PM_SEARCH_TTOG: "pm-search__ttog",
+  PM_SEARCH_TTOG_DOT: "pm-search__ttog-dot",
+  PM_SEARCH_TTOG_LABEL: "pm-search__ttog-label",
+  // pm-search active-scope chips bar
+  PM_SEARCH_CHIPS: "pm-search__chips",
+  PM_SEARCH_CHIP: "pm-search__chip",
+  PM_SEARCH_CHIP_DOT: "pm-search__chip-dot",
+  PM_SEARCH_CHIP_LABEL: "pm-search__chip-label",
+  PM_SEARCH_CHIP_REMOVE: "pm-search__chip-remove",
   // References dashboard (ItemView panel + view components)
   REFERENCE_DASHBOARD_VIEW: "pm-reference-dashboard-view",
   REFERENCE_DASHBOARD_ACTIONS: "pm-reference-dashboard__actions",
@@ -883,8 +929,18 @@ export const DOM_ATTR = {
   HREF: "href",
   DATA_HREF: "data-href",
   DATA_DEPTH: "data-depth",
+  DATA_ENTITY_TYPE: "data-entity-type",
   OPEN: "open",
   ARIA_LABEL: "aria-label",
+  ARIA_PRESSED: "aria-pressed",
+  ARIA_EXPANDED: "aria-expanded",
+  ARIA_HIDDEN: "aria-hidden",
+} as const;
+
+/** String values for boolean-valued ARIA state attributes. */
+export const ARIA_BOOL = {
+  TRUE: "true",
+  FALSE: "false",
 } as const;
 
 /** Input element `type` attribute values. */
@@ -1263,10 +1319,19 @@ export const PM_SEARCH_GLYPH = {
   NO_MATCH: "search-x",
   /** Dataview-unavailable empty-state glyph (a crossed-out screen). */
   DATAVIEW_OFF: "monitor-off",
+  /** Leading glyph on the filter drawer's toggle button. */
+  FILTER: "list-filter",
+  /** Trailing chevron on the filter button; rotates when the drawer is open. */
+  CHEVRON: "chevron-down",
+  /** Remove glyph on an active-scope chip. */
+  CHIP_REMOVE: "x",
 } as const;
 
 /** The inline CSS custom property a result row's family colour is threaded through. */
 export const PM_SEARCH_FAMILY_VAR = "--pm-row-family";
+
+/** The inline CSS custom property a type toggle's / chip's family-colour dot is threaded through. */
+export const PM_SEARCH_DOT_VAR = "--pm-family-dot";
 
 /** Static, user-facing text for the pm-search panel. */
 export const PM_SEARCH_TEXT = {
@@ -1287,4 +1352,10 @@ export const PM_SEARCH_TEXT = {
   /** Dataview-unavailable state title and guidance line. */
   DATAVIEW_TITLE: "Search needs Dataview",
   DATAVIEW_LINE: "Enable the Dataview plugin so the vault can be indexed.",
+  /** Filter drawer toggle button label. */
+  FILTER_BTN: "Filter",
+  /** Accessible name for the filter drawer toggle button. */
+  FILTER_ARIA: "Toggle entity type filters",
+  /** Accessible name for an active-scope chip's remove control. */
+  typeChipRemoveAria: (label: string): string => `Remove ${label} filter`,
 } as const;

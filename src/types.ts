@@ -5,7 +5,7 @@
 
 // `import type` keeps this a type-only edge: constants.ts already imports from
 // this module the same way, so both edges are erased by tsc/esbuild — no runtime cycle.
-import type { SORT_FIELD, SORT_DIRECTION, START_DATE_PRESET, SCHEDULED_DATE_PRESET, GROUP_BY_DATE_FIELD, ENUM_STRATEGY } from "./constants";
+import type { SORT_FIELD, SORT_DIRECTION, START_DATE_PRESET, SCHEDULED_DATE_PRESET, GROUP_BY_DATE_FIELD, ENUM_STRATEGY, ENTITY_FAMILY } from "./constants";
 
 // ─── Entity Types ──────────────────────────────────────────────────────────
 
@@ -30,6 +30,9 @@ export type EntityType =
 
 /** How an entity type is enumerated — by its Dataview tag or by its folder. */
 export type EnumStrategy = (typeof ENUM_STRATEGY)[keyof typeof ENUM_STRATEGY];
+
+/** The presentation family an {@link EntityType} groups under in the type filter. */
+export type EntityFamily = (typeof ENTITY_FAMILY)[keyof typeof ENTITY_FAMILY];
 
 /** A vault page paired with the {@link EntityType} it was enumerated or resolved as. */
 export interface EntityCandidate {

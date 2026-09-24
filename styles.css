@@ -1877,6 +1877,23 @@ details[open] .pm-filter-section__title::before {
   --pm-border-width: 1px;
   --pm-focus-ring-width: 2px;
   --pm-focus-ring-alpha: 28%;
+
+  /* Filter drawer, type toggles, and active-scope chips */
+  --pm-space-3: 3px;                    /* toggle / chip vertical padding */
+  --pm-space-5: 5px;                    /* gap between toggles in a family row */
+  --pm-space-9: 9px;                    /* toggle / chip horizontal padding */
+  --pm-font-chip: 11px;                 /* toggle, chip, and filter-button text */
+  --pm-weight-bold: 700;                /* family heading weight */
+  --pm-radius-toggle: 12px;             /* toggle and chip corner radius */
+  --pm-radius-round: 50%;               /* circular dots and the chip remove hit-area */
+  --pm-icon-btn: 16px;                  /* filter-button glyph and chevron */
+  --pm-icon-chip-remove: 13px;          /* glyph inside a chip's remove control */
+  --pm-chip-remove-size: 16px;          /* chip remove round hit-area */
+  --pm-dot-size: 7px;                   /* leading family-colour dot */
+  --pm-dot-idle-alpha: 45%;             /* dot opacity on an unpressed toggle */
+  --pm-toggle-on-bg-alpha: 12%;         /* pressed-toggle background blue tint */
+  --pm-toggle-on-border-alpha: 55%;     /* pressed-toggle / open-drawer border blue tint */
+  --pm-chevron-open-rotate: 180deg;     /* chevron flip when the drawer is open */
 }
 
 /* ─── pm-search panel shell ─────────────────────────────────── */
@@ -1893,7 +1910,7 @@ details[open] .pm-filter-section__title::before {
   border-radius: var(--pm-radius-panel);
 }
 
-/* Command zone — future home of the search box, type chips, scope, and count. */
+/* Command zone — search box, filter zone (button + chips bar + drawer), and count. */
 .pm-search__cz {
   display: flex;
   flex-direction: column;
@@ -2122,6 +2139,182 @@ details[open] .pm-filter-section__title::before {
   color: var(--pm-overlay2);
 }
 
+/* ─── Filter zone: drawer toggle, chips bar, collapsible drawer ─────────────── */
+
+.pm-search__filter-zone {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pm-space-xs);
+}
+
+/* Drawer toggle: filter glyph + label + chevron; opens the collapsible drawer. */
+.pm-search__filter-btn {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  gap: var(--pm-space-xs);
+  padding: var(--pm-space-xs) var(--pm-space-sm);
+  background-color: var(--pm-base);
+  color: var(--pm-subtext0);
+  border: var(--pm-border-width) solid var(--pm-surface1);
+  border-radius: var(--pm-radius-row);
+  font-size: var(--pm-font-chip);
+  font-weight: var(--pm-weight-semibold);
+  cursor: pointer;
+}
+
+.pm-search__filter-btn:hover {
+  color: var(--pm-text);
+  border-color: var(--pm-surface2);
+}
+
+.pm-search__filter-btn[aria-expanded="true"] {
+  color: var(--pm-text);
+  border-color: color-mix(in srgb, var(--pm-blue) var(--pm-toggle-on-border-alpha), transparent);
+}
+
+.pm-search__filter-btn-icon,
+.pm-search__filter-btn-chevron {
+  display: inline-flex;
+}
+
+.pm-search__filter-btn-icon svg,
+.pm-search__filter-btn-chevron svg {
+  width: var(--pm-icon-btn);
+  height: var(--pm-icon-btn);
+}
+
+/* Chevron points down when closed and flips when the drawer is open. */
+.pm-search__filter-btn[aria-expanded="true"] .pm-search__filter-btn-chevron {
+  transform: rotate(var(--pm-chevron-open-rotate));
+}
+
+/* Collapsible drawer: hidden until the toggle opens it; holds the type toggles. */
+.pm-search__drawer {
+  display: none;
+  padding: var(--pm-space-md);
+  background-color: var(--pm-mantle);
+  border: var(--pm-border-width) solid var(--pm-surface1);
+  border-radius: var(--pm-radius-panel);
+}
+
+.pm-search__drawer--open {
+  display: block;
+}
+
+/* ─── Type toggles (family-grouped) ─────────────────────────────────────────── */
+
+.pm-search__types {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pm-space-sm);
+}
+
+.pm-search__type-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pm-space-xs);
+}
+
+.pm-search__type-group-heading {
+  font-size: var(--pm-font-pill);
+  font-weight: var(--pm-weight-bold);
+  color: var(--pm-overlay0);
+}
+
+.pm-search__type-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pm-space-5);
+}
+
+/* Toggle chip: family dot + label; the pressed state carries the panel-blue accent. */
+.pm-search__ttog {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--pm-space-xs);
+  padding: var(--pm-space-3) var(--pm-space-9);
+  background-color: var(--pm-base);
+  color: var(--pm-subtext0);
+  border: var(--pm-border-width) solid var(--pm-surface1);
+  border-radius: var(--pm-radius-toggle);
+  font-size: var(--pm-font-chip);
+  font-weight: var(--pm-weight-semibold);
+  cursor: pointer;
+}
+
+.pm-search__ttog[aria-pressed="true"] {
+  color: var(--pm-text);
+  background-color: color-mix(in srgb, var(--pm-blue) var(--pm-toggle-on-bg-alpha), transparent);
+  border-color: color-mix(in srgb, var(--pm-blue) var(--pm-toggle-on-border-alpha), transparent);
+}
+
+/* Leading family-colour dot: dimmed on an unpressed toggle, full colour when pressed. */
+.pm-search__ttog-dot {
+  flex: 0 0 auto;
+  width: var(--pm-dot-size);
+  height: var(--pm-dot-size);
+  border-radius: var(--pm-radius-round);
+  background-color: color-mix(in srgb, var(--pm-family-dot) var(--pm-dot-idle-alpha), transparent);
+}
+
+.pm-search__ttog[aria-pressed="true"] .pm-search__ttog-dot {
+  background-color: var(--pm-family-dot);
+}
+
+/* ─── Active-scope chips bar ─────────────────────────────────────────────────── */
+
+.pm-search__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pm-space-xs);
+}
+
+.pm-search__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--pm-space-xs);
+  padding: var(--pm-space-3) var(--pm-space-9);
+  background-color: var(--pm-base);
+  border: var(--pm-border-width) solid var(--pm-surface1);
+  border-radius: var(--pm-radius-toggle);
+  font-size: var(--pm-font-chip);
+  font-weight: var(--pm-weight-semibold);
+  color: var(--pm-text);
+}
+
+/* Chip dot always shows the full family colour (chips list only enabled types). */
+.pm-search__chip-dot {
+  flex: 0 0 auto;
+  width: var(--pm-dot-size);
+  height: var(--pm-dot-size);
+  border-radius: var(--pm-radius-round);
+  background-color: var(--pm-family-dot);
+}
+
+.pm-search__chip-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--pm-chip-remove-size);
+  height: var(--pm-chip-remove-size);
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: var(--pm-radius-round);
+  color: var(--pm-overlay0);
+  cursor: pointer;
+}
+
+.pm-search__chip-remove:hover {
+  color: var(--pm-text);
+}
+
+.pm-search__chip-remove svg {
+  width: var(--pm-icon-chip-remove);
+  height: var(--pm-icon-chip-remove);
+}
+
 /* Motion only when the viewer has not asked to reduce it. */
 @media (prefers-reduced-motion: no-preference) {
   .pm-search__input {
@@ -2131,5 +2324,16 @@ details[open] .pm-filter-section__title::before {
 
   .pm-search__result {
     transition: background-color var(--pm-transition), box-shadow var(--pm-transition);
+  }
+
+  .pm-search__filter-btn,
+  .pm-search__ttog,
+  .pm-search__chip-remove {
+    transition: color var(--pm-transition), background-color var(--pm-transition),
+      border-color var(--pm-transition);
+  }
+
+  .pm-search__filter-btn-chevron {
+    transition: transform var(--pm-transition);
   }
 }
