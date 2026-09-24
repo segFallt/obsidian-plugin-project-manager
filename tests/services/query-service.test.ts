@@ -48,6 +48,30 @@ describe("QueryService", () => {
     });
   });
 
+  describe("getEntitiesByFolder", () => {
+    it("returns every page under the folder, including nested subfolders", () => {
+      const { qs } = createQueryService([
+        { path: "meetings/single/Kickoff.md", folder: "meetings/single" },
+        { path: "meetings/single/Review.md", folder: "meetings/single" },
+        { path: "clients/Acme.md", folder: "clients", tags: ["#client"] },
+      ]);
+
+      const result = qs.getEntitiesByFolder("meetings/single");
+      expect(result.map((p) => p.file.name).sort()).toEqual(["Kickoff", "Review"]);
+    });
+
+    it("ignores the tag — untagged pages are returned", () => {
+      const { qs } = createQueryService([
+        { path: "inbox/Idea.md", folder: "inbox" },
+      ]);
+      expect(qs.getEntitiesByFolder("inbox")).toHaveLength(1);
+    });
+
+    it("returns empty array when Dataview is unavailable", () => {
+      expect(nullQueryService().getEntitiesByFolder("inbox")).toEqual([]);
+    });
+  });
+
   describe("getEntitiesByStatus", () => {
     it("returns pages with the given status", () => {
       const { qs } = createQueryService([

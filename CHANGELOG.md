@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <!-- New release sections are prepended by .ci/bump-version.sh -->
 
+## [Unreleased]
+
+### Added
+
+- Search substrate foundation: a cross-entity **enumeration**, **type-labeling**, and **presentation** layer keyed off the entity registry. `ENTITY_KINDS` now carries an enumeration `strategy` (`tag` for tagged types, `folder` for untagged ones); a new `EntityEnumerator.candidates(type)` lists a type's vault pages by dispatching on that strategy (tagged types through `QueryService.getEntitiesByTag`, untagged types through a new folder-only `QueryService.getEntitiesByFolder`), and `EntityTypeResolver.resolve(page)` labels a page with its `EntityType` by matching tag first, then the most specific folder. Both units are registry-driven with no per-type branches and return empty/`null` when Dataview is unavailable. A single `ENTITY_PRESENTATION` registry (keyed by `EntityType`, carrying `label`, `icon`, and a `familyColorToken` **token name**) becomes the one presentation source for the search panel, type filters, and chips, composed from named `ENTITY_LABEL` / `ENTITY_ICON` / `ENTITY_FAMILY_COLOR_TOKEN` constants ([#125](https://gitlab.n3.pingleberry.com/obsidian/obsidian-plugin-project-manager/-/issues/125)).
+
 ## [0.5.0-beta.3] - 2026-09-22
 
 ### Fixed

@@ -43,6 +43,18 @@ export class QueryService implements IEntityQueryService {
   }
 
   /**
+   * Returns every page under a folder (including nested subfolders), regardless
+   * of tag. Untagged entity types have no Dataview tag to filter on, so this
+   * folder-only read is the enumeration path `getEntitiesByTag` (whose folder
+   * argument is only a post-filter on a tag) cannot serve.
+   */
+  getEntitiesByFolder(folder: string): DataviewPage[] {
+    const dv = this.dv();
+    if (!dv) return [];
+    return [...dv.pages(`"${folder}"`)];
+  }
+
+  /**
    * Returns pages matching a tag filtered by status value(s).
    */
   getEntitiesByStatus(tag: string, status: string | string[]): DataviewPage[] {

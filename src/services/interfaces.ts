@@ -27,6 +27,7 @@ export interface IEntityQueryService {
   /** Returns the live Dataview API, or null if Dataview is not available. */
   dv(): DataviewApi | null;
   getEntitiesByTag(tag: string, folder?: string): DataviewPage[];
+  getEntitiesByFolder(folder: string): DataviewPage[];
   getEntitiesByStatus(tag: string, status: string | string[]): DataviewPage[];
   getActiveEntitiesByTag(tag: string): DataviewPage[];
   getLinkedEntities(folder: string, tag: string, property: string, targetFile: TFile): DataviewPage[];

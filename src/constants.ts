@@ -465,6 +465,75 @@ export const ENTITY_TYPE = {
   REFERENCE_TOPIC: "reference-topic",
 } as const satisfies Record<string, EntityType>;
 
+/**
+ * Enumeration strategies an {@link EntityType} descriptor is read through: a
+ * tagged type is listed by its Dataview tag, an untagged type by its folder.
+ * A const object plus derived type keeps the two literals out of call sites.
+ */
+export const ENUM_STRATEGY = {
+  TAG: "tag",
+  FOLDER: "folder",
+} as const;
+
+/**
+ * Display labels for each {@link EntityType} — the user-facing name shown in
+ * search results, type filters, and chips. Sourced here so the presentation
+ * registry composes named constants rather than inlining literals.
+ */
+export const ENTITY_LABEL = {
+  [ENTITY_TYPE.CLIENT]: "Client",
+  [ENTITY_TYPE.ENGAGEMENT]: "Engagement",
+  [ENTITY_TYPE.PROJECT]: "Project",
+  [ENTITY_TYPE.PERSON]: "Person",
+  [ENTITY_TYPE.INBOX]: "Inbox Note",
+  [ENTITY_TYPE.SINGLE_MEETING]: "Single Meeting",
+  [ENTITY_TYPE.RECURRING_MEETING]: "Recurring Meeting",
+  [ENTITY_TYPE.RECURRING_MEETING_EVENT]: "Recurring Meeting Event",
+  [ENTITY_TYPE.PROJECT_NOTE]: "Project Note",
+  [ENTITY_TYPE.RAID_ITEM]: "RAID Item",
+  [ENTITY_TYPE.REFERENCE]: "Reference",
+  [ENTITY_TYPE.REFERENCE_TOPIC]: "Reference Topic",
+} as const satisfies Record<EntityType, string>;
+
+/**
+ * Obsidian/Lucide icon ids for each {@link EntityType}, rendered in the search
+ * panel's icon gutter and type toggles.
+ */
+export const ENTITY_ICON = {
+  [ENTITY_TYPE.CLIENT]: "building-2",
+  [ENTITY_TYPE.ENGAGEMENT]: "briefcase",
+  [ENTITY_TYPE.PROJECT]: "folder-kanban",
+  [ENTITY_TYPE.PERSON]: "user",
+  [ENTITY_TYPE.INBOX]: "inbox",
+  [ENTITY_TYPE.SINGLE_MEETING]: "calendar",
+  [ENTITY_TYPE.RECURRING_MEETING]: "calendar-clock",
+  [ENTITY_TYPE.RECURRING_MEETING_EVENT]: "calendar-check",
+  [ENTITY_TYPE.PROJECT_NOTE]: "file-text",
+  [ENTITY_TYPE.RAID_ITEM]: "shield-alert",
+  [ENTITY_TYPE.REFERENCE]: "book-open",
+  [ENTITY_TYPE.REFERENCE_TOPIC]: "folder-tree",
+} as const satisfies Record<EntityType, string>;
+
+/**
+ * CSS custom-property *token names* for each {@link EntityType}'s family colour.
+ * These reference the token only; the hex each token resolves to is defined
+ * separately in the styling foundation, so consumers stay theme-driven.
+ */
+export const ENTITY_FAMILY_COLOR_TOKEN = {
+  [ENTITY_TYPE.CLIENT]: "--pm-entity-client",
+  [ENTITY_TYPE.ENGAGEMENT]: "--pm-entity-engagement",
+  [ENTITY_TYPE.PROJECT]: "--pm-entity-project",
+  [ENTITY_TYPE.PERSON]: "--pm-entity-person",
+  [ENTITY_TYPE.INBOX]: "--pm-entity-inbox",
+  [ENTITY_TYPE.SINGLE_MEETING]: "--pm-entity-single-meeting",
+  [ENTITY_TYPE.RECURRING_MEETING]: "--pm-entity-recurring-meeting",
+  [ENTITY_TYPE.RECURRING_MEETING_EVENT]: "--pm-entity-recurring-meeting-event",
+  [ENTITY_TYPE.PROJECT_NOTE]: "--pm-entity-project-note",
+  [ENTITY_TYPE.RAID_ITEM]: "--pm-entity-raid-item",
+  [ENTITY_TYPE.REFERENCE]: "--pm-entity-reference",
+  [ENTITY_TYPE.REFERENCE_TOPIC]: "--pm-entity-reference-topic",
+} as const satisfies Record<EntityType, string>;
+
 // ─── Frontmatter keys ─────────────────────────────────────────────────────
 
 /** All frontmatter property key strings used across the plugin. */
@@ -1069,6 +1138,9 @@ export const CREATED_LABEL = "Created";
 
 /** Newline character used when composing multi-line note content. */
 export const NL = "\n";
+
+/** Vault path segment separator. */
+export const PATH_SEPARATOR = "/";
 
 /** Display label for the "no value" option prepended to nullable select fields. */
 export const SELECT_NONE_LABEL = "(none)";
