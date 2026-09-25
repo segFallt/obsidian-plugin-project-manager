@@ -55,15 +55,28 @@ export interface SearchScope {
 }
 
 /**
+ * A body-match excerpt for a content-search hit: the windowed body `text`
+ * (ellipsised on each clipped edge) and the character runs `[start, end)` within
+ * it that matched, so the panel can highlight them.
+ */
+export interface SearchSnippet {
+  text: string;
+  matches: Array<[number, number]>;
+}
+
+/**
  * One fuzzy-ranked, scope-constrained search hit: the matched page, the
- * {@link EntityType} it was enumerated as, and its resolved hierarchy
- * breadcrumb (client / engagement), each present only when it resolves.
+ * {@link EntityType} it was enumerated as, its resolved hierarchy breadcrumb
+ * (client / engagement), and — for a body-derived match only — the
+ * {@link SearchSnippet} explaining why it matched. Each field is present only
+ * when it resolves.
  */
 export interface SearchResult {
   page: DataviewPage;
   type: EntityType;
   client?: string;
   engagement?: string;
+  snippet?: SearchSnippet;
 }
 
 /**

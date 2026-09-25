@@ -13,6 +13,7 @@ import type {
   EntityType,
   SavedSearchFilters,
   SearchResult,
+  SearchSnippet,
 } from "../types";
 import {
   ALL_ENTITY_TYPES,
@@ -79,6 +80,8 @@ function inferredKey(key: SearchFacetKey, value: string): string {
  */
 export class PmSearchView implements DashboardViewComponent {
   private query = "";
+  /** Monotonic token; the newest repaint wins so a slow earlier search cannot overwrite it. */
+  private requestToken = 0;
   private readonly state: SearchFilterState;
   private inputEl!: HTMLInputElement;
   private clearBtn!: HTMLButtonElement;
@@ -94,7 +97,7 @@ export class PmSearchView implements DashboardViewComponent {
   private readonly facetEls = new Map<SearchFacetKey, HTMLElement>();
   private readonly facetChipSelects = new Map<SearchFacetKey, FilterChipSelect>();
   private readonly inferred = new Set<string>();
-  private readonly search: Debounced = debounced(() => this.repaint(), DEBOUNCE_MS.SEARCH);
+  private readonly search: Debounced = debounced(() => void this.repaint(), DEBOUNCE_MS.SEARCH);
 
   constructor(
     private readonly container: HTMLElement,
@@ -117,12 +120,12 @@ export class PmSearchView implements DashboardViewComponent {
     this.buildFilterZone(commandZone);
     this.countEl = commandZone.createDiv({ cls: CSS_CLS.PM_SEARCH_COUNT });
     this.resultsEl = root.createDiv({ cls: CSS_CLS.PM_SEARCH_RESULTS });
-    this.repaint();
+    void this.repaint();
   }
 
   /** Re-runs the search and repaints the count and results (search box preserved). */
   refreshOutput(): void {
-    if (this.resultsEl) this.repaint();
+    if (this.resultsEl) void this.repaint();
   }
 
   destroy(): void {
@@ -206,7 +209,7 @@ export class PmSearchView implements DashboardViewComponent {
     this.inputEl.value = "";
     this.updateClearVisibility();
     this.search.cancel();
-    this.repaint();
+    void this.repaint();
   }
 
   /** The clear button is shown only when the field holds a query. */
@@ -406,7 +409,7 @@ export class PmSearchView implements DashboardViewComponent {
     this.renderActiveChips();
     this.updateClearFiltersVisibility();
     this.persist();
-    this.repaint();
+    void this.repaint();
   }
 
   private persist(): void {
@@ -502,15 +505,22 @@ export class PmSearchView implements DashboardViewComponent {
 
   // ─── Repaint (count + results) ───────────────────────────────────────────────
 
-  private repaint(): void {
+  private async repaint(): Promise<void> {
+    const token = ++this.requestToken;
+    // Capture the query with the token so the name highlighter renders against
+    // the same query these results were computed from, not a newer live value.
+    const query = this.query;
     const dataviewAvailable = this.services.getDv() !== null;
-    const results = this.services.searchService.search(
-      this.query,
+    const results = await this.services.searchService.search(
+      query,
       scopeOf(this.state),
       activeTypesOf(this.state)
     );
+    // Latest-query-wins: a newer repaint bumped the token while this search was
+    // in flight, so a stale earlier result must not overwrite the newer paint.
+    if (token !== this.requestToken) return;
     this.renderCount(dataviewAvailable, results.length);
-    this.renderResults(dataviewAvailable, results);
+    this.renderResults(dataviewAvailable, results, query);
   }
 
   private renderCount(dataviewAvailable: boolean, count: number): void {
@@ -519,7 +529,7 @@ export class PmSearchView implements DashboardViewComponent {
     );
   }
 
-  private renderResults(dataviewAvailable: boolean, results: SearchResult[]): void {
+  private renderResults(dataviewAvailable: boolean, results: SearchResult[], query: string): void {
     this.resultsEl.empty();
     if (!dataviewAvailable) {
       this.buildDataviewAbsentState();
@@ -528,13 +538,13 @@ export class PmSearchView implements DashboardViewComponent {
     if (results.length > 0) {
       // Compile the query's highlighter once per repaint and reuse it across
       // rows (an empty query browses without highlighting).
-      const highlighter = this.query.length > 0 ? prepareFuzzySearch(this.query) : null;
+      const highlighter = query.length > 0 ? prepareFuzzySearch(query) : null;
       for (const result of results) this.buildResultRow(result, highlighter);
       return;
     }
     // A non-empty query that matches nothing gets the no-match state; an empty
     // query over an empty vault simply shows no rows (browse mode, nothing yet).
-    if (this.query.length > 0) this.buildNoMatchState();
+    if (query.length > 0) this.buildNoMatchState(query);
   }
 
   // ─── Result row ──────────────────────────────────────────────────────────────
@@ -545,6 +555,7 @@ export class PmSearchView implements DashboardViewComponent {
     this.buildRowIcon(row, presentation);
     const main = row.createDiv({ cls: CSS_CLS.PM_SEARCH_RESULT_MAIN });
     this.buildRowName(main, result.page.file.name, highlighter);
+    if (result.snippet) this.buildRowSnippet(main, result.snippet);
     this.buildRowBreadcrumb(main, result);
     this.buildRowTypePill(row, presentation);
     row.addEventListener(DOM_EVENT.CLICK, () => this.openResult(result.page));
@@ -561,17 +572,33 @@ export class PmSearchView implements DashboardViewComponent {
   private buildRowName(main: HTMLElement, name: string, highlighter: FuzzyHighlighter | null): void {
     const nameEl = main.createDiv({ cls: CSS_CLS.PM_SEARCH_RESULT_NAME });
     const matches = highlighter ? highlighter(name)?.matches ?? [] : [];
+    this.appendHighlighted(nameEl, name, matches);
+  }
+
+  /**
+   * A single body-match excerpt beneath the name, highlighting the matched run.
+   * The excerpt text and its match offsets are the substrate's (the authoritative
+   * source of the located occurrence); the run-wrapping and `.hl` span mirror
+   * {@link buildRowName}, so name and snippet highlight identically.
+   */
+  private buildRowSnippet(main: HTMLElement, snippet: SearchSnippet): void {
+    const snippetEl = main.createDiv({ cls: CSS_CLS.PM_SEARCH_SNIPPET });
+    this.appendHighlighted(snippetEl, snippet.text, snippet.matches);
+  }
+
+  /** Appends `text` to `el`, wrapping each `[start, end)` match run in an `.hl` span. */
+  private appendHighlighted(el: HTMLElement, text: string, matches: Array<[number, number]>): void {
     if (matches.length === 0) {
-      nameEl.setText(name);
+      el.setText(text);
       return;
     }
     let cursor = 0;
     for (const [start, end] of matches) {
-      if (start > cursor) nameEl.appendChild(document.createTextNode(name.slice(cursor, start)));
-      nameEl.createSpan({ cls: CSS_CLS.PM_SEARCH_HL, text: name.slice(start, end) });
+      if (start > cursor) el.appendChild(document.createTextNode(text.slice(cursor, start)));
+      el.createSpan({ cls: CSS_CLS.PM_SEARCH_HL, text: text.slice(start, end) });
       cursor = end;
     }
-    if (cursor < name.length) nameEl.appendChild(document.createTextNode(name.slice(cursor)));
+    if (cursor < text.length) el.appendChild(document.createTextNode(text.slice(cursor)));
   }
 
   private buildRowTypePill(row: HTMLElement, presentation: EntityPresentation): void {
@@ -603,10 +630,10 @@ export class PmSearchView implements DashboardViewComponent {
 
   // ─── Empty states ────────────────────────────────────────────────────────────
 
-  private buildNoMatchState(): void {
+  private buildNoMatchState(query: string): void {
     this.buildEmptyState(
       PM_SEARCH_GLYPH.NO_MATCH,
-      PM_SEARCH_TEXT.noMatchTitle(this.query),
+      PM_SEARCH_TEXT.noMatchTitle(query),
       PM_SEARCH_TEXT.NO_MATCH_LINE
     );
   }

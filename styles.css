@@ -2089,6 +2089,20 @@ details[open] .pm-filter-section__title::before {
   font-weight: var(--pm-weight-hl);
 }
 
+/* Body-match snippet: a single muted excerpt line beneath the name. */
+.pm-search__snippet {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--pm-font-crumb);
+  color: var(--pm-subtext0);
+}
+
+.pm-search__snippet .hl {
+  color: var(--pm-sky);
+  font-weight: var(--pm-weight-hl);
+}
+
 /* Type pill: right-aligned, non-shrinking. */
 .pm-search__result-type {
   flex: 0 0 auto;

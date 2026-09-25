@@ -8,7 +8,8 @@ import { EntityHierarchyService } from "@/services/entity-hierarchy-service";
 import { PersonAssociationResolver } from "@/services/person-association-resolver";
 import { PreparedFuzzyMatcher } from "@/services/prepared-fuzzy-matcher";
 import { QueryService } from "@/services/query-service";
-import { createMockDataviewApi, type MockPageData } from "../mocks/dataview-mock";
+import type { IContentProvider } from "@/services/content-provider";
+import { createMockDataviewApi, createMockPage, type MockPageData } from "../mocks/dataview-mock";
 import {
   ALL_ENTITY_TYPES,
   ARIA_BOOL,
@@ -21,7 +22,7 @@ import {
   PM_SEARCH_TEXT,
   SEARCH_FACET_KEY,
 } from "@/constants";
-import type { EntityType, SavedSearchFilters } from "@/types";
+import type { EntityType, SavedSearchFilters, SearchResult } from "@/types";
 import type { FolderSettings } from "@/settings";
 import type { DataviewApi } from "@/types";
 
@@ -44,18 +45,22 @@ interface Harness {
 function makeHarness(
   pages: MockPageData[],
   getDv?: () => DataviewApi | null,
-  options: { activeFilePath?: string } = {}
+  options: { activeFilePath?: string; bodies?: Record<string, string> } = {}
 ): Harness {
   const dv = createMockDataviewApi(pages);
   const resolvedGetDv = getDv ?? ((): DataviewApi | null => dv);
   const query = new QueryService(resolvedGetDv, folders);
   const enumerator = new EntityEnumerator(query);
   const hierarchyService = new EntityHierarchyService(resolvedGetDv, folders);
+  const contentProvider: IContentProvider = {
+    textFor: async (page) => options.bodies?.[page.file.path] ?? "",
+  };
   const searchService = new SearchService({
     getDv: resolvedGetDv,
     enumerator,
     hierarchyService,
     personResolver: new PersonAssociationResolver(resolvedGetDv, folders),
+    contentProvider,
     matcher: new PreparedFuzzyMatcher(),
   });
 
@@ -80,12 +85,18 @@ function makeHarness(
   return { container: document.createElement("div"), services, openFile };
 }
 
-/** Sets the query and flushes the debounce so the results repaint. */
-function type(container: HTMLElement, text: string): void {
+/** Drains the microtasks the async repaint queues (the search + paint) under fake timers. */
+async function flush(): Promise<void> {
+  for (let i = 0; i < 10; i++) await Promise.resolve();
+}
+
+/** Sets the query, flushes the debounce so the search fires, then drains the async repaint. */
+async function type(container: HTMLElement, text: string): Promise<void> {
   const input = container.querySelector<HTMLInputElement>(`.${CSS_CLS.PM_SEARCH_INPUT_FIELD}`)!;
   input.value = text;
   input.dispatchEvent(new Event("input"));
   vi.advanceTimersByTime(DEBOUNCE_MS.SEARCH);
+  await flush();
 }
 
 const rowNames = (container: HTMLElement): string[] =>
@@ -105,12 +116,12 @@ describe("PmSearchView", () => {
   beforeEach(() => vi.useFakeTimers());
   afterEach(() => vi.useRealTimers());
 
-  it("renders fuzzy results best-first with matched characters highlighted", () => {
+  it("renders fuzzy results best-first with matched characters highlighted", async () => {
     const { container, services } = makeHarness(VAULT);
     const view = new PmSearchView(container, services);
     view.render();
 
-    type(container, "acme");
+    await type(container, "acme");
 
     // "Acme" is a contiguous, front-anchored match so it ranks first; the four
     // names containing a c-m-e subsequence all match, and Globex is excluded.
@@ -124,12 +135,12 @@ describe("PmSearchView", () => {
     expect(highlighted.join("").toLowerCase()).toBe("acme");
   });
 
-  it("shows a family-tinted icon, a type pill, and a Client › Engagement breadcrumb", () => {
+  it("shows a family-tinted icon, a type pill, and a Client › Engagement breadcrumb", async () => {
     const { container, services } = makeHarness(VAULT);
     const view = new PmSearchView(container, services);
     view.render();
 
-    type(container, "portal");
+    await type(container, "portal");
 
     const row = container.querySelector<HTMLElement>(`.${CSS_CLS.PM_SEARCH_RESULT}`)!;
     const iconGutter = row.querySelector<HTMLElement>(`.${CSS_CLS.PM_SEARCH_RESULT_ICON}`)!;
@@ -145,12 +156,12 @@ describe("PmSearchView", () => {
     expect(crumb?.querySelector(`.${CSS_CLS.PM_SEARCH_CRUMB_SEP}`)?.textContent).toBe(PM_SEARCH_TEXT.CRUMB_SEPARATOR);
   });
 
-  it("opens the underlying file through NavigationService on select", () => {
+  it("opens the underlying file through NavigationService on select", async () => {
     const { container, services, openFile } = makeHarness(VAULT);
     const view = new PmSearchView(container, services);
     view.render();
 
-    type(container, "portal");
+    await type(container, "portal");
     container.querySelector<HTMLButtonElement>(`.${CSS_CLS.PM_SEARCH_RESULT}`)!.click();
 
     expect(openFile).toHaveBeenCalledTimes(1);
@@ -158,12 +169,13 @@ describe("PmSearchView", () => {
     expect(openFile.mock.calls[0][0].path).toBe("projects/Acme Portal.md");
   });
 
-  it("renders the no-match state without throwing when a query matches nothing", () => {
+  it("renders the no-match state without throwing when a query matches nothing", async () => {
     const { container, services } = makeHarness(VAULT);
     const view = new PmSearchView(container, services);
     view.render();
 
-    expect(() => type(container, "zzzzz")).not.toThrow();
+    await type(container, "zzzzz");
+
     expect(container.querySelectorAll(`.${CSS_CLS.PM_SEARCH_RESULT}`).length).toBe(0);
     const empty = container.querySelector(`.${CSS_CLS.PM_SEARCH_EMPTY}`);
     expect(empty?.querySelector(`.${CSS_CLS.PM_SEARCH_EMPTY_TITLE}`)?.textContent).toBe(
@@ -171,10 +183,11 @@ describe("PmSearchView", () => {
     );
   });
 
-  it("renders the Dataview-absent state without throwing when getDv is null", () => {
+  it("renders the Dataview-absent state without throwing when getDv is null", async () => {
     const { container, services } = makeHarness(VAULT, () => null);
     const view = new PmSearchView(container, services);
     expect(() => view.render()).not.toThrow();
+    await flush();
 
     expect(container.querySelectorAll(`.${CSS_CLS.PM_SEARCH_RESULT}`).length).toBe(0);
     expect(container.querySelector(`.${CSS_CLS.PM_SEARCH_COUNT}`)?.textContent).toBe(
@@ -186,13 +199,14 @@ describe("PmSearchView", () => {
     );
   });
 
-  it("narrows the search to a single type when one toggle is enabled", () => {
+  it("narrows the search to a single type when one toggle is enabled", async () => {
     const { container, services } = makeHarness(VAULT);
     const searchSpy = vi.spyOn(services.searchService, "search");
     const view = new PmSearchView(container, services);
     view.render();
 
     typeToggle(container, ENTITY_TYPE.CLIENT).click();
+    await flush();
 
     // The search is re-run with only the selected type, and the browse results
     // restrict to the three client notes (the engagement/project drop out).
@@ -267,12 +281,12 @@ describe("PmSearchView", () => {
     expect(drawer.classList.contains(CSS_CLS.PM_SEARCH_DRAWER_OPEN)).toBe(false);
   });
 
-  it("shows the result count and clears cleanly on destroy", () => {
+  it("shows the result count and clears cleanly on destroy", async () => {
     const { container, services } = makeHarness(VAULT);
     const view = new PmSearchView(container, services);
     view.render();
 
-    type(container, "acme");
+    await type(container, "acme");
     expect(container.querySelector(`.${CSS_CLS.PM_SEARCH_COUNT}`)?.textContent).toBe(
       PM_SEARCH_TEXT.resultCount(4)
     );
@@ -281,6 +295,84 @@ describe("PmSearchView", () => {
     expect(container.childElementCount).toBe(0);
   });
 });
+
+// ─── Content search: snippets, copy, concurrency ───────────────────────────
+
+describe("PmSearchView — content search", () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => vi.useRealTimers());
+
+  it("labels the search box for name and content matching", () => {
+    const { container, services } = makeHarness(VAULT);
+    new PmSearchView(container, services).render();
+
+    const input = container.querySelector<HTMLInputElement>(`.${CSS_CLS.PM_SEARCH_INPUT_FIELD}`)!;
+    expect(input.getAttribute("placeholder")).toBe(PM_SEARCH_TEXT.PLACEHOLDER);
+    expect(PM_SEARCH_TEXT.PLACEHOLDER.toLowerCase()).toContain("content");
+  });
+
+  it("renders a single highlighted snippet for a body-derived match", async () => {
+    const { container, services } = makeHarness(
+      [{ path: "clients/Zephyr.md", folder: "clients", tags: ["#client"] }],
+      undefined,
+      { bodies: { "clients/Zephyr.md": "the team chose pineapple this quarter" } }
+    );
+    new PmSearchView(container, services).render();
+
+    await type(container, "pineapple");
+
+    // The note surfaces via its body, and a single snippet line highlights the match.
+    expect(rowNames(container)).toEqual(["Zephyr"]);
+    const snippets = container.querySelectorAll(`.${CSS_CLS.PM_SEARCH_SNIPPET}`);
+    expect(snippets).toHaveLength(1);
+    expect(snippets[0].textContent).toContain("pineapple");
+    const highlighted = [...snippets[0].querySelectorAll(`.${CSS_CLS.PM_SEARCH_HL}`)].map((el) => el.textContent).join("");
+    expect(highlighted.toLowerCase()).toContain("pineapple");
+  });
+
+  it("shows no snippet for a name-only match", async () => {
+    const { container, services } = makeHarness(VAULT);
+    new PmSearchView(container, services).render();
+
+    await type(container, "acme");
+
+    expect(container.querySelectorAll(`.${CSS_CLS.PM_SEARCH_SNIPPET}`).length).toBe(0);
+  });
+
+  it("drops a stale earlier result when a newer query resolves first (latest-query-wins)", async () => {
+    const { container, services } = makeHarness(VAULT);
+    const early = resultRow("Early");
+    const late = resultRow("Late");
+    let releaseEarly!: () => void;
+    const earlyPending = new Promise<SearchResult[]>((resolve) => {
+      releaseEarly = () => resolve([early]);
+    });
+    vi.spyOn(services.searchService, "search").mockImplementation((q: string) => {
+      if (q === "early") return earlyPending; // resolves only when released, out of order
+      if (q === "late") return Promise.resolve([late]);
+      return Promise.resolve([]); // the initial empty-query paint
+    });
+
+    const view = new PmSearchView(container, services);
+    view.render();
+    await flush();
+
+    // Type the earlier query (its search hangs), then a newer query that resolves now.
+    await type(container, "early");
+    await type(container, "late");
+    expect(rowNames(container)).toEqual(["Late"]);
+
+    // The earlier search now resolves — its result is stale and must not repaint.
+    releaseEarly();
+    await flush();
+    expect(rowNames(container)).toEqual(["Late"]);
+  });
+});
+
+/** A minimal client-typed SearchResult for the concurrency stub. */
+function resultRow(name: string): SearchResult {
+  return { page: createMockPage({ path: `clients/${name}.md` }), type: ENTITY_TYPE.CLIENT };
+}
 
 // ─── Scope facets + persistence ──────────────────────────────────────────
 
@@ -357,13 +449,14 @@ describe("PmSearchView — scope facets, chips, auto-seed, persistence", () => {
     expect(lastScope(searchSpy)).toEqual({});
   });
 
-  it("ORs several values within a facet (union of both hierarchies)", () => {
+  it("ORs several values within a facet (union of both hierarchies)", async () => {
     const { container, services } = makeHarness(SCOPE_VAULT);
     const searchSpy = vi.spyOn(services.searchService, "search");
     new PmSearchView(container, services).render();
 
     addFacetValue(container, SEARCH_FACET_KEY.CLIENT, "Acme");
     addFacetValue(container, SEARCH_FACET_KEY.CLIENT, "Globex");
+    await flush();
 
     expect(lastScope(searchSpy)).toEqual({ clients: ["Acme", "Globex"] });
     // Both hierarchies' descendants survive: two engagements + two projects + one
@@ -374,12 +467,13 @@ describe("PmSearchView — scope facets, chips, auto-seed, persistence", () => {
     );
   });
 
-  it("ANDs across facets (client AND person narrows to the intersection)", () => {
+  it("ANDs across facets (client AND person narrows to the intersection)", async () => {
     const { container, services } = makeHarness(SCOPE_VAULT);
     new PmSearchView(container, services).render();
 
     addFacetValue(container, SEARCH_FACET_KEY.CLIENT, "Acme");
     addFacetValue(container, SEARCH_FACET_KEY.PERSON, "Alice");
+    await flush();
 
     // Of the Acme-client entities, only Alice (self) and the RAID item she owns
     // are associated with Alice.

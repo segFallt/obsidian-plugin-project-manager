@@ -220,18 +220,21 @@ export interface IPersonAssociationResolver {
 }
 
 /**
- * Fuzzy name search over enumerated entities, constrained by an optional
- * hierarchy/person scope. Narrow by design (ISP): a consumer takes this
- * interface, never the full service bundle.
+ * Fuzzy search over enumerated entities' names and body content, constrained by
+ * an optional hierarchy/person scope. Narrow by design (ISP): a consumer takes
+ * this interface, never the full service bundle.
  */
 export interface ISearchService {
   /**
-   * Fuzzy-ranks the pages of the requested `types` by `query` (non-matches
-   * dropped, best first), keeps those satisfying every populated `scope` leg,
-   * and returns them as {@link SearchResult}s. An empty scope imposes no
-   * hierarchy constraint; returns `[]` (never throws) when Dataview is absent.
+   * Fuzzy-ranks the pages of the requested `types` by `query` over name and body
+   * (name matches above body-only matches, non-matches dropped), keeps those
+   * satisfying every populated `scope` leg, and resolves them into
+   * {@link SearchResult}s. Asynchronous because body text is read from the vault
+   * behind a content-provider seam (so this interface's `obsidian`-free property
+   * still holds). An empty scope imposes no hierarchy constraint; resolves to
+   * `[]` (never rejects) when Dataview is absent.
    */
-  search(query: string, scope: SearchScope, types: EntityType[]): SearchResult[];
+  search(query: string, scope: SearchScope, types: EntityType[]): Promise<SearchResult[]>;
 }
 
 /** Narrow service bundle consumed by RAID processors. */

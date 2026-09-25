@@ -21,6 +21,7 @@ import { SearchService } from "./services/search-service";
 import { EntityEnumerator } from "./services/entity-enumerator";
 import { PersonAssociationResolver } from "./services/person-association-resolver";
 import { PreparedFuzzyMatcher } from "./services/prepared-fuzzy-matcher";
+import { ObsidianContentProvider } from "./services/content-provider";
 
 /**
  * Narrow service bag consumed by commands.
@@ -194,6 +195,7 @@ export function buildSearchViewServices(plugin: ProjectManagerPlugin): SearchVie
     enumerator,
     hierarchyService: plugin.hierarchyService,
     personResolver: new PersonAssociationResolver(getDv, plugin.settings.folders),
+    contentProvider: new ObsidianContentProvider(plugin.app.vault),
     matcher: new PreparedFuzzyMatcher(),
   });
   return {

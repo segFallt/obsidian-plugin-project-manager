@@ -803,6 +803,8 @@ export const CSS_CLS = {
   PM_SEARCH_RESULT_TYPE: "pm-search__result-type",
   PM_SEARCH_CRUMB: "pm-search__crumb",
   PM_SEARCH_CRUMB_SEP: "pm-search__crumb-sep",
+  // pm-search body-match snippet (single highlighted excerpt beneath the name)
+  PM_SEARCH_SNIPPET: "pm-search__snippet",
   PM_SEARCH_HL: "hl",
   // pm-search empty / no-result / Dataview-absent states
   PM_SEARCH_EMPTY: "pm-search__empty",
@@ -1393,10 +1395,28 @@ export const PM_SEARCH_FAMILY_VAR = "--pm-row-family";
 /** The inline CSS custom property a type toggle's / chip's family-colour dot is threaded through. */
 export const PM_SEARCH_DOT_VAR = "--pm-family-dot";
 
+/**
+ * The ordered match fields the search ranker scores a candidate over. The array
+ * index is the tier: a lower tier ranks higher, so every `name` match ranks
+ * above every `body`-only match. Adding a field or reordering is an Open/Closed
+ * data change here — the ranker reads this table rather than hard-coding fields.
+ */
+export const MATCH_FIELD = { NAME: "name", BODY: "body" } as const;
+export type MatchField = (typeof MATCH_FIELD)[keyof typeof MATCH_FIELD];
+export const MATCH_FIELD_ORDER: readonly MatchField[] = [MATCH_FIELD.NAME, MATCH_FIELD.BODY];
+
+/** Body-match snippet windowing for content search. */
+export const SEARCH_SNIPPET = {
+  /** Fixed character width of the body-match excerpt window (can become a user setting later). */
+  WINDOW_CHARS: 120,
+  /** Truncation marker prepended/appended when the window is clipped. */
+  ELLIPSIS: "…",
+} as const;
+
 /** Static, user-facing text for the pm-search panel. */
 export const PM_SEARCH_TEXT = {
   TITLE: "Search",
-  PLACEHOLDER: "Search entities by name…",
+  PLACEHOLDER: "Search by name or content…",
   CLEAR_ARIA: "Clear search",
   /** Right-aligned count row copy; always plural ("1 results" is acceptable here). */
   resultCount: (count: number): string => `${count} results`,
