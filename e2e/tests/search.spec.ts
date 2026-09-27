@@ -8,7 +8,14 @@ import {
 } from '../helpers/obsidian-spec-setup';
 import { selectCommand } from '../helpers/command-palette';
 import { waitForDataviewIndex } from '../helpers/dataview-helpers';
-import { COMMAND_NAMES, CSS_CLS, DEBOUNCE_MS } from '../../src/constants';
+import {
+  COMMAND_NAMES,
+  CSS_CLS,
+  ENTITY_TAGS,
+  FM_KEY,
+  MD_EXTENSION,
+  STATUS,
+} from '../../src/constants';
 
 /**
  * End-to-end coverage for the contextual search panel (pm-search) against real
@@ -18,23 +25,23 @@ import { COMMAND_NAMES, CSS_CLS, DEBOUNCE_MS } from '../../src/constants';
  * content search end to end, not just name matching.
  */
 
-/** A client found by its name; the query term is part of the name. */
-const NAME_MATCH_CLIENT = 'Northwind Trading';
+/** The distinctive term in the name-matched client's name; also used as the name query. */
+const NAME_MATCH_TERM = 'Northwind';
+/** A client found by its name (the term is part of the name). */
+const NAME_MATCH_CLIENT = `${NAME_MATCH_TERM} Trading`;
+/** A gapped subsequence of the name term — a fuzzy, non-substring form of it. */
+const NAME_MATCH_FUZZY = 'nrthwnd';
 /** A client whose distinctive term appears only in its body, never its name. */
 const BODY_MATCH_CLIENT = 'Seabird Consulting';
-/** The distinctive term present only in BODY_MATCH_CLIENT's body. */
+/** The distinctive term present only in BODY_MATCH_CLIENT's body; also the body query. */
 const BODY_ONLY_WORD = 'pineapple';
-/** The baked Seed Client plus the two seeded here. */
+/** Dataview-index wait target: the baked Seed Client plus the two clients seeded here. */
 const SEEDED_CLIENT_COUNT = 3;
 
-const CLIENT_TAG = '#client';
 const INPUT_SELECTOR = `.${CSS_CLS.PM_SEARCH_INPUT_FIELD}`;
-const RESULT_SELECTOR = `.${CSS_CLS.PM_SEARCH_RESULT}`;
 const RESULT_NAME_SELECTOR = `.${CSS_CLS.PM_SEARCH_RESULT_NAME}`;
 
-/** Extra settle time after the debounce for the asynchronous body read to resolve (ms). */
-const SEARCH_SETTLE_MS = DEBOUNCE_MS.SEARCH + 400;
-/** Timeout for a result row to appear once a query has been typed (ms). */
+/** Timeout for the panel to settle on the typed query's results (ms). */
 const RESULT_TIMEOUT_MS = 5_000;
 
 /** Writes a `#client` note carrying `body` under the vault's clients folder. */
@@ -42,8 +49,17 @@ function seedClient(vaultPath: string, name: string, body: string): void {
   const dir = resolve(vaultPath, 'clients');
   mkdirSync(dir, { recursive: true });
   writeFileSync(
-    resolve(dir, `${name}.md`),
-    ['---', 'tags:', `  - "${CLIENT_TAG}"`, 'status: Active', '---', '', body, ''].join('\n'),
+    resolve(dir, `${name}${MD_EXTENSION}`),
+    [
+      '---',
+      'tags:',
+      `  - "${ENTITY_TAGS.client}"`,
+      `${FM_KEY.STATUS}: ${STATUS.ACTIVE}`,
+      '---',
+      '',
+      body,
+      '',
+    ].join('\n'),
   );
 }
 
@@ -59,7 +75,7 @@ test.beforeAll(async () => {
     },
   });
   window = await ctx.getPage();
-  await waitForDataviewIndex(window, CLIENT_TAG, SEEDED_CLIENT_COUNT);
+  await waitForDataviewIndex(window, ENTITY_TAGS.client, SEEDED_CLIENT_COUNT);
 });
 
 test.afterAll(async () => {
@@ -70,36 +86,37 @@ test.beforeEach(async () => {
   window = await ctx.getPage();
 });
 
-/** Opens the search panel and types `query`, letting the debounce and async search settle. */
-async function search(query: string): Promise<void> {
+/** Opens the search panel and types `query`. */
+async function runSearch(query: string): Promise<void> {
   await selectCommand(window, COMMAND_NAMES.OPEN_SEARCH);
   const input = await window.waitForSelector(INPUT_SELECTOR, { timeout: RESULT_TIMEOUT_MS });
   await input.fill(query);
-  await window.waitForSelector(RESULT_SELECTOR, { timeout: RESULT_TIMEOUT_MS });
-  await window.waitForTimeout(SEARCH_SETTLE_MS);
 }
 
-/** The result names currently rendered in the panel. */
-async function resultNames(): Promise<string[]> {
-  return window.$$eval(RESULT_NAME_SELECTOR, (els) => els.map((el) => el.textContent ?? ''));
+/** The result names currently rendered in the panel, sorted for order-independent comparison. */
+async function sortedResultNames(): Promise<string[]> {
+  const names = await window.$$eval(RESULT_NAME_SELECTOR, (els) => els.map((el) => el.textContent ?? ''));
+  return names.sort();
 }
+
+// Each assertion polls until the panel settles on exactly the query's matches.
+// An empty query browses every entity, so a query with distinctive terms narrows
+// the set from that browse list — polling for the exact expected set spans the
+// debounce and async body read and can never pass on the pre-query browse state.
 
 test('a name query returns the matching entity', async () => {
-  await search('Northwind');
-  expect(await resultNames()).toContain(NAME_MATCH_CLIENT);
+  await runSearch(NAME_MATCH_TERM);
+  await expect.poll(sortedResultNames, { timeout: RESULT_TIMEOUT_MS }).toEqual([NAME_MATCH_CLIENT]);
 });
 
 test('a fuzzy name query still returns the entity', async () => {
-  // A gapped subsequence of "Northwind" — no exact substring, but a fuzzy match.
-  await search('nrthwnd');
-  expect(await resultNames()).toContain(NAME_MATCH_CLIENT);
+  await runSearch(NAME_MATCH_FUZZY);
+  await expect.poll(sortedResultNames, { timeout: RESULT_TIMEOUT_MS }).toEqual([NAME_MATCH_CLIENT]);
 });
 
 test('a word only in a note body returns that note', async () => {
-  await search(BODY_ONLY_WORD);
-  const names = await resultNames();
-  // The body-only client is returned; the name-only client, whose name and body
-  // never contain the word, is not — so this is genuinely a content match.
-  expect(names).toContain(BODY_MATCH_CLIENT);
-  expect(names).not.toContain(NAME_MATCH_CLIENT);
+  await runSearch(BODY_ONLY_WORD);
+  // Exactly the body-only client: the name-only client — whose name and body never
+  // contain the word — is absent, so this is genuinely a content match, not browse.
+  await expect.poll(sortedResultNames, { timeout: RESULT_TIMEOUT_MS }).toEqual([BODY_MATCH_CLIENT]);
 });
