@@ -443,11 +443,19 @@ classDiagram
     %% ─── Contextual search (pm-search) ───────────────────────────────
     class ISearchService {
         <<interface>>
-        +search(query, scope, types) SearchResult[]
+        +search(query, scope, types) Promise~SearchResult[]~
     }
     class SearchService {
         -deps SearchServiceDeps
-        +search(query, scope, types) SearchResult[]
+        +search(query, scope, types) Promise~SearchResult[]~
+    }
+    class IContentProvider {
+        <<interface>>
+        +textFor(page) Promise~string~
+    }
+    class ObsidianContentProvider {
+        -vault Vault
+        +textFor(page) Promise~string~
     }
     class IEntityEnumerationQuery {
         <<interface>>
@@ -504,7 +512,8 @@ classDiagram
 
     SearchService ..|> ISearchService
     SearchService o--> EntityEnumerator : enumerate
-    SearchService o--> IFuzzyMatcher : rank
+    SearchService o--> IContentProvider : read body
+    SearchService o--> IFuzzyMatcher : rank name + body
     SearchService ..> IEntityHierarchyService : client/engagement scope + breadcrumb
     SearchService ..> IPersonAssociationResolver : person scope
     SearchService ..> FilterEngine : scope facets (search-filter FilterSpec)
@@ -513,6 +522,8 @@ classDiagram
     EntityTypeResolver ..> ENTITY_KINDS : tag-first, longest-folder
     PreparedFuzzyMatcher ..|> IFuzzyMatcher
     PreparedFuzzyMatcher ..> prepareFuzzySearch : wraps
+    ObsidianContentProvider ..|> IContentProvider
+    ObsidianContentProvider ..> cachedRead : wraps
     PersonAssociationResolver ..|> IPersonAssociationResolver
     PmSearchItemView --|> DashboardItemViewHost
     PmSearchItemView ..> SettingsViewStore : persist (savedSearchFilters)

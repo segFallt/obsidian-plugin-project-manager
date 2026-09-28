@@ -2,9 +2,9 @@
 
 ## 1. Overview
 
-Contextual search adds a cross-entity fuzzy finder to the vault. A dedicated `pm-search` `ItemView` panel lets a user type a query and jump to any project-management entity — Client, Engagement, Project, Person, meeting, Inbox note, Project Note, RAID item, Reference, or Reference Topic — ranked by name match, narrowed by entity type, and scoped to a client, engagement, or person. Selecting a result opens the underlying note.
+Contextual search adds a cross-entity fuzzy finder to the vault. A dedicated `pm-search` `ItemView` panel lets a user type a query and jump to any project-management entity — Client, Engagement, Project, Person, meeting, Inbox note, Project Note, RAID item, Reference, or Reference Topic — ranked by how well the query matches the note's **name and body content** (name matches rank above body-only matches), narrowed by entity type, and scoped to a client, engagement, or person. Selecting a result opens the underlying note.
 
-The feature is built in three layers: a headless **search substrate** (enumeration, type resolution, fuzzy ranking, and a client/engagement/person scope model), a **panel** hosting the search box, the scope drawer, results, and empty states, and an **entity-type filter** of family-grouped toggles. A shared, theme-adaptive `--pm-*` token layer backs the panel's appearance, and a single `ENTITY_PRESENTATION` registry supplies each type's label, icon, and family colour so no view keeps its own type-to-style map.
+The feature is built in three layers: a headless **search substrate** (enumeration, type resolution, a content-source seam that reads note body text, tiered ranking over name and body, and a client/engagement/person scope model), a **panel** hosting the search box, the scope drawer, results, and empty states, and an **entity-type filter** of family-grouped toggles. A shared, theme-adaptive `--pm-*` token layer backs the panel's appearance, and a single `ENTITY_PRESENTATION` registry supplies each type's label, icon, and family colour so no view keeps its own type-to-style map.
 
 This PRD covers: the search substrate and its `SearchService` contract (see also `architecture.md` and PRD-001 §3.5 for the relationship-traversal spine it reuses), the person-association scope facet, the `pm-search` panel and its command entry points (see also PRD-007 §3, §4.1 for settings), the scope drawer and its auto-seeded chips, the `--pm-*` styling foundation, and the panel's persisted filter state (`settings.ui.savedSearchFilters`). It is the primary home for the `savedSearchFilters` key, mirroring how PRD-009 §3.8 documents `referenceDashboardFilters`.
 
@@ -50,23 +50,26 @@ The panel is a vertical stack:
 ### 3.3 Search Box
 
 - A leading search glyph, a text input, and a trailing clear button that appears only when the field is non-empty.
-- Placeholder: **"Search entities by name…"**.
+- Placeholder: **"Search by name or content…"**.
 - Input is debounced through `DEBOUNCE_MS.SEARCH` before a repaint.
 - Clearing the field cancels the pending search and repaints immediately (browse mode).
 
-### 3.4 Fuzzy Ranking
+### 3.4 Ranking (name + body content)
 
-- Results are ranked by fuzzy match of the query against each candidate's file name, using Obsidian's `prepareFuzzySearch`.
-- Non-matches are excluded; survivors are ordered by descending match score, ties broken alphabetically by name, so ordering is deterministic.
-- An **empty query browses** every in-scope entity with no highlighting.
-- In a result's name, matched characters are wrapped in an `.hl` span and tinted with the `--pm-sky` highlight colour.
+- Results are ranked over an **ordered set of match fields** — the note's **name** (tier 0) then its **body content** (tier 1) — scored through the injectable matcher (Obsidian's `prepareFuzzySearch`). A candidate wins the tier of the first field whose text matches.
+- **Strict name tiering:** every name match ranks **above** every body-only match. Within a tier, survivors are ordered by descending match score, ties broken alphabetically by name, so ordering is deterministic. Non-matches (neither name nor body) are excluded.
+- Body text is read from the vault behind the `IContentProvider` seam (§4.1), so the ranking substrate stays free of any `obsidian` import. Because that read is asynchronous, `search` is asynchronous (§4.1).
+- A **body-derived** match carries a single **snippet**: a fixed-width window over the first body occurrence, ellipsised when clipped (§3.5). A name match carries no snippet.
+- An **empty query browses** every in-scope entity with no highlighting (the body is not read on the empty-query path — a name always wins tier 0).
+- Matched characters are wrapped in an `.hl` span tinted with the `--pm-sky` highlight colour, in the result name and, for a body match, in its snippet.
 
 ### 3.5 Result Rows
 
 Each result (`.pm-search__result`) is a full-width button with:
 
 - An **icon gutter** (`.pm-search__result-icon`): a rounded square tinted with the entity type's family colour at low opacity, holding the type's Lucide icon stroked in the family colour.
-- A **name** (`.pm-search__result-name`), single line with ellipsis, with fuzzy-matched runs highlighted.
+- A **name** (`.pm-search__result-name`), single line with ellipsis, with matched runs highlighted.
+- A **body snippet** (`.pm-search__snippet`), rendered **only** for a body-derived match: a single line beneath the name showing the matched body excerpt, with the matched run highlighted (`.hl`). A name match shows no snippet.
 - A **breadcrumb** (`.pm-search__crumb`): the levels above the item, ordered **Client › Engagement**, segments joined by a `›` separator (`.pm-search__crumb-sep`). A Reference or Reference Topic that resolves to no client or engagement reads **"Knowledge base"**.
 - A **type pill** (`.pm-search__result-type`), right-aligned, showing the type's label.
 
@@ -126,15 +129,17 @@ The results area renders a centred state (`.pm-search__empty`) with a glyph, a t
 
 ```typescript
 interface ISearchService {
-  // Fuzzy-ranks the pages of the requested `types` by `query` (non-matches
-  // dropped, best first), keeps those satisfying every populated `scope` leg,
-  // and returns them as SearchResult[]. An empty scope imposes no hierarchy
-  // constraint; returns [] (never throws) when Dataview is absent.
-  search(query: string, scope: SearchScope, types: EntityType[]): SearchResult[];
+  // Fuzzy-ranks the pages of the requested `types` by `query` over name and
+  // body content (name matches above body-only matches, non-matches dropped),
+  // keeps those satisfying every populated `scope` leg, and resolves them to
+  // SearchResult[]. Asynchronous because body text is read from the vault behind
+  // a content-provider seam. An empty scope imposes no hierarchy constraint;
+  // resolves to [] (never rejects) when Dataview is absent.
+  search(query: string, scope: SearchScope, types: EntityType[]): Promise<SearchResult[]>;
 }
 ```
 
-`SearchService` composes the pipeline behind this narrow interface: enumerate the requested types' candidates → fuzzy-rank by file name → constrain by the active scope facets through the pure `FilterEngine` → map each survivor to a `SearchResult`. It depends only on abstractions and carries no `obsidian` import, so it unit-tests headless with a fake matcher.
+`SearchService` composes the pipeline behind this narrow interface: enumerate the requested types' candidates → constrain by the active scope facets through the pure `FilterEngine` (scope is body-independent, so it prunes before the reads) → resolve each survivor's body text through the injected `IContentProvider` → rank over name and body (name tier above body tier) → map each survivor to a `SearchResult`. The body read lives behind `ObsidianContentProvider`, so `SearchService` and the ranker still carry no `obsidian` import and unit-test headless with a fake matcher and a fake content provider. A per-note read failure is caught and mapped to empty content (that note contributes no body match; the search never rejects), and an absent Dataview resolves to `[]`.
 
 ### 4.2 Search Types
 
@@ -150,11 +155,28 @@ interface SearchResult {
   type: EntityType;     // the type it was enumerated as
   client?: string;      // resolved client breadcrumb, present only when it resolves
   engagement?: string;  // resolved engagement breadcrumb, present only when it resolves
+  snippet?: SearchSnippet; // body-match excerpt, present ONLY for a body-derived match
+}
+
+interface SearchSnippet {
+  text: string;                    // the windowed body excerpt (ellipsised when clipped)
+  matches: Array<[number, number]>;// highlight offsets [start, end) within `text`
 }
 
 interface EntityCandidate {
   page: DataviewPage;
   type: EntityType;
+}
+```
+
+The body excerpt is a single fixed-width window over the first body occurrence; its width is a centralized named constant (default 120 characters, so it can become a user setting later). The content-source seam is a narrow port:
+
+```typescript
+interface IContentProvider {
+  // Resolves a page's body text; the Obsidian-backed implementation
+  // (ObsidianContentProvider) reads it via Vault.cachedRead and strips the
+  // leading YAML frontmatter. Resolves to "" when there is nothing to read.
+  textFor(page: DataviewPage): Promise<string>;
 }
 ```
 
@@ -265,6 +287,7 @@ Additional `--pm-*` tokens define the type scale (`--pm-font-*`, `--pm-weight-*`
 - Row: full-width button, flex, gap, padding, radius 7; hover and focus use a `--pm-mantle` background, focus-visible adds the inset ring.
 - Icon gutter: rounded square, background the family colour at `--pm-family-tint-alpha`, holding the type's 15×15 icon stroked in the family colour.
 - Name: `--pm-text`, single line, ellipsis; matched runs `.hl` in `--pm-sky` at weight 750.
+- Body snippet (body matches only): a muted single line beneath the name — `--pm-subtext0` text at the breadcrumb size (`--pm-font-crumb`), ellipsis; matched runs `.hl` in `--pm-sky`.
 - Type pill: `--pm-subtext0` text on `--pm-surface0` with a 1px `--pm-surface1` border, right-aligned and non-shrinking.
 - Breadcrumb: `--pm-overlay0`, ellipsis; `›` separators in `--pm-surface2`.
 
@@ -338,9 +361,10 @@ Classes actually emitted by `PmSearchView` / defined in `styles.css`:
 | `.pm-search__results` | Scrolling results area |
 | `.pm-search__result` | A result row |
 | `.pm-search__result-icon` | Family-tinted icon gutter |
-| `.pm-search__result-main` | Name + breadcrumb column |
+| `.pm-search__result-main` | Name + optional body snippet + breadcrumb column |
 | `.pm-search__result-name` | Result name |
-| `.hl` | Matched-character run within the name |
+| `.hl` | Matched-character run within the name or the body snippet |
+| `.pm-search__snippet` | Body-match snippet line (body-derived matches only) |
 | `.pm-search__result-type` | Type pill |
 | `.pm-search__crumb` | Breadcrumb |
 | `.pm-search__crumb-sep` | Breadcrumb `›` separator |
@@ -379,20 +403,24 @@ The scope drawer reuses `FilterChipSelect` (which wraps `PropertySuggest`, as wi
 
 ### Search Substrate
 
-- [x] Fuzzy ranking orders results by descending match score with non-matches excluded; ties broken alphabetically
+- [x] Ranking scores each candidate over name (tier 0) then body (tier 1): every name match ranks above every body-only match, body-only matches order by descending score within their tier, non-matches excluded, ties broken alphabetically
+- [x] A candidate whose body contains the query but whose name does not is returned with a body-match snippet
+- [x] A per-note read failure yields no body match for that note and never fails the whole search
 - [x] Client scope keeps only candidates that resolve up to a selected client
 - [x] Engagement scope keeps only candidates that resolve up to a selected engagement
 - [x] Person scope keeps only candidates that involve a selected person — the Person note itself, RAID items they own, meetings they attend (`attendees` / `default-attendees`), and their `reports-to` chain — with no team-members field assumed
 - [x] Facets combine OR within a facet and AND across facets; no scope leaves results unconstrained by hierarchy
-- [x] `SearchService.search` returns `[]` (never throws) when Dataview is unavailable
-- [x] The substrate carries no `obsidian` import and unit-tests headless with a fake matcher
+- [x] `SearchService.search` resolves to `[]` (never rejects) when Dataview is unavailable
+- [x] `SearchService` and the ranker carry no `obsidian` import — the body read stays behind `ObsidianContentProvider` — and unit-test headless with a fake matcher and a fake content provider
 
 ### Panel
 
 - [x] `PM: Open Search` opens the panel; running it again reveals the existing leaf rather than opening a second one
 - [x] A restored `pm-search` leaf renders the real view, not the "plugin has gone away" placeholder
 - [x] A ribbon icon opens the panel when `settings.ui.showRibbonIcons` is enabled
-- [x] Typing lists fuzzy-matching entities best-first with matched characters highlighted; an empty query browses without highlighting
+- [x] Typing lists matching entities best-first over name and body with matched characters highlighted; an empty query browses without highlighting
+- [x] A body-derived match renders a single highlighted snippet line beneath the name
+- [x] Only the latest query's results are shown — an out-of-order earlier async result does not replace a newer paint
 - [x] Each row shows a family-tinted type icon, the name, a Client › Engagement breadcrumb (or "Knowledge base" for a reference with no client/engagement), and a type pill
 - [x] Selecting a row opens the corresponding note via `NavigationService.openFile`
 - [x] The count row reads "N results", or "—" when Dataview is off
@@ -427,7 +455,6 @@ The scope drawer reuses `FilterChipSelect` (which wraps `PropertySuggest`, as wi
 
 ## 8. Out of Scope
 
-- Full-text or content search — matching is by entity **name** only.
 - Editing, creating, or deleting entities from the panel (it is navigate-only).
 - Searching non-entity notes (daily notes, arbitrary Markdown) or attachments.
 - Ranking signals beyond fuzzy name score (recency, frequency, pinning).
