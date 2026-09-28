@@ -29,13 +29,15 @@ export function createTempVault(): string {
   cpSync(FIXTURE_VAULT, tempDir, { recursive: true });
 
   // Inject freshly built plugin artefacts.
-  // manifest.json is copied from PROJECT_ROOT (the build source of truth) and
-  // intentionally overwrites the fixture copy under .obsidian/plugins/project-manager/
-  // so the loaded plugin version always matches the freshly built main.js.
+  // main.js, manifest.json, and styles.css are copied from PROJECT_ROOT (the
+  // build source of truth) and intentionally overwrite any fixture copies under
+  // .obsidian/plugins/project-manager/ so the loaded plugin version and its
+  // stylesheet always match the freshly built main.js.
   const pluginDir = resolve(tempDir, '.obsidian', 'plugins', 'project-manager');
   mkdirSync(pluginDir, { recursive: true });
   cpSync(resolve(PROJECT_ROOT, 'main.js'), resolve(pluginDir, 'main.js'));
   cpSync(resolve(PROJECT_ROOT, 'manifest.json'), resolve(pluginDir, 'manifest.json'));
+  cpSync(resolve(PROJECT_ROOT, 'styles.css'), resolve(pluginDir, 'styles.css'));
 
   // Copy cached Dataview into vault
   const dataviewCache = resolve(

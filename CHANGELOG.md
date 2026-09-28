@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- pm-search result rows no longer overlap when a row needs more than one line. A result is rendered as a button, and Obsidian's default stylesheet clamps every button to a fixed height, so a multi-line content-match row (name, body snippet, and Client › Engagement breadcrumb) overflowed its box and bled into its neighbours. The row now sizes to its content, and the icon gutter and type pill top-align to the name line ([#150](https://gitlab.n3.pingleberry.com/obsidian/obsidian-plugin-project-manager/-/issues/150)).
+
 ## [0.5.0-beta.6] - 2026-09-28
 
 ### Changed

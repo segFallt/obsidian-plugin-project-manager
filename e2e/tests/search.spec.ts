@@ -25,6 +25,8 @@ import {
  * content search end to end, not just name matching.
  */
 
+/** A term shared by two baked entity names, so a query on it renders multiple rows. */
+const MULTI_ROW_TERM = 'Seed';
 /** The distinctive term in the name-matched client's name; also used as the name query. */
 const NAME_MATCH_TERM = 'Northwind';
 /** A client found by its name (the term is part of the name). */
@@ -40,9 +42,14 @@ const SEEDED_CLIENT_COUNT = 3;
 
 const INPUT_SELECTOR = `.${CSS_CLS.PM_SEARCH_INPUT_FIELD}`;
 const RESULT_NAME_SELECTOR = `.${CSS_CLS.PM_SEARCH_RESULT_NAME}`;
+const RESULT_SELECTOR = `.${CSS_CLS.PM_SEARCH_RESULT}`;
+const RESULT_MAIN_SELECTOR = `.${CSS_CLS.PM_SEARCH_RESULT_MAIN}`;
 
 /** Timeout for the panel to settle on the typed query's results (ms). */
 const RESULT_TIMEOUT_MS = 5_000;
+
+/** Sub-pixel slack for layout box comparisons; browsers round fractional pixels. */
+const LAYOUT_EPSILON_PX = 1;
 
 /** Writes a `#client` note carrying `body` under the vault's clients folder. */
 function seedClient(vaultPath: string, name: string, body: string): void {
@@ -99,6 +106,41 @@ async function sortedResultNames(): Promise<string[]> {
   return names.sort();
 }
 
+/**
+ * Assert that every rendered result row is sized to its content and does not
+ * overlap its neighbours. A row clamped to Obsidian's fixed button height is
+ * shorter than a multi-line content column (name + snippet + breadcrumb): the
+ * column overflows the row box and the row bleeds into the rows above and below.
+ * A content-sized row contains its column and clears the next row's top.
+ */
+async function assertRowsFitAndDoNotOverlap(): Promise<void> {
+  const boxes = await window.$$eval(
+    RESULT_SELECTOR,
+    (rows, mainSel) =>
+      rows.map((row) => {
+        const rowRect = row.getBoundingClientRect();
+        const mainRect = (row.querySelector(mainSel) ?? row).getBoundingClientRect();
+        return {
+          rowTop: rowRect.top,
+          rowBottom: rowRect.bottom,
+          mainTop: mainRect.top,
+          mainBottom: mainRect.bottom,
+        };
+      }),
+    RESULT_MAIN_SELECTOR,
+  );
+  expect(boxes.length).toBeGreaterThan(0);
+  for (const box of boxes) {
+    // The row grew tall enough to contain its name/snippet/breadcrumb column.
+    expect(box.rowTop).toBeLessThanOrEqual(box.mainTop + LAYOUT_EPSILON_PX);
+    expect(box.rowBottom).toBeGreaterThanOrEqual(box.mainBottom - LAYOUT_EPSILON_PX);
+  }
+  for (let i = 0; i < boxes.length - 1; i += 1) {
+    // No row's bottom edge crosses into the row below it.
+    expect(boxes[i].rowBottom).toBeLessThanOrEqual(boxes[i + 1].rowTop + LAYOUT_EPSILON_PX);
+  }
+}
+
 // Each assertion polls until the panel settles on exactly the query's matches.
 // An empty query browses every entity, so a query with distinctive terms narrows
 // the set from that browse list — polling for the exact expected set spans the
@@ -119,4 +161,19 @@ test('a word only in a note body returns that note', async () => {
   // Exactly the body-only client: the name-only client — whose name and body never
   // contain the word — is absent, so this is genuinely a content match, not browse.
   await expect.poll(sortedResultNames, { timeout: RESULT_TIMEOUT_MS }).toEqual([BODY_MATCH_CLIENT]);
+  // The content match renders a multi-line row (name + body snippet); it must be
+  // sized to that content rather than clamped to the fixed button height.
+  await assertRowsFitAndDoNotOverlap();
+});
+
+test('adjacent result rows do not overlap when several are rendered', async () => {
+  // "Seed" name-matches both the baked Seed Client and Seed Engagement, so the
+  // list renders more than one row — the engagement carrying a Client › Engagement
+  // breadcrumb is multi-line. This exercises the adjacent-row non-overlap check,
+  // not only the single-row fit check the body-match test covers.
+  await runSearch(MULTI_ROW_TERM);
+  await expect
+    .poll(async () => (await window.$$(RESULT_SELECTOR)).length, { timeout: RESULT_TIMEOUT_MS })
+    .toBeGreaterThanOrEqual(2);
+  await assertRowsFitAndDoNotOverlap();
 });
