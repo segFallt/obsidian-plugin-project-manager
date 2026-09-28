@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0-beta.5] - 2026-09-27
+
+### Added
+
+- **pm-search content search** — the search panel now matches text inside a note's **body**, not only its name. A query that appears only in a note's body returns that note, with a single highlighted **snippet** line beneath the name showing the matched excerpt (a fixed-width window over the first occurrence, ellipsised when truncated). Name matches always rank above body-only matches, and existing name and fuzzy-name matching are unchanged. Body text is read through a new content-source seam (`IContentProvider` / `ObsidianContentProvider`, using `Vault.cachedRead`), so the `SearchService` ranking substrate stays headless; a note that cannot be read simply contributes no body match, and the panel still degrades to the "Search needs Dataview" state when Dataview is unavailable. The search box placeholder now reflects name-and-content matching ([#141](https://gitlab.n3.pingleberry.com/obsidian/obsidian-plugin-project-manager/-/issues/141), [#142](https://gitlab.n3.pingleberry.com/obsidian/obsidian-plugin-project-manager/-/issues/142)).
+
 ## [0.5.0-beta.4] - 2026-09-24
 
 ### Added
