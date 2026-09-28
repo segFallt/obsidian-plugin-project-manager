@@ -2030,7 +2030,7 @@ details[open] .pm-filter-section__title::before {
   align-items: center;
   gap: var(--pm-space-sm);
   width: 100%;
-  padding: var(--pm-space-8);
+  padding: var(--pm-space-md) var(--pm-space-8);
   background: transparent;
   border: none;
   border-radius: var(--pm-radius-row);

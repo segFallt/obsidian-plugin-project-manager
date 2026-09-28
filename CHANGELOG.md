@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- pm-search result tiles are a little taller — the result row's vertical padding is increased so the name, body-match snippet, and breadcrumb sit more comfortably.
+
 ## [0.5.0-beta.5] - 2026-09-27
 
 ### Added
