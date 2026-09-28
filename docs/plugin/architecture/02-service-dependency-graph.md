@@ -70,6 +70,7 @@ flowchart TD
     subgraph SearchView["pm-search view — composed per-open by buildSearchViewServices()"]
         EntityEnumerator["EntityEnumerator"]
         PersonAssociationResolver["PersonAssociationResolver"]
+        ObsidianContentProvider["ObsidianContentProvider"]
         PreparedFuzzyMatcher["PreparedFuzzyMatcher"]
         SearchService["SearchService"]
         SearchViewServices["SearchViewServices (bundle)"]
@@ -79,9 +80,11 @@ flowchart TD
     QueryService --> EntityEnumerator
     QueryService --> SearchService
     Settings --> PersonAssociationResolver
+    App --> ObsidianContentProvider
     EntityEnumerator --> SearchService
     EntityHierarchyService --> SearchService
     PersonAssociationResolver --> SearchService
+    ObsidianContentProvider --> SearchService
     PreparedFuzzyMatcher --> SearchService
 
     SearchService --> SearchViewServices
