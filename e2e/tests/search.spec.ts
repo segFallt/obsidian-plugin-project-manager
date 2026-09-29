@@ -37,8 +37,17 @@ const NAME_MATCH_FUZZY = 'nrthwnd';
 const BODY_MATCH_CLIENT = 'Seabird Consulting';
 /** The distinctive term present only in BODY_MATCH_CLIENT's body; also the body query. */
 const BODY_ONLY_WORD = 'pineapple';
-/** Dataview-index wait target: the baked Seed Client plus the two clients seeded here. */
-const SEEDED_CLIENT_COUNT = 3;
+/**
+ * A word whose letters appear in order across a client's body, though the word
+ * itself never occurs there — a gapped subsequence, not a real substring.
+ */
+const GAPPED_WORD = 'execute';
+/** A client whose body contains GAPPED_WORD only as a gapped subsequence. */
+const GAPPED_SUBSEQUENCE_CLIENT = 'Riverstone Partners';
+/** A body carrying the letters e-x-e-c-u-t-e in order, but never the word itself. */
+const GAPPED_SUBSEQUENCE_BODY = 'Everyone expected the crew to unite here early.';
+/** Dataview-index wait target: the baked Seed Client plus the three clients seeded here. */
+const SEEDED_CLIENT_COUNT = 4;
 
 const INPUT_SELECTOR = `.${CSS_CLS.PM_SEARCH_INPUT_FIELD}`;
 const RESULT_NAME_SELECTOR = `.${CSS_CLS.PM_SEARCH_RESULT_NAME}`;
@@ -79,6 +88,8 @@ test.beforeAll(async () => {
       // One client is found by its name, the other only by a distinctive body word.
       seedClient(vaultPath, NAME_MATCH_CLIENT, 'A wholesale trading company.');
       seedClient(vaultPath, BODY_MATCH_CLIENT, `The team is fond of ${BODY_ONLY_WORD}.`);
+      // A third client whose body carries GAPPED_WORD only as a gapped subsequence.
+      seedClient(vaultPath, GAPPED_SUBSEQUENCE_CLIENT, GAPPED_SUBSEQUENCE_BODY);
     },
   });
   window = await ctx.getPage();
@@ -164,6 +175,13 @@ test('a word only in a note body returns that note', async () => {
   // The content match renders a multi-line row (name + body snippet); it must be
   // sized to that content rather than clamped to the fixed button height.
   await assertRowsFitAndDoNotOverlap();
+});
+
+test('a word present in a body only as a gapped subsequence returns no note', async () => {
+  await runSearch(GAPPED_WORD);
+  // The letters e-x-e-c-u-t-e appear in order in one client's body, but the word
+  // itself never does; body matching is a strict substring, so no note surfaces.
+  await expect.poll(sortedResultNames, { timeout: RESULT_TIMEOUT_MS }).toEqual([]);
 });
 
 test('adjacent result rows do not overlap when several are rendered', async () => {

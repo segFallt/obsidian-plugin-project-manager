@@ -1,11 +1,11 @@
 import type { DataviewApi, DataviewPage, EntityCandidate, EntityType, SearchResult, SearchScope } from "../types";
-import { MATCH_FIELD, MATCH_FIELD_ORDER } from "../constants";
+import { MATCH_FIELD } from "../constants";
 import type { MatchField } from "../constants";
 import type { EntityEnumerator } from "./entity-enumerator";
 import type { IEntityHierarchyService, IPersonAssociationResolver, ISearchService } from "./interfaces";
 import type { IContentProvider } from "./content-provider";
-import type { IFuzzyMatcher, RankedCandidate, RankInput } from "./fuzzy-matcher";
-import { rankCandidates } from "./fuzzy-matcher";
+import type { SearchField, RankedCandidate, RankInput } from "./matcher";
+import { rankCandidates } from "./matcher";
 import { FilterEngine } from "./filter-engine";
 import type { FilterSpec } from "./filter-engine";
 import { buildSearchFilterSpec, buildSearchFilterState } from "./search-filter";
@@ -22,8 +22,13 @@ export interface SearchServiceDeps {
   personResolver: IPersonAssociationResolver;
   /** Reads a candidate's body text for content ranking (the `obsidian` read stays behind it). */
   contentProvider: IContentProvider;
-  /** Scores query-vs-text for fuzzy ranking (injected for headless testing). */
-  matcher: IFuzzyMatcher;
+  /**
+   * The ordered match-field descriptor list (tier order = array order): each field
+   * paired with its own matcher and snippet policy. Injected so the concrete
+   * matcher per field (fuzzy names, strict body) is chosen at the composition
+   * root and this service stays headless and testable with fakes.
+   */
+  fields: readonly SearchField[];
 }
 
 /** Resolves one {@link MatchField}'s text for a candidate under the active query. */
@@ -48,9 +53,9 @@ export class SearchService implements ISearchService {
   private readonly spec: FilterSpec<EntityCandidate>;
   /**
    * One resolver per {@link MatchField}, so a new field is a data change here
-   * (plus {@link MATCH_FIELD_ORDER}) rather than an edit to the ranking loop —
-   * the field set stays extensible end to end (OCP). The `Record<MatchField, …>`
-   * type makes a missing resolver a compile error.
+   * (plus the injected {@link SearchField} list) rather than an edit to the
+   * ranking loop — the field set stays extensible end to end (OCP). The
+   * `Record<MatchField, …>` type makes a missing resolver a compile error.
    */
   private readonly fieldResolvers: Record<MatchField, FieldTextResolver>;
 
@@ -76,17 +81,17 @@ export class SearchService implements ISearchService {
     // Scope is body-independent, so it prunes candidates before the async reads.
     const scoped = FilterEngine.apply(candidates, this.spec, buildSearchFilterState(scope));
     const inputs = await Promise.all(scoped.map((candidate) => this.toRankInput(candidate, query)));
-    const ranked = rankCandidates(inputs, query, this.deps.matcher);
+    const ranked = rankCandidates(inputs, query, this.deps.fields);
     return ranked.map((candidate) => this.toResult(candidate));
   }
 
   /** Resolves every match field's text for a candidate through its {@link FieldTextResolver}. */
   private async toRankInput(candidate: EntityCandidate, query: string): Promise<RankInput> {
     const entries = await Promise.all(
-      MATCH_FIELD_ORDER.map(
-        async (field): Promise<[MatchField, string]> => [
-          field,
-          await this.fieldResolvers[field](candidate, query),
+      this.deps.fields.map(
+        async (f): Promise<[MatchField, string]> => [
+          f.field,
+          await this.fieldResolvers[f.field](candidate, query),
         ]
       )
     );

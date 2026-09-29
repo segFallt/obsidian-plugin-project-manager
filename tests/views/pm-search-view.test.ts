@@ -7,6 +7,8 @@ import { EntityEnumerator } from "@/services/entity-enumerator";
 import { EntityHierarchyService } from "@/services/entity-hierarchy-service";
 import { PersonAssociationResolver } from "@/services/person-association-resolver";
 import { PreparedFuzzyMatcher } from "@/services/prepared-fuzzy-matcher";
+import { SubstringMatcher } from "@/services/substring-matcher";
+import type { SearchField } from "@/services/matcher";
 import { QueryService } from "@/services/query-service";
 import type { IContentProvider } from "@/services/content-provider";
 import { createMockDataviewApi, createMockPage, type MockPageData } from "../mocks/dataview-mock";
@@ -19,6 +21,7 @@ import {
   DOM_ATTR,
   ENTITY_LABEL,
   ENTITY_TYPE,
+  MATCH_FIELD,
   PM_SEARCH_TEXT,
   SEARCH_FACET_KEY,
 } from "@/constants";
@@ -55,13 +58,17 @@ function makeHarness(
   const contentProvider: IContentProvider = {
     textFor: async (page) => options.bodies?.[page.file.path] ?? "",
   };
+  const fields: readonly SearchField[] = [
+    { field: MATCH_FIELD.NAME, matcher: new PreparedFuzzyMatcher(), buildsSnippet: false },
+    { field: MATCH_FIELD.BODY, matcher: new SubstringMatcher(), buildsSnippet: true },
+  ];
   const searchService = new SearchService({
     getDv: resolvedGetDv,
     enumerator,
     hierarchyService,
     personResolver: new PersonAssociationResolver(resolvedGetDv, folders),
     contentProvider,
-    matcher: new PreparedFuzzyMatcher(),
+    fields,
   });
 
   const openFile = vi.fn().mockResolvedValue(undefined);

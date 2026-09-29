@@ -1396,14 +1396,13 @@ export const PM_SEARCH_FAMILY_VAR = "--pm-row-family";
 export const PM_SEARCH_DOT_VAR = "--pm-family-dot";
 
 /**
- * The ordered match fields the search ranker scores a candidate over. The array
- * index is the tier: a lower tier ranks higher, so every `name` match ranks
- * above every `body`-only match. Adding a field or reordering is an Open/Closed
- * data change here — the ranker reads this table rather than hard-coding fields.
+ * The match fields the search ranker can score a candidate over. Each is used as
+ * a `SearchField.field` value: the ranker's tier order, the matcher per field,
+ * and whether a field yields a snippet all live in the ordered `SearchField[]`
+ * descriptor list assembled at the composition root, not here.
  */
 export const MATCH_FIELD = { NAME: "name", BODY: "body" } as const;
 export type MatchField = (typeof MATCH_FIELD)[keyof typeof MATCH_FIELD];
-export const MATCH_FIELD_ORDER: readonly MatchField[] = [MATCH_FIELD.NAME, MATCH_FIELD.BODY];
 
 /** Body-match snippet windowing for content search. */
 export const SEARCH_SNIPPET = {
