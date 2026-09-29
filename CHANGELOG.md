@@ -7,11 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <!-- New release sections are prepended by .ci/bump-version.sh -->
 
-## [Unreleased]
+## [0.5.0-beta.9] - 2026-09-29
 
 ### Changed
 
 - pm-search name matching is now strict, the same as body matching: a note matches on its **name** only when the name contains the query as a case-insensitive substring. A query whose letters appear in the name only scattered or with gaps (for example `nrthwnd` for "Northwind Trading") no longer finds the note, while a query from anywhere in the name (`thwind`) still does. Name matches still rank above body-only matches, and an earlier occurrence in the name ranks higher. Leading and trailing spaces in the query are ignored, and the "No matches" message shows the trimmed query. An empty or whitespace-only query still lists every in-scope entity, sorted by name. The name highlight marks the first occurrence of the query in the name; a note found only through its body has nothing highlighted in its name, and its snippet highlights the body match ([#156](https://gitlab.n3.pingleberry.com/obsidian/obsidian-plugin-project-manager/-/issues/156)).
+
+## [Unreleased]
 
 ## [0.5.0-beta.8] - 2026-09-29
 
