@@ -220,21 +220,27 @@ export interface IPersonAssociationResolver {
 }
 
 /**
- * Fuzzy search over enumerated entities' names and body content, constrained by
- * an optional hierarchy/person scope. Narrow by design (ISP): a consumer takes
- * this interface, never the full service bundle.
+ * Search over enumerated entities' names and body content, constrained by an
+ * optional hierarchy/person scope. Narrow by design (ISP): a consumer takes this
+ * interface, never the full service bundle.
  */
 export interface ISearchService {
   /**
-   * Fuzzy-ranks the pages of the requested `types` by `query` over name and body
-   * (name matches above body-only matches, non-matches dropped), keeps those
-   * satisfying every populated `scope` leg, and resolves them into
-   * {@link SearchResult}s. Asynchronous because body text is read from the vault
-   * behind a content-provider seam (so this interface's `obsidian`-free property
-   * still holds). An empty scope imposes no hierarchy constraint; resolves to
-   * `[]` (never rejects) when Dataview is absent.
+   * Enumerates the pages of the requested `types`, keeps those satisfying every
+   * populated `scope` leg, then matches the trimmed `query`:
+   *
+   * - An empty or whitespace-only query browses: every scoped page, sorted by
+   *   name, with no body reads.
+   * - Any other query ranks the scoped pages over name and body (name matches
+   *   above body-only matches, non-matches dropped).
+   *
+   * Resolves to a read-only list of {@link SearchResult}s. Asynchronous because
+   * body text is read from the vault behind a content-provider seam (so this
+   * interface's `obsidian`-free property still holds). An empty scope imposes no
+   * hierarchy constraint; resolves to an empty list (never rejects) when
+   * Dataview is absent.
    */
-  search(query: string, scope: SearchScope, types: EntityType[]): Promise<SearchResult[]>;
+  search(query: string, scope: SearchScope, types: EntityType[]): Promise<readonly SearchResult[]>;
 }
 
 /** Narrow service bundle consumed by RAID processors. */

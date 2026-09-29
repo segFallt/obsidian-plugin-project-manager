@@ -1,4 +1,4 @@
-import { TFile, prepareFuzzySearch, setIcon } from "obsidian";
+import { TFile, setIcon } from "obsidian";
 import type { SearchViewServices } from "../plugin-context";
 import type { DashboardViewComponent } from "../processors/dashboard-render-child";
 import { ENTITY_PRESENTATION, ENTITY_FAMILY_GROUPS } from "../entity-registry";
@@ -7,10 +7,12 @@ import { cssVar } from "../processors/dom-helpers";
 import { debounced } from "../utils/debounce";
 import type { Debounced } from "../utils/debounce";
 import { FilterChipSelect } from "../ui/components/filter-chip-select";
+import { isBrowseQuery, normalizeQuery } from "../services/search-query";
 import type {
   AutocompleteOption,
   DataviewPage,
   EntityType,
+  MatchRun,
   SavedSearchFilters,
   SearchResult,
   SearchSnippet,
@@ -23,6 +25,8 @@ import {
   DEBOUNCE_MS,
   DOM_ATTR,
   DOM_EVENT,
+  EMPTY_LENGTH,
+  EMPTY_QUERY,
   ENTITY_FAMILY_COLOR_TOKEN,
   ENTITY_FAMILY_LABEL,
   ENTITY_TYPE,
@@ -30,6 +34,8 @@ import {
   INFERRED_KEY_SEP,
   INPUT_TYPE,
   LOG_CONTEXT,
+  MATCH_FIELD,
+  NO_MATCH_RUNS,
   PM_SEARCH_DOT_VAR,
   PM_SEARCH_FAMILY_VAR,
   PM_SEARCH_GLYPH,
@@ -38,6 +44,7 @@ import {
   SEARCH_FACET_KEY,
   SEARCH_FACET_ORDER,
   SEARCH_FACET_TEXT,
+  TEXT_START,
 } from "../constants";
 import {
   activeTypesOf,
@@ -51,9 +58,6 @@ import {
 } from "./search-filter-state";
 import type { SearchFacetKey, SearchFilterState } from "./search-filter-state";
 
-/** A query compiled once per repaint, then applied to each row's name for match highlighting. */
-type FuzzyHighlighter = ReturnType<typeof prepareFuzzySearch>;
-
 /** Types whose breadcrumb reads "Knowledge base" when no client/engagement resolves. */
 const KNOWLEDGE_BASE_TYPES = new Set<EntityType>([ENTITY_TYPE.REFERENCE, ENTITY_TYPE.REFERENCE_TOPIC]);
 
@@ -63,11 +67,13 @@ function inferredKey(key: SearchFacetKey, value: string): string {
 }
 
 /**
- * The search panel's view component: a fuzzy search box, a filter zone (a drawer
+ * The search panel's view component: a search box, a filter zone (a drawer
  * toggle, a "Narrow by…" scope add button with a Clear button, an active-scope
  * chips bar, and a collapsible drawer of client/engagement/person scope facets
  * plus family-grouped entity-type toggles), a right-aligned count row, and a
- * ranked results list, all wired to {@link SearchViewServices}.
+ * results list (ranked matches for a query, or a name-sorted browse list for an
+ * empty one), all wired to {@link SearchViewServices}. Name highlighting comes
+ * from each result's `match` runs, as the search service reported them.
  *
  * {@link SearchFilterState} is the single source of truth: scope facets, active
  * chips, the search call, and persistence all read and write it. Each scope facet
@@ -79,7 +85,8 @@ function inferredKey(key: SearchFacetKey, value: string): string {
  * The whole state persists to settings on every change and restores on reopen.
  */
 export class PmSearchView implements DashboardViewComponent {
-  private query = "";
+  /** The raw input value (untrimmed), so whitespace-only input still shows the clear button. */
+  private query: string = EMPTY_QUERY;
   /** Monotonic token; the newest repaint wins so a slow earlier search cannot overwrite it. */
   private requestToken = 0;
   private readonly state: SearchFilterState;
@@ -205,8 +212,8 @@ export class PmSearchView implements DashboardViewComponent {
   }
 
   private onClear(): void {
-    this.query = "";
-    this.inputEl.value = "";
+    this.query = EMPTY_QUERY;
+    this.inputEl.value = EMPTY_QUERY;
     this.updateClearVisibility();
     this.search.cancel();
     void this.repaint();
@@ -214,7 +221,8 @@ export class PmSearchView implements DashboardViewComponent {
 
   /** The clear button is shown only when the field holds a query. */
   private updateClearVisibility(): void {
-    this.clearBtn.style.display = this.query.length > 0 ? CSS_DISPLAY.DEFAULT : CSS_DISPLAY.NONE;
+    this.clearBtn.style.display =
+      this.query.length > EMPTY_LENGTH ? CSS_DISPLAY.DEFAULT : CSS_DISPLAY.NONE;
   }
 
   // ─── Filter zone (button + scope controls + chips bar + drawer) ──────────────
@@ -507,8 +515,8 @@ export class PmSearchView implements DashboardViewComponent {
 
   private async repaint(): Promise<void> {
     const token = ++this.requestToken;
-    // Capture the query with the token so the name highlighter renders against
-    // the same query these results were computed from, not a newer live value.
+    // Capture the query with the token so the no-match copy echoes the same
+    // query these results were computed from, not a newer live value.
     const query = this.query;
     const dataviewAvailable = this.services.getDv() !== null;
     const results = await this.services.searchService.search(
@@ -529,32 +537,34 @@ export class PmSearchView implements DashboardViewComponent {
     );
   }
 
-  private renderResults(dataviewAvailable: boolean, results: SearchResult[], query: string): void {
+  private renderResults(
+    dataviewAvailable: boolean,
+    results: readonly SearchResult[],
+    query: string
+  ): void {
     this.resultsEl.empty();
     if (!dataviewAvailable) {
       this.buildDataviewAbsentState();
       return;
     }
-    if (results.length > 0) {
-      // Compile the query's highlighter once per repaint and reuse it across
-      // rows (an empty query browses without highlighting).
-      const highlighter = query.length > 0 ? prepareFuzzySearch(query) : null;
-      for (const result of results) this.buildResultRow(result, highlighter);
+    if (results.length > EMPTY_LENGTH) {
+      for (const result of results) this.buildResultRow(result);
       return;
     }
-    // A non-empty query that matches nothing gets the no-match state; an empty
-    // query over an empty vault simply shows no rows (browse mode, nothing yet).
-    if (query.length > 0) this.buildNoMatchState(query);
+    // A non-browse query (non-empty once trimmed) that matches nothing gets the
+    // no-match state, echoing the trimmed query; an empty or whitespace-only
+    // query with no in-scope entities simply shows no rows (browse mode, nothing yet).
+    if (!isBrowseQuery(query)) this.buildNoMatchState(normalizeQuery(query));
   }
 
   // ─── Result row ──────────────────────────────────────────────────────────────
 
-  private buildResultRow(result: SearchResult, highlighter: FuzzyHighlighter | null): void {
+  private buildResultRow(result: SearchResult): void {
     const presentation = ENTITY_PRESENTATION[result.type];
     const row = this.resultsEl.createEl(HTML_TAG.BUTTON, { cls: CSS_CLS.PM_SEARCH_RESULT });
     this.buildRowIcon(row, presentation);
     const main = row.createDiv({ cls: CSS_CLS.PM_SEARCH_RESULT_MAIN });
-    this.buildRowName(main, result.page.file.name, highlighter);
+    this.buildRowName(main, result);
     if (result.snippet) this.buildRowSnippet(main, result.snippet);
     this.buildRowBreadcrumb(main, result);
     this.buildRowTypePill(row, presentation);
@@ -568,11 +578,16 @@ export class PmSearchView implements DashboardViewComponent {
     setIcon(gutter, presentation.icon);
   }
 
-  /** Name with fuzzy-matched characters wrapped in `.hl`; an empty query yields no highlight. */
-  private buildRowName(main: HTMLElement, name: string, highlighter: FuzzyHighlighter | null): void {
+  /**
+   * The name, with every match run of a name match wrapped in `.hl`. The runs are
+   * the search service's (the result's `match`), so the view never re-matches.
+   * A body-only match or a browse result highlights nothing in the name.
+   */
+  private buildRowName(main: HTMLElement, result: SearchResult): void {
     const nameEl = main.createDiv({ cls: CSS_CLS.PM_SEARCH_RESULT_NAME });
-    const matches = highlighter ? highlighter(name)?.matches ?? [] : [];
-    this.appendHighlighted(nameEl, name, matches);
+    const matches =
+      result.match?.field === MATCH_FIELD.NAME ? result.match.matches : NO_MATCH_RUNS;
+    this.appendHighlighted(nameEl, result.page.file.name, matches);
   }
 
   /**
@@ -587,12 +602,12 @@ export class PmSearchView implements DashboardViewComponent {
   }
 
   /** Appends `text` to `el`, wrapping each `[start, end)` match run in an `.hl` span. */
-  private appendHighlighted(el: HTMLElement, text: string, matches: Array<[number, number]>): void {
-    if (matches.length === 0) {
+  private appendHighlighted(el: HTMLElement, text: string, matches: readonly MatchRun[]): void {
+    if (matches.length === EMPTY_LENGTH) {
       el.setText(text);
       return;
     }
-    let cursor = 0;
+    let cursor = TEXT_START;
     for (const [start, end] of matches) {
       if (start > cursor) el.appendChild(document.createTextNode(text.slice(cursor, start)));
       el.createSpan({ cls: CSS_CLS.PM_SEARCH_HL, text: text.slice(start, end) });

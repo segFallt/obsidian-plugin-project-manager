@@ -1,15 +1,17 @@
-import type { EntityCandidate, SearchSnippet } from "../types";
-import { SEARCH_SNIPPET } from "../constants";
+import type { EntityCandidate, MatchRun, SearchMatch, SearchSnippet } from "../types";
+import { EMPTY_LENGTH, SEARCH_SNIPPET, TEXT_START, TIER } from "../constants";
 import type { MatchField } from "../constants";
+import { compareByFileName } from "../utils/sort-utils";
 
 /**
  * One text's match against a prepared query: a `score` (higher is a better
- * match) and the character runs `[start, end)` that matched, for highlighting.
- * `null` means the text did not match at all.
+ * match) and the character runs `[start, end)` that matched, for highlighting —
+ * ascending and non-overlapping, per the `MatchRun` contract. `null` means the
+ * text did not match at all.
  */
 export interface TextMatch {
   score: number;
-  matches: Array<[number, number]>;
+  matches: readonly MatchRun[];
 }
 
 /**
@@ -23,7 +25,7 @@ export type TextScorer = (text: string) => TextMatch | null;
  * returns a {@link TextScorer} reused across many texts — the shape Obsidian's
  * `prepareFuzzySearch` is designed for, so search-as-you-type compiles a query
  * once per keystroke rather than once per candidate. Each match field binds its
- * own matcher, so one field can match fuzzily while another matches strictly.
+ * own matcher, so fields can use different match modes.
  *
  * The abstraction is the Dependency-Inversion seam that keeps ranking headless:
  * the ranker below depends on this interface, so it (and every consumer that
@@ -43,9 +45,9 @@ export interface ITextMatcher {
  * tier order (the array order of the descriptor list — a lower index ranks
  * higher), the matcher each field is scored with, and whether a win on the field
  * yields a highlighted snippet. The ordered `SearchField[]` is assembled at the
- * composition root, so binding a fuzzy matcher to one field and a strict matcher
- * to another — or adding, reordering, or re-mattering a field — is a data change
- * there rather than an edit to the ranker.
+ * composition root, so choosing the matcher each field binds — or adding,
+ * reordering, or re-mattering a field — is a data change there rather than an
+ * edit to the ranker.
  */
 export interface SearchField {
   field: MatchField;
@@ -64,26 +66,34 @@ export interface RankInput {
 }
 
 /**
- * A ranked candidate: the underlying {@link EntityCandidate} plus, for a
- * body-derived match only, the {@link SearchSnippet} explaining why it matched.
- * Structurally an `EntityCandidate`, so it flows through the scope
- * {@link import("./filter-engine").FilterEngine} unchanged.
+ * A ranked candidate: the underlying {@link EntityCandidate} plus its
+ * {@link SearchMatch} (the winning field and the query's runs in that field's
+ * text) and, for a body-derived match only, the {@link SearchSnippet} explaining
+ * why it matched.
  */
 export interface RankedCandidate extends EntityCandidate {
   snippet?: SearchSnippet;
+  match?: SearchMatch;
 }
 
 /**
- * The winning field for a candidate: its score, its match offsets in that field's
- * text, and whether the field's descriptor asks for a snippet — carried here so
- * the winning field's policy travels with the match rather than being looked up
- * again downstream.
+ * The winning field for a candidate: the {@link SearchMatch} evidence (the field
+ * and its match runs in that field's text), its score, and whether the field's
+ * descriptor asks for a snippet — carried here so the winning field's policy
+ * travels with the match rather than being looked up again downstream.
  */
-interface FieldMatch {
-  field: MatchField;
-  score: number;
-  matches: Array<[number, number]>;
-  buildsSnippet: boolean;
+type FieldMatch = SearchMatch & { score: number; buildsSnippet: boolean };
+
+/** A winning field's match paired with that field's tier (its index in the descriptor list). */
+interface TieredMatch {
+  tier: number;
+  match: FieldMatch;
+}
+
+/** An input paired with its winning field and that field's tier. */
+interface MatchedInput {
+  input: RankInput;
+  found: TieredMatch;
 }
 
 /** A field descriptor paired with its prepared, query-bound scorer. */
@@ -93,13 +103,16 @@ interface PreparedField {
 }
 
 /**
- * Ranks candidates over the ordered {@link SearchField} descriptor list (today
- * `name` at tier 0, `body` at tier 1). Each candidate wins the tier of the first
+ * Ranks candidates over the ordered {@link SearchField} descriptor list (for
+ * example name at the first tier and body at the next, as wired at the
+ * composition root). Each candidate wins the tier of the first
  * field whose text matches the query through that field's own matcher, so every
  * name match ranks above every body-only match (strict name tiering); within a
- * tier, order is by descending score with an alphabetical tiebreak on name. A
- * field whose descriptor sets `buildsSnippet` carries a windowed
- * {@link SearchSnippet} when it wins.
+ * tier, order is by descending score, with ties broken alphabetically by page
+ * name through {@link compareByFileName}. Every ranked candidate carries `match`,
+ * set from the winning field (its field and every match run the matcher
+ * reported); a field whose descriptor sets `buildsSnippet` also carries a
+ * windowed {@link SearchSnippet} when it wins.
  *
  * Pure, synchronous, and matcher-injected — no `obsidian` import — so it is
  * fully unit-testable with fake matchers. Each field prepares its own scorer
@@ -116,18 +129,16 @@ export function rankCandidates(
     descriptor,
     scorer: descriptor.matcher.prepare(query),
   }));
-  const scored: Array<{ input: RankInput; tier: number; match: FieldMatch }> = [];
-  for (const input of inputs) {
-    const found = firstFieldMatch(input, prepared);
-    if (found) scored.push({ input, tier: found.tier, match: found.match });
-  }
-  scored.sort(
-    (a, b) =>
-      a.tier - b.tier ||
-      b.match.score - a.match.score ||
-      a.input.candidate.page.file.name.localeCompare(b.input.candidate.page.file.name)
-  );
-  return scored.map(({ input, match }) => toRanked(input, match));
+  return inputs
+    .map((input) => ({ input, found: firstFieldMatch(input, prepared) }))
+    .filter((entry): entry is MatchedInput => entry.found !== null)
+    .sort(
+      (a, b) =>
+        a.found.tier - b.found.tier ||
+        b.found.match.score - a.found.match.score ||
+        compareByFileName(a.input.candidate.page, b.input.candidate.page)
+    )
+    .map(({ input, found }) => toRanked(input, found.match));
 }
 
 /**
@@ -137,8 +148,8 @@ export function rankCandidates(
 function firstFieldMatch(
   input: RankInput,
   prepared: readonly PreparedField[]
-): { tier: number; match: FieldMatch } | null {
-  for (let tier = 0; tier < prepared.length; tier += 1) {
+): TieredMatch | null {
+  for (let tier = TIER.FIRST; tier < prepared.length; tier += TIER.STEP) {
     const { descriptor, scorer } = prepared[tier];
     const result = scorer(input.text[descriptor.field]);
     if (result !== null) {
@@ -156,9 +167,14 @@ function firstFieldMatch(
   return null;
 }
 
-/** Attaches a snippet when the winning field flagged one; other fields carry none. */
+/**
+ * Builds the ranked candidate for a winning field: always sets `match` to that
+ * field's evidence (its field and match runs, never its score or snippet policy),
+ * and also attaches a snippet when the field's descriptor sets `buildsSnippet`.
+ */
 function toRanked(input: RankInput, match: FieldMatch): RankedCandidate {
   const ranked: RankedCandidate = { page: input.candidate.page, type: input.candidate.type };
+  ranked.match = { field: match.field, matches: match.matches };
   if (!match.buildsSnippet) return ranked;
   const snippet = buildBodySnippet(input.text[match.field], match.matches);
   if (snippet) ranked.snippet = snippet;
@@ -179,9 +195,9 @@ const WINDOW_SIDES = 2;
  */
 export function buildBodySnippet(
   body: string,
-  matches: Array<[number, number]>
+  matches: readonly MatchRun[]
 ): SearchSnippet | null {
-  if (matches.length === 0) return null;
+  if (matches.length === EMPTY_LENGTH) return null;
 
   const window = SEARCH_SNIPPET.WINDOW_CHARS;
   // The match span runs from the earliest run's start to the latest run's end.
@@ -189,20 +205,18 @@ export function buildBodySnippet(
   const lastEnd = Math.max(...matches.map((range) => range[RANGE_END]));
   const span = lastEnd - firstStart;
   // Centre the span in the window by splitting its leftover room across the two sides.
-  const pad = Math.max(0, Math.floor((window - span) / WINDOW_SIDES));
-  const end = Math.min(body.length, Math.max(firstStart - pad, 0) + window);
-  const start = Math.max(0, Math.min(firstStart - pad, end - window));
+  const pad = Math.max(EMPTY_LENGTH, Math.floor((window - span) / WINDOW_SIDES));
+  const end = Math.min(body.length, Math.max(firstStart - pad, TEXT_START) + window);
+  const start = Math.max(TEXT_START, Math.min(firstStart - pad, end - window));
 
-  const prefix = start > 0 ? SEARCH_SNIPPET.ELLIPSIS : "";
-  const suffix = end < body.length ? SEARCH_SNIPPET.ELLIPSIS : "";
+  const prefix = start > TEXT_START ? SEARCH_SNIPPET.ELLIPSIS : SEARCH_SNIPPET.NO_ELLIPSIS;
+  const suffix = end < body.length ? SEARCH_SNIPPET.ELLIPSIS : SEARCH_SNIPPET.NO_ELLIPSIS;
   const text = prefix + body.slice(start, end) + suffix;
 
   const offset = prefix.length - start;
   const snippetMatches = matches
     .filter(([s, e]) => e > start && s < end)
-    .map(
-      ([s, e]): [number, number] => [Math.max(s, start) + offset, Math.min(e, end) + offset]
-    );
+    .map(([s, e]): MatchRun => [Math.max(s, start) + offset, Math.min(e, end) + offset]);
 
   return { text, matches: snippetMatches };
 }

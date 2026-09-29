@@ -25,6 +25,12 @@ export const CREATE_RAID_ITEM_COMMAND_ID = `${COMMAND_PREFIX}${COMMAND_IDS.CREAT
 export const CREATE_REFERENCE_COMMAND_ID = `${COMMAND_PREFIX}${COMMAND_IDS.CREATE_REFERENCE}`;
 export const SCAFFOLD_VAULT_COMMAND_ID = `${COMMAND_PREFIX}${COMMAND_IDS.SCAFFOLD_VAULT}`;
 
+/** Name of the client note baked into the test-vault fixture (e2e/fixtures/test-vault/clients). */
+export const SEED_CLIENT = 'Seed Client';
+
+/** Name of the engagement note baked into the test-vault fixture, linked to {@link SEED_CLIENT}. */
+export const SEED_ENGAGEMENT = 'Seed Engagement';
+
 /** Selector for Obsidian's workspace root — present once the vault UI has rendered. */
 export const WORKSPACE_SELECTOR = '.workspace';
 
@@ -65,3 +71,21 @@ export const MIN_REGISTERED_COMMAND_COUNT = Object.keys(COMMAND_IDS).length;
 
 /** Text encoding used when reading harness files (e.g. the built manifest). */
 export const FILE_ENCODING = 'utf8';
+
+/** The line that opens and closes a note's frontmatter block. */
+export const FRONTMATTER_FENCE = '---';
+
+/** The frontmatter key holding a note's tags. */
+export const FM_TAGS_KEY = 'tags';
+
+/** Ends a frontmatter key. */
+export const YAML_KEY_SUFFIX = ':';
+
+/** Separates a frontmatter key from its inline value. */
+export const YAML_VALUE_SEPARATOR = ' ';
+
+/** Prefix of an indented YAML block-list item. */
+export const YAML_LIST_ITEM_PREFIX = '  - ';
+
+/** An empty line in a note. */
+export const BLANK_LINE = '';

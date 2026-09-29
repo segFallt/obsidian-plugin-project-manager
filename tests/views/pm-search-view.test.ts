@@ -6,9 +6,8 @@ import { SearchService } from "@/services/search-service";
 import { EntityEnumerator } from "@/services/entity-enumerator";
 import { EntityHierarchyService } from "@/services/entity-hierarchy-service";
 import { PersonAssociationResolver } from "@/services/person-association-resolver";
-import { PreparedFuzzyMatcher } from "@/services/prepared-fuzzy-matcher";
 import { SubstringMatcher } from "@/services/substring-matcher";
-import type { SearchField } from "@/services/matcher";
+import type { ITextMatcher, SearchField } from "@/services/matcher";
 import { QueryService } from "@/services/query-service";
 import type { IContentProvider } from "@/services/content-provider";
 import { createMockDataviewApi, createMockPage, type MockPageData } from "../mocks/dataview-mock";
@@ -16,9 +15,11 @@ import {
   ALL_ENTITY_TYPES,
   ARIA_BOOL,
   CSS_CLS,
+  CSS_DISPLAY,
   DEFAULT_FOLDERS,
   DEBOUNCE_MS,
   DOM_ATTR,
+  EMPTY_QUERY,
   ENTITY_LABEL,
   ENTITY_TYPE,
   MATCH_FIELD,
@@ -39,6 +40,9 @@ const VAULT: MockPageData[] = [
   { path: "projects/Acme Portal.md", folder: "projects", tags: ["#project"], frontmatter: { engagement: "[[Acme Phase 1]]" } },
 ];
 
+/** A query of only whitespace: non-empty as typed, but browse mode once normalized. */
+const WHITESPACE_ONLY_QUERY = "   ";
+
 interface Harness {
   container: HTMLElement;
   services: SearchViewServices;
@@ -48,7 +52,7 @@ interface Harness {
 function makeHarness(
   pages: MockPageData[],
   getDv?: () => DataviewApi | null,
-  options: { activeFilePath?: string; bodies?: Record<string, string> } = {}
+  options: { activeFilePath?: string; bodies?: Record<string, string>; nameMatcher?: ITextMatcher } = {}
 ): Harness {
   const dv = createMockDataviewApi(pages);
   const resolvedGetDv = getDv ?? ((): DataviewApi | null => dv);
@@ -59,7 +63,7 @@ function makeHarness(
     textFor: async (page) => options.bodies?.[page.file.path] ?? "",
   };
   const fields: readonly SearchField[] = [
-    { field: MATCH_FIELD.NAME, matcher: new PreparedFuzzyMatcher(), buildsSnippet: false },
+    { field: MATCH_FIELD.NAME, matcher: options.nameMatcher ?? new SubstringMatcher(), buildsSnippet: false },
     { field: MATCH_FIELD.BODY, matcher: new SubstringMatcher(), buildsSnippet: true },
   ];
   const searchService = new SearchService({
@@ -109,6 +113,17 @@ async function type(container: HTMLElement, text: string): Promise<void> {
 const rowNames = (container: HTMLElement): string[] =>
   [...container.querySelectorAll(`.${CSS_CLS.PM_SEARCH_RESULT_NAME}`)].map((el) => el.textContent ?? "");
 
+/** The highlighted runs' text in the name element of the row whose name is `name`. */
+function nameHighlights(container: HTMLElement, name: string): string[] {
+  const nameEl = [...container.querySelectorAll(`.${CSS_CLS.PM_SEARCH_RESULT_NAME}`)].find(
+    (el) => el.textContent === name
+  )!;
+  return [...nameEl.querySelectorAll(`.${CSS_CLS.PM_SEARCH_HL}`)].map((el) => el.textContent ?? "");
+}
+
+const emptyTitle = (container: HTMLElement): string | null | undefined =>
+  container.querySelector(`.${CSS_CLS.PM_SEARCH_EMPTY} .${CSS_CLS.PM_SEARCH_EMPTY_TITLE}`)?.textContent;
+
 const typeToggle = (container: HTMLElement, type: EntityType): HTMLButtonElement =>
   container.querySelector<HTMLButtonElement>(
     `.${CSS_CLS.PM_SEARCH_TTOG}[${DOM_ATTR.DATA_ENTITY_TYPE}="${type}"]`
@@ -123,23 +138,110 @@ describe("PmSearchView", () => {
   beforeEach(() => vi.useFakeTimers());
   afterEach(() => vi.useRealTimers());
 
-  it("renders fuzzy results best-first with matched characters highlighted", async () => {
+  it("renders name matches best-first with the matched substring highlighted once per row", async () => {
     const { container, services } = makeHarness(VAULT);
     const view = new PmSearchView(container, services);
     view.render();
 
     await type(container, "acme");
 
-    // "Acme" is a contiguous, front-anchored match so it ranks first; the four
-    // names containing a c-m-e subsequence all match, and Globex is excluded.
+    // "Acme" matches at the start of the name so it ranks first; the four names
+    // containing "acme" all match, and Globex is excluded.
     const names = rowNames(container);
     expect(names[0]).toBe("Acme");
     expect(names).not.toContain("Globex");
     expect(names).toHaveLength(4);
 
-    const firstRow = container.querySelector(`.${CSS_CLS.PM_SEARCH_RESULT_NAME}`)!;
-    const highlighted = [...firstRow.querySelectorAll(`.${CSS_CLS.PM_SEARCH_HL}`)].map((el) => el.textContent);
-    expect(highlighted.join("").toLowerCase()).toBe("acme");
+    // Every name row highlights exactly one run: the query's occurrence in the name.
+    const nameRows = [...container.querySelectorAll(`.${CSS_CLS.PM_SEARCH_RESULT_NAME}`)];
+    for (const row of nameRows) {
+      const highlighted = [...row.querySelectorAll(`.${CSS_CLS.PM_SEARCH_HL}`)].map((el) => el.textContent ?? "");
+      expect(highlighted).toHaveLength(1);
+      expect(highlighted[0].toLowerCase()).toBe("acme");
+    }
+  });
+
+  it("highlights only the mid-name occurrence of the query", async () => {
+    const { container, services } = makeHarness(VAULT);
+    new PmSearchView(container, services).render();
+
+    await type(container, "acme");
+
+    expect(nameHighlights(container, "Apex Acme Ltd")).toEqual(["Acme"]);
+  });
+
+  it("highlights only the first occurrence when the name contains the query twice", async () => {
+    const { container, services } = makeHarness([
+      { path: "projects/Acme – ACME Renewal.md", folder: "projects", tags: ["#project"] },
+    ]);
+    new PmSearchView(container, services).render();
+
+    await type(container, "acme");
+
+    expect(nameHighlights(container, "Acme – ACME Renewal")).toEqual(["Acme"]);
+  });
+
+  it("highlights every run the name matcher reports", async () => {
+    // A stub matcher reporting both occurrences stands in for an all-occurrence matcher.
+    const bothRuns: ITextMatcher = {
+      prepare: () => (text) => (text === "Acme – ACME Renewal" ? { score: 0, matches: [[0, 4], [7, 11]] } : null),
+    };
+    const { container, services } = makeHarness(
+      [{ path: "projects/Acme – ACME Renewal.md", folder: "projects", tags: ["#project"] }],
+      undefined,
+      { nameMatcher: bothRuns }
+    );
+    new PmSearchView(container, services).render();
+
+    await type(container, "acme");
+
+    expect(nameHighlights(container, "Acme – ACME Renewal")).toEqual(["Acme", "ACME"]);
+  });
+
+  it("shows the browse list, not the no-match state, for a whitespace-only query", async () => {
+    const { container, services } = makeHarness(VAULT);
+    new PmSearchView(container, services).render();
+
+    await type(container, WHITESPACE_ONLY_QUERY);
+
+    expect(rowNames(container)).toEqual(["Acme", "Acme Phase 1", "Acme Portal", "Apex Acme Ltd", "Globex"]);
+    expect(container.querySelector(`.${CSS_CLS.PM_SEARCH_EMPTY}`)).toBeNull();
+    // The clear button still shows, because the field is not empty.
+    const clearBtn = container.querySelector<HTMLButtonElement>(`.${CSS_CLS.PM_SEARCH_CLEAR}`)!;
+    expect(clearBtn.style.display).not.toBe(CSS_DISPLAY.NONE);
+  });
+
+  it("shows neither rows nor the no-match state for a whitespace-only query with nothing in scope", async () => {
+    const { container, services } = makeHarness([]);
+    new PmSearchView(container, services).render();
+
+    await type(container, WHITESPACE_ONLY_QUERY);
+
+    expect(container.querySelectorAll(`.${CSS_CLS.PM_SEARCH_RESULT}`)).toHaveLength(0);
+    expect(container.querySelector(`.${CSS_CLS.PM_SEARCH_EMPTY}`)).toBeNull();
+  });
+
+  it("echoes the trimmed query in the no-match title", async () => {
+    const { container, services } = makeHarness(VAULT);
+    new PmSearchView(container, services).render();
+
+    await type(container, "  zzzzz  ");
+
+    expect(emptyTitle(container)).toBe(PM_SEARCH_TEXT.noMatchTitle("zzzzz"));
+  });
+
+  it("hides the clear button and browses again after the clear button is pressed", async () => {
+    const { container, services } = makeHarness(VAULT);
+    new PmSearchView(container, services).render();
+
+    await type(container, "zzzzz");
+    const clearBtn = container.querySelector<HTMLButtonElement>(`.${CSS_CLS.PM_SEARCH_CLEAR}`)!;
+    clearBtn.click();
+    await flush();
+
+    expect(clearBtn.style.display).toBe(CSS_DISPLAY.NONE);
+    expect(container.querySelector<HTMLInputElement>(`.${CSS_CLS.PM_SEARCH_INPUT_FIELD}`)!.value).toBe(EMPTY_QUERY);
+    expect(rowNames(container)).toHaveLength(VAULT.length);
   });
 
   it("shows a family-tinted icon, a type pill, and a Client › Engagement breadcrumb", async () => {
@@ -335,6 +437,20 @@ describe("PmSearchView — content search", () => {
     expect(snippets[0].textContent).toContain("pineapple");
     const highlighted = [...snippets[0].querySelectorAll(`.${CSS_CLS.PM_SEARCH_HL}`)].map((el) => el.textContent).join("");
     expect(highlighted.toLowerCase()).toContain("pineapple");
+  });
+
+  it("highlights nothing in the name of a body-only match", async () => {
+    const { container, services } = makeHarness(
+      [{ path: "clients/Zephyr.md", folder: "clients", tags: ["#client"] }],
+      undefined,
+      { bodies: { "clients/Zephyr.md": "the team chose pineapple this quarter" } }
+    );
+    new PmSearchView(container, services).render();
+
+    await type(container, "pineapple");
+
+    expect(rowNames(container)).toEqual(["Zephyr"]);
+    expect(nameHighlights(container, "Zephyr")).toEqual([]);
   });
 
   it("shows no snippet for a name-only match", async () => {

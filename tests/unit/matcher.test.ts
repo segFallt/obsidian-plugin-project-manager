@@ -9,6 +9,7 @@ import {
 import { PreparedFuzzyMatcher } from "@/services/prepared-fuzzy-matcher";
 import { SubstringMatcher } from "@/services/substring-matcher";
 import { ENTITY_TYPE, MATCH_FIELD, SEARCH_SNIPPET } from "@/constants";
+import type { MatchRun } from "@/types";
 import { createMockPage } from "../mocks/dataview-mock";
 
 /** Builds a rank input from a name and optional body text; the type is incidental here. */
@@ -34,7 +35,7 @@ function fields(nameMatcher: ITextMatcher, bodyMatcher: ITextMatcher): SearchFie
 /** One text's fake match: a score and optional offsets. */
 interface FakeMatch {
   score: number;
-  matches?: Array<[number, number]>;
+  matches?: MatchRun[];
 }
 
 /** A matcher driven by an explicit text → match map; a missing (or null) text is a non-match. */
@@ -104,9 +105,38 @@ describe("rankCandidates — name tier", () => {
 
     expect(ranked.snippet).toBeUndefined();
   });
+
+  it("sets match from the winning name field, carrying only its field and runs", () => {
+    const nameRuns: MatchRun[] = [[5, 9]];
+    const matcher = fakeMatcher({ "Apex Acme Ltd": { score: -5, matches: nameRuns } });
+
+    const [ranked] = rankCandidates([input("Apex Acme Ltd")], "acme", fields(matcher, matcher));
+
+    // toEqual fails if the ranker leaks score or buildsSnippet into the evidence.
+    expect(ranked.match).toEqual({ field: MATCH_FIELD.NAME, matches: nameRuns });
+  });
+
+  it("carries every run the matcher reported, not only the first", () => {
+    const nameRuns: MatchRun[] = [[0, 4], [7, 11]];
+    const matcher = fakeMatcher({ "Acme – ACME": { score: 0, matches: nameRuns } });
+
+    const [ranked] = rankCandidates([input("Acme – ACME")], "acme", fields(matcher, matcher));
+
+    expect(ranked.match?.matches).toEqual(nameRuns);
+  });
 });
 
 describe("rankCandidates — body tier", () => {
+  it("sets match from the winning body field, with runs relative to the body text", () => {
+    const body = "the meeting decided on pineapple procurement";
+    const bodyRuns: MatchRun[] = [[23, 32]];
+    const matcher = fakeMatcher({ [body]: { score: 5, matches: bodyRuns } });
+
+    const [ranked] = rankCandidates([input("Note", body)], "pineapple", fields(matcher, matcher));
+
+    expect(ranked.match).toEqual({ field: MATCH_FIELD.BODY, matches: bodyRuns });
+  });
+
   it("ranks every name match above every body-only match", () => {
     // "Acme" matches by name; "Zephyr" only by body.
     const inputs = [input("Zephyr", "acme is mentioned here"), input("Acme", "")];
@@ -205,13 +235,15 @@ describe("SubstringMatcher", () => {
 
   it("ranks an earlier occurrence above a later one", () => {
     const nameMatcher = fakeMatcher({});
+    // Alphabetical order is the reverse of occurrence order, so only the score
+    // (not the alphabetical tiebreak) can put the earlier occurrence first.
     const ranked = rankCandidates(
-      [input("Early", "acme appears right away"), input("Late", "long preamble then acme")],
+      [input("Alpha", "long preamble then acme"), input("Zulu", "acme appears right away")],
       "acme",
       fields(nameMatcher, matcher)
     );
 
-    expect(rankedNames(ranked)).toEqual(["Early", "Late"]);
+    expect(rankedNames(ranked)).toEqual(["Zulu", "Alpha"]);
   });
 });
 
@@ -236,7 +268,7 @@ describe("buildBodySnippet", () => {
     expect(snippet.text.slice(start, end)).toBe("pineapple");
   });
 
-  it("returns null when there are no match runs (an empty query)", () => {
+  it("returns null when the scorer reported no match runs", () => {
     expect(buildBodySnippet("some body text", [])).toBeNull();
   });
 
