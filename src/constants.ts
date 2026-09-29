@@ -2,7 +2,16 @@
  * Shared constants for the Project Manager plugin.
  * Mirrors the vault's constants.js for consistency.
  */
-import type { DueDatePreset, DueDateFilter, StartDateFilter, ScheduledDateFilter, EntityType, EntityFamily } from "./types";
+import type {
+  DueDatePreset,
+  DueDateFilter,
+  StartDateFilter,
+  ScheduledDateFilter,
+  EntityType,
+  EntityFamily,
+  MatchRun,
+  SearchResult,
+} from "./types";
 
 export const CLIENT_STATUSES = ["Active", "Inactive"] as const;
 export const ENGAGEMENT_STATUSES = ["Active", "Inactive"] as const;
@@ -114,7 +123,8 @@ export const REF_FACET_KEY = {
 
 /**
  * Filter facet keys for the entity search scope. Each keys a `FilterEngine` facet
- * that narrows fuzzy-ranked candidates by a hierarchy or person constraint —
+ * that narrows the enumerated candidates, before any matching or ranking, by a
+ * hierarchy or person constraint —
  * `CLIENT`/`ENGAGEMENT` resolve up the entity hierarchy, `PERSON` matches the
  * people associated with a candidate.
  */
@@ -354,6 +364,24 @@ export const ARIA_LABEL_MAX_LENGTH = 60;
 export const FOCUS_DELAY_MS = 150;
 /** Number of rows for textarea fields. */
 export const TEXTAREA_ROWS = 3;
+/** A zero length: the length of an empty string or list. */
+export const EMPTY_LENGTH = 0;
+/** The index of the first character of a text. */
+export const TEXT_START = 0;
+
+/** Positions in a `RegExp` match array. */
+export const REGEXP_MATCH = {
+  /** Index of the whole matched text (capture groups follow it). */
+  WHOLE: 0,
+} as const;
+
+/** Tier numbering for ordered, tiered ranking (a lower tier ranks higher). */
+export const TIER = {
+  /** The highest-ranking tier: the first entry in an ordered tier list. */
+  FIRST: 0,
+  /** The distance from one tier to the next. */
+  STEP: 1,
+} as const;
 
 /** Debounce durations (ms) for different contexts. */
 export const DEBOUNCE_MS = {
@@ -1410,7 +1438,18 @@ export const SEARCH_SNIPPET = {
   WINDOW_CHARS: 120,
   /** Truncation marker prepended/appended when the window is clipped. */
   ELLIPSIS: "…",
+  /** The prefix/suffix used on an edge the window does not clip (no truncation marker). */
+  NO_ELLIPSIS: "",
 } as const;
+
+/** The empty search query: after normalization it selects browse mode rather than matching. */
+export const EMPTY_QUERY = "";
+
+/** No match runs: the name-highlight runs for a row whose name did not match (browse and body-only rows). */
+export const NO_MATCH_RUNS: readonly MatchRun[] = Object.freeze([]);
+
+/** No search results: what a search resolves to when it cannot run (Dataview absent). */
+export const NO_SEARCH_RESULTS: readonly SearchResult[] = Object.freeze([]);
 
 /** Static, user-facing text for the pm-search panel. */
 export const PM_SEARCH_TEXT = {

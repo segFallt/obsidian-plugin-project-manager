@@ -20,7 +20,6 @@ import type ProjectManagerPlugin from "./main";
 import { SearchService } from "./services/search-service";
 import { EntityEnumerator } from "./services/entity-enumerator";
 import { PersonAssociationResolver } from "./services/person-association-resolver";
-import { PreparedFuzzyMatcher } from "./services/prepared-fuzzy-matcher";
 import { SubstringMatcher } from "./services/substring-matcher";
 import type { SearchField } from "./services/matcher";
 import { ObsidianContentProvider } from "./services/content-provider";
@@ -163,7 +162,7 @@ export function buildReferenceProcessorServices(
 /**
  * Narrow service bag for the search panel's view component (ISP).
  *
- * The panel runs fuzzy search ({@link ISearchService}), resolves a selected
+ * The panel runs name and content search ({@link ISearchService}), resolves a selected
  * result's file and opens it (`app` + `navigationService`), probes Dataview
  * availability to distinguish the "no matches" and "Dataview off" states
  * (`getDv`), lists a facet's candidate names for the scope controls
@@ -194,11 +193,11 @@ export function buildSearchViewServices(plugin: ProjectManagerPlugin): SearchVie
   const getDv = (): DataviewApi | null => plugin.queryService.dv();
   const enumerator = new EntityEnumerator(plugin.queryService);
   // The one place the concrete matcher per field and the tier order are chosen
-  // (DIP): names match fuzzily (subsequence), the body matches strictly
-  // (case-insensitive substring) so a note surfaces on its body only when the
-  // query actually appears there. Array order is the tier — name above body.
+  // (DIP): the name and the body both match strictly (case-insensitive
+  // substring), so a note surfaces only when the query actually appears in its
+  // name or body. Array order is the tier — name above body.
   const fields: readonly SearchField[] = [
-    { field: MATCH_FIELD.NAME, matcher: new PreparedFuzzyMatcher(), buildsSnippet: false },
+    { field: MATCH_FIELD.NAME, matcher: new SubstringMatcher(), buildsSnippet: false },
     { field: MATCH_FIELD.BODY, matcher: new SubstringMatcher(), buildsSnippet: true },
   ];
   const searchService = new SearchService({

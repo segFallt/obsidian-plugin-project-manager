@@ -1809,7 +1809,7 @@ details[open] .pm-filter-section__title::before {
 
   /* Identity + highlight */
   --pm-blue: var(--interactive-accent);                   /* #89b4fa — panel identity */
-  --pm-sky: #89dceb;                                      /* fuzzy-match highlight (fixed accent) */
+  --pm-sky: #89dceb;                                      /* match highlight (fixed accent) */
 
   /* Entity-family fixed-accent tokens (fixed hex — no per-entity theme var) */
   --pm-entity-client: #89b4fa;

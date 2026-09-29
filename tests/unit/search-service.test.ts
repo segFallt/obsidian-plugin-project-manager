@@ -3,13 +3,12 @@ import { SearchService } from "@/services/search-service";
 import { EntityEnumerator } from "@/services/entity-enumerator";
 import { EntityHierarchyService } from "@/services/entity-hierarchy-service";
 import { PersonAssociationResolver } from "@/services/person-association-resolver";
-import { PreparedFuzzyMatcher } from "@/services/prepared-fuzzy-matcher";
 import { SubstringMatcher } from "@/services/substring-matcher";
 import { QueryService } from "@/services/query-service";
 import { rankCandidates, type ITextMatcher, type RankInput, type SearchField } from "@/services/matcher";
 import type { IContentProvider } from "@/services/content-provider";
 import { createMockDataviewApi, createMockPage, type MockPageData } from "../mocks/dataview-mock";
-import { DEFAULT_FOLDERS, ENTITY_TYPE, MATCH_FIELD } from "@/constants";
+import { DEFAULT_FOLDERS, EMPTY_QUERY, ENTITY_TYPE, MATCH_FIELD, NO_SEARCH_RESULTS } from "@/constants";
 import type { FolderSettings } from "@/settings";
 import type { DataviewApi, DataviewPage, SearchScope } from "@/types";
 
@@ -44,7 +43,7 @@ const NO_CONTENT: IContentProvider = contentFrom({});
 
 function serviceFor(
   pages: MockPageData[],
-  matcher: ITextMatcher = new PreparedFuzzyMatcher(),
+  matcher: ITextMatcher = new SubstringMatcher(),
   getDv: () => DataviewApi | null = () => createMockDataviewApi(pages),
   contentProvider: IContentProvider = NO_CONTENT,
   bodyMatcher: ITextMatcher = matcher
@@ -64,21 +63,26 @@ function serviceFor(
   });
 }
 
-const names = (results: { page: { file: { name: string } } }[]): string[] =>
+const names = (results: readonly { page: { file: { name: string } } }[]): string[] =>
   results.map((r) => r.page.file.name).sort();
 
+/** Result names in the order the service returned them (unsorted). */
+const orderedNames = (results: readonly { page: { file: { name: string } } }[]): string[] =>
+  results.map((r) => r.page.file.name);
+
 describe("SearchService — name ranking and scope", () => {
-  it("fuzzy-ranks by name (best first) and excludes non-matches", async () => {
+  it("ranks name substring matches by first-occurrence position and excludes non-matches", async () => {
     const service = serviceFor([
-      { path: "clients/Acme.md", folder: "clients", tags: ["#client"] },
+      { path: "clients/Aardvark Acme.md", folder: "clients", tags: ["#client"] },
       { path: "clients/Globex.md", folder: "clients", tags: ["#client"] },
-      { path: "clients/Apex Acme Ltd.md", folder: "clients", tags: ["#client"] },
+      { path: "clients/Acme Zulu.md", folder: "clients", tags: ["#client"] },
     ]);
 
     const results = await service.search("acme", EMPTY_SCOPE, [ENTITY_TYPE.CLIENT]);
 
-    // Order is preserved from ranking, so this is asserted unsorted.
-    expect(results.map((r) => r.page.file.name)).toEqual(["Acme", "Apex Acme Ltd"]);
+    // Alphabetical order is the reverse of occurrence order, so only first-occurrence
+    // scoring (not the alphabetical tiebreak) yields this order; asserted unsorted.
+    expect(results.map((r) => r.page.file.name)).toEqual(["Acme Zulu", "Aardvark Acme"]);
   });
 
   it("ranks through an injected fake matcher without touching Obsidian", async () => {
@@ -155,9 +159,80 @@ describe("SearchService — name ranking and scope", () => {
   });
 
   it("resolves to an empty list without throwing when Dataview is absent", async () => {
-    const service = serviceFor(VAULT, new PreparedFuzzyMatcher(), () => null);
+    const service = serviceFor(VAULT, new SubstringMatcher(), () => null);
 
-    await expect(service.search("acme", { clients: ["Acme"] }, [ENTITY_TYPE.CLIENT])).resolves.toEqual([]);
+    await expect(service.search("acme", { clients: ["Acme"] }, [ENTITY_TYPE.CLIENT])).resolves.toBe(
+      NO_SEARCH_RESULTS
+    );
+  });
+});
+
+describe("SearchService — strict name matching and browse", () => {
+  const NAME_VAULT: MockPageData[] = [
+    { path: "clients/Northwind Trading.md", folder: "clients", tags: ["#client"] },
+    { path: "clients/Acme.md", folder: "clients", tags: ["#client"] },
+    { path: "clients/Apex Acme Ltd.md", folder: "clients", tags: ["#client"] },
+  ];
+
+  it("does not return a name that contains the query only as a gapped subsequence", async () => {
+    const service = serviceFor(NAME_VAULT);
+
+    await expect(service.search("nrthwnd", EMPTY_SCOPE, [ENTITY_TYPE.CLIENT])).resolves.toEqual([]);
+  });
+
+  it("returns a name that contains the query in the middle", async () => {
+    const service = serviceFor(NAME_VAULT);
+
+    const results = await service.search("thwind", EMPTY_SCOPE, [ENTITY_TYPE.CLIENT]);
+
+    expect(orderedNames(results)).toEqual(["Northwind Trading"]);
+  });
+
+  it("trims the query's surrounding whitespace before matching", async () => {
+    const service = serviceFor(NAME_VAULT);
+
+    const results = await service.search("  acme  ", EMPTY_SCOPE, [ENTITY_TYPE.CLIENT]);
+
+    expect(orderedNames(results)).toEqual(["Acme", "Apex Acme Ltd"]);
+  });
+
+  it("carries the winning name field and its substring run on a name match", async () => {
+    const service = serviceFor(NAME_VAULT);
+
+    const results = await service.search("acme", EMPTY_SCOPE, [ENTITY_TYPE.CLIENT]);
+    const apex = results.find((r) => r.page.file.name === "Apex Acme Ltd");
+
+    // "Acme" occupies [5, 9) in "Apex Acme Ltd".
+    expect(apex?.match).toEqual({ field: MATCH_FIELD.NAME, matches: [[5, 9]] });
+  });
+
+  it("browses every in-scope entity sorted by name on an empty query, with no match", async () => {
+    // Input order is Globex Portal, then Acme Portal; browse must reorder by name.
+    const pages: MockPageData[] = [
+      { path: "projects/Globex Portal.md", folder: "projects", tags: ["#project"] },
+      { path: "projects/Acme Portal.md", folder: "projects", tags: ["#project"] },
+    ];
+    const service = serviceFor(pages);
+
+    const results = await service.search(EMPTY_QUERY, EMPTY_SCOPE, [ENTITY_TYPE.PROJECT]);
+
+    expect(orderedNames(results)).toEqual(["Acme Portal", "Globex Portal"]);
+    for (const result of results) {
+      expect(result.match).toBeUndefined();
+      expect(result.snippet).toBeUndefined();
+    }
+  });
+
+  it("browses on a whitespace-only query without reading any body", async () => {
+    const textFor = vi.fn(async () => "acme in the body");
+    const service = serviceFor(NAME_VAULT, new SubstringMatcher(), () => createMockDataviewApi(NAME_VAULT), {
+      textFor,
+    });
+
+    const results = await service.search("   ", EMPTY_SCOPE, [ENTITY_TYPE.CLIENT]);
+
+    expect(orderedNames(results)).toEqual(["Acme", "Apex Acme Ltd", "Northwind Trading"]);
+    expect(textFor).not.toHaveBeenCalled();
   });
 });
 
@@ -170,7 +245,7 @@ describe("SearchService — content search", () => {
   it("returns a note whose body matches the query, with a body snippet", async () => {
     const service = serviceFor(
       CONTENT_VAULT,
-      new PreparedFuzzyMatcher(),
+      new SubstringMatcher(),
       () => createMockDataviewApi(CONTENT_VAULT),
       contentFrom({ "clients/Zephyr.md": "the northwind team loves pineapple" })
     );
@@ -185,7 +260,7 @@ describe("SearchService — content search", () => {
   it("ranks a name match above a body-only match, and only the body match carries a snippet", async () => {
     const service = serviceFor(
       CONTENT_VAULT,
-      new PreparedFuzzyMatcher(),
+      new SubstringMatcher(),
       () => createMockDataviewApi(CONTENT_VAULT),
       // Acme also mentions "acme" in its body, but its name match wins the tier (no snippet).
       contentFrom({ "clients/Acme.md": "acme acme", "clients/Zephyr.md": "acme is referenced here" })
@@ -200,7 +275,7 @@ describe("SearchService — content search", () => {
 
   it("does not read bodies on the empty-query browse path, but does for a real query", async () => {
     const textFor = vi.fn(async () => "acme in the body");
-    const service = serviceFor(CONTENT_VAULT, new PreparedFuzzyMatcher(), () => createMockDataviewApi(CONTENT_VAULT), {
+    const service = serviceFor(CONTENT_VAULT, new SubstringMatcher(), () => createMockDataviewApi(CONTENT_VAULT), {
       textFor,
     });
 
@@ -218,7 +293,7 @@ describe("SearchService — content search", () => {
         return "";
       },
     };
-    const service = serviceFor(CONTENT_VAULT, new PreparedFuzzyMatcher(), () => createMockDataviewApi(CONTENT_VAULT), failing);
+    const service = serviceFor(CONTENT_VAULT, new SubstringMatcher(), () => createMockDataviewApi(CONTENT_VAULT), failing);
 
     // "pineapple" matches neither name; Zephyr's body would be searched but its read throws.
     await expect(service.search("pineapple", EMPTY_SCOPE, [ENTITY_TYPE.CLIENT])).resolves.toEqual([]);
@@ -235,7 +310,7 @@ describe("SearchService — content search", () => {
       "yet the exact cadence remained unclear.";
     const service = serviceFor(
       CONTENT_VAULT,
-      new PreparedFuzzyMatcher(),
+      new SubstringMatcher(),
       () => createMockDataviewApi(CONTENT_VAULT),
       contentFrom({ "clients/Zephyr.md": gappedBody }),
       new SubstringMatcher()

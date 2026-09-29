@@ -1,3 +1,4 @@
+import { EMPTY_LENGTH, REGEXP_MATCH, TEXT_START } from "../constants";
 import type { ITextMatcher, TextScorer } from "./matcher";
 
 /** Characters with special meaning in a `RegExp`, escaped so a query matches literally. */
@@ -21,8 +22,8 @@ function escapeForRegExp(query: string): string {
  * it as a single match run.
  *
  * - A non-occurrence returns `null`, and so does an empty query — an empty query
- *   is a non-match here, leaving the empty/browse path to the name tier rather
- *   than surfacing every note on its body.
+ *   is a non-match here. Browsing on an empty query is the search service's rule,
+ *   not a side effect of this matcher.
  * - On a hit the scorer returns one run `[[start, end)]` for the first occurrence
  *   (a single run, not one per character), the exact offset shape the body-snippet
  *   builder consumes. `end` is derived from the matched text's own length, so the
@@ -37,17 +38,17 @@ function escapeForRegExp(query: string): string {
  */
 export class SubstringMatcher implements ITextMatcher {
   prepare(query: string): TextScorer {
-    if (query.length === 0) return () => null;
+    if (query.length === EMPTY_LENGTH) return () => null;
     const pattern = new RegExp(escapeForRegExp(query), CASE_INSENSITIVE_FLAG);
     return (text) => {
       const match = pattern.exec(text);
       if (match === null) return null;
       const start = match.index;
-      // `match[0]` is the matched text in its original casing, so its length frames
-      // the real occurrence in `text` regardless of any case-fold length change.
-      const end = start + match[0].length;
-      // Index 0 normalizes to +0 (not -0) so the top score compares cleanly.
-      const score = start === 0 ? TOP_SCORE : -start;
+      // The whole match is the matched text in its original casing, so its length
+      // frames the real occurrence in `text` regardless of any case-fold length change.
+      const end = start + match[REGEXP_MATCH.WHOLE].length;
+      // A match at the text start normalizes to +0 (not -0) so the top score compares cleanly.
+      const score = start === TEXT_START ? TOP_SCORE : -start;
       return { score, matches: [[start, end]] };
     };
   }

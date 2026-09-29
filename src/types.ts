@@ -5,7 +5,16 @@
 
 // `import type` keeps this a type-only edge: constants.ts already imports from
 // this module the same way, so both edges are erased by tsc/esbuild — no runtime cycle.
-import type { SORT_FIELD, SORT_DIRECTION, START_DATE_PRESET, SCHEDULED_DATE_PRESET, GROUP_BY_DATE_FIELD, ENUM_STRATEGY, ENTITY_FAMILY } from "./constants";
+import type {
+  SORT_FIELD,
+  SORT_DIRECTION,
+  START_DATE_PRESET,
+  SCHEDULED_DATE_PRESET,
+  GROUP_BY_DATE_FIELD,
+  ENUM_STRATEGY,
+  ENTITY_FAMILY,
+  MatchField,
+} from "./constants";
 
 // ─── Entity Types ──────────────────────────────────────────────────────────
 
@@ -57,18 +66,42 @@ export interface SearchScope {
 /**
  * A body-match excerpt for a content-search hit: the windowed body `text`
  * (ellipsised on each clipped edge) and the character runs `[start, end)` within
- * it that matched, so the panel can highlight them.
+ * it that matched, so the panel can highlight them. The runs follow the
+ * {@link MatchRun} ordering contract (ascending and non-overlapping).
  */
 export interface SearchSnippet {
   text: string;
-  matches: Array<[number, number]>;
+  matches: readonly MatchRun[];
 }
 
 /**
- * One fuzzy-ranked, scope-constrained search hit: the matched page, the
- * {@link EntityType} it was enumerated as, its resolved hierarchy breadcrumb
- * (client / engagement), and — for a body-derived match only — the
- * {@link SearchSnippet} explaining why it matched. Each field is present only
+ * One matched run in a text: the `[start, end)` character offsets of the
+ * occurrence. Wherever a list of runs is carried (a {@link SearchMatch}, a
+ * {@link SearchSnippet}, a matcher's `TextMatch`), the runs are in ascending
+ * order of `start` and never overlap — each run's `end` is at or before the next
+ * run's `start`. Highlight rendering walks the text once in that order and
+ * relies on this contract.
+ */
+export type MatchRun = readonly [number, number];
+
+/**
+ * The field a result matched on, and the query's matched runs in that field's
+ * text (offsets index that field's text: the file name for a name match, the
+ * frontmatter-stripped body for a body match). `matches` holds ascending,
+ * non-overlapping `[start, end)` runs per the {@link MatchRun} contract.
+ */
+export interface SearchMatch {
+  field: MatchField;
+  matches: readonly MatchRun[];
+}
+
+/**
+ * One scope-constrained search hit: the page, the {@link EntityType} it was
+ * enumerated as, and its resolved hierarchy breadcrumb (client / engagement).
+ * A matched result also carries its {@link SearchMatch} (the winning field and
+ * the query's runs in that field's text, used for name highlighting) and, for a
+ * body-derived match only, the {@link SearchSnippet} explaining why it matched.
+ * A browse result (empty query) carries neither. Each field is present only
  * when it resolves.
  */
 export interface SearchResult {
@@ -77,6 +110,7 @@ export interface SearchResult {
   client?: string;
   engagement?: string;
   snippet?: SearchSnippet;
+  match?: SearchMatch;
 }
 
 /**

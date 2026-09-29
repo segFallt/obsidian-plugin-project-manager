@@ -443,11 +443,11 @@ classDiagram
     %% ─── Contextual search (pm-search) ───────────────────────────────
     class ISearchService {
         <<interface>>
-        +search(query, scope, types) Promise~SearchResult[]~
+        +search(query, scope, types) Promise~readonly SearchResult[]~
     }
     class SearchService {
         -deps SearchServiceDeps
-        +search(query, scope, types) Promise~SearchResult[]~
+        +search(query, scope, types) Promise~readonly SearchResult[]~
     }
     class IContentProvider {
         <<interface>>
@@ -529,9 +529,9 @@ classDiagram
     EntityEnumerator --> IEntityEnumerationQuery : reads
     EntityEnumerator ..> ENTITY_KINDS : tag/folder strategy
     EntityTypeResolver ..> ENTITY_KINDS : tag-first, longest-folder
-    PreparedFuzzyMatcher ..|> ITextMatcher : name field (fuzzy)
+    SubstringMatcher ..|> ITextMatcher : name + body fields (strict substring)
+    PreparedFuzzyMatcher ..|> ITextMatcher : available, not bound
     PreparedFuzzyMatcher ..> prepareFuzzySearch : wraps
-    SubstringMatcher ..|> ITextMatcher : body field (strict substring)
     ObsidianContentProvider ..|> IContentProvider
     ObsidianContentProvider ..> cachedRead : wraps
     PersonAssociationResolver ..|> IPersonAssociationResolver

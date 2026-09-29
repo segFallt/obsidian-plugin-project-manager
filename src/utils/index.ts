@@ -3,4 +3,5 @@ export * from "./frontmatter-utils";
 export * from "./link-utils";
 export * from "./notes-section";
 export * from "./path-utils";
+export * from "./sort-utils";
 export * from "./task-utils";

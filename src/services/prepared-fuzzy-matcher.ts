@@ -8,8 +8,10 @@ import type { ITextMatcher, TextScorer } from "./matcher";
  * `null` for a non-match) — so a search compiles its query once and reuses the
  * scorer across every candidate.
  *
- * This is the single unit that reaches for `obsidian`, so every consumer that
- * depends on {@link ITextMatcher} stays headless and unit-testable.
+ * An available fuzzy matcher that no search field binds by default; the matcher
+ * each field uses is chosen at the composition root. It quarantines
+ * `prepareFuzzySearch` behind {@link ITextMatcher}, so every consumer that depends
+ * on that interface stays headless and unit-testable.
  */
 export class PreparedFuzzyMatcher implements ITextMatcher {
   prepare(query: string): TextScorer {
