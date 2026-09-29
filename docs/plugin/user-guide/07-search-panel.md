@@ -1,6 +1,6 @@
 # Search Panel
 
-The search panel is a fast, fuzzy finder for every project-management entity in your vault. Open it, start typing, and jump straight to any client, engagement, project, person, meeting, inbox note, project note, RAID item, reference, or reference topic — matched by both its **name** and the **text in its body**, with name matches ranked above content-only matches.
+The search panel is a fast finder for every project-management entity in your vault. Open it, start typing, and jump straight to any client, engagement, project, person, meeting, inbox note, project note, RAID item, reference, or reference topic — matched **fuzzily by name** (a partial or slightly-misremembered name still finds it) and by the **text its body actually contains**, with name matches ranked above content-only matches.
 
 Unlike the `pm-*` code blocks, the search panel is not embedded in a note. It opens in its own tab from a command or the ribbon.
 
@@ -20,7 +20,7 @@ If the panel is already open, either method reveals the existing tab rather than
 
 ## Searching
 
-Type in the search box at the top of the panel. Matching is **fuzzy** and case-insensitive: you do not need the exact name, and the characters that matched your query are highlighted in each result. Search looks at both an entity's **name** and the **text in its body**, so a distinctive word from a note's contents will find it even when its name does not contain the word. **Name matches rank above content-only matches.** Results are ordered best-match first, with ties broken alphabetically.
+Type in the search box at the top of the panel. Search matches an entity two ways, both case-insensitive. **Name matching is fuzzy:** you do not need the exact name — a partial or slightly-misremembered name still finds the note — and the characters that matched your query are highlighted. **Content matching finds notes whose body actually contains the text you typed:** a distinctive word from a note's contents will find it even when its name does not contain the word, but the word has to really appear in the body. **Name matches rank above content-only matches.** Results are ordered best-match first, with ties broken alphabetically.
 
 - Leaving the box empty **browses** every entity in scope, with no highlighting.
 - The clear button (×) appears once you have typed something; clicking it empties the box and returns to browse mode.

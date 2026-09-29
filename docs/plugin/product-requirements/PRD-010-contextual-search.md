@@ -2,7 +2,7 @@
 
 ## 1. Overview
 
-Contextual search adds a cross-entity fuzzy finder to the vault. A dedicated `pm-search` `ItemView` panel lets a user type a query and jump to any project-management entity — Client, Engagement, Project, Person, meeting, Inbox note, Project Note, RAID item, Reference, or Reference Topic — ranked by how well the query matches the note's **name and body content** (name matches rank above body-only matches), narrowed by entity type, and scoped to a client, engagement, or person. Selecting a result opens the underlying note.
+Contextual search adds a cross-entity fuzzy finder to the vault. A dedicated `pm-search` `ItemView` panel lets a user type a query and jump to any project-management entity — Client, Engagement, Project, Person, meeting, Inbox note, Project Note, RAID item, Reference, or Reference Topic — ranked by how well the query matches the note's **name** (fuzzily) and by the **body content it actually contains** (a case-insensitive substring match), with name matches ranked above body-only matches, narrowed by entity type, and scoped to a client, engagement, or person. Selecting a result opens the underlying note.
 
 The feature is built in three layers: a headless **search substrate** (enumeration, type resolution, a content-source seam that reads note body text, tiered ranking over name and body, and a client/engagement/person scope model), a **panel** hosting the search box, the scope drawer, results, and empty states, and an **entity-type filter** of family-grouped toggles. A shared, theme-adaptive `--pm-*` token layer backs the panel's appearance, and a single `ENTITY_PRESENTATION` registry supplies each type's label, icon, and family colour so no view keeps its own type-to-style map.
 
@@ -56,7 +56,7 @@ The panel is a vertical stack:
 
 ### 3.4 Ranking (name + body content)
 
-- Results are ranked over an **ordered set of match fields** — the note's **name** (tier 0) then its **body content** (tier 1) — scored through the injectable matcher (Obsidian's `prepareFuzzySearch`). A candidate wins the tier of the first field whose text matches.
+- Results are ranked over an **ordered set of match fields** — the note's **name** (tier 0) then its **body content** (tier 1) — where each field is scored through **its own injected matcher**, selected per field (the ordered `SearchField[]` descriptor list behind the `ITextMatcher` abstraction). The **name** field is scored by the **fuzzy** matcher (`PreparedFuzzyMatcher`, wrapping Obsidian's `prepareFuzzySearch`), so a partial or gapped subsequence still matches. The **body** field is matched by a **strict case-insensitive substring** matcher (`SubstringMatcher`) — the query must actually occur in the body text — so it is **not** fuzzy. A candidate wins the tier of the first field whose text matches, and the name tier always ranks above the body tier.
 - **Strict name tiering:** every name match ranks **above** every body-only match. Within a tier, survivors are ordered by descending match score, ties broken alphabetically by name, so ordering is deterministic. Non-matches (neither name nor body) are excluded.
 - Body text is read from the vault behind the `IContentProvider` seam (§4.1), so the ranking substrate stays free of any `obsidian` import. Because that read is asynchronous, `search` is asynchronous (§4.1).
 - A **body-derived** match carries a single **snippet**: a fixed-width window over the first body occurrence, ellipsised when clipped (§3.5). A name match carries no snippet.
@@ -129,9 +129,10 @@ The results area renders a centred state (`.pm-search__empty`) with a glyph, a t
 
 ```typescript
 interface ISearchService {
-  // Fuzzy-ranks the pages of the requested `types` by `query` over name and
-  // body content (name matches above body-only matches, non-matches dropped),
-  // keeps those satisfying every populated `scope` leg, and resolves them to
+  // Ranks the pages of the requested `types` by `query`: the name is matched
+  // fuzzily and the body by a case-insensitive substring (the query must occur
+  // in the body), with name matches above body-only matches and non-matches
+  // dropped. Keeps those satisfying every populated `scope` leg, and resolves them to
   // SearchResult[]. Asynchronous because body text is read from the vault behind
   // a content-provider seam. An empty scope imposes no hierarchy constraint;
   // resolves to [] (never rejects) when Dataview is absent.

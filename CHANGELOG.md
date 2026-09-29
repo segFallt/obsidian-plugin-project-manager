@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <!-- New release sections are prepended by .ci/bump-version.sh -->
 
+## [0.5.0-beta.8] - 2026-09-29
+
+### Fixed
+
+- pm-search content matching is now strict: a note surfaces on its **body** only when the query actually appears in the body text (a case-insensitive substring), rather than as a scattered subsequence of characters. Body search previously reused the fuzzy name matcher, so a long note whose body merely contained the query's letters in order — never the query itself — could still show up as a spurious body match. Name matching stays fuzzy, and name matches still rank above body matches ([#152](https://gitlab.n3.pingleberry.com/obsidian/obsidian-plugin-project-manager/-/issues/152)).
+
 ## [Unreleased]
 
 ## [0.5.0-beta.7] - 2026-09-28

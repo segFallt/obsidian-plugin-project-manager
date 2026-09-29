@@ -1,6 +1,13 @@
 import { describe, it, expect } from "vitest";
-import { rankCandidates, buildBodySnippet, type IFuzzyMatcher, type RankInput } from "@/services/fuzzy-matcher";
+import {
+  rankCandidates,
+  buildBodySnippet,
+  type ITextMatcher,
+  type RankInput,
+  type SearchField,
+} from "@/services/matcher";
 import { PreparedFuzzyMatcher } from "@/services/prepared-fuzzy-matcher";
+import { SubstringMatcher } from "@/services/substring-matcher";
 import { ENTITY_TYPE, MATCH_FIELD, SEARCH_SNIPPET } from "@/constants";
 import { createMockPage } from "../mocks/dataview-mock";
 
@@ -12,6 +19,18 @@ function input(name: string, body = ""): RankInput {
   };
 }
 
+/**
+ * The two-field descriptor list the ranker consumes: name at tier 0 (no snippet),
+ * body at tier 1 (snippet). Each field is scored with its own matcher, so a test
+ * can drive name and body matching independently.
+ */
+function fields(nameMatcher: ITextMatcher, bodyMatcher: ITextMatcher): SearchField[] {
+  return [
+    { field: MATCH_FIELD.NAME, matcher: nameMatcher, buildsSnippet: false },
+    { field: MATCH_FIELD.BODY, matcher: bodyMatcher, buildsSnippet: true },
+  ];
+}
+
 /** One text's fake match: a score and optional offsets. */
 interface FakeMatch {
   score: number;
@@ -19,7 +38,7 @@ interface FakeMatch {
 }
 
 /** A matcher driven by an explicit text → match map; a missing (or null) text is a non-match. */
-function fakeMatcher(byText: Record<string, FakeMatch | null>): IFuzzyMatcher {
+function fakeMatcher(byText: Record<string, FakeMatch | null>): ITextMatcher {
   return {
     prepare: () => (text) => {
       const match = byText[text];
@@ -36,7 +55,7 @@ describe("rankCandidates — name tier", () => {
     const inputs = [input("Alpha"), input("Bravo"), input("Charlie"), input("Delta")];
     const matcher = fakeMatcher({ Alpha: { score: 3 }, Bravo: null, Charlie: { score: 10 }, Delta: { score: 7 } });
 
-    const ranked = rankCandidates(inputs, "x", matcher);
+    const ranked = rankCandidates(inputs, "x", fields(matcher, matcher));
 
     expect(rankedNames(ranked)).toEqual(["Charlie", "Delta", "Alpha"]);
   });
@@ -45,37 +64,43 @@ describe("rankCandidates — name tier", () => {
     const inputs = [input("Charlie"), input("Alpha"), input("Bravo")];
     const matcher = fakeMatcher({ Alpha: { score: 5 }, Bravo: { score: 5 }, Charlie: { score: 5 } });
 
-    expect(rankedNames(rankCandidates(inputs, "x", matcher))).toEqual(["Alpha", "Bravo", "Charlie"]);
+    expect(rankedNames(rankCandidates(inputs, "x", fields(matcher, matcher)))).toEqual(["Alpha", "Bravo", "Charlie"]);
   });
 
   it("returns an empty list when nothing matches", () => {
     const matcher = fakeMatcher({ Alpha: null, Bravo: null });
-    expect(rankCandidates([input("Alpha"), input("Bravo")], "x", matcher)).toEqual([]);
+    expect(rankCandidates([input("Alpha"), input("Bravo")], "x", fields(matcher, matcher))).toEqual([]);
   });
 
   it("keeps a zero score (only null is a non-match)", () => {
-    const ranked = rankCandidates([input("Alpha")], "x", fakeMatcher({ Alpha: { score: 0 } }));
+    const matcher = fakeMatcher({ Alpha: { score: 0 } });
+    const ranked = rankCandidates([input("Alpha")], "x", fields(matcher, matcher));
     expect(rankedNames(ranked)).toEqual(["Alpha"]);
   });
 
-  it("prepares the query once and reuses the scorer across candidates", () => {
-    let prepareCalls = 0;
-    const matcher: IFuzzyMatcher = {
+  it("prepares each field's query once and reuses the scorer across candidates", () => {
+    let namePrepareCalls = 0;
+    const nameMatcher: ITextMatcher = {
       prepare: () => {
-        prepareCalls += 1;
+        namePrepareCalls += 1;
         return (text) => ({ score: text.length, matches: [] });
       },
     };
+    // Every candidate matches by name, so the body matcher never scores — but the
+    // name matcher must still be prepared once, not once per candidate.
+    rankCandidates(
+      [input("Alpha"), input("Bravo"), input("Charlie")],
+      "x",
+      fields(nameMatcher, fakeMatcher({}))
+    );
 
-    rankCandidates([input("Alpha"), input("Bravo"), input("Charlie")], "x", matcher);
-
-    expect(prepareCalls).toBe(1);
+    expect(namePrepareCalls).toBe(1);
   });
 
   it("carries no snippet for a name match, even when the body also matches", () => {
     const matcher = fakeMatcher({ Acme: { score: 5 }, "acme in the body": { score: 2, matches: [[0, 4]] } });
 
-    const [ranked] = rankCandidates([input("Acme", "acme in the body")], "acme", matcher);
+    const [ranked] = rankCandidates([input("Acme", "acme in the body")], "acme", fields(matcher, matcher));
 
     expect(ranked.snippet).toBeUndefined();
   });
@@ -90,7 +115,7 @@ describe("rankCandidates — body tier", () => {
       "acme is mentioned here": { score: 99, matches: [[0, 4]] }, // high body score — still below name tier
     });
 
-    const ranked = rankCandidates(inputs, "acme", matcher);
+    const ranked = rankCandidates(inputs, "acme", fields(matcher, matcher));
 
     expect(rankedNames(ranked)).toEqual(["Acme", "Zephyr"]);
     expect(ranked[0].snippet).toBeUndefined();
@@ -104,17 +129,89 @@ describe("rankCandidates — body tier", () => {
       "high body match": { score: 8, matches: [[0, 4]] },
     });
 
-    expect(rankedNames(rankCandidates(inputs, "x", matcher))).toEqual(["Two", "One"]);
+    expect(rankedNames(rankCandidates(inputs, "x", fields(matcher, matcher)))).toEqual(["Two", "One"]);
   });
 
   it("attaches a highlighted snippet built from the body match offsets", () => {
     const body = "the meeting decided on pineapple procurement";
     const matcher = fakeMatcher({ [body]: { score: 5, matches: [[23, 32]] } });
 
-    const [ranked] = rankCandidates([input("Note", body)], "pineapple", matcher);
+    const [ranked] = rankCandidates([input("Note", body)], "pineapple", fields(matcher, matcher));
 
     expect(ranked.snippet?.text).toContain("pineapple");
     expect(ranked.snippet?.matches).toEqual([[23, 32]]);
+  });
+
+  it("excludes a long body that contains the query only as a gapped subsequence (strict body matcher)", () => {
+    // The letters e-x-e-c-u-t-e appear in order across the body, but the word
+    // "execute" never occurs — a fuzzy subsequence match, not a real substring.
+    const body =
+      "Everyone expected the extra crew to unite around the target early, " +
+      "yet the exact cadence remained unclear.";
+    const nameMatcher = fakeMatcher({}); // no name match; the body decides
+    const bodyMatcher = new SubstringMatcher();
+
+    const ranked = rankCandidates([input("Runbook", body)], "execute", [
+      { field: MATCH_FIELD.NAME, matcher: nameMatcher, buildsSnippet: false },
+      { field: MATCH_FIELD.BODY, matcher: bodyMatcher, buildsSnippet: true },
+    ]);
+
+    expect(ranked).toEqual([]);
+  });
+});
+
+describe("SubstringMatcher", () => {
+  const matcher = new SubstringMatcher();
+
+  it("matches the earliest occurrence as a single run and scores it by negated index", () => {
+    const scorer = matcher.prepare("acme");
+    const body = "see acme now";
+
+    expect(scorer(body)).toEqual({ score: -4, matches: [[4, 8]] });
+  });
+
+  it("scores an occurrence at index 0 highest", () => {
+    const scorer = matcher.prepare("acme");
+    expect(scorer("acme corp")).toEqual({ score: 0, matches: [[0, 4]] });
+  });
+
+  it("matches case-insensitively", () => {
+    const scorer = matcher.prepare("ACME");
+    expect(scorer("the Acme file")).toEqual({ score: -4, matches: [[4, 8]] });
+  });
+
+  it("matches a query with regex-special characters literally", () => {
+    const scorer = matcher.prepare("a.c");
+    // The '.' is literal, so "a.c" matches "a.c" but not "abc".
+    expect(scorer("abc")).toBeNull();
+    expect(scorer("x a.c y")).toEqual({ score: -2, matches: [[2, 5]] });
+  });
+
+  it("reports offsets into the original text, framing the occurrence in its own casing", () => {
+    const body = "See ACME Corp";
+    const result = matcher.prepare("acme")(body);
+    const [[start, end]] = result?.matches ?? [[0, 0]];
+    // The run indexes the original text, so slicing it back yields the real occurrence.
+    expect(body.slice(start, end)).toBe("ACME");
+  });
+
+  it("returns null when the query does not occur", () => {
+    expect(matcher.prepare("acme")("globex only")).toBeNull();
+  });
+
+  it("returns null for an empty query", () => {
+    expect(matcher.prepare("")("any body text")).toBeNull();
+  });
+
+  it("ranks an earlier occurrence above a later one", () => {
+    const nameMatcher = fakeMatcher({});
+    const ranked = rankCandidates(
+      [input("Early", "acme appears right away"), input("Late", "long preamble then acme")],
+      "acme",
+      fields(nameMatcher, matcher)
+    );
+
+    expect(rankedNames(ranked)).toEqual(["Early", "Late"]);
   });
 });
 
@@ -168,7 +265,7 @@ describe("PreparedFuzzyMatcher", () => {
   it("scores a contiguous match higher than a gapped one and drops a non-match", () => {
     const inputs = [input("Acme"), input("Globex"), input("Apex Acme Ltd")];
 
-    const ranked = rankCandidates(inputs, "acme", matcher);
+    const ranked = rankCandidates(inputs, "acme", fields(matcher, matcher));
 
     // "Acme" (contiguous, at start) outranks "Apex Acme Ltd" (later, gapped);
     // "Globex" has no "a"-"c"-"m"-"e" subsequence and is excluded.

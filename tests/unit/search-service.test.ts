@@ -4,8 +4,9 @@ import { EntityEnumerator } from "@/services/entity-enumerator";
 import { EntityHierarchyService } from "@/services/entity-hierarchy-service";
 import { PersonAssociationResolver } from "@/services/person-association-resolver";
 import { PreparedFuzzyMatcher } from "@/services/prepared-fuzzy-matcher";
+import { SubstringMatcher } from "@/services/substring-matcher";
 import { QueryService } from "@/services/query-service";
-import { rankCandidates, type IFuzzyMatcher, type RankInput } from "@/services/fuzzy-matcher";
+import { rankCandidates, type ITextMatcher, type RankInput, type SearchField } from "@/services/matcher";
 import type { IContentProvider } from "@/services/content-provider";
 import { createMockDataviewApi, createMockPage, type MockPageData } from "../mocks/dataview-mock";
 import { DEFAULT_FOLDERS, ENTITY_TYPE, MATCH_FIELD } from "@/constants";
@@ -43,18 +44,23 @@ const NO_CONTENT: IContentProvider = contentFrom({});
 
 function serviceFor(
   pages: MockPageData[],
-  matcher: IFuzzyMatcher = new PreparedFuzzyMatcher(),
+  matcher: ITextMatcher = new PreparedFuzzyMatcher(),
   getDv: () => DataviewApi | null = () => createMockDataviewApi(pages),
-  contentProvider: IContentProvider = NO_CONTENT
+  contentProvider: IContentProvider = NO_CONTENT,
+  bodyMatcher: ITextMatcher = matcher
 ): SearchService {
   const query = new QueryService(getDv, folders);
+  const fields: readonly SearchField[] = [
+    { field: MATCH_FIELD.NAME, matcher, buildsSnippet: false },
+    { field: MATCH_FIELD.BODY, matcher: bodyMatcher, buildsSnippet: true },
+  ];
   return new SearchService({
     getDv,
     enumerator: new EntityEnumerator(query),
     hierarchyService: new EntityHierarchyService(getDv, folders),
     personResolver: new PersonAssociationResolver(getDv, folders),
     contentProvider,
-    matcher,
+    fields,
   });
 }
 
@@ -77,7 +83,7 @@ describe("SearchService — name ranking and scope", () => {
 
   it("ranks through an injected fake matcher without touching Obsidian", async () => {
     const scores: Record<string, number> = { "Acme Portal": 5, "Globex Portal": 9 };
-    const fake: IFuzzyMatcher = { prepare: () => (text) => (scores[text] != null ? { score: scores[text], matches: [] } : null) };
+    const fake: ITextMatcher = { prepare: () => (text) => (scores[text] != null ? { score: scores[text], matches: [] } : null) };
     const service = serviceFor(VAULT, fake);
 
     const results = await service.search("portal", EMPTY_SCOPE, [ENTITY_TYPE.PROJECT]);
@@ -220,6 +226,23 @@ describe("SearchService — content search", () => {
     const byName = await service.search("acme", EMPTY_SCOPE, [ENTITY_TYPE.CLIENT]);
     expect(byName.map((r) => r.page.file.name)).toEqual(["Acme"]);
   });
+
+  it("does not return a note whose body contains the query only as a gapped subsequence", async () => {
+    // The letters e-x-e-c-u-t-e occur in order in the body, but the word never
+    // does; the strict body matcher requires the query to appear verbatim.
+    const gappedBody =
+      "Everyone expected the extra crew to unite around the target early, " +
+      "yet the exact cadence remained unclear.";
+    const service = serviceFor(
+      CONTENT_VAULT,
+      new PreparedFuzzyMatcher(),
+      () => createMockDataviewApi(CONTENT_VAULT),
+      contentFrom({ "clients/Zephyr.md": gappedBody }),
+      new SubstringMatcher()
+    );
+
+    await expect(service.search("execute", EMPTY_SCOPE, [ENTITY_TYPE.CLIENT])).resolves.toEqual([]);
+  });
 });
 
 // A light re-export sanity check keeps the pure ranker's public surface covered here too.
@@ -229,11 +252,15 @@ describe("rankCandidates is composable", () => {
       candidate: { page: createMockPage({ path: `projects/${name}.md` }), type: ENTITY_TYPE.PROJECT },
       text: { [MATCH_FIELD.NAME]: name, [MATCH_FIELD.BODY]: "" },
     });
-    const fake: IFuzzyMatcher = {
+    const fake: ITextMatcher = {
       prepare: () => (text) => ({ score: text === "Globex Portal" ? 1 : 2, matches: [] }),
     };
+    const rankFields: readonly SearchField[] = [
+      { field: MATCH_FIELD.NAME, matcher: fake, buildsSnippet: false },
+      { field: MATCH_FIELD.BODY, matcher: fake, buildsSnippet: true },
+    ];
 
-    expect(rankCandidates([mk("Acme Portal"), mk("Globex Portal")], "portal", fake).map((c) => c.page.file.name)).toEqual([
+    expect(rankCandidates([mk("Acme Portal"), mk("Globex Portal")], "portal", rankFields).map((c) => c.page.file.name)).toEqual([
       "Acme Portal",
       "Globex Portal",
     ]);

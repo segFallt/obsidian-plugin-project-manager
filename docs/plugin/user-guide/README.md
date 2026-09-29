@@ -14,7 +14,7 @@ Engagement Project Manager is an Obsidian plugin that turns your vault into a st
 | 4 | [Code Block Processors](04-processors/) | Detailed reference for all 9 `pm-*` code blocks |
 | 5 | [Entity Templates](05-entity-templates.md) | Standard note structure for each of the 11 entity types |
 | 6 | [Workflows](06-workflows.md) | End-to-end walkthroughs of common multi-step operations |
-| 7 | [Search Panel](07-search-panel.md) | Fuzzy finder for every entity by name and content, with type filtering |
+| 7 | [Search Panel](07-search-panel.md) | Finder for every entity by name (fuzzy) and body content it contains, with type filtering |
 
 ---
 
