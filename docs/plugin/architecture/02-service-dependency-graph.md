@@ -71,7 +71,9 @@ flowchart TD
         EntityEnumerator["EntityEnumerator"]
         PersonAssociationResolver["PersonAssociationResolver"]
         ObsidianContentProvider["ObsidianContentProvider"]
-        PreparedFuzzyMatcher["PreparedFuzzyMatcher"]
+        PreparedFuzzyMatcher["PreparedFuzzyMatcher (name, fuzzy)"]
+        SubstringMatcher["SubstringMatcher (body, strict substring)"]
+        SearchFields["SearchField[] (ordered, matcher per field)"]
         SearchService["SearchService"]
         SearchViewServices["SearchViewServices (bundle)"]
         PmSearchView["PmSearchView"]
@@ -85,7 +87,9 @@ flowchart TD
     EntityHierarchyService --> SearchService
     PersonAssociationResolver --> SearchService
     ObsidianContentProvider --> SearchService
-    PreparedFuzzyMatcher --> SearchService
+    PreparedFuzzyMatcher --> SearchFields
+    SubstringMatcher --> SearchFields
+    SearchFields --> SearchService
 
     SearchService --> SearchViewServices
     NavigationService --> SearchViewServices

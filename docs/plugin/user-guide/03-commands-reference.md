@@ -305,7 +305,7 @@ Opens the Reference Dashboard, a filterable view of all reference documents in t
 
 ### PM: Open Search
 
-Opens the search panel, a fuzzy finder for every project-management entity in the vault — matched by name and body content (see [Search Panel](07-search-panel.md)).
+Opens the search panel, a finder for every project-management entity in the vault — matched by name (fuzzy) and by the text in its body (see [Search Panel](07-search-panel.md)).
 
 **Invocation:** Command palette · Ribbon icon (`search` — shown when **Settings → Show ribbon icons** is enabled)
 

@@ -469,12 +469,20 @@ classDiagram
     class EntityTypeResolver {
         +resolve(page) EntityType|null
     }
-    class IFuzzyMatcher {
+    class ITextMatcher {
         <<interface>>
-        +prepare(query) FuzzyScorer
+        +prepare(query) TextScorer
     }
     class PreparedFuzzyMatcher {
-        +prepare(query) FuzzyScorer
+        +prepare(query) TextScorer
+    }
+    class SubstringMatcher {
+        +prepare(query) TextScorer
+    }
+    class SearchField {
+        +field MatchField
+        +matcher ITextMatcher
+        +buildsSnippet boolean
     }
     class IPersonAssociationResolver {
         <<interface>>
@@ -513,15 +521,17 @@ classDiagram
     SearchService ..|> ISearchService
     SearchService o--> EntityEnumerator : enumerate
     SearchService o--> IContentProvider : read body
-    SearchService o--> IFuzzyMatcher : rank name + body
+    SearchService o--> SearchField : ordered fields (tier order)
+    SearchField ..> ITextMatcher : matcher per field
     SearchService ..> IEntityHierarchyService : client/engagement scope + breadcrumb
     SearchService ..> IPersonAssociationResolver : person scope
     SearchService ..> FilterEngine : scope facets (search-filter FilterSpec)
     EntityEnumerator --> IEntityEnumerationQuery : reads
     EntityEnumerator ..> ENTITY_KINDS : tag/folder strategy
     EntityTypeResolver ..> ENTITY_KINDS : tag-first, longest-folder
-    PreparedFuzzyMatcher ..|> IFuzzyMatcher
+    PreparedFuzzyMatcher ..|> ITextMatcher : name field (fuzzy)
     PreparedFuzzyMatcher ..> prepareFuzzySearch : wraps
+    SubstringMatcher ..|> ITextMatcher : body field (strict substring)
     ObsidianContentProvider ..|> IContentProvider
     ObsidianContentProvider ..> cachedRead : wraps
     PersonAssociationResolver ..|> IPersonAssociationResolver
